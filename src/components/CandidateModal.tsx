@@ -81,7 +81,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             </div>
           </div>
           <div className="flex gap-2">
-            {candidate.fileType === 'application/pdf' && (
+            {candidate.fileType === 'application/pdf' && candidate.fileData && (
               <button 
                 onClick={handleView}
                 className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-100 transition-all border border-indigo-100"
@@ -93,7 +93,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               onClick={handleDownload}
               className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-100 transition-all border border-slate-200"
             >
-              <Download size={18} /> Download {candidate.fileType?.split('/')[1]?.toUpperCase() || 'CV'}
+              <Download size={18} /> {candidate.fileData ? `Download ${candidate.fileType?.split('/')[1]?.toUpperCase() || 'CV'}` : 'Download Text Version'}
             </button>
             <button 
               onClick={onClose}
@@ -103,6 +103,18 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             </button>
           </div>
         </header>
+
+        {/* Banner for Large Files */}
+        {candidate.isLargeFile && (
+          <div className="mx-8 mt-4 p-3 bg-amber-50 border border-amber-100 rounded-xl flex items-center gap-3">
+            <span className="flex-shrink-0 w-8 h-8 bg-amber-100 rounded-lg flex items-center justify-center text-amber-600">
+              <Clock size={16} />
+            </span>
+            <p className="text-[10px] text-amber-800 font-medium leading-relaxed">
+              <strong>Large File Support:</strong> This CV exceeds 700KB. To ensure database stability, we've indexed the full text for search, but the original PDF preview was omitted. You can download the extracted text version above.
+            </p>
+          </div>
+        )}
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 md:grid-cols-3 gap-8">

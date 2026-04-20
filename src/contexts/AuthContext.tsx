@@ -44,6 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const newUser = {
             uid: user.uid,
             email: user.email,
+            name: user.displayName || user.email?.split('@')[0],
             role: defaultRole,
             createdAt: new Date().toISOString()
           };

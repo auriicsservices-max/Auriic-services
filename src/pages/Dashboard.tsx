@@ -61,7 +61,7 @@ export default function Dashboard() {
         const list: any[] = [];
         snapshot.docs.forEach(doc => {
           const data = doc.data();
-          mapping[doc.id] = data.email;
+          mapping[doc.id] = data.name || data.email;
           list.push({ id: doc.id, ...data });
         });
         setTeamMembers(mapping);
@@ -95,17 +95,27 @@ export default function Dashboard() {
         }
 
         // Convert file to base64 for download later
-        const fileBase64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result as string);
-          reader.readAsDataURL(file);
-        });
+        // Firestore 1MB limit check: Base64 adds ~33% overhead. 
+        // 700KB is a safe threshold for the binary file.
+        let fileBase64 = null;
+        let isLargeFile = false;
+        
+        if (file.size < 700 * 1024) {
+          fileBase64 = await new Promise<string>((resolve) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result as string);
+            reader.readAsDataURL(file);
+          });
+        } else {
+          isLargeFile = true;
+        }
         
         await addDoc(collection(db, 'candidates'), {
           ...parsed,
           fullName: parsed.fullName || file.name.split('.')[0] || 'Unknown Candidate',
           rawText: text,
           fileData: fileBase64,
+          isLargeFile,
           fileName: file.name,
           fileType: file.type,
           isShortlisted: false,

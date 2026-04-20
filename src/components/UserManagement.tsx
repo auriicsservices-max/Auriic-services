@@ -48,6 +48,7 @@ export default function UserManagement() {
       await setDoc(doc(db, 'users', newUser.uid), {
         uid: newUser.uid,
         email: newEmail.toLowerCase(),
+        name: newEmail.toLowerCase().split('@')[0],
         role: newRole,
         createdAt: new Date().toISOString(),
         addedBy: 'admin',
@@ -216,10 +217,11 @@ export default function UserManagement() {
             <div key={u.id} className="flex items-center justify-between p-5 bg-slate-50 rounded-[1.5rem] border border-slate-100 group transition-all hover:bg-white hover:border-slate-200 hover:shadow-sm">
               <div className="flex items-center gap-4">
                 <div className={`w-12 h-12 rounded-2xl border flex items-center justify-center text-sm font-bold shadow-sm transition-all ${u.isArchived ? 'bg-red-50 border-red-100 text-red-400' : 'bg-white border-slate-200 text-indigo-600 group-hover:bg-indigo-600 group-hover:text-white'}`}>
-                  {u.email.slice(0, 2).toUpperCase()}
+                  {(u.name || (u.email?.split('@')[0])).slice(0, 2).toUpperCase()}
                 </div>
                 <div>
-                  <p className="text-sm font-bold text-slate-800">{u.email}</p>
+                  <p className="text-sm font-bold text-slate-800">{u.name || (u.email?.split('@')[0])}</p>
+                  <p className="text-[10px] text-slate-400 font-medium">{u.email}</p>
                   <div className="flex items-center gap-2 mt-0.5">
                     <p className={`text-[9px] uppercase font-black px-2 py-0.5 rounded-md ${u.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400'}`}>
                       {u.role}
