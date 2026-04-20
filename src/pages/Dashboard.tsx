@@ -100,6 +100,7 @@ export default function Dashboard() {
         
         await addDoc(collection(db, 'candidates'), {
           ...parsed,
+          fullName: parsed.fullName || file.name.split('.')[0] || 'Unknown Candidate',
           rawText: text,
           fileData: fileBase64,
           fileName: file.name,
@@ -248,17 +249,19 @@ export default function Dashboard() {
             Talent Search
           </button>
 
-          <button 
-            onClick={() => setActiveTab('trash')}
-            className={`w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-              activeTab === 'trash' 
-                ? 'bg-red-50 text-red-700 shadow-sm shadow-red-50' 
-                : 'text-slate-600 hover:bg-slate-50'
-            }`}
-          >
-            <Trash2 className="w-5 h-5 mr-3" />
-            Trash
-          </button>
+          {role === 'admin' && (
+            <button 
+              onClick={() => setActiveTab('trash')}
+              className={`w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'trash' 
+                  ? 'bg-red-50 text-red-700 shadow-sm shadow-red-50' 
+                  : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Trash2 className="w-5 h-5 mr-3" />
+              Trash
+            </button>
+          )}
 
           <div 
             {...getRootProps()} 
@@ -412,72 +415,78 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody className="text-sm text-slate-600 divide-y divide-slate-100">
-                      {filteredCandidates.map((candidate) => (
-                        <tr key={candidate.id} className="hover:bg-indigo-50/20 group transition-all cursor-pointer" onClick={() => setSelectedCandidate(candidate)}>
-                          <td className="px-6 py-4">
-                            <div className="flex items-center gap-2">
-                              <div className="font-bold text-slate-800 group-hover:text-indigo-700 transition-colors uppercase tracking-tight">{candidate.fullName}</div>
-                              {candidate.isShortlisted && <Star size={12} className="text-amber-500 fill-amber-500" />}
-                            </div>
-                            <div className="text-[10px] text-slate-400 font-medium">{candidate.email || 'No contact mail'}</div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">
-                              {candidate.domain || 'Unsorted'}
-                            </div>
-                          </td>
-                          <td className="px-6 py-4">
-                            <div className="flex gap-1.5 flex-wrap">
-                              {candidate.skills?.slice(0, 3).map((skill: string) => (
-                                <span key={skill} className="bg-white border border-slate-100 text-slate-500 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider shadow-sm transition-all group-hover:border-emerald-100 group-hover:text-emerald-600">
-                                  {skill}
-                                </span>
-                              ))}
-                              {candidate.skills?.length > 3 && (
-                                <span className="text-[9px] text-slate-300 font-bold px-2 self-center">
-                                  +{candidate.skills.length - 3}
-                                </span>
-                              )}
-                            </div>
-                          </td>
-                          {role === 'admin' && (
+                      {filteredCandidates.map((candidate) => {
+                        const isFollowUpDue = candidate.followUpDate && new Date(candidate.followUpDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0];
+                        
+                        return (
+                          <tr key={candidate.id} className="hover:bg-indigo-50/20 group transition-all cursor-pointer" onClick={() => setSelectedCandidate(candidate)}>
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-2">
-                                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400">
-                                  {(teamMembers[candidate.uploadedBy] || 'AI').slice(0, 2).toUpperCase()}
-                                </div>
-                                <span className="text-[10px] font-medium text-slate-500 truncate max-w-[120px]">
-                                  {teamMembers[candidate.uploadedBy] || 'System Index'}
-                                </span>
+                                <div className="font-bold text-slate-800 group-hover:text-indigo-700 transition-colors uppercase tracking-tight">{candidate.fullName}</div>
+                                {candidate.isShortlisted && <Star size={12} className="text-amber-500 fill-amber-500" />}
+                              </div>
+                              <div className="text-[10px] text-slate-400 font-medium">{candidate.email || 'No contact mail'}</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">
+                                {candidate.domain || 'Unsorted'}
                               </div>
                             </td>
-                          )}
-                          <td className="px-6 py-4 text-right">
-                            <div className="flex items-center justify-end gap-3">
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
-                                className={`p-1.5 rounded-lg transition-all ${candidate.followUpDate ? 'text-indigo-600 bg-indigo-50 border border-indigo-100' : 'text-slate-300 hover:text-indigo-500 hover:bg-indigo-50'}`}
-                                title={candidate.followUpNote || 'Add Follow-up'}
-                              >
-                                <Clock size={14} />
-                              </button>
-                              <button 
-                                onClick={(e) => handleArchiveCandidate(e, candidate.id)}
-                                className="p-1.5 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                title="Move to Trash"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                              <button 
-                                onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
-                                className="text-[10px] font-black text-indigo-400 hover:text-indigo-600 uppercase tracking-widest transition-colors flex items-center gap-1 ml-1"
-                              >
-                                Details <ChevronRight size={12} />
-                              </button>
-                            </div>
-                          </td>
-                        </tr>
-                      ))}
+                            <td className="px-6 py-4">
+                              <div className="flex gap-1.5 flex-wrap">
+                                {candidate.skills?.slice(0, 3).map((skill: string) => (
+                                  <span key={skill} className="bg-white border border-slate-100 text-slate-500 px-3 py-1 rounded-full text-[9px] font-bold uppercase tracking-wider shadow-sm transition-all group-hover:border-emerald-100 group-hover:text-emerald-600">
+                                    {skill}
+                                  </span>
+                                ))}
+                                {candidate.skills?.length > 3 && (
+                                  <span className="text-[9px] text-slate-300 font-bold px-2 self-center">
+                                    +{candidate.skills.length - 3}
+                                  </span>
+                                )}
+                              </div>
+                            </td>
+                            {role === 'admin' && (
+                              <td className="px-6 py-4">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400">
+                                    {(teamMembers[candidate.uploadedBy] || 'AI').slice(0, 2).toUpperCase()}
+                                  </div>
+                                  <span className="text-[10px] font-medium text-slate-500 truncate max-w-[120px]">
+                                    {teamMembers[candidate.uploadedBy] || 'System Index'}
+                                  </span>
+                                </div>
+                              </td>
+                            )}
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-3">
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
+                                  className={`p-1.5 rounded-lg transition-all ${isFollowUpDue ? 'animate-blink-red bg-red-50' : candidate.followUpDate ? 'text-indigo-600 bg-indigo-50 border border-indigo-100' : 'text-slate-300 hover:text-indigo-500 hover:bg-indigo-50'}`}
+                                  title={candidate.followUpNote || 'Add Follow-up'}
+                                >
+                                  <Clock size={14} />
+                                </button>
+                                {role === 'admin' && (
+                                  <button 
+                                    onClick={(e) => handleArchiveCandidate(e, candidate.id)}
+                                    className="p-1.5 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                    title="Move to Trash"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
+                                <button 
+                                  onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
+                                  className="text-[10px] font-black text-indigo-400 hover:text-indigo-600 uppercase tracking-widest transition-colors flex items-center gap-1 ml-1"
+                                >
+                                  Details <ChevronRight size={12} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        );
+                      })}
                       {filteredCandidates.length === 0 && (
                         <tr>
                           <td colSpan={4} className="px-6 py-20 text-center text-slate-300 font-medium italic">
@@ -530,20 +539,22 @@ export default function Dashboard() {
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
-                              <button 
-                                onClick={(e) => handleRestoreCandidate(e, candidate.id)}
-                                className="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-100 transition-all flex items-center gap-2"
-                              >
-                                <RotateCcw size={12} /> Restore
-                              </button>
                               {role === 'admin' && (
-                                <button 
-                                  onClick={(e) => handlePermanentDeleteCandidate(e, candidate.id)}
-                                  className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                                  title="Delete Permanently"
-                                >
-                                  <AlertTriangle size={14} />
-                                </button>
+                                <>
+                                  <button 
+                                    onClick={(e) => handleRestoreCandidate(e, candidate.id)}
+                                    className="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-100 transition-all flex items-center gap-2"
+                                  >
+                                    <RotateCcw size={12} /> Restore
+                                  </button>
+                                  <button 
+                                    onClick={(e) => handlePermanentDeleteCandidate(e, candidate.id)}
+                                    className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                    title="Delete Permanently"
+                                  >
+                                    <AlertTriangle size={14} />
+                                  </button>
+                                </>
                               )}
                             </div>
                           </td>

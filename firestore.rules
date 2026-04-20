@@ -16,18 +16,23 @@ service cloud.firestore {
     }
 
     function getUserData() {
-      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      let path = /databases/$(database)/documents/users/$(request.auth.uid);
+      return exists(path) ? get(path).data : {};
     }
 
     function isAdmin() {
       return isSignedIn() && (
         request.auth.token.email == 'darshanwala894@gmail.com' || 
-        getUserData().role == 'admin'
+        request.auth.token.email == 'auriicsservices@gmail.com' ||
+        getUserData().get('role', 'none') == 'admin'
       );
     }
 
     function isTeamMember() {
-      return isSignedIn() && getUserData().role in ['admin', 'recruiter'] && getUserData().get('isArchived', false) == false;
+      return isSignedIn() && (
+        isAdmin() || 
+        (getUserData().get('role', 'none') == 'recruiter' && getUserData().get('isArchived', false) == false)
+      );
     }
 
     function isOwner(userId) {
@@ -63,13 +68,15 @@ service cloud.firestore {
     // Candidate Collection Rules
     match /candidates/{candidateId} {
       function isValidCandidate(data) {
-        return data.fullName is string && 
-               data.uploadedBy == request.auth.uid;
+        return data.uploadedBy == request.auth.uid;
       }
 
       allow read: if isSignedIn();
       allow create: if isTeamMember() && isValidCandidate(request.resource.data);
-      allow update: if isTeamMember();
+      allow update: if isTeamMember() && (
+        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['isArchived'])) || 
+        isAdmin()
+      );
       allow delete: if isAdmin();
     }
   }
