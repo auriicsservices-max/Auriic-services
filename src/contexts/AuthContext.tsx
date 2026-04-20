@@ -42,7 +42,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await setDoc(userDocRef, newUser);
           setRole(defaultRole as any);
         } else {
-          setRole(userDoc.data().role);
+          const data = userDoc.data();
+          if (data.isArchived) {
+            setRole(null);
+          } else {
+            setRole(data.role);
+          }
         }
       } else {
         setRole(null);

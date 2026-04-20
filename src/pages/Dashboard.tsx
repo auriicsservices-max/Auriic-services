@@ -21,7 +21,11 @@ import {
   LayoutDashboard,
   Star,
   LineChart as AnalyticsIcon,
-  Trash2
+  Trash2,
+  Clock,
+  RotateCcw,
+  AlertTriangle,
+  Calendar
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -30,9 +34,16 @@ export default function Dashboard() {
   const [teamMembers, setTeamMembers] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [activeTab, setActiveTab] = useState<'candidates' | 'users' | 'analytics'>('candidates');
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate'>('idle');
+  const [activeTab, setActiveTab] = useState<'candidates' | 'users' | 'analytics' | 'trash'>('candidates');
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+
+  useEffect(() => {
+    if (uploadStatus !== 'idle') {
+      const timer = setTimeout(() => setUploadStatus('idle'), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [uploadStatus]);
 
   useEffect(() => {
     const q = query(collection(db, 'candidates'), orderBy('createdAt', 'desc'));
@@ -67,6 +78,14 @@ export default function Dashboard() {
         const text = await file.text();
         const parsed = await parseResume(text);
         
+        // Duplicate check based on candidate email
+        const isDuplicate = candidates.some(c => c.email?.toLowerCase() === parsed.email?.toLowerCase());
+        
+        if (isDuplicate) {
+          setUploadStatus('duplicate');
+          continue;
+        }
+
         // Convert file to base64 for download later
         const fileBase64 = await new Promise<string>((resolve) => {
           const reader = new FileReader();
@@ -91,7 +110,7 @@ export default function Dashboard() {
       }
     }
     setIsProcessing(false);
-  }, [user]);
+  }, [user, candidates]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop, 
@@ -112,9 +131,43 @@ export default function Dashboard() {
     }
   };
 
-  const handleDeleteCandidate = async (e: React.MouseEvent, id: string) => {
+  const handleUpdateFollowUp = async (id: string, note: string, date: string) => {
+    try {
+      await updateDoc(doc(db, 'candidates', id), { 
+        followUpNote: note,
+        followUpDate: date,
+        updatedAt: new Date().toISOString()
+      });
+      if (selectedCandidate?.id === id) {
+        setSelectedCandidate((prev: any) => ({ ...prev, followUpNote: note, followUpDate: date }));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleArchiveCandidate = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!window.confirm('Permanent delete. Are you sure?')) return;
+    if (!window.confirm('Move this candidate to trash?')) return;
+    try {
+      await updateDoc(doc(db, 'candidates', id), { isArchived: true });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleRestoreCandidate = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    try {
+      await updateDoc(doc(db, 'candidates', id), { isArchived: false });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handlePermanentDeleteCandidate = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!window.confirm('PERMANENT DELETE. This cannot be undone. Are you sure?')) return;
     try {
       await deleteDoc(doc(db, 'candidates', id));
     } catch (err) {
@@ -124,11 +177,14 @@ export default function Dashboard() {
 
   // Boolean Search logic
   const filteredCandidates = candidates.filter(candidate => {
+    if (candidate.isArchived) return false;
     if (!searchQuery.trim()) return true;
     const terms = searchQuery.toLowerCase().split(/\s+/);
     const searchableText = `${candidate.fullName} ${candidate.domain} ${candidate.summary} ${candidate.skills?.join(' ')} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''}`.toLowerCase();
     return terms.every(term => searchableText.includes(term));
   });
+
+  const trashedCandidates = candidates.filter(c => c.isArchived);
 
   return (
     <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
@@ -177,6 +233,20 @@ export default function Dashboard() {
 
           {role === 'admin' && (
             <button 
+              onClick={() => setActiveTab('trash')}
+              className={`w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                activeTab === 'trash' 
+                  ? 'bg-red-50 text-red-700 shadow-sm shadow-red-50' 
+                  : 'text-slate-600 hover:bg-slate-50'
+              }`}
+            >
+              <Trash2 className="w-5 h-5 mr-3" />
+              Trash
+            </button>
+          )}
+
+          {role === 'admin' && (
+            <button 
               onClick={() => setActiveTab('users')}
               className={`w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === 'users' 
@@ -213,10 +283,28 @@ export default function Dashboard() {
             <span className="cursor-pointer hover:text-indigo-600 transition-colors" onClick={() => setActiveTab('candidates')}>Portal</span>
             <ChevronRight className="w-4 h-4" />
             <span className="text-slate-900 capitalize">
-              {activeTab === 'candidates' ? 'Candidate Pulse' : activeTab === 'analytics' ? 'Talent Analytics' : 'User Management'}
+              {activeTab === 'candidates' ? 'Candidate Pulse' : activeTab === 'analytics' ? 'Talent Analytics' : activeTab === 'trash' ? 'Trash Management' : 'User Management'}
             </span>
           </div>
           <div className="flex items-center gap-4">
+            {uploadStatus === 'success' && (
+              <div className="flex items-center gap-2 text-emerald-600 text-xs font-bold animate-in fade-in zoom-in-95">
+                <CheckCircle2 size={14} />
+                Upload Complete
+              </div>
+            )}
+            {uploadStatus === 'duplicate' && (
+              <div className="flex items-center gap-2 text-amber-600 text-xs font-bold animate-in fade-in zoom-in-95 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
+                <AlertCircle size={14} />
+                Skipped: Duplicate detected
+              </div>
+            )}
+            {uploadStatus === 'error' && (
+              <div className="flex items-center gap-2 text-red-600 text-xs font-bold animate-in fade-in zoom-in-95">
+                <AlertCircle size={14} />
+                Upload Failed
+              </div>
+            )}
             {isProcessing && (
               <div className="flex items-center gap-2 text-indigo-600 text-xs font-semibold animate-pulse">
                 <Loader2 className="animate-spin" size={14} />
@@ -342,17 +430,25 @@ export default function Dashboard() {
                           )}
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-3">
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
+                                className={`p-1.5 rounded-lg transition-all ${candidate.followUpDate ? 'text-indigo-600 bg-indigo-50 border border-indigo-100' : 'text-slate-300 hover:text-indigo-500 hover:bg-indigo-50'}`}
+                                title={candidate.followUpNote || 'Add Follow-up'}
+                              >
+                                <Clock size={14} />
+                              </button>
                               {role === 'admin' && (
                                 <button 
-                                  onClick={(e) => handleDeleteCandidate(e, candidate.id)}
-                                  className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                  onClick={(e) => handleArchiveCandidate(e, candidate.id)}
+                                  className="p-1.5 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                  title="Move to Trash"
                                 >
                                   <Trash2 size={14} />
                                 </button>
                               )}
                               <button 
                                 onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
-                                className="text-[10px] font-black text-indigo-400 hover:text-indigo-600 uppercase tracking-widest transition-colors flex items-center gap-1"
+                                className="text-[10px] font-black text-indigo-400 hover:text-indigo-600 uppercase tracking-widest transition-colors flex items-center gap-1 ml-1"
                               >
                                 Details <ChevronRight size={12} />
                               </button>
@@ -375,6 +471,71 @@ export default function Dashboard() {
             </div>
           ) : activeTab === 'analytics' ? (
             <Analytics candidates={candidates} />
+          ) : activeTab === 'trash' ? (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+              <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col gap-6">
+                <div className="flex items-center gap-2">
+                  <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center text-red-600">
+                    <Trash2 size={24} />
+                  </div>
+                  <div>
+                    <h3 className="text-xl font-serif text-slate-800">Candidate Trash</h3>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Review or permanently remove soft-deleted data</p>
+                  </div>
+                </div>
+
+                <div className="overflow-hidden border border-slate-100 rounded-2xl">
+                  <table className="w-full text-left border-collapse">
+                    <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200">
+                      <tr>
+                        <th className="px-6 py-4">Candidate Identity</th>
+                        <th className="px-6 py-4">Domain Focus</th>
+                        <th className="px-6 py-4 text-right">Actions</th>
+                      </tr>
+                    </thead>
+                    <tbody className="text-sm text-slate-600 divide-y divide-slate-100">
+                      {trashedCandidates.map((candidate) => (
+                        <tr key={candidate.id} className="hover:bg-slate-50 transition-all">
+                          <td className="px-6 py-4">
+                            <div className="font-bold text-slate-800 uppercase tracking-tight">{candidate.fullName}</div>
+                            <div className="text-[10px] text-slate-400 font-medium">{candidate.email || 'No contact mail'}</div>
+                          </td>
+                          <td className="px-6 py-4">
+                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
+                              {candidate.domain || 'Unsorted'}
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 text-right">
+                            <div className="flex items-center justify-end gap-2">
+                              <button 
+                                onClick={(e) => handleRestoreCandidate(e, candidate.id)}
+                                className="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-100 transition-all flex items-center gap-2"
+                              >
+                                <RotateCcw size={12} /> Restore
+                              </button>
+                              <button 
+                                onClick={(e) => handlePermanentDeleteCandidate(e, candidate.id)}
+                                className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                              >
+                                <AlertTriangle size={14} />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                      {trashedCandidates.length === 0 && (
+                        <tr>
+                          <td colSpan={3} className="px-6 py-20 text-center text-slate-300 font-medium italic">
+                            <Trash2 size={32} className="mx-auto mb-2 opacity-20" />
+                            Candidate trash is currently empty
+                          </td>
+                        </tr>
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
           ) : (
             <UserManagement />
           )}
@@ -387,6 +548,7 @@ export default function Dashboard() {
         isOpen={!!selectedCandidate} 
         onClose={() => setSelectedCandidate(null)}
         onShortlist={handleShortlist}
+        onUpdateFollowUp={handleUpdateFollowUp}
       />
     </div>
   );

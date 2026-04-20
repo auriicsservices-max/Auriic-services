@@ -1,15 +1,33 @@
-import React from 'react';
-import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2 } from 'lucide-react';
 
 interface CandidateModalProps {
   candidate: any;
   isOpen: boolean;
   onClose: () => void;
   onShortlist: (id: string, currentStatus: boolean) => void;
+  onUpdateFollowUp: (id: string, note: string, date: string) => void;
 }
 
-export default function CandidateModal({ candidate, isOpen, onClose, onShortlist }: CandidateModalProps) {
+export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp }: CandidateModalProps) {
+  const [followUpNote, setFollowUpNote] = useState('');
+  const [followUpDate, setFollowUpDate] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
+
+  useEffect(() => {
+    if (candidate) {
+      setFollowUpNote(candidate.followUpNote || '');
+      setFollowUpDate(candidate.followUpDate || '');
+    }
+  }, [candidate]);
+
   if (!isOpen || !candidate) return null;
+
+  const handleSaveFollowUp = async () => {
+    setIsSaving(true);
+    await onUpdateFollowUp(candidate.id, followUpNote, followUpDate);
+    setIsSaving(false);
+  };
 
   const handleDownload = () => {
     if (candidate.fileData) {
@@ -175,6 +193,43 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                     {candidate.isShortlisted ? 'YES' : 'NO'}
                   </span>
                 </div>
+              </div>
+            </section>
+
+            <section className="bg-indigo-600 p-6 rounded-3xl text-white">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-200 mb-4 flex items-center gap-2">
+                <Clock size={12} /> Follow-up Reminder
+              </h3>
+              <div className="space-y-4">
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold uppercase text-indigo-300 ml-1 tracking-wider">Next Follow-up Date</label>
+                  <div className="relative">
+                    <Calendar className="absolute left-3 top-2.5 text-indigo-400" size={14} />
+                    <input 
+                      type="date" 
+                      value={followUpDate}
+                      onChange={(e) => setFollowUpDate(e.target.value)}
+                      className="w-full bg-indigo-700/50 border border-indigo-500/50 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-300"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold uppercase text-indigo-300 ml-1 tracking-wider">Follow-up Note</label>
+                  <textarea 
+                    value={followUpNote}
+                    onChange={(e) => setFollowUpNote(e.target.value)}
+                    placeholder="Candidate mentioned expected notice..."
+                    className="w-full bg-indigo-700/50 border border-indigo-500/50 rounded-xl px-4 py-2 text-xs h-24 focus:outline-none focus:ring-1 focus:ring-indigo-300 placeholder:text-indigo-400/50"
+                  />
+                </div>
+                <button 
+                  onClick={handleSaveFollowUp}
+                  disabled={isSaving}
+                  className="w-full py-2 bg-white text-indigo-600 rounded-xl text-xs font-black uppercase tracking-widest hover:bg-slate-50 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} 
+                  Update Reminder
+                </button>
               </div>
             </section>
           </div>
