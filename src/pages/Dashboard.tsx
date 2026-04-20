@@ -35,6 +35,7 @@ export default function Dashboard() {
   const [fullTeamList, setFullTeamList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState({ total: 0, processed: 0, failed: 0 });
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate'>('idle');
   const [activeTab, setActiveTab] = useState<'candidates' | 'users' | 'analytics' | 'trash'>('candidates');
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
@@ -77,6 +78,7 @@ export default function Dashboard() {
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsProcessing(true);
     setUploadStatus('idle');
+    setUploadProgress({ total: acceptedFiles.length, processed: 0, failed: 0 });
     
     for (const file of acceptedFiles) {
       try {
@@ -88,6 +90,7 @@ export default function Dashboard() {
         
         if (isDuplicate) {
           setUploadStatus('duplicate');
+          setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
           continue;
         }
 
@@ -111,12 +114,19 @@ export default function Dashboard() {
           createdAt: new Date().toISOString()
         });
         setUploadStatus('success');
+        setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1 }));
       } catch (err) {
         console.error(err);
         setUploadStatus('error');
+        setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
       }
     }
-    setIsProcessing(false);
+    
+    // Smooth reset
+    setTimeout(() => {
+      setIsProcessing(false);
+      setUploadProgress({ total: 0, processed: 0, failed: 0 });
+    }, 3000);
   }, [user, candidates]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
@@ -305,7 +315,43 @@ export default function Dashboard() {
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 flex flex-col overflow-hidden">
+      <main className="flex-1 flex flex-col overflow-hidden relative">
+        {/* Background Upload Progress Overlay */}
+        {isProcessing && uploadProgress.total > 0 && (
+          <div className="absolute bottom-6 right-6 z-50 animate-in slide-in-from-right-8 duration-500">
+            <div className="bg-slate-900 text-white p-5 rounded-[2rem] shadow-2xl border border-slate-700 w-80">
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400">
+                    <Loader2 size={20} className="animate-spin" />
+                  </div>
+                  <div>
+                    <h4 className="text-xs font-black uppercase tracking-widest text-indigo-400">Background Indexing</h4>
+                    <p className="text-[10px] text-slate-400 font-medium">{uploadProgress.processed} of {uploadProgress.total} parsed</p>
+                  </div>
+                </div>
+                <div className="text-right text-[10px] font-mono text-indigo-300">
+                  {Math.round((uploadProgress.processed / uploadProgress.total) * 100)}%
+                </div>
+              </div>
+              
+              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+                <div 
+                  className="bg-indigo-50 h-full transition-all duration-500 ease-out fill-mode-forwards" 
+                  style={{ width: `${(uploadProgress.processed / uploadProgress.total) * 100}%` }}
+                />
+              </div>
+
+              {uploadProgress.failed > 0 && (
+                <div className="mt-3 flex items-center gap-2 text-red-400">
+                  <AlertCircle size={10} />
+                  <span className="text-[9px] font-bold uppercase tracking-tighter">{uploadProgress.failed} Issues detected</span>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
         <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shadow-sm z-10 shrink-0">
           <div className="flex items-center gap-4 text-sm font-medium text-slate-500 font-sans">
             <span className="cursor-pointer hover:text-indigo-600 transition-colors" onClick={() => setActiveTab('candidates')}>Portal</span>
