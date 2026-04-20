@@ -1,9 +1,21 @@
 import { GoogleGenAI, Type } from "@google/genai";
 
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
+let genAI: GoogleGenAI | null = null;
+
+function getGenAI() {
+  if (!genAI) {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) {
+      throw new Error("GEMINI_API_KEY is not defined. Please set it in your environment variables.");
+    }
+    genAI = new GoogleGenAI({ apiKey });
+  }
+  return genAI;
+}
 
 export async function parseResume(text: string) {
-  const result = await ai.models.generateContent({
+  const ai = getGenAI();
+  const result = await (ai as any).models.generateContent({
     model: "gemini-3-flash-preview",
     contents: `Extract organized candidate data from this resume text. Return JSON format.
     Resume Text: ${text}`,

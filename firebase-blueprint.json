@@ -27,6 +27,8 @@
         "domain": { "type": "string", "description": "Professional field like Tech, Finance, Marketing" },
         "rawText": { "type": "string" },
         "fileData": { "type": "string", "description": "Base64 encoded file or URL" },
+        "fileName": { "type": "string" },
+        "fileType": { "type": "string" },
         "isShortlisted": { "type": "boolean" },
         "uploadedBy": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" }

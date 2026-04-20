@@ -47,6 +47,7 @@ service cloud.firestore {
 
       allow create: if isSignedIn() && (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data);
       allow update: if isAdmin() && isValidUser(request.resource.data);
+      allow delete: if isAdmin();
     }
 
     // Invitations for pre-registration
@@ -58,14 +59,15 @@ service cloud.firestore {
     // Candidate Collection Rules
     match /candidates/{candidateId} {
       function isValidCandidate(data) {
+        // Relax uploader check during creation to just verify current user identity
         return data.fullName is string && 
                data.fullName.size() > 0 &&
                data.uploadedBy == request.auth.uid;
       }
 
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidId(candidateId) && isValidCandidate(request.resource.data);
-      allow update: if isSignedIn() && (isAdmin() || request.resource.data.uploadedBy == request.auth.uid);
+      allow create: if isSignedIn() && isValidCandidate(request.resource.data);
+      allow update: if isSignedIn() && (isAdmin() || resource.data.uploadedBy == request.auth.uid);
       allow delete: if isAdmin();
     }
   }

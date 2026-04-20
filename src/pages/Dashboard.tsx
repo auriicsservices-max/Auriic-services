@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, db } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { useDropzone } from 'react-dropzone';
 import { parseResume } from '../lib/gemini';
 import UserManagement from '../components/UserManagement';
@@ -20,12 +20,14 @@ import {
   Shield,
   LayoutDashboard,
   Star,
-  LineChart as AnalyticsIcon
+  LineChart as AnalyticsIcon,
+  Trash2
 } from 'lucide-react';
 
 export default function Dashboard() {
   const { user, role } = useAuth();
   const [candidates, setCandidates] = useState<any[]>([]);
+  const [teamMembers, setTeamMembers] = useState<Record<string, string>>({});
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -34,10 +36,27 @@ export default function Dashboard() {
 
   useEffect(() => {
     const q = query(collection(db, 'candidates'), orderBy('createdAt', 'desc'));
-    return onSnapshot(q, (snapshot) => {
+    const unsubCandidates = onSnapshot(q, (snapshot) => {
       setCandidates(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
-  }, []);
+
+    // Fetch team members for uploader mapping (admin only)
+    let unsubTeam = () => {};
+    if (role === 'admin') {
+      unsubTeam = onSnapshot(collection(db, 'users'), (snapshot) => {
+        const mapping: Record<string, string> = {};
+        snapshot.docs.forEach(doc => {
+          mapping[doc.id] = doc.data().email;
+        });
+        setTeamMembers(mapping);
+      });
+    }
+
+    return () => {
+      unsubCandidates();
+      unsubTeam();
+    };
+  }, [role]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsProcessing(true);
@@ -59,6 +78,8 @@ export default function Dashboard() {
           ...parsed,
           rawText: text,
           fileData: fileBase64,
+          fileName: file.name,
+          fileType: file.type,
           isShortlisted: false,
           uploadedBy: user?.uid,
           createdAt: new Date().toISOString()
@@ -91,11 +112,21 @@ export default function Dashboard() {
     }
   };
 
+  const handleDeleteCandidate = async (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    if (!window.confirm('Permanent delete. Are you sure?')) return;
+    try {
+      await deleteDoc(doc(db, 'candidates', id));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // Boolean Search logic
   const filteredCandidates = candidates.filter(candidate => {
     if (!searchQuery.trim()) return true;
     const terms = searchQuery.toLowerCase().split(/\s+/);
-    const searchableText = `${candidate.fullName} ${candidate.domain} ${candidate.summary} ${candidate.skills?.join(' ')} ${JSON.stringify(candidate.experience)}`.toLowerCase();
+    const searchableText = `${candidate.fullName} ${candidate.domain} ${candidate.summary} ${candidate.skills?.join(' ')} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''}`.toLowerCase();
     return terms.every(term => searchableText.includes(term));
   });
 
@@ -264,6 +295,7 @@ export default function Dashboard() {
                         <th className="px-6 py-4">Candidate Identity</th>
                         <th className="px-6 py-4">Domain Focus</th>
                         <th className="px-6 py-4">Competencies</th>
+                        {role === 'admin' && <th className="px-6 py-4">Uploaded By</th>}
                         <th className="px-6 py-4 text-right">Reference</th>
                       </tr>
                     </thead>
@@ -296,13 +328,35 @@ export default function Dashboard() {
                               )}
                             </div>
                           </td>
+                          {role === 'admin' && (
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-[8px] font-bold text-slate-400">
+                                  {(teamMembers[candidate.uploadedBy] || 'AI').slice(0, 2).toUpperCase()}
+                                </div>
+                                <span className="text-[10px] font-medium text-slate-500 truncate max-w-[120px]">
+                                  {teamMembers[candidate.uploadedBy] || 'System Index'}
+                                </span>
+                              </div>
+                            </td>
+                          )}
                           <td className="px-6 py-4 text-right">
-                            <button 
-                              onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
-                              className="text-[10px] font-black text-indigo-400 hover:text-indigo-600 uppercase tracking-widest transition-colors flex items-center gap-1 justify-end ml-auto"
-                            >
-                              Details <ChevronRight size={12} />
-                            </button>
+                            <div className="flex items-center justify-end gap-3">
+                              {role === 'admin' && (
+                                <button 
+                                  onClick={(e) => handleDeleteCandidate(e, candidate.id)}
+                                  className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
+                                className="text-[10px] font-black text-indigo-400 hover:text-indigo-600 uppercase tracking-widest transition-colors flex items-center gap-1"
+                              >
+                                Details <ChevronRight size={12} />
+                              </button>
+                            </div>
                           </td>
                         </tr>
                       ))}

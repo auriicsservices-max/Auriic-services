@@ -12,23 +12,29 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   if (!isOpen || !candidate) return null;
 
   const handleDownload = () => {
-    if (!candidate.fileData) {
-      // Fallback: Generate a simple text file if source data is missing
+    if (candidate.fileData) {
+      const a = document.createElement('a');
+      a.href = candidate.fileData;
+      a.download = candidate.fileName || `${candidate.fullName}_resume`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+    } else {
       const blob = new Blob([candidate.rawText], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `${candidate.fullName}_resume.txt`;
       a.click();
-      return;
     }
-    
-    // Check if it's base64 (contains data URI prefix)
-    if (candidate.fileData.startsWith('data:')) {
-      const a = document.createElement('a');
-      a.href = candidate.fileData;
-      a.download = `${candidate.fullName}_resume`;
-      a.click();
+  };
+
+  const handleView = () => {
+    if (candidate.fileData) {
+      const win = window.open();
+      if (win) {
+        win.document.write(`<iframe src="${candidate.fileData}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+      }
     }
   };
 
@@ -57,11 +63,19 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             </div>
           </div>
           <div className="flex gap-2">
+            {candidate.fileType === 'application/pdf' && (
+              <button 
+                onClick={handleView}
+                className="px-4 py-2 bg-indigo-50 text-indigo-600 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-100 transition-all border border-indigo-100"
+              >
+                <Globe size={18} /> View Document
+              </button>
+            )}
             <button 
               onClick={handleDownload}
               className="px-4 py-2 bg-slate-50 text-slate-600 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-100 transition-all border border-slate-200"
             >
-              <Download size={18} /> Download CV
+              <Download size={18} /> Download {candidate.fileType?.split('/')[1]?.toUpperCase() || 'CV'}
             </button>
             <button 
               onClick={onClose}
