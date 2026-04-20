@@ -26,6 +26,10 @@ service cloud.firestore {
       );
     }
 
+    function isTeamMember() {
+      return isSignedIn() && getUserData().role in ['admin', 'recruiter'] && getUserData().get('isArchived', false) == false;
+    }
+
     function isOwner(userId) {
       return request.auth.uid == userId;
     }
@@ -59,15 +63,13 @@ service cloud.firestore {
     // Candidate Collection Rules
     match /candidates/{candidateId} {
       function isValidCandidate(data) {
-        // Relax uploader check during creation to just verify current user identity
         return data.fullName is string && 
-               data.fullName.size() > 0 &&
                data.uploadedBy == request.auth.uid;
       }
 
       allow read: if isSignedIn();
-      allow create: if isSignedIn() && isValidCandidate(request.resource.data);
-      allow update: if isSignedIn() && (isAdmin() || resource.data.uploadedBy == request.auth.uid);
+      allow create: if isTeamMember() && isValidCandidate(request.resource.data);
+      allow update: if isTeamMember();
       allow delete: if isAdmin();
     }
   }

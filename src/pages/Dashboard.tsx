@@ -32,6 +32,7 @@ export default function Dashboard() {
   const { user, role } = useAuth();
   const [candidates, setCandidates] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<Record<string, string>>({});
+  const [fullTeamList, setFullTeamList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate'>('idle');
@@ -56,10 +57,14 @@ export default function Dashboard() {
     if (role === 'admin') {
       unsubTeam = onSnapshot(collection(db, 'users'), (snapshot) => {
         const mapping: Record<string, string> = {};
+        const list: any[] = [];
         snapshot.docs.forEach(doc => {
-          mapping[doc.id] = doc.data().email;
+          const data = doc.data();
+          mapping[doc.id] = data.email;
+          list.push({ id: doc.id, ...data });
         });
         setTeamMembers(mapping);
+        setFullTeamList(list);
       });
     }
 
@@ -100,6 +105,7 @@ export default function Dashboard() {
           fileName: file.name,
           fileType: file.type,
           isShortlisted: false,
+          isArchived: false,
           uploadedBy: user?.uid,
           createdAt: new Date().toISOString()
         });
@@ -175,6 +181,25 @@ export default function Dashboard() {
     }
   };
 
+  const handleRestoreUser = async (e: React.MouseEvent, userId: string) => {
+    e.stopPropagation();
+    try {
+      await updateDoc(doc(db, 'users', userId), { isArchived: false });
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleDeleteUserPermanently = async (e: React.MouseEvent, userId: string) => {
+    e.stopPropagation();
+    if (!window.confirm('PERMANENT DELETE for Team Member? They will lose all database records. Authentication remains but they will have no role.')) return;
+    try {
+      await deleteDoc(doc(db, 'users', userId));
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // Boolean Search logic
   const filteredCandidates = candidates.filter(candidate => {
     if (candidate.isArchived) return false;
@@ -185,6 +210,7 @@ export default function Dashboard() {
   });
 
   const trashedCandidates = candidates.filter(c => c.isArchived);
+  const trashedUsers = fullTeamList.filter(u => u.isArchived);
 
   return (
     <div className="flex h-screen w-full bg-slate-50 text-slate-900 font-sans overflow-hidden">
@@ -222,6 +248,18 @@ export default function Dashboard() {
             Talent Search
           </button>
 
+          <button 
+            onClick={() => setActiveTab('trash')}
+            className={`w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'trash' 
+                ? 'bg-red-50 text-red-700 shadow-sm shadow-red-50' 
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <Trash2 className="w-5 h-5 mr-3" />
+            Trash
+          </button>
+
           <div 
             {...getRootProps()} 
             className="flex items-center px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium cursor-pointer transition-all"
@@ -230,20 +268,6 @@ export default function Dashboard() {
             <Upload className="w-5 h-5 mr-3" />
             Bulk Upload
           </div>
-
-          {role === 'admin' && (
-            <button 
-              onClick={() => setActiveTab('trash')}
-              className={`w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                activeTab === 'trash' 
-                  ? 'bg-red-50 text-red-700 shadow-sm shadow-red-50' 
-                  : 'text-slate-600 hover:bg-slate-50'
-              }`}
-            >
-              <Trash2 className="w-5 h-5 mr-3" />
-              Trash
-            </button>
-          )}
 
           {role === 'admin' && (
             <button 
@@ -437,15 +461,13 @@ export default function Dashboard() {
                               >
                                 <Clock size={14} />
                               </button>
-                              {role === 'admin' && (
-                                <button 
-                                  onClick={(e) => handleArchiveCandidate(e, candidate.id)}
-                                  className="p-1.5 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                  title="Move to Trash"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
-                              )}
+                              <button 
+                                onClick={(e) => handleArchiveCandidate(e, candidate.id)}
+                                className="p-1.5 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                title="Move to Trash"
+                              >
+                                <Trash2 size={14} />
+                              </button>
                               <button 
                                 onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
                                 className="text-[10px] font-black text-indigo-400 hover:text-indigo-600 uppercase tracking-widest transition-colors flex items-center gap-1 ml-1"
@@ -472,7 +494,8 @@ export default function Dashboard() {
           ) : activeTab === 'analytics' ? (
             <Analytics candidates={candidates} />
           ) : activeTab === 'trash' ? (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-6">
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-12">
+              {/* Candidate Trash */}
               <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col gap-6">
                 <div className="flex items-center gap-2">
                   <div className="w-10 h-10 bg-red-50 rounded-xl flex items-center justify-center text-red-600">
@@ -480,7 +503,7 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <h3 className="text-xl font-serif text-slate-800">Candidate Trash</h3>
-                    <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Review or permanently remove soft-deleted data</p>
+                    <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Review or permanently remove soft-deleted candidates</p>
                   </div>
                 </div>
 
@@ -513,12 +536,15 @@ export default function Dashboard() {
                               >
                                 <RotateCcw size={12} /> Restore
                               </button>
-                              <button 
-                                onClick={(e) => handlePermanentDeleteCandidate(e, candidate.id)}
-                                className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
-                              >
-                                <AlertTriangle size={14} />
-                              </button>
+                              {role === 'admin' && (
+                                <button 
+                                  onClick={(e) => handlePermanentDeleteCandidate(e, candidate.id)}
+                                  className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                  title="Delete Permanently"
+                                >
+                                  <AlertTriangle size={14} />
+                                </button>
+                              )}
                             </div>
                           </td>
                         </tr>
@@ -527,7 +553,7 @@ export default function Dashboard() {
                         <tr>
                           <td colSpan={3} className="px-6 py-20 text-center text-slate-300 font-medium italic">
                             <Trash2 size={32} className="mx-auto mb-2 opacity-20" />
-                            Candidate trash is currently empty
+                            No candidates in trash
                           </td>
                         </tr>
                       )}
@@ -535,6 +561,73 @@ export default function Dashboard() {
                   </table>
                 </div>
               </div>
+
+              {/* Team Trash (Admin Only) */}
+              {role === 'admin' && (
+                <div className="bg-white p-8 rounded-[2rem] border border-slate-200 shadow-sm flex flex-col gap-6">
+                  <div className="flex items-center gap-2">
+                    <div className="w-10 h-10 bg-indigo-50 rounded-xl flex items-center justify-center text-indigo-600">
+                      <Users size={24} />
+                    </div>
+                    <div>
+                      <h3 className="text-xl font-serif text-slate-800">Team Member Trash</h3>
+                      <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">Revoke access permanently or restore teammates</p>
+                    </div>
+                  </div>
+
+                  <div className="overflow-hidden border border-slate-100 rounded-2xl">
+                    <table className="w-full text-left border-collapse">
+                      <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200">
+                        <tr>
+                          <th className="px-6 py-4">Account Email</th>
+                          <th className="px-6 py-4">System Role</th>
+                          <th className="px-6 py-4 text-right">Actions</th>
+                        </tr>
+                      </thead>
+                      <tbody className="text-sm text-slate-600 divide-y divide-slate-100">
+                        {trashedUsers.map((u) => (
+                          <tr key={u.id} className="hover:bg-slate-50 transition-all">
+                            <td className="px-6 py-4">
+                              <div className="font-bold text-slate-800 tracking-tight">{u.email}</div>
+                              <div className="text-[10px] text-slate-400 font-medium italic">ID: {u.id.slice(0, 8)}...</div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className={`text-[9px] font-black uppercase px-2 py-0.5 rounded inline-block ${u.role === 'admin' ? 'bg-indigo-100 text-indigo-700' : 'bg-slate-100 text-slate-400'}`}>
+                                {u.role}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4 text-right">
+                              <div className="flex items-center justify-end gap-2">
+                                <button 
+                                  onClick={(e) => handleRestoreUser(e, u.id)}
+                                  className="px-4 py-1.5 bg-emerald-50 text-emerald-600 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-100 transition-all flex items-center gap-2"
+                                >
+                                  <RotateCcw size={12} /> Restore
+                                </button>
+                                <button 
+                                  onClick={(e) => handleDeleteUserPermanently(e, u.id)}
+                                  className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-all"
+                                  title="Delete Permanently"
+                                >
+                                  <AlertTriangle size={14} />
+                                </button>
+                              </div>
+                            </td>
+                          </tr>
+                        ))}
+                        {trashedUsers.length === 0 && (
+                          <tr>
+                            <td colSpan={3} className="px-6 py-20 text-center text-slate-300 font-medium italic">
+                              <Users size={32} className="mx-auto mb-2 opacity-20" />
+                              No team members in trash
+                            </td>
+                          </tr>
+                        )}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
             </div>
           ) : (
             <UserManagement />
