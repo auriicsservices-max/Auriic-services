@@ -1,10 +1,12 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, db } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc, orderBy } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc } from 'firebase/firestore';
 import { useDropzone } from 'react-dropzone';
 import { parseResume } from '../lib/gemini';
 import UserManagement from '../components/UserManagement';
+import CandidateModal from '../components/CandidateModal';
+import Analytics from '../components/Analytics';
 import { 
   Search, 
   Upload, 
@@ -16,7 +18,9 @@ import {
   Loader2,
   ChevronRight,
   Shield,
-  LayoutDashboard
+  LayoutDashboard,
+  Star,
+  LineChart as AnalyticsIcon
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -25,7 +29,8 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error'>('idle');
-  const [activeTab, setActiveTab] = useState<'candidates' | 'users'>('candidates');
+  const [activeTab, setActiveTab] = useState<'candidates' | 'users' | 'analytics'>('candidates');
+  const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
 
   useEffect(() => {
     const q = query(collection(db, 'candidates'), orderBy('createdAt', 'desc'));
@@ -43,9 +48,18 @@ export default function Dashboard() {
         const text = await file.text();
         const parsed = await parseResume(text);
         
+        // Convert file to base64 for download later
+        const fileBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result as string);
+          reader.readAsDataURL(file);
+        });
+        
         await addDoc(collection(db, 'candidates'), {
           ...parsed,
           rawText: text,
+          fileData: fileBase64,
+          isShortlisted: false,
           uploadedBy: user?.uid,
           createdAt: new Date().toISOString()
         });
@@ -66,11 +80,22 @@ export default function Dashboard() {
 
   const handleLogout = () => auth.signOut();
 
+  const handleShortlist = async (id: string, currentStatus: boolean) => {
+    try {
+      await updateDoc(doc(db, 'candidates', id), { isShortlisted: !currentStatus });
+      if (selectedCandidate?.id === id) {
+        setSelectedCandidate((prev: any) => ({ ...prev, isShortlisted: !currentStatus }));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
   // Boolean Search logic
   const filteredCandidates = candidates.filter(candidate => {
     if (!searchQuery.trim()) return true;
     const terms = searchQuery.toLowerCase().split(/\s+/);
-    const searchableText = `${candidate.fullName} ${candidate.summary} ${candidate.skills?.join(' ')} ${JSON.stringify(candidate.experience)}`.toLowerCase();
+    const searchableText = `${candidate.fullName} ${candidate.domain} ${candidate.summary} ${candidate.skills?.join(' ')} ${JSON.stringify(candidate.experience)}`.toLowerCase();
     return terms.every(term => searchableText.includes(term));
   });
 
@@ -90,7 +115,7 @@ export default function Dashboard() {
             onClick={() => setActiveTab('candidates')}
             className={`w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all ${
               activeTab === 'candidates' 
-                ? 'bg-indigo-50 text-indigo-700' 
+                ? 'bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100' 
                 : 'text-slate-600 hover:bg-slate-50'
             }`}
           >
@@ -98,13 +123,25 @@ export default function Dashboard() {
             Candidates
           </button>
           
+          <button 
+            onClick={() => setActiveTab('analytics')}
+            className={`w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+              activeTab === 'analytics' 
+                ? 'bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100' 
+                : 'text-slate-600 hover:bg-slate-50'
+            }`}
+          >
+            <AnalyticsIcon className="w-5 h-5 mr-3" />
+            Talent Search
+          </button>
+
           <div 
             {...getRootProps()} 
-            className="flex items-center px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium cursor-pointer"
+            className="flex items-center px-3 py-2 text-slate-600 hover:bg-slate-50 rounded-lg text-sm font-medium cursor-pointer transition-all"
           >
             <input {...getInputProps()} />
             <Upload className="w-5 h-5 mr-3" />
-            Upload Resumes
+            Bulk Upload
           </div>
 
           {role === 'admin' && (
@@ -112,19 +149,19 @@ export default function Dashboard() {
               onClick={() => setActiveTab('users')}
               className={`w-full flex items-center px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                 activeTab === 'users' 
-                  ? 'bg-indigo-50 text-indigo-700' 
+                  ? 'bg-indigo-50 text-indigo-700 shadow-sm shadow-indigo-100' 
                   : 'text-slate-600 hover:bg-slate-50'
               }`}
             >
               <Shield className="w-5 h-5 mr-3" />
-              User Management
+              Team
             </button>
           )}
         </nav>
 
         <div className="p-4 border-t border-slate-100">
-          <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg">
-            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs uppercase">
+          <div className="flex items-center gap-3 p-2 bg-slate-50 rounded-lg group transition-all hover:bg-indigo-50/50">
+            <div className="w-8 h-8 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold text-xs uppercase shadow-sm">
               {user?.displayName?.slice(0, 2) || user?.email?.slice(0, 2)}
             </div>
             <div className="overflow-hidden flex-1">
@@ -142,27 +179,27 @@ export default function Dashboard() {
       <main className="flex-1 flex flex-col overflow-hidden">
         <header className="h-16 bg-white border-b border-slate-200 px-8 flex items-center justify-between shadow-sm z-10 shrink-0">
           <div className="flex items-center gap-4 text-sm font-medium text-slate-500 font-sans">
-            <span>Recruitment</span>
+            <span className="cursor-pointer hover:text-indigo-600 transition-colors" onClick={() => setActiveTab('candidates')}>Portal</span>
             <ChevronRight className="w-4 h-4" />
-            <span className="text-slate-900">{activeTab === 'candidates' ? 'Candidate Pulse' : 'User Management'}</span>
+            <span className="text-slate-900 capitalize">
+              {activeTab === 'candidates' ? 'Candidate Pulse' : activeTab === 'analytics' ? 'Talent Analytics' : 'User Management'}
+            </span>
           </div>
           <div className="flex items-center gap-4">
             {isProcessing && (
               <div className="flex items-center gap-2 text-indigo-600 text-xs font-semibold animate-pulse">
                 <Loader2 className="animate-spin" size={14} />
-                Processing...
+                AI Parsing Active...
               </div>
             )}
-            {activeTab === 'candidates' && (
-              <button 
-                {...getRootProps()}
-                className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center shadow-lg shadow-indigo-100 transition-all active:scale-95"
-              >
-                <input {...getInputProps()} />
-                <Upload className="w-4 h-4 mr-2" />
-                Upload CVs
-              </button>
-            )}
+            <button 
+              {...getRootProps()}
+              className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center shadow-lg shadow-indigo-100 transition-all active:scale-95"
+            >
+              <input {...getInputProps()} />
+              <Upload className="w-4 h-4 mr-2" />
+              Upload CVs
+            </button>
           </div>
         </header>
 
@@ -171,31 +208,31 @@ export default function Dashboard() {
             <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {/* Stats Bar */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-4 text-slate-800">
+                <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-4">
                   <div className="w-12 h-12 bg-indigo-50 rounded-2xl flex items-center justify-center text-indigo-600">
                     <FileText size={24} />
                   </div>
                   <div>
                     <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Total Index</p>
-                    <h3 className="text-2xl font-bold tracking-tight">{candidates.length}</h3>
+                    <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{candidates.length}</h3>
                   </div>
                 </div>
-                <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-4 text-slate-800">
+                <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-4">
                   <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
+                    <Star size={24} />
+                  </div>
+                  <div>
+                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Shortlisted</p>
+                    <h3 className="text-2xl font-bold text-emerald-600 tracking-tight">{candidates.filter(c => c.isShortlisted).length}</h3>
+                  </div>
+                </div>
+                <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-4">
+                  <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400">
                     <LayoutDashboard size={24} />
                   </div>
                   <div>
                     <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Matches found</p>
-                    <h3 className="text-2xl font-bold text-emerald-600 tracking-tight">{filteredCandidates.length}</h3>
-                  </div>
-                </div>
-                <div className="bg-white p-5 rounded-[2rem] border border-slate-200 shadow-sm flex items-center gap-4 text-slate-800">
-                  <div className="w-12 h-12 bg-slate-50 rounded-2xl flex items-center justify-center text-slate-400">
-                    <Shield size={24} />
-                  </div>
-                  <div>
-                    <p className="text-[10px] text-slate-400 uppercase font-bold tracking-widest">Access Level</p>
-                    <h3 className="text-xl font-bold uppercase tracking-tighter">{role || '...'}</h3>
+                    <h3 className="text-2xl font-bold text-slate-800 tracking-tight">{filteredCandidates.length}</h3>
                   </div>
                 </div>
               </div>
@@ -225,21 +262,24 @@ export default function Dashboard() {
                     <thead className="bg-slate-50 text-[10px] uppercase font-bold text-slate-500 border-b border-slate-200">
                       <tr>
                         <th className="px-6 py-4">Candidate Identity</th>
-                        <th className="px-6 py-4">AI Insight</th>
+                        <th className="px-6 py-4">Domain Focus</th>
                         <th className="px-6 py-4">Competencies</th>
                         <th className="px-6 py-4 text-right">Reference</th>
                       </tr>
                     </thead>
                     <tbody className="text-sm text-slate-600 divide-y divide-slate-100">
                       {filteredCandidates.map((candidate) => (
-                        <tr key={candidate.id} className="hover:bg-indigo-50/20 group transition-all">
+                        <tr key={candidate.id} className="hover:bg-indigo-50/20 group transition-all cursor-pointer" onClick={() => setSelectedCandidate(candidate)}>
                           <td className="px-6 py-4">
-                            <div className="font-bold text-slate-800 group-hover:text-indigo-700 transition-colors uppercase tracking-tight">{candidate.fullName}</div>
+                            <div className="flex items-center gap-2">
+                              <div className="font-bold text-slate-800 group-hover:text-indigo-700 transition-colors uppercase tracking-tight">{candidate.fullName}</div>
+                              {candidate.isShortlisted && <Star size={12} className="text-amber-500 fill-amber-500" />}
+                            </div>
                             <div className="text-[10px] text-slate-400 font-medium">{candidate.email || 'No contact mail'}</div>
                           </td>
                           <td className="px-6 py-4">
-                            <div className="max-w-xs truncate text-[11px] text-slate-500 font-medium italic">
-                              "{candidate.summary}"
+                            <div className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">
+                              {candidate.domain || 'Unsorted'}
                             </div>
                           </td>
                           <td className="px-6 py-4">
@@ -257,7 +297,10 @@ export default function Dashboard() {
                             </div>
                           </td>
                           <td className="px-6 py-4 text-right">
-                            <button className="text-[10px] font-black text-indigo-400 hover:text-indigo-600 uppercase tracking-widest transition-colors flex items-center gap-1 justify-end ml-auto">
+                            <button 
+                              onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
+                              className="text-[10px] font-black text-indigo-400 hover:text-indigo-600 uppercase tracking-widest transition-colors flex items-center gap-1 justify-end ml-auto"
+                            >
                               Details <ChevronRight size={12} />
                             </button>
                           </td>
@@ -276,11 +319,21 @@ export default function Dashboard() {
                 </div>
               </div>
             </div>
+          ) : activeTab === 'analytics' ? (
+            <Analytics candidates={candidates} />
           ) : (
             <UserManagement />
           )}
         </div>
       </main>
+
+      {/* Candidate Profile Modal */}
+      <CandidateModal 
+        candidate={selectedCandidate} 
+        isOpen={!!selectedCandidate} 
+        onClose={() => setSelectedCandidate(null)}
+        onShortlist={handleShortlist}
+      />
     </div>
   );
 }

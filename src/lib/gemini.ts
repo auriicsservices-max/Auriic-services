@@ -16,6 +16,7 @@ export async function parseResume(text: string) {
           email: { type: Type.STRING },
           phone: { type: Type.STRING },
           summary: { type: Type.STRING },
+          domain: { type: Type.STRING, description: "Extract the primary professional domain e.g. Software Engineering, Sales, Human Resources, Finance" },
           skills: { type: Type.ARRAY, items: { type: Type.STRING } },
           experience: {
             type: Type.ARRAY,
