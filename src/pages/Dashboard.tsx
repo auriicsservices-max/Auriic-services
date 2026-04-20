@@ -143,10 +143,11 @@ export default function Dashboard() {
       await updateDoc(doc(db, 'candidates', id), { 
         followUpNote: note,
         followUpDate: date,
+        followUpUpdatedBy: user?.uid,
         updatedAt: new Date().toISOString()
       });
       if (selectedCandidate?.id === id) {
-        setSelectedCandidate((prev: any) => ({ ...prev, followUpNote: note, followUpDate: date }));
+        setSelectedCandidate((prev: any) => ({ ...prev, followUpNote: note, followUpDate: date, followUpUpdatedBy: user?.uid }));
       }
     } catch (err) {
       console.error(err);
@@ -206,7 +207,7 @@ export default function Dashboard() {
     if (candidate.isArchived) return false;
     if (!searchQuery.trim()) return true;
     const terms = searchQuery.toLowerCase().split(/\s+/);
-    const searchableText = `${candidate.fullName} ${candidate.domain} ${candidate.summary} ${candidate.skills?.join(' ')} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''}`.toLowerCase();
+    const searchableText = `${candidate.fullName} ${candidate.domain} ${candidate.summary} ${candidate.skills?.join(' ')} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''} ${teamMembers[candidate.followUpUpdatedBy] || ''}`.toLowerCase();
     return terms.every(term => searchableText.includes(term));
   });
 
@@ -462,10 +463,15 @@ export default function Dashboard() {
                               <div className="flex items-center justify-end gap-3">
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
-                                  className={`p-1.5 rounded-lg transition-all ${isFollowUpDue ? 'animate-blink-red bg-red-50' : candidate.followUpDate ? 'text-indigo-600 bg-indigo-50 border border-indigo-100' : 'text-slate-300 hover:text-indigo-500 hover:bg-indigo-50'}`}
+                                  className={`p-1.5 rounded-lg transition-all relative ${isFollowUpDue ? 'animate-blink-red bg-red-50' : candidate.followUpDate ? 'text-indigo-600 bg-indigo-50 border border-indigo-100' : 'text-slate-300 hover:text-indigo-500 hover:bg-indigo-50'}`}
                                   title={candidate.followUpNote || 'Add Follow-up'}
                                 >
                                   <Clock size={14} />
+                                  {role === 'admin' && candidate.followUpUpdatedBy && (
+                                    <div className="absolute -top-7 right-0 bg-slate-800 text-white text-[8px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-10 border border-slate-700">
+                                      By: {teamMembers[candidate.followUpUpdatedBy] || 'System'}
+                                    </div>
+                                  )}
                                 </button>
                                 {role === 'admin' && (
                                   <button 

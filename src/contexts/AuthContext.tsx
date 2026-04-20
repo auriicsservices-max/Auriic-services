@@ -29,9 +29,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const inviteDocRef = doc(db, 'invitations', user.email!);
           const inviteDoc = await getDoc(inviteDocRef);
           
+          const isAdminEmail = user.email === 'darshanwala894@gmail.com' || user.email === 'auriicsservices@gmail.com';
+          
+          if (!inviteDoc.exists() && !isAdminEmail) {
+            setRole(null);
+            setLoading(false);
+            return;
+          }
+
           const defaultRole = inviteDoc.exists() 
             ? inviteDoc.data().role 
-            : (user.email === 'darshanwala894@gmail.com' ? 'admin' : 'recruiter');
+            : 'admin';
 
           const newUser = {
             uid: user.uid,
