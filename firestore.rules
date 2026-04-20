@@ -1,0 +1,72 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Auth Helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isEmailVerified() {
+      return request.auth.token.email_verified == true;
+    }
+
+    function getUserData() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+
+    function isAdmin() {
+      return isSignedIn() && (
+        request.auth.token.email == 'darshanwala894@gmail.com' || 
+        getUserData().role == 'admin'
+      );
+    }
+
+    function isOwner(userId) {
+      return request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    // User Collection Rules
+    match /users/{userId} {
+      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
+      allow list: if isAdmin();
+      
+      function isValidUser(data) {
+        return data.uid is string && 
+               data.email is string && 
+               data.role in ['admin', 'recruiter'];
+      }
+
+      allow create: if isSignedIn() && (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data);
+      allow update: if isAdmin() && isValidUser(request.resource.data);
+    }
+
+    // Invitations for pre-registration
+    match /invitations/{email} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Candidate Collection Rules
+    match /candidates/{candidateId} {
+      function isValidCandidate(data) {
+        return data.fullName is string && 
+               data.fullName.size() > 0 &&
+               data.uploadedBy == request.auth.uid;
+      }
+
+      allow read: if isSignedIn();
+      allow create: if isSignedIn() && isValidId(candidateId) && isValidCandidate(request.resource.data);
+      allow update: if isSignedIn() && (isAdmin() || request.resource.data.uploadedBy == request.auth.uid);
+      allow delete: if isAdmin();
+    }
+  }
+}
