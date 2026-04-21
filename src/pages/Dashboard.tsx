@@ -156,6 +156,15 @@ export default function Dashboard() {
           alert("Rate limit reached. Please wait a minute before uploading more resumes.");
           break; // Stop processing further files
         }
+        
+        // Handling for Project Denied/Permission errors
+        if (err.message?.includes('403') || err.message?.toLowerCase().includes('denied')) {
+          alert("Gemini AI Error: Your project has been denied access. This is usually due to a disabled API key or account restriction. Please check your API Key in Settings.");
+          setUploadStatus('error');
+          setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
+          break;
+        }
+
         setUploadStatus('error');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
       }
@@ -504,7 +513,7 @@ export default function Dashboard() {
                         <th className="px-6 py-4">Candidate Identity</th>
                         <th className="px-6 py-4">Domain Focus</th>
                         <th className="px-6 py-4">Competencies</th>
-                        {role === 'admin' && <th className="px-6 py-4">Uploaded By</th>}
+                        <th className="px-6 py-4">Uploaded By</th>
                         <th className="px-6 py-4 text-right">Reference</th>
                       </tr>
                     </thead>
@@ -540,18 +549,16 @@ export default function Dashboard() {
                                 )}
                               </div>
                             </td>
-                            {role === 'admin' && (
-                              <td className="px-6 py-4">
-                                <div className="flex items-center gap-2">
-                                  <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[8px] font-bold text-slate-400 dark:text-slate-500">
-                                    {(teamMembers[candidate.uploadedBy] || 'AI').slice(0, 2).toUpperCase()}
-                                  </div>
-                                  <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate max-w-[120px]">
-                                    {teamMembers[candidate.uploadedBy] || 'System Index'}
-                                  </span>
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
+                                <div className="w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[8px] font-bold text-slate-400 dark:text-slate-500">
+                                  {(teamMembers[candidate.uploadedBy] || 'AI').slice(0, 2).toUpperCase()}
                                 </div>
-                              </td>
-                            )}
+                                <span className="text-[10px] font-medium text-slate-500 dark:text-slate-400 truncate max-w-[120px]">
+                                  {teamMembers[candidate.uploadedBy] || 'System Index'}
+                                </span>
+                              </div>
+                            </td>
                             <td className="px-6 py-4 text-right">
                               <div className="flex items-center justify-end gap-3">
                                 <button 
@@ -560,21 +567,19 @@ export default function Dashboard() {
                                   title={candidate.followUpNote || 'Add Follow-up'}
                                 >
                                   <Clock size={14} />
-                                  {role === 'admin' && candidate.followUpUpdatedBy && (
+                                  {candidate.followUpUpdatedBy && (
                                     <div className="absolute -top-7 right-0 bg-slate-800 dark:bg-slate-700 text-white text-[8px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-10 border border-slate-700 dark:border-slate-600">
                                       By: {teamMembers[candidate.followUpUpdatedBy] || 'System'}
                                     </div>
                                   )}
                                 </button>
-                                {role === 'admin' && (
-                                  <button 
-                                    onClick={(e) => handleArchiveCandidate(e, candidate.id)}
-                                    className="p-1.5 text-slate-300 dark:text-slate-700 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                    title="Move to Trash"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                )}
+                                <button 
+                                  onClick={(e) => handleArchiveCandidate(e, candidate.id)}
+                                  className="p-1.5 text-slate-300 dark:text-slate-700 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                  title="Move to Trash"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
                                   className="text-[10px] font-black text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 uppercase tracking-widest transition-colors flex items-center gap-1 ml-1"
@@ -588,7 +593,7 @@ export default function Dashboard() {
                       })}
                       {filteredCandidates.length === 0 && (
                         <tr>
-                          <td colSpan={role === 'admin' ? 5 : 4} className="px-6 py-20 text-center text-slate-300 dark:text-slate-700 font-medium italic transition-colors duration-300">
+                          <td colSpan={5} className="px-6 py-20 text-center text-slate-300 dark:text-slate-700 font-medium italic transition-colors duration-300">
                             <Users size={32} className="mx-auto mb-2 opacity-20" />
                             No matches found in standard index
                           </td>
@@ -638,22 +643,20 @@ export default function Dashboard() {
                           </td>
                           <td className="px-6 py-4 text-right">
                             <div className="flex items-center justify-end gap-2">
+                              <button 
+                                onClick={(e) => handleRestoreCandidate(e, candidate.id)}
+                                className="px-4 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-all flex items-center gap-2"
+                              >
+                                <RotateCcw size={12} /> Restore
+                              </button>
                               {role === 'admin' && (
-                                <>
-                                  <button 
-                                    onClick={(e) => handleRestoreCandidate(e, candidate.id)}
-                                    className="px-4 py-1.5 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 rounded-lg text-[10px] font-bold uppercase tracking-widest hover:bg-emerald-100 dark:hover:bg-emerald-900/30 transition-all flex items-center gap-2"
-                                  >
-                                    <RotateCcw size={12} /> Restore
-                                  </button>
-                                  <button 
-                                    onClick={(e) => handlePermanentDeleteCandidate(e, candidate.id)}
-                                    className="p-1.5 text-slate-300 dark:text-slate-700 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                                    title="Delete Permanently"
-                                  >
-                                    <AlertTriangle size={14} />
-                                  </button>
-                                </>
+                                <button 
+                                  onClick={(e) => handlePermanentDeleteCandidate(e, candidate.id)}
+                                  className="p-1.5 text-slate-300 dark:text-slate-700 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                                  title="Delete Permanently"
+                                >
+                                  <AlertTriangle size={14} />
+                                </button>
                               )}
                             </div>
                           </td>

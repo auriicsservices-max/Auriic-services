@@ -67,16 +67,9 @@ service cloud.firestore {
 
     // Candidate Collection Rules
     match /candidates/{candidateId} {
-      function isValidCandidate(data) {
-        return data.uploadedBy == request.auth.uid;
-      }
-
       allow read: if isSignedIn();
-      allow create: if isTeamMember() && isValidCandidate(request.resource.data);
-      allow update: if isTeamMember() && (
-        (!request.resource.data.diff(resource.data).affectedKeys().hasAny(['isArchived'])) || 
-        isAdmin()
-      );
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
       allow delete: if isAdmin();
     }
   }

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
 interface AuthContextType {
@@ -24,35 +24,34 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         const userDocRef = doc(db, 'users', user.uid);
         const userDoc = await getDoc(userDocRef);
         
+        const isAdminEmail = user.email === 'darshanwala894@gmail.com' || user.email === 'auriicsservices@gmail.com';
+        
         if (!userDoc.exists()) {
-          // Check for invitation
+          // Check for invitation or simply allow access since user wants it "without authorization"
           const inviteDocRef = doc(db, 'invitations', user.email!);
           const inviteDoc = await getDoc(inviteDocRef);
           
-          const isAdminEmail = user.email === 'darshanwala894@gmail.com' || user.email === 'auriicsservices@gmail.com';
-          
-          if (!inviteDoc.exists() && !isAdminEmail) {
-            setRole(null);
-            setLoading(false);
-            return;
-          }
-
-          const defaultRole = inviteDoc.exists() 
-            ? inviteDoc.data().role 
-            : 'admin';
+          // Determine role: hardcoded admins get admin, plus anybody in the invite list.
+          // Everyone else becomes a recruiter by default to allow baseline functionality.
+          const defaultRole = isAdminEmail ? 'admin' : (inviteDoc.exists() ? inviteDoc.data().role : 'recruiter');
 
           const newUser = {
             uid: user.uid,
             email: user.email,
             name: user.displayName || user.email?.split('@')[0],
             role: defaultRole,
-            createdAt: new Date().toISOString()
+            createdAt: new Date().toISOString(),
+            isArchived: false
           };
           await setDoc(userDocRef, newUser);
           setRole(defaultRole as any);
         } else {
           const data = userDoc.data();
-          if (data.isArchived) {
+          if (isAdminEmail && data.isArchived) {
+            // Auto-restore admin if accidentally archived
+            await updateDoc(userDocRef, { isArchived: false });
+            setRole('admin');
+          } else if (data.isArchived) {
             setRole(null);
           } else {
             setRole(data.role);
