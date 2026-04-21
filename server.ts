@@ -3,16 +3,34 @@ import { createServer as createViteServer } from 'vite';
 import { Resend } from 'resend';
 import path from 'path';
 import { fileURLToPath } from 'url';
+import { parseResumeInternal } from './src/services/resumeParser';
+import 'dotenv/config';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 async function startServer() {
   const app = express();
-  const PORT = 3000;
+  const PORT = Number(process.env.PORT) || 3000;
   
   // Use Middleware
-  app.use(express.json());
+  app.use(express.json({ limit: '10mb' })); // Increase limit for base64 resumes
+
+  // API Route for candidate resume parsing
+  app.post('/api/parse-resume', async (req, res) => {
+    try {
+      const { fileData } = req.body;
+      if (!fileData) {
+        return res.status(400).json({ error: 'Missing file data' });
+      }
+      
+      const parsedData = await parseResumeInternal(fileData);
+      res.json(parsedData);
+    } catch (error: any) {
+      console.error('Server-side Parse Error:', error);
+      res.status(500).json({ error: error.message || 'Failed to parse resume' });
+    }
+  });
 
   // Vite middleware for development
   if (process.env.NODE_ENV !== 'production') {

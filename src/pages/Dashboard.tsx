@@ -55,27 +55,24 @@ export default function Dashboard() {
       setCandidates(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    // Fetch team members for uploader mapping (admin only)
-    let unsubTeam = () => {};
-    if (role === 'admin') {
-      unsubTeam = onSnapshot(collection(db, 'users'), (snapshot) => {
-        const mapping: Record<string, string> = {};
-        const list: any[] = [];
-        snapshot.docs.forEach(doc => {
-          const data = doc.data();
-          mapping[doc.id] = data.name || data.email;
-          list.push({ id: doc.id, ...data });
-        });
-        setTeamMembers(mapping);
-        setFullTeamList(list);
+    // Fetch team members for uploader mapping
+    const unsubTeam = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const mapping: Record<string, string> = {};
+      const list: any[] = [];
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        mapping[doc.id] = data.name || data.email;
+        list.push({ id: doc.id, ...data });
       });
-    }
+      setTeamMembers(mapping);
+      setFullTeamList(list);
+    });
 
     return () => {
       unsubCandidates();
       unsubTeam();
     };
-  }, [role]);
+  }, []);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsProcessing(true);
@@ -337,19 +334,17 @@ export default function Dashboard() {
             Talent Search
           </button>
 
-          {role === 'admin' && (
-            <button 
-              onClick={() => setActiveTab('trash')}
-              className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                activeTab === 'trash' 
-                  ? 'bg-white text-red-700 shadow-lg' 
-                  : 'text-indigo-100 hover:bg-white/10'
-              }`}
-            >
-              <Trash2 className="w-5 h-5 mr-3" />
-              Trash
-            </button>
-          )}
+          <button 
+            onClick={() => setActiveTab('trash')}
+            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'trash' 
+                ? 'bg-white text-red-700 shadow-lg' 
+                : 'text-indigo-100 hover:bg-white/10'
+            }`}
+          >
+            <Trash2 className="w-5 h-5 mr-3" />
+            Trash
+          </button>
 
           <div className="h-px bg-white/10 my-4" />
 
@@ -362,19 +357,17 @@ export default function Dashboard() {
             Bulk Upload
           </div>
 
-          {role === 'admin' && (
-            <button 
-              onClick={() => setActiveTab('users')}
-              className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                activeTab === 'users' 
-                  ? 'bg-white text-indigo-900 shadow-lg' 
-                  : 'text-indigo-100 hover:bg-white/10'
-              }`}
-            >
-              <Shield className="w-5 h-5 mr-3" />
-              Team Hub
-            </button>
-          )}
+          <button 
+            onClick={() => setActiveTab('users')}
+            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'users' 
+                ? 'bg-white text-indigo-900 shadow-lg' 
+                : 'text-indigo-100 hover:bg-white/10'
+            }`}
+          >
+            <Shield className="w-5 h-5 mr-3" />
+            Team Hub
+          </button>
         </nav>
 
         <div className="p-4 border-t border-white/10">
@@ -672,15 +665,13 @@ export default function Dashboard() {
                               >
                                 <RotateCcw size={12} /> Restore
                               </button>
-                              {role === 'admin' && (
-                                <button 
-                                  onClick={(e) => handlePermanentDeleteCandidate(e, candidate.id)}
-                                  className="p-1.5 text-slate-300 dark:text-slate-700 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
-                                  title="Delete Permanently"
-                                >
-                                  <AlertTriangle size={14} />
-                                </button>
-                              )}
+                              <button 
+                                onClick={(e) => handlePermanentDeleteCandidate(e, candidate.id)}
+                                className="p-1.5 text-slate-300 dark:text-slate-700 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all"
+                                title="Delete Permanently"
+                              >
+                                <AlertTriangle size={14} />
+                              </button>
                             </div>
                           </td>
                         </tr>
@@ -698,9 +689,8 @@ export default function Dashboard() {
                 </div>
               </div>
 
-              {/* Team Trash (Admin Only) */}
-              {role === 'admin' && (
-                <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-6 transition-colors duration-300">
+              {/* Team Trash */}
+              <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col gap-6 transition-colors duration-300">
                   <div className="flex items-center gap-2">
                     <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
                       <Users size={24} />
@@ -763,7 +753,6 @@ export default function Dashboard() {
                     </table>
                   </div>
                 </div>
-              )}
             </div>
           ) : (
             <UserManagement />

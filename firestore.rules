@@ -45,8 +45,8 @@ service cloud.firestore {
 
     // User Collection Rules
     match /users/{userId} {
-      allow get: if isSignedIn() && (isOwner(userId) || isAdmin());
-      allow list: if isAdmin();
+      allow get: if isSignedIn();
+      allow list: if isSignedIn();
       
       function isValidUser(data) {
         return data.uid is string && 
@@ -54,15 +54,15 @@ service cloud.firestore {
                data.role in ['admin', 'recruiter'];
       }
 
-      allow create: if isSignedIn() && (isOwner(userId) || isAdmin()) && isValidUser(request.resource.data);
-      allow update: if isAdmin() && isValidUser(request.resource.data);
-      allow delete: if isAdmin();
+      allow create: if isSignedIn() && isValidUser(request.resource.data);
+      allow update: if isSignedIn() && isValidUser(request.resource.data);
+      allow delete: if isSignedIn();
     }
 
     // Invitations for pre-registration
     match /invitations/{email} {
       allow read: if isSignedIn();
-      allow write: if isAdmin();
+      allow write: if isSignedIn();
     }
 
     // Candidate Collection Rules
@@ -70,7 +70,7 @@ service cloud.firestore {
       allow read: if isSignedIn();
       allow create: if isSignedIn();
       allow update: if isSignedIn();
-      allow delete: if isAdmin();
+      allow delete: if isSignedIn();
     }
   }
 }

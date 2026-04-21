@@ -51,10 +51,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             // Auto-restore admin if accidentally archived
             await updateDoc(userDocRef, { isArchived: false });
             setRole('admin');
-          } else if (data.isArchived) {
-            setRole(null);
           } else {
-            setRole(data.role);
+            // Always set role if it exists, don't set to null if archived
+            // because user wants "no authorization" gate.
+            setRole(data.role || 'recruiter');
           }
         }
       } else {

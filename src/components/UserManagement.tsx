@@ -19,20 +19,27 @@ export default function UserManagement() {
   const [view, setView] = useState<'active' | 'trash'>('active');
 
   useEffect(() => {
-    if (role !== 'admin') return;
-
     const usersQ = query(collection(db, 'users'));
     return onSnapshot(usersQ, (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
-  }, [role]);
+  }, []);
 
   const activeUsers = users.filter(u => !u.isArchived);
   const trashedUsers = users.filter(u => u.isArchived);
 
   const handleCreateUser = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newEmail.trim() || !newPassword.trim()) return;
+    const emailLower = newEmail.toLowerCase().trim();
+    if (!emailLower || !newPassword.trim()) return;
+    
+    // Check if user already exists locally to provide immediate feedback
+    const userExists = users.find(u => u.email?.toLowerCase() === emailLower);
+    if (userExists) {
+      setError(`User ${emailLower} is already in the registry (check ${userExists.isArchived ? 'Trash' : 'Active team'}).`);
+      return;
+    }
+
     setIsAdding(true);
     setError('');
 
@@ -42,14 +49,14 @@ export default function UserManagement() {
       const tempApp = initializeApp(firebaseConfig, tempAppName);
       const tempAuth = getAuth(tempApp);
       
-      const userCredential = await createUserWithEmailAndPassword(tempAuth, newEmail.toLowerCase(), newPassword);
+      const userCredential = await createUserWithEmailAndPassword(tempAuth, emailLower, newPassword);
       const newUser = userCredential.user;
 
       // Create user doc in main database
       await setDoc(doc(db, 'users', newUser.uid), {
         uid: newUser.uid,
-        email: newEmail.toLowerCase(),
-        name: newEmail.toLowerCase().split('@')[0],
+        email: emailLower,
+        name: emailLower.split('@')[0],
         role: newRole,
         createdAt: new Date().toISOString(),
         addedBy: 'admin',
@@ -64,7 +71,29 @@ export default function UserManagement() {
       setNewRole('recruiter');
     } catch (err: any) {
       console.error(err);
-      setError(err.message);
+      if (err.code === 'auth/email-already-in-use') {
+        // FALLBACK: If Auth exists but Firestore doc is missing (orphaned auth account)
+        // Create an invitation so that when they login, AuthContext handles creation.
+        try {
+          await setDoc(doc(db, 'invitations', emailLower), {
+            email: emailLower,
+            role: newRole,
+            createdAt: new Date().toISOString()
+          });
+          setError('');
+          setNewEmail('');
+          setNewPassword('');
+          alert(`Account already exists in identity provider. An invitation has been issued for ${emailLower} as ${newRole}. They can now login directly.`);
+        } catch (inviteErr) {
+          setError('Account exists, and failed to issue fallback invitation.');
+        }
+      } else if (err.code === 'auth/weak-password') {
+        setError('The password is too weak. Please use at least 6 characters.');
+      } else if (err.code === 'auth/invalid-email') {
+        setError('The email address is invalid.');
+      } else {
+        setError(err.message || 'An error occurred while creating the user.');
+      }
     }
     setIsAdding(false);
   };
