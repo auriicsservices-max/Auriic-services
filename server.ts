@@ -3,7 +3,7 @@ import { createServer as createViteServer } from 'vite';
 import { Resend } from 'resend';
 import path from 'path';
 import { fileURLToPath } from 'url';
-import { parseResumeInternal } from './src/services/resumeParser';
+import { parseResumeInternal } from './resumeParser.server';
 import 'dotenv/config';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -17,7 +17,8 @@ async function startServer() {
   app.use(express.json({ limit: '10mb' })); // Increase limit for base64 resumes
 
   // API Route for candidate resume parsing
-  app.post('/api/parse-resume', async (req, res) => {
+  app.post('/api/v2/parse-resume', async (req, res) => {
+    console.log('--- Incoming Parse Request (V2) ---');
     try {
       const { fileData } = req.body;
       if (!fileData) {

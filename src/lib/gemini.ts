@@ -1,5 +1,6 @@
 export async function parseResume(fileData: { mimeType: string; data: string } | string) {
-  const response = await fetch('/api/parse-resume', {
+  console.log('[Aurrum AI] Using Proxy V2 (Secure Server-side)');
+  const response = await fetch('/api/v2/parse-resume', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',

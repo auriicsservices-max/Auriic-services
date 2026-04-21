@@ -36,7 +36,7 @@ export async function parseResumeInternal(fileData: { mimeType: string; data: st
 
   const response = await ai.models.generateContent({
     model: "gemini-1.5-flash-latest",
-    contents: { parts },
+    contents: [{ role: "user", parts }],
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -77,5 +77,10 @@ export async function parseResumeInternal(fileData: { mimeType: string; data: st
     }
   });
 
-  return JSON.parse(response.text || "{}");
+  const text = response.text;
+  if (!text) {
+    throw new Error("AI returned an empty response. Please try again.");
+  }
+
+  return JSON.parse(text);
 }

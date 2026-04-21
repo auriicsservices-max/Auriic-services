@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { auth, db } from '../lib/firebase';
 import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { useDropzone } from 'react-dropzone';
-import { parseResume } from '../lib/gemini';
+import { parseResume } from '../lib/gemini'; // v2-proxy-active
 import UserManagement from '../components/UserManagement';
 import CandidateModal from '../components/CandidateModal';
 import Analytics from '../components/Analytics';
