@@ -15,14 +15,59 @@
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   
-  --color-brand-primary: #4F46E5; /* Indigo 600 */
-  --color-brand-secondary: #F8FAFC; /* Slate 50 */
+  --color-brand-primary: #003e5af7;
+  --color-brand-secondary: #002d42; /* Darker variant for sidebars */
+
+  /* Override indigo with the new brand color variants */
+  --color-indigo-50: color-mix(in srgb, var(--color-brand-primary), white 95%);
+  --color-indigo-100: color-mix(in srgb, var(--color-brand-primary), white 90%);
+  --color-indigo-400: color-mix(in srgb, var(--color-brand-primary), white 40%);
+  --color-indigo-500: color-mix(in srgb, var(--color-brand-primary), white 20%);
+  --color-indigo-600: var(--color-brand-primary);
+  --color-indigo-700: color-mix(in srgb, var(--color-brand-primary), black 20%);
+  --color-indigo-800: color-mix(in srgb, var(--color-brand-primary), black 40%);
+  --color-indigo-900: color-mix(in srgb, var(--color-brand-primary), black 60%);
+  
+  /* Set base theme to use brand color */
+  --color-slate-50: color-mix(in srgb, var(--color-brand-primary), white 95%);
+  --color-slate-100: color-mix(in srgb, var(--color-brand-primary), white 90%);
+  --color-slate-200: color-mix(in srgb, var(--color-brand-primary), white 80%);
+  --color-slate-800: color-mix(in srgb, var(--color-brand-primary), black 40%);
+  --color-slate-900: color-mix(in srgb, var(--color-brand-primary), black 60%);
+  --color-slate-950: #001a26;
+
+  --color-tooltip-bg: var(--color-brand-secondary);
+  --color-tooltip-text: white;
+}
+
+:root {
+  --bg-primary: #ffffff;
+  --text-primary: #1e293b;
+  --card-bg: #ffffff;
+  --sidebar-bg: #003e5af7;
+}
+
+.dark {
+  --bg-primary: #001a26;
+  --text-primary: #f1f5f9;
+  --card-bg: rgba(0, 62, 90, 0.2);
+  --sidebar-bg: #00121a;
+}
+
+.dark {
+  --color-tooltip-bg: #0f172a;
+  --color-tooltip-text: #f1f5f9;
 }
 
 @utility glass-panel {
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
   border: 1px solid rgba(226, 232, 240, 0.8);
+}
+
+.dark .glass-panel {
+  background: rgba(15, 23, 42, 0.9);
+  border: 1px solid rgba(30, 41, 59, 0.8);
 }
 
 @utility boolean-chip {
@@ -34,8 +79,13 @@
 }
 
 @utility and-chip {
-  background: #DBEAFE;
-  color: #1E40AF;
+  background: color-mix(in srgb, var(--color-brand-primary), white 85%);
+  color: var(--color-brand-primary);
+}
+
+.dark .and-chip {
+  background: color-mix(in srgb, var(--color-brand-primary), black 60%);
+  color: color-mix(in srgb, var(--color-brand-primary), white 40%);
 }
 
 @utility or-chip {
@@ -43,8 +93,18 @@
   color: #991B1B;
 }
 
+.dark .or-chip {
+  background: rgba(153, 27, 27, 0.2);
+  color: #F87171;
+}
+
 @utility not-chip {
-  background: #F3F4F6;
-  color: #1F2937;
+  background: #f1f5f9;
+  color: #64748b;
+}
+
+.dark .not-chip {
+  background: rgba(100, 116, 139, 0.1);
+  color: #94a3b8;
 }
 

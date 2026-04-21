@@ -29,9 +29,9 @@ service cloud.firestore {
     }
 
     function isTeamMember() {
+      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return isSignedIn() && (
-        isAdmin() || 
-        (getUserData().get('role', 'none') == 'recruiter' && getUserData().get('isArchived', false) == false)
+        isAdmin() || (user.role == 'recruiter' && user.get('isArchived', false) == false)
       );
     }
 
