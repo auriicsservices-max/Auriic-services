@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { collection, query, onSnapshot, doc, setDoc, deleteDoc, updateDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, doc, setDoc, deleteDoc, updateDoc, getDocs, writeBatch } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { UserPlus, Shield, User as UserIcon, Trash2, Mail, Lock, Loader2, RotateCcw, AlertTriangle } from 'lucide-react';
+import { UserPlus, Shield, User as UserIcon, Trash2, Mail, Lock, Loader2, RotateCcw, AlertTriangle, RefreshCcw, Database } from 'lucide-react';
 
 export default function UserManagement() {
   const { role } = useAuth();
@@ -14,6 +14,7 @@ export default function UserManagement() {
   const [newPassword, setNewPassword] = useState('');
   const [newRole, setNewRole] = useState<'admin' | 'recruiter'>('recruiter');
   const [isAdding, setIsAdding] = useState(false);
+  const [isResetting, setIsResetting] = useState(false);
   const [error, setError] = useState('');
   const [view, setView] = useState<'active' | 'trash'>('active');
 
@@ -101,6 +102,31 @@ export default function UserManagement() {
     } catch (err) {
       console.error(err);
     }
+  };
+
+  const handleResetDatabase = async () => {
+    const confirmation = window.confirm(
+      "EXTREME CAUTION: This will PERMANENTLY DELETE ALL candidates from the database. This action cannot be undone. Are you absolutely sure you want to proceed?"
+    );
+    if (!confirmation) return;
+
+    setIsResetting(true);
+    try {
+      const candidatesRef = collection(db, 'candidates');
+      const snapshot = await getDocs(candidatesRef);
+      
+      const batch = writeBatch(db);
+      snapshot.docs.forEach((d) => {
+        batch.delete(d.ref);
+      });
+      
+      await batch.commit();
+      alert(`Success: ${snapshot.size} candidate records have been purged.`);
+    } catch (err: any) {
+      console.error(err);
+      setError("Database reset failed: " + err.message);
+    }
+    setIsResetting(false);
   };
 
   if (role !== 'admin') {
@@ -279,6 +305,30 @@ export default function UserManagement() {
               <p className="text-slate-400 dark:text-slate-600 text-sm font-medium italic">No {view} team members found</p>
             </div>
           )}
+        </div>
+      </section>
+
+      {/* Database Reset Section (Admin Only) */}
+      <section className="bg-red-50/30 dark:bg-red-950/10 p-8 rounded-[2rem] border border-red-100/50 dark:border-red-900/30 transition-all duration-300">
+        <div className="flex flex-col md:flex-row justify-between items-center gap-6">
+          <div className="flex items-center gap-4">
+            <div className="w-12 h-12 bg-red-100 dark:bg-red-900/40 rounded-2xl flex items-center justify-center text-red-600 dark:text-red-400">
+              <Database size={24} />
+            </div>
+            <div>
+              <h3 className="text-xl font-serif text-red-900 dark:text-red-100">Strategic Reset</h3>
+              <p className="text-xs text-red-600/60 dark:text-red-400/50 font-medium">Clear all candidate intelligence for a fresh platform launch</p>
+            </div>
+          </div>
+          
+          <button 
+            onClick={handleResetDatabase}
+            disabled={isResetting}
+            className="px-6 py-3 bg-red-600 text-white rounded-xl text-sm font-black uppercase tracking-widest hover:bg-red-700 transition-all shadow-lg shadow-red-200 dark:shadow-none flex items-center gap-2 disabled:opacity-50"
+          >
+            {isResetting ? <Loader2 size={18} className="animate-spin" /> : <RefreshCcw size={18} />}
+            Purge All Database Records
+          </button>
         </div>
       </section>
     </div>

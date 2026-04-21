@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2 } from 'lucide-react';
+import LZString from 'lz-string';
 
 interface CandidateModalProps {
   candidate: any;
@@ -23,6 +24,16 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
 
   if (!isOpen || !candidate) return null;
 
+  const getFileData = () => {
+    if (!candidate.fileData) return null;
+    if (candidate.isCompressed) {
+      return LZString.decompressFromUTF16(candidate.fileData);
+    }
+    return candidate.fileData;
+  };
+
+  const fileData = getFileData();
+
   const handleSaveFollowUp = async () => {
     setIsSaving(true);
     await onUpdateFollowUp(candidate.id, followUpNote, followUpDate);
@@ -30,28 +41,30 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   };
 
   const handleDownload = () => {
-    if (candidate.fileData) {
+    if (fileData) {
       const a = document.createElement('a');
-      a.href = candidate.fileData;
+      a.href = fileData;
       a.download = candidate.fileName || `${candidate.fullName}_resume`;
       document.body.appendChild(a);
       a.click();
       document.body.removeChild(a);
-    } else {
+    } else if (candidate.rawText) {
       const blob = new Blob([candidate.rawText], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `${candidate.fullName}_resume.txt`;
       a.click();
+    } else {
+      alert("No resume text or file available for download.");
     }
   };
 
   const handleView = () => {
-    if (candidate.fileData) {
+    if (fileData) {
       const win = window.open();
       if (win) {
-        win.document.write(`<iframe src="${candidate.fileData}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+        win.document.write(`<iframe src="${fileData}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
       }
     }
   };
@@ -81,7 +94,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             </div>
           </div>
           <div className="flex gap-2">
-            {candidate.fileType === 'application/pdf' && candidate.fileData && (
+            {candidate.fileType === 'application/pdf' && fileData && (
               <button 
                 onClick={handleView}
                 className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all border border-indigo-100 dark:border-indigo-800"
@@ -93,7 +106,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               onClick={handleDownload}
               className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700"
             >
-              <Download size={18} /> {candidate.fileData ? `Download ${candidate.fileType?.split('/')[1]?.toUpperCase() || 'CV'}` : 'Download Text Version'}
+              <Download size={18} /> {fileData ? `Download ${candidate.fileType?.split('/')[1]?.toUpperCase() || 'CV'}` : 'Download Text Version'}
             </button>
             <button 
               onClick={onClose}

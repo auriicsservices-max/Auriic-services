@@ -13,12 +13,30 @@ function getGenAI() {
   return genAI;
 }
 
-export async function parseResume(text: string) {
+export async function parseResume(fileData: { mimeType: string; data: string } | string) {
   const ai = getGenAI();
-  const result = await (ai as any).models.generateContent({
+
+  const prompt = `Extract organized candidate data from this resume. Return ONLY a valid JSON object.
+  Fields to extract: 
+  - fullName (required)
+  - email
+  - phone
+  - summary
+  - domain (e.g. Software Engineering, Sales, HR)
+  - skills (array of strings)
+  - experience (array of {role, company, duration, description})
+  - education (array of {degree, school, year})`;
+
+  const parts = [
+    { text: prompt },
+    ...(typeof fileData === 'string' 
+      ? [{ text: `Resume Text: ${fileData.slice(0, 30000)}` }] 
+      : [{ inlineData: fileData }])
+  ];
+
+  const response = await ai.models.generateContent({
     model: "gemini-3-flash-preview",
-    contents: `Extract organized candidate data from this resume text. Return JSON format.
-    Resume Text: ${text}`,
+    contents: { parts },
     config: {
       responseMimeType: "application/json",
       responseSchema: {
@@ -28,7 +46,7 @@ export async function parseResume(text: string) {
           email: { type: Type.STRING },
           phone: { type: Type.STRING },
           summary: { type: Type.STRING },
-          domain: { type: Type.STRING, description: "Extract the primary professional domain e.g. Software Engineering, Sales, Human Resources, Finance" },
+          domain: { type: Type.STRING },
           skills: { type: Type.ARRAY, items: { type: Type.STRING } },
           experience: {
             type: Type.ARRAY,
@@ -59,5 +77,5 @@ export async function parseResume(text: string) {
     }
   });
 
-  return JSON.parse(result.text);
+  return JSON.parse(response.text || "{}");
 }

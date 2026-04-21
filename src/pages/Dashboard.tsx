@@ -8,6 +8,7 @@ import UserManagement from '../components/UserManagement';
 import CandidateModal from '../components/CandidateModal';
 import Analytics from '../components/Analytics';
 import ThemeToggle from '../components/ThemeToggle';
+import LZString from 'lz-string';
 import { 
   Search, 
   Upload, 
@@ -83,8 +84,34 @@ export default function Dashboard() {
     
     for (const file of acceptedFiles) {
       try {
-        const text = await file.text();
-        const parsed = await parseResume(text);
+        let parsed;
+        let fileBase64 = null;
+        
+        // Convert to base64 for multimodal parsing or storage
+        const base64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader();
+          reader.onload = () => {
+            const result = reader.result as string;
+            resolve(result.split(',')[1]); // Only the data part
+          };
+          reader.readAsDataURL(file);
+        });
+
+        // Use base64 directly for PDFs/Images if possible
+        if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
+          parsed = await parseResume({
+            mimeType: file.type,
+            data: base64
+          });
+        } else {
+          const text = await file.text();
+          parsed = await parseResume(text);
+        }
+        
+        // Small delay to respect rate limits (e.g. 2 seconds between files)
+        if (acceptedFiles.length > 1) {
+          await new Promise(r => setTimeout(r, 2000));
+        }
         
         // Duplicate check based on candidate email
         const isDuplicate = candidates.some(c => c.email?.toLowerCase() === parsed.email?.toLowerCase());
@@ -95,20 +122,13 @@ export default function Dashboard() {
           continue;
         }
 
-        // Firestore 1MB limit check: Base64 adds ~33% overhead.
-        // We budget 900KB for the WHOLE document to be safe (including metadata and rawText).
-        let fileBase64 = null;
+        // Firestore 1MB limit check: LZString + Base64
+        // We budget 800KB for the WHOLE document to be safe.
         let isLargeFile = false;
-        const textToStore = text.slice(0, 50000); // Sample first 50k chars for raw index
-        
-        // Very conservative estimate: (text + metadata) + (file * 1.33) < 900KB
-        // We assume metadata + text takes roughly 150KB max now with truncation
-        if (file.size < 500 * 1024) {
-          fileBase64 = await new Promise<string>((resolve) => {
-            const reader = new FileReader();
-            reader.onload = () => resolve(reader.result as string);
-            reader.readAsDataURL(file);
-          });
+        if (file.size < 800 * 1024) { 
+           const fullBase64 = `data:${file.type};base64,${base64}`;
+           // Use compressToUTF16 as it's efficient for Firestore storage
+           fileBase64 = LZString.compressToUTF16(fullBase64);
         } else {
           isLargeFile = true;
         }
@@ -116,12 +136,12 @@ export default function Dashboard() {
         await addDoc(collection(db, 'candidates'), {
           ...parsed,
           fullName: parsed.fullName || file.name.split('.')[0] || 'Unknown Candidate',
-          rawText: textToStore,
-          fullTextLength: text.length,
-          fileData: fileBase64,
-          isLargeFile,
           fileName: file.name,
           fileType: file.type,
+          fileData: fileBase64,
+          isCompressed: !!fileBase64,
+          rawText: file.type.startsWith('text/') ? (await file.text()).slice(0, 5000) : `Extracted data from ${file.name}`,
+          isLargeFile,
           isShortlisted: false,
           isArchived: false,
           uploadedBy: user?.uid,
@@ -129,8 +149,13 @@ export default function Dashboard() {
         });
         setUploadStatus('success');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1 }));
-      } catch (err) {
+      } catch (err: any) {
         console.error(err);
+        // Special handling for quota errors
+        if (err.message?.includes('429') || err.message?.toLowerCase().includes('limit')) {
+          alert("Rate limit reached. Please wait a minute before uploading more resumes.");
+          break; // Stop processing further files
+        }
         setUploadStatus('error');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
       }
