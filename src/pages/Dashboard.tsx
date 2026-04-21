@@ -165,6 +165,14 @@ export default function Dashboard() {
           break;
         }
 
+        // Handling for Model Not Found errors
+        if (err.message?.includes('404')) {
+          alert("Gemini AI Error: The requested AI model was not found. We've switched to a stable version, please refresh and try again.");
+          setUploadStatus('error');
+          setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
+          break;
+        }
+
         setUploadStatus('error');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
       }
@@ -206,6 +214,21 @@ export default function Dashboard() {
       });
       if (selectedCandidate?.id === id) {
         setSelectedCandidate((prev: any) => ({ ...prev, followUpNote: note, followUpDate: date, followUpUpdatedBy: user?.uid }));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleUpdateNotes = async (id: string, notes: string) => {
+    try {
+      await updateDoc(doc(db, 'candidates', id), { 
+        notes,
+        notesUpdatedBy: user?.uid,
+        updatedAt: new Date().toISOString()
+      });
+      if (selectedCandidate?.id === id) {
+        setSelectedCandidate((prev: any) => ({ ...prev, notes, notesUpdatedBy: user?.uid }));
       }
     } catch (err) {
       console.error(err);
@@ -265,7 +288,7 @@ export default function Dashboard() {
     if (candidate.isArchived) return false;
     if (!searchQuery.trim()) return true;
     const terms = searchQuery.toLowerCase().split(/\s+/);
-    const searchableText = `${candidate.fullName} ${candidate.domain} ${candidate.summary} ${candidate.skills?.join(' ')} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''} ${teamMembers[candidate.followUpUpdatedBy] || ''}`.toLowerCase();
+    const searchableText = `${candidate.fullName} ${candidate.domain} ${candidate.summary} ${candidate.skills?.join(' ')} ${candidate.notes || ''} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''} ${teamMembers[candidate.followUpUpdatedBy] || ''}`.toLowerCase();
     return terms.every(term => searchableText.includes(term));
   });
 
@@ -755,6 +778,7 @@ export default function Dashboard() {
         onClose={() => setSelectedCandidate(null)}
         onShortlist={handleShortlist}
         onUpdateFollowUp={handleUpdateFollowUp}
+        onUpdateNotes={handleUpdateNotes}
       />
     </div>
   );

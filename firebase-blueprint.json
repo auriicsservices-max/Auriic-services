@@ -31,6 +31,7 @@
         "fileType": { "type": "string" },
         "isShortlisted": { "type": "boolean" },
         "uploadedBy": { "type": "string" },
+        "notes": { "type": "string", "description": "Internal recruiter notes and comments" },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["fullName", "uploadedBy", "createdAt"]

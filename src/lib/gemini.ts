@@ -35,7 +35,7 @@ export async function parseResume(fileData: { mimeType: string; data: string } |
   ];
 
   const response = await ai.models.generateContent({
-    model: "gemini-1.5-flash",
+    model: "gemini-flash-latest",
     contents: { parts },
     config: {
       responseMimeType: "application/json",

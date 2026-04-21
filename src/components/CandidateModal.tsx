@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2 } from 'lucide-react';
+import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote } from 'lucide-react';
 import LZString from 'lz-string';
 
 interface CandidateModalProps {
@@ -8,17 +8,21 @@ interface CandidateModalProps {
   onClose: () => void;
   onShortlist: (id: string, currentStatus: boolean) => void;
   onUpdateFollowUp: (id: string, note: string, date: string) => void;
+  onUpdateNotes: (id: string, notes: string) => void;
 }
 
-export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp }: CandidateModalProps) {
+export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp, onUpdateNotes }: CandidateModalProps) {
   const [followUpNote, setFollowUpNote] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
+  const [generalNotes, setGeneralNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingNotes, setIsSavingNotes] = useState(false);
 
   useEffect(() => {
     if (candidate) {
       setFollowUpNote(candidate.followUpNote || '');
       setFollowUpDate(candidate.followUpDate || '');
+      setGeneralNotes(candidate.notes || '');
     }
   }, [candidate]);
 
@@ -38,6 +42,12 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     setIsSaving(true);
     await onUpdateFollowUp(candidate.id, followUpNote, followUpDate);
     setIsSaving(false);
+  };
+
+  const handleSaveNotes = async () => {
+    setIsSavingNotes(true);
+    await onUpdateNotes(candidate.id, generalNotes);
+    setIsSavingNotes(false);
   };
 
   const handleDownload = () => {
@@ -202,6 +212,28 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   <Phone className="text-indigo-500 dark:text-indigo-400" size={16} />
                   <p className="text-xs font-medium text-slate-700 dark:text-slate-300">{candidate.phone || 'N/A'}</p>
                 </div>
+              </div>
+            </section>
+
+            <section className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 transition-colors duration-300">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4 flex items-center gap-2">
+                <StickyNote size={12} /> Internal Notes
+              </h3>
+              <div className="space-y-3">
+                <textarea 
+                  value={generalNotes}
+                  onChange={(e) => setGeneralNotes(e.target.value)}
+                  placeholder="Record interview feedback, behavioral observations, or potential team fit..."
+                  className="w-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-2xl p-4 text-xs h-32 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 dark:text-slate-300 placeholder:text-slate-400"
+                />
+                <button 
+                  onClick={handleSaveNotes}
+                  disabled={isSavingNotes}
+                  className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                >
+                  {isSavingNotes ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} 
+                  Save Strategy Notes
+                </button>
               </div>
             </section>
 
