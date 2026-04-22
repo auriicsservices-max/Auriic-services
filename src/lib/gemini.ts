@@ -25,7 +25,8 @@ export async function parseResume(fileData: { mimeType: string; data: string } |
   - domain (e.g. Software Engineering, Sales, HR)
   - skills (array of strings)
   - experience (array of {role, company, duration, description})
-  - education (array of {degree, school, year})`;
+  - education (array of {degree, school, year})
+  - links (array of {label, url})`;
 
   const parts = [
     { text: prompt },
@@ -68,6 +69,16 @@ export async function parseResume(fileData: { mimeType: string; data: string } |
                 degree: { type: Type.STRING },
                 school: { type: Type.STRING },
                 year: { type: Type.STRING }
+              }
+            }
+          },
+          links: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                label: { type: Type.STRING },
+                url: { type: Type.STRING }
               }
             }
           }

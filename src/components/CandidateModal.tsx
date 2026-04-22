@@ -42,7 +42,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const fileData = getFileData();
 
   const handleShortlistClick = async () => {
-    if (role !== 'admin') return;
+    if (role !== 'admin' && role !== 'recruiter') return;
     await onShortlist(candidate.id, candidate.isShortlisted);
     await logActivity('Shortlist Toggle', { candidateId: candidate.id, status: !candidate.isShortlisted }, user!.uid, role);
   };
@@ -104,8 +104,8 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                 <h2 className="text-3xl font-serif text-slate-800 dark:text-slate-100">{candidate.fullName}</h2>
                 <button 
                   onClick={handleShortlistClick}
-                  disabled={role !== 'admin'}
-                  className={`p-1.5 rounded-full transition-colors ${role !== 'admin' ? 'opacity-50 cursor-not-allowed' : ''} ${candidate.isShortlisted ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-300 dark:text-slate-700 hover:text-slate-400 dark:hover:text-slate-500'}`}
+                  disabled={role !== 'admin' && role !== 'recruiter'}
+                  className={`p-1.5 rounded-full transition-colors ${role !== 'admin' && role !== 'recruiter' ? 'opacity-50 cursor-not-allowed' : ''} ${candidate.isShortlisted ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-300 dark:text-slate-700 hover:text-slate-400 dark:hover:text-slate-500'}`}
                 >
                   {candidate.isShortlisted ? <Star fill="currentColor" size={20} /> : <StarOff size={20} />}
                 </button>
@@ -224,6 +224,12 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   <Phone className="text-indigo-500 dark:text-indigo-400" size={16} />
                   <p className="text-xs font-medium text-slate-700 dark:text-slate-300">{candidate.phone || 'N/A'}</p>
                 </div>
+                {candidate.links?.map((link: any, i: number) => (
+                    <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl transition-all hover:border-indigo-200">
+                        <Globe className="text-indigo-500 dark:text-indigo-400" size={16} />
+                        <p className="text-xs font-bold text-indigo-700 dark:text-indigo-300 truncate">{link.label || 'Link'}</p>
+                    </a>
+                ))}
               </div>
             </section>
 

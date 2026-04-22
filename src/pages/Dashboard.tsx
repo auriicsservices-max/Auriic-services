@@ -655,13 +655,15 @@ export default function Dashboard() {
                                     </div>
                                   )}
                                 </button>
-                                <button 
-                                  onClick={(e) => handleArchiveCandidate(e, candidate.id)}
-                                  className="p-1.5 text-slate-300 dark:text-slate-700 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                  title="Move to Trash"
-                                >
-                                  <Trash2 size={14} />
-                                </button>
+                                {role === 'admin' && (
+                                  <button 
+                                    onClick={(e) => handleArchiveCandidate(e, candidate.id)}
+                                    className="p-1.5 text-slate-300 dark:text-slate-700 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                    title="Move to Trash"
+                                  >
+                                    <Trash2 size={14} />
+                                  </button>
+                                )}
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
                                   className="text-[10px] font-black text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 uppercase tracking-widest transition-colors flex items-center gap-1 ml-1"
@@ -687,7 +689,12 @@ export default function Dashboard() {
               </div>
             </div>
           ) : activeTab === 'analytics' ? (
-            <Analytics candidates={candidates} />
+            <Analytics 
+              candidates={candidates} 
+              onShortlist={handleShortlist} 
+              onUpdateFollowUp={handleUpdateFollowUp} 
+              onUpdateNotes={handleUpdateNotes} 
+            />
           ) : activeTab === 'trash' ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-12">
               {/* Candidate Trash */}
