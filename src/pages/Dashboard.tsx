@@ -3,11 +3,14 @@ import { useAuth } from '../contexts/AuthContext';
 import { auth, db } from '../lib/firebase';
 import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc } from 'firebase/firestore';
 import { useDropzone } from 'react-dropzone';
-import { parseResume } from '../lib/gemini'; // v2-proxy-active
+import { parseResume } from '../lib/gemini';
 import UserManagement from '../components/UserManagement';
 import CandidateModal from '../components/CandidateModal';
 import Analytics from '../components/Analytics';
 import ThemeToggle from '../components/ThemeToggle';
+import UserProfile from '../components/UserProfile';
+import Shortlist from '../components/Shortlist';
+import LogReview from '../components/LogReview';
 import LZString from 'lz-string';
 import { 
   Search, 
@@ -27,7 +30,11 @@ import {
   Clock,
   RotateCcw,
   AlertTriangle,
-  Calendar
+  Calendar,
+  UserCircle,
+  Activity,
+  Menu,
+  X
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -39,8 +46,9 @@ export default function Dashboard() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ total: 0, processed: 0, failed: 0 });
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate'>('idle');
-  const [activeTab, setActiveTab] = useState<'candidates' | 'users' | 'analytics' | 'trash'>('candidates');
+  const [activeTab, setActiveTab] = useState<'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs'>('candidates');
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+  const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
     if (uploadStatus !== 'idle') {
@@ -55,24 +63,27 @@ export default function Dashboard() {
       setCandidates(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
 
-    // Fetch team members for uploader mapping
-    const unsubTeam = onSnapshot(collection(db, 'users'), (snapshot) => {
-      const mapping: Record<string, string> = {};
-      const list: any[] = [];
-      snapshot.docs.forEach(doc => {
-        const data = doc.data();
-        mapping[doc.id] = data.name || data.email;
-        list.push({ id: doc.id, ...data });
+    // Fetch team members for uploader mapping (admin only)
+    let unsubTeam = () => {};
+    if (role === 'admin') {
+      unsubTeam = onSnapshot(collection(db, 'users'), (snapshot) => {
+        const mapping: Record<string, string> = {};
+        const list: any[] = [];
+        snapshot.docs.forEach(doc => {
+          const data = doc.data();
+          mapping[doc.id] = data.name || data.email;
+          list.push({ id: doc.id, ...data });
+        });
+        setTeamMembers(mapping);
+        setFullTeamList(list);
       });
-      setTeamMembers(mapping);
-      setFullTeamList(list);
-    });
+    }
 
     return () => {
       unsubCandidates();
       unsubTeam();
     };
-  }, []);
+  }, [role]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsProcessing(true);
@@ -294,10 +305,17 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen w-full bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 font-sans overflow-hidden transition-colors duration-300">
+      {/* Sidebar Overlay */}
+      {isSidebarOpen && (
+        <div 
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          onClick={() => setIsSidebarOpen(false)}
+        />
+      )}
+
       {/* Sidebar */}
       <aside 
-        style={{ backgroundColor: '#003e5af7' }}
-        className="w-64 text-white flex flex-col transition-colors duration-300 shadow-2xl relative z-20"
+        className={`w-64 bg-[#003e5af7] text-white flex flex-col transition-all duration-300 shadow-2xl fixed inset-y-0 left-0 z-40 lg:static lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="p-6 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
@@ -306,12 +324,17 @@ export default function Dashboard() {
             </div>
             <h1 className="font-bold text-xl tracking-tight text-white italic font-serif">Aurrum</h1>
           </div>
-          <ThemeToggle />
+          <div className="flex items-center gap-2">
+            <ThemeToggle />
+            <button className="lg:hidden p-2 text-white" onClick={() => setIsSidebarOpen(false)}>
+              <X size={20} />
+            </button>
+          </div>
         </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-2">
+        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
           <button 
-            onClick={() => setActiveTab('candidates')}
+            onClick={() => { setActiveTab('candidates'); setIsSidebarOpen(false); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'candidates' 
                 ? 'bg-white text-indigo-900 shadow-lg' 
@@ -323,7 +346,19 @@ export default function Dashboard() {
           </button>
           
           <button 
-            onClick={() => setActiveTab('analytics')}
+            onClick={() => { setActiveTab('shortlist'); setIsSidebarOpen(false); }}
+            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'shortlist' 
+                ? 'bg-white text-indigo-900 shadow-lg' 
+                : 'text-indigo-100 hover:bg-white/10'
+            }`}
+          >
+            <Star className="w-5 h-5 mr-3" />
+            Shortlist
+          </button>
+          
+          <button 
+            onClick={() => { setActiveTab('analytics'); setIsSidebarOpen(false); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'analytics' 
                 ? 'bg-white text-indigo-900 shadow-lg' 
@@ -335,16 +370,42 @@ export default function Dashboard() {
           </button>
 
           <button 
-            onClick={() => setActiveTab('trash')}
+            onClick={() => { setActiveTab('profile'); setIsSidebarOpen(false); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'trash' 
-                ? 'bg-white text-red-700 shadow-lg' 
+              activeTab === 'profile' 
+                ? 'bg-white text-indigo-900 shadow-lg' 
                 : 'text-indigo-100 hover:bg-white/10'
             }`}
           >
-            <Trash2 className="w-5 h-5 mr-3" />
-            Trash
+            <UserCircle className="w-5 h-5 mr-3" />
+            My Profile
           </button>
+
+          <button 
+            onClick={() => { setActiveTab('logs'); setIsSidebarOpen(false); }}
+            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'logs' 
+                ? 'bg-white text-indigo-900 shadow-lg' 
+                : 'text-indigo-100 hover:bg-white/10'
+            }`}
+          >
+            <Activity className="w-5 h-5 mr-3" />
+            Log Review
+          </button>
+
+          {role === 'admin' && (
+            <button 
+              onClick={() => { setActiveTab('trash'); setIsSidebarOpen(false); }}
+              className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+                activeTab === 'trash' 
+                  ? 'bg-white text-red-700 shadow-lg' 
+                  : 'text-indigo-100 hover:bg-white/10'
+              }`}
+            >
+              <Trash2 className="w-5 h-5 mr-3" />
+              Trash
+            </button>
+          )}
 
           <div className="h-px bg-white/10 my-4" />
 
@@ -357,17 +418,19 @@ export default function Dashboard() {
             Bulk Upload
           </div>
 
-          <button 
-            onClick={() => setActiveTab('users')}
-            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'users' 
-                ? 'bg-white text-indigo-900 shadow-lg' 
-                : 'text-indigo-100 hover:bg-white/10'
-            }`}
-          >
-            <Shield className="w-5 h-5 mr-3" />
-            Team Hub
-          </button>
+          {role === 'admin' && (
+            <button 
+              onClick={() => { setActiveTab('users'); setIsSidebarOpen(false); }}
+              className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+                activeTab === 'users' 
+                  ? 'bg-white text-indigo-900 shadow-lg' 
+                  : 'text-indigo-100 hover:bg-white/10'
+              }`}
+            >
+              <Shield className="w-5 h-5 mr-3" />
+              Team Hub
+            </button>
+          )}
         </nav>
 
         <div className="p-4 border-t border-white/10">
@@ -424,12 +487,15 @@ export default function Dashboard() {
           </div>
         )}
 
-        <header className="h-16 bg-white dark:bg-slate-950 border-b border-indigo-100 dark:border-slate-800 px-8 flex items-center justify-between shadow-sm z-10 shrink-0 transition-colors duration-300">
+        <header className="h-16 bg-white dark:bg-slate-950 border-b border-indigo-100 dark:border-slate-800 px-4 md:px-8 flex items-center justify-between shadow-sm z-10 shrink-0 transition-colors duration-300">
           <div className="flex items-center gap-4 text-xs font-bold text-slate-400 dark:text-slate-500 font-sans uppercase tracking-[0.2em]">
-            <span className="cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" onClick={() => setActiveTab('candidates')}>Registry</span>
-            <ChevronRight className="w-3 h-3" />
+            <button className="lg:hidden p-2 text-slate-500" onClick={() => setIsSidebarOpen(true)}>
+              <Menu size={20} />
+            </button>
+            <span className="hidden md:block cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" onClick={() => setActiveTab('candidates')}>Registry</span>
+            <ChevronRight className="hidden md:block w-3 h-3" />
             <span className="text-slate-800 dark:text-slate-100 italic font-serif normal-case text-base tracking-normal">
-              {activeTab === 'candidates' ? 'Candidate Registry' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : 'Team Hub'}
+              {activeTab === 'candidates' ? 'Candidate Registry' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : 'Log Review'}
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -754,6 +820,12 @@ export default function Dashboard() {
                   </div>
                 </div>
             </div>
+          ) : activeTab === 'shortlist' ? (
+            <Shortlist candidates={candidates} onCandidateSelect={setSelectedCandidate} onArchive={handleArchiveCandidate} />
+          ) : activeTab === 'profile' ? (
+            <UserProfile />
+          ) : activeTab === 'logs' ? (
+            <LogReview />
           ) : (
             <UserManagement />
           )}

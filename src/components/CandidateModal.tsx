@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote } from 'lucide-react';
 import LZString from 'lz-string';
+import { useAuth } from '../contexts/AuthContext';
+import { logActivity } from '../lib/logger';
 
 interface CandidateModalProps {
   candidate: any;
@@ -12,6 +14,7 @@ interface CandidateModalProps {
 }
 
 export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp, onUpdateNotes }: CandidateModalProps) {
+  const { user, role } = useAuth();
   const [followUpNote, setFollowUpNote] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [generalNotes, setGeneralNotes] = useState('');
@@ -38,15 +41,23 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
 
   const fileData = getFileData();
 
+  const handleShortlistClick = async () => {
+    if (role !== 'admin') return;
+    await onShortlist(candidate.id, candidate.isShortlisted);
+    await logActivity('Shortlist Toggle', { candidateId: candidate.id, status: !candidate.isShortlisted }, user!.uid, role);
+  };
+
   const handleSaveFollowUp = async () => {
     setIsSaving(true);
     await onUpdateFollowUp(candidate.id, followUpNote, followUpDate);
+    await logActivity('Follow-up Update', { candidateId: candidate.id }, user!.uid, role!);
     setIsSaving(false);
   };
 
   const handleSaveNotes = async () => {
     setIsSavingNotes(true);
     await onUpdateNotes(candidate.id, generalNotes);
+    await logActivity('Notes Update', { candidateId: candidate.id }, user!.uid, role!);
     setIsSavingNotes(false);
   };
 
@@ -92,8 +103,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               <div className="flex items-center gap-3">
                 <h2 className="text-3xl font-serif text-slate-800 dark:text-slate-100">{candidate.fullName}</h2>
                 <button 
-                  onClick={() => onShortlist(candidate.id, candidate.isShortlisted)}
-                  className={`p-1.5 rounded-full transition-colors ${candidate.isShortlisted ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-300 dark:text-slate-700 hover:text-slate-400 dark:hover:text-slate-500'}`}
+                  onClick={handleShortlistClick}
+                  disabled={role !== 'admin'}
+                  className={`p-1.5 rounded-full transition-colors ${role !== 'admin' ? 'opacity-50 cursor-not-allowed' : ''} ${candidate.isShortlisted ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-300 dark:text-slate-700 hover:text-slate-400 dark:hover:text-slate-500'}`}
                 >
                   {candidate.isShortlisted ? <Star fill="currentColor" size={20} /> : <StarOff size={20} />}
                 </button>
