@@ -110,14 +110,15 @@ export default function Dashboard() {
           reader.readAsDataURL(file);
         });
 
-        // Use base64 directly for PDFs/DOCX/Images if possible
+        // Use ArrayBuffer directly for PDFs/DOCX/Images for better stability
         if (file.type === 'application/pdf' || 
             file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
             file.type === 'application/msword' ||
             file.type.startsWith('image/')) {
+          const buffer = await file.arrayBuffer();
           parsed = await parseResume({
             mimeType: file.type,
-            data: base64
+            data: buffer
           });
         } else {
           const text = await file.text();

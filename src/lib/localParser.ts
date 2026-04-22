@@ -1,8 +1,10 @@
 import * as pdfjs from 'pdfjs-dist';
 import * as mammoth from 'mammoth';
 
-// Set up worker for PDF.js
-pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.mjs`;
+// Set up worker for PDF.js using a reliable CDN path
+// Hardcoding the version to match package.json to avoid issues with pdfjs.version
+const PDFJS_VERSION = '4.10.38';
+pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.mjs`;
 
 export interface ParsedResume {
   fullName: string;
@@ -29,18 +31,36 @@ export interface ParsedResume {
 }
 
 export async function extractTextFromPDF(pdfBuffer: ArrayBuffer): Promise<string> {
-  const loadingTask = pdfjs.getDocument({ data: pdfBuffer });
-  const pdf = await loadingTask.promise;
-  let fullText = '';
+  console.log('Starting PDF extraction...', pdfBuffer.byteLength);
+  try {
+    const loadingTask = pdfjs.getDocument({ 
+      data: pdfBuffer,
+      useWorkerFetch: true,
+      isEvalSupported: false,
+    });
+    
+    const pdf = await loadingTask.promise;
+    console.log(`PDF loaded with ${pdf.numPages} pages`);
+    let fullText = '';
 
-  for (let i = 1; i <= pdf.numPages; i++) {
-    const page = await pdf.getPage(i);
-    const textContent = await page.getTextContent();
-    const pageText = textContent.items.map((item: any) => item.str).join(' ');
-    fullText += pageText + '\n';
+    for (let i = 1; i <= pdf.numPages; i++) {
+      const page = await pdf.getPage(i);
+      const textContent = await page.getTextContent();
+      const pageText = textContent.items
+        .map((item: any) => item.str)
+        .join(' ');
+      fullText += pageText + '\n';
+    }
+
+    if (!fullText.trim()) {
+      console.warn('PDF extraction resulted in empty text. Possibly image-based PDF.');
+    }
+
+    return fullText;
+  } catch (error) {
+    console.error('Error during PDF text extraction:', error);
+    throw new Error(`PDF Extraction Failed: ${error instanceof Error ? error.message : String(error)}`);
   }
-
-  return fullText;
 }
 
 export async function extractTextFromDocx(docxBuffer: ArrayBuffer): Promise<string> {
@@ -81,7 +101,7 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
 
   // 4. Skills Extraction (Keywords based)
   const commonSkills = [
-    'React', 'Javascript', 'Typescript', 'Python', 'Java', 'C++', 'Node.js', 
+    'React', 'Javascript', 'Typescript', 'Python', 'Java', 'C++', 'C#', 'Node.js', 
     'Express', 'React Native', 'Swift', 'Kotlin', 'AWS', 'Docker', 'Kubernetes',
     'SQL', 'NoSQL', 'MongoDB', 'PostgreSQL', 'Redux', 'Tailwind', 'Git',
     'Project Management', 'Agile', 'Scrum', 'Sales', 'Marketing', 'Customer Service'
@@ -89,7 +109,14 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
   
   const foundSkills = new Set<string>();
   commonSkills.forEach(skill => {
-    const regex = new RegExp(`\\b${skill}\\b`, 'gi');
+    // Escape special regex characters like + in C++ or . in Node.js
+    const escapedSkill = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    
+    // For technical skills like C++, standard \b boundary doesn't work well 
+    // because + is not a word character. We use positive lookahead/lookbehind 
+    // or simply check if it's flanked by non-word chars or start/end of string.
+    const regex = new RegExp(`(^|[^a-zA-Z0-9#+.])${escapedSkill}([^a-zA-Z0-9#+.]|$)`, 'gi');
+    
     if (regex.test(text)) {
       foundSkills.add(skill);
     }
