@@ -17,7 +17,7 @@ function getGenAI() {
 
 export async function parseResume(fileData: { mimeType: string; data: string } | string) {
   const ai = getGenAI();
-  const modelName = "gemini-1.5-flash";
+  const modelName = "gemini-1.5-flash-latest";
 
   const prompt = `Extract organized candidate data from this resume for a recruitment system. Return ONLY a valid JSON object.
   Fields to extract: 
@@ -39,58 +39,72 @@ export async function parseResume(fileData: { mimeType: string; data: string } |
   ];
 
   try {
-    const response = await ai.models.generateContent({
-      model: modelName,
-      contents: { parts },
-      config: {
-        responseMimeType: "application/json",
-        responseSchema: {
-          type: Type.OBJECT,
-          properties: {
-            fullName: { type: Type.STRING },
-            email: { type: Type.STRING },
-            phone: { type: Type.STRING },
-            summary: { type: Type.STRING },
-            domain: { type: Type.STRING },
-            skills: { type: Type.ARRAY, items: { type: Type.STRING } },
-            experience: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  role: { type: Type.STRING },
-                  company: { type: Type.STRING },
-                  duration: { type: Type.STRING },
-                  description: { type: Type.STRING }
+    let response;
+    try {
+      response = await ai.models.generateContent({
+        model: modelName,
+        contents: { parts },
+        config: {
+          responseMimeType: "application/json",
+          responseSchema: {
+            type: Type.OBJECT,
+            properties: {
+              fullName: { type: Type.STRING },
+              email: { type: Type.STRING },
+              phone: { type: Type.STRING },
+              summary: { type: Type.STRING },
+              domain: { type: Type.STRING },
+              skills: { type: Type.ARRAY, items: { type: Type.STRING } },
+              experience: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    role: { type: Type.STRING },
+                    company: { type: Type.STRING },
+                    duration: { type: Type.STRING },
+                    description: { type: Type.STRING }
+                  }
+                }
+              },
+              education: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    degree: { type: Type.STRING },
+                    school: { type: Type.STRING },
+                    year: { type: Type.STRING }
+                  }
+                }
+              },
+              links: {
+                type: Type.ARRAY,
+                items: {
+                  type: Type.OBJECT,
+                  properties: {
+                    label: { type: Type.STRING },
+                    url: { type: Type.STRING }
+                  }
                 }
               }
             },
-            education: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  degree: { type: Type.STRING },
-                  school: { type: Type.STRING },
-                  year: { type: Type.STRING }
-                }
-              }
-            },
-            links: {
-              type: Type.ARRAY,
-              items: {
-                type: Type.OBJECT,
-                properties: {
-                  label: { type: Type.STRING },
-                  url: { type: Type.STRING }
-                }
-              }
-            }
-          },
-          required: ["fullName"]
+            required: ["fullName"]
+          }
         }
+      });
+    } catch (firstErr: any) {
+      if (firstErr.message?.includes('404')) {
+        console.warn("Primary model failed with 404, trying fallback model gemini-1.5-pro...");
+        response = await ai.models.generateContent({
+          model: "gemini-1.5-pro",
+          contents: { parts },
+          config: { responseMimeType: "application/json" }
+        });
+      } else {
+        throw firstErr;
       }
-    });
+    }
 
     const parsedText = response.text || "{}";
     return JSON.parse(parsedText);
