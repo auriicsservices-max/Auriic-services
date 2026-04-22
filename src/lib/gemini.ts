@@ -17,8 +17,7 @@ function getGenAI() {
 
 export async function parseResume(fileData: { mimeType: string; data: string } | string) {
   const ai = getGenAI();
-  const modelName = "gemini-flash-latest";
-  console.log("Gemini AI: Parsing resume using model " + modelName);
+  const modelName = "gemini-1.5-flash";
 
   const prompt = `Extract organized candidate data from this resume for a recruitment system. Return ONLY a valid JSON object.
   Fields to extract: 
@@ -39,64 +38,64 @@ export async function parseResume(fileData: { mimeType: string; data: string } |
       : [{ inlineData: fileData }])
   ];
 
-  const response = await ai.models.generateContent({
-    model: modelName,
-    contents: { parts },
-    config: {
-      responseMimeType: "application/json",
-      responseSchema: {
-        type: Type.OBJECT,
-        properties: {
-          fullName: { type: Type.STRING },
-          email: { type: Type.STRING },
-          phone: { type: Type.STRING },
-          summary: { type: Type.STRING },
-          domain: { type: Type.STRING },
-          skills: { type: Type.ARRAY, items: { type: Type.STRING } },
-          experience: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                role: { type: Type.STRING },
-                company: { type: Type.STRING },
-                duration: { type: Type.STRING },
-                description: { type: Type.STRING }
-              }
-            }
-          },
-          education: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                degree: { type: Type.STRING },
-                school: { type: Type.STRING },
-                year: { type: Type.STRING }
-              }
-            }
-          },
-          links: {
-            type: Type.ARRAY,
-            items: {
-              type: Type.OBJECT,
-              properties: {
-                label: { type: Type.STRING },
-                url: { type: Type.STRING }
-              }
-            }
-          }
-        },
-        required: ["fullName"]
-      }
-    }
-  });
-
-  const parsedText = response.text || "{}";
   try {
+    const response = await ai.models.generateContent({
+      model: modelName,
+      contents: { parts },
+      config: {
+        responseMimeType: "application/json",
+        responseSchema: {
+          type: Type.OBJECT,
+          properties: {
+            fullName: { type: Type.STRING },
+            email: { type: Type.STRING },
+            phone: { type: Type.STRING },
+            summary: { type: Type.STRING },
+            domain: { type: Type.STRING },
+            skills: { type: Type.ARRAY, items: { type: Type.STRING } },
+            experience: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  role: { type: Type.STRING },
+                  company: { type: Type.STRING },
+                  duration: { type: Type.STRING },
+                  description: { type: Type.STRING }
+                }
+              }
+            },
+            education: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  degree: { type: Type.STRING },
+                  school: { type: Type.STRING },
+                  year: { type: Type.STRING }
+                }
+              }
+            },
+            links: {
+              type: Type.ARRAY,
+              items: {
+                type: Type.OBJECT,
+                properties: {
+                  label: { type: Type.STRING },
+                  url: { type: Type.STRING }
+                }
+              }
+            }
+          },
+          required: ["fullName"]
+        }
+      }
+    });
+
+    const parsedText = response.text || "{}";
     return JSON.parse(parsedText);
-  } catch (err) {
-    console.error("Failed to parse AI response as JSON:", parsedText);
-    return { fullName: "Unparsed Candidate" };
+  } catch (err: any) {
+    console.error("Gemini AI API Error:", err);
+    throw new Error(`Gemini AI Error: ${err.message || 'Access Denied. Check your API Key permissions.'}`);
   }
 }
