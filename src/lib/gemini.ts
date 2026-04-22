@@ -17,7 +17,9 @@ function getGenAI() {
 
 export async function parseResume(fileData: { mimeType: string; data: string } | string) {
   const ai = getGenAI();
-  const modelName = "gemini-1.5-flash-latest";
+  // Try these models in order until one works
+  const modelsToTry = ["gemini-1.5-flash", "gemini-pro", "gemini-1.0-pro"];
+  let lastError: any = null;
 
   const prompt = `Extract organized candidate data from this resume for a recruitment system. Return ONLY a valid JSON object.
   Fields to extract: 
@@ -38,78 +40,80 @@ export async function parseResume(fileData: { mimeType: string; data: string } |
       : [{ inlineData: fileData }])
   ];
 
-  try {
-    let response;
+  for (const modelName of modelsToTry) {
     try {
-      response = await ai.models.generateContent({
+      console.log(`Gemini AI: Attempting parse with ${modelName}...`);
+      const response = await ai.models.generateContent({
         model: modelName,
         contents: { parts },
         config: {
           responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              fullName: { type: Type.STRING },
-              email: { type: Type.STRING },
-              phone: { type: Type.STRING },
-              summary: { type: Type.STRING },
-              domain: { type: Type.STRING },
-              skills: { type: Type.ARRAY, items: { type: Type.STRING } },
-              experience: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    role: { type: Type.STRING },
-                    company: { type: Type.STRING },
-                    duration: { type: Type.STRING },
-                    description: { type: Type.STRING }
+          // Only use responseSchema for 1.5 models
+          ...(modelName.includes('1.5') ? {
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                fullName: { type: Type.STRING },
+                email: { type: Type.STRING },
+                phone: { type: Type.STRING },
+                summary: { type: Type.STRING },
+                domain: { type: Type.STRING },
+                skills: { type: Type.ARRAY, items: { type: Type.STRING } },
+                experience: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      role: { type: Type.STRING },
+                      company: { type: Type.STRING },
+                      duration: { type: Type.STRING },
+                      description: { type: Type.STRING }
+                    }
+                  }
+                },
+                education: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      degree: { type: Type.STRING },
+                      school: { type: Type.STRING },
+                      year: { type: Type.STRING }
+                    }
+                  }
+                },
+                links: {
+                  type: Type.ARRAY,
+                  items: {
+                    type: Type.OBJECT,
+                    properties: {
+                      label: { type: Type.STRING },
+                      url: { type: Type.STRING }
+                    }
                   }
                 }
               },
-              education: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    degree: { type: Type.STRING },
-                    school: { type: Type.STRING },
-                    year: { type: Type.STRING }
-                  }
-                }
-              },
-              links: {
-                type: Type.ARRAY,
-                items: {
-                  type: Type.OBJECT,
-                  properties: {
-                    label: { type: Type.STRING },
-                    url: { type: Type.STRING }
-                  }
-                }
-              }
-            },
-            required: ["fullName"]
-          }
+              required: ["fullName"]
+            }
+          } : {})
         }
       });
-    } catch (firstErr: any) {
-      if (firstErr.message?.includes('404')) {
-        console.warn("Primary model failed with 404, trying fallback model gemini-1.5-pro...");
-        response = await ai.models.generateContent({
-          model: "gemini-1.5-pro",
-          contents: { parts },
-          config: { responseMimeType: "application/json" }
-        });
-      } else {
-        throw firstErr;
-      }
-    }
 
-    const parsedText = response.text || "{}";
-    return JSON.parse(parsedText);
-  } catch (err: any) {
-    console.error("Gemini AI API Error:", err);
-    throw new Error(`Gemini AI Error: ${err.message || 'Access Denied. Check your API Key permissions.'}`);
+      const parsedText = response.text || "{}";
+      return JSON.parse(parsedText);
+    } catch (err: any) {
+      lastError = err;
+      if (err.message?.includes('404')) {
+        console.warn(`Model ${modelName} not found, trying next...`);
+        continue;
+      }
+      // If it's a 403, it means the key is valid but service isn't enabled
+      if (err.message?.includes('403')) {
+        throw new Error("Access Denied (403). Your API Key is valid, but you MUST enable the 'Generative Language API' in your Google Cloud Project: https://console.cloud.google.com/apis/library/generativelanguage.googleapis.com");
+      }
+      throw err;
+    }
   }
+
+  throw new Error(`Gemini AI Error: All tested models failed. Last Error: ${lastError?.message}`);
 }
