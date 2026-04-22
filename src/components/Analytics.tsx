@@ -171,11 +171,23 @@ export default function Analytics({ candidates, onShortlist, onUpdateFollowUp, o
 
         {/* Top Skills List */}
         <section className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm min-h-[400px] flex flex-col transition-colors duration-300">
-          <div className="mb-6">
-            <h3 className="text-xl font-serif text-slate-800 dark:text-slate-100">In-Demand Skills</h3>
-            <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500">Click to view candidates</p>
+          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-serif text-slate-800 dark:text-slate-100">In-Demand Skills</h3>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500">Filter talent by expertise</p>
+            </div>
+            <select 
+              onChange={(e) => e.target.value && handleSkillClick(e.target.value)}
+              className="bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer transition-all hover:bg-slate-100 dark:hover:bg-slate-700 shadow-sm"
+              value={selectedSkill || ''}
+            >
+              <option value="">Select Skill...</option>
+              {allSkillsData.map(({ name }: any) => (
+                <option key={name} value={name}>{name}</option>
+              ))}
+            </select>
           </div>
-          <div className="flex-1 overflow-y-auto space-y-2">
+          <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
             {allSkillsData.map(({ name, count }: any) => (
               <button 
                 key={name}

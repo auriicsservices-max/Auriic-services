@@ -16,14 +16,14 @@ function getGenAI() {
 export async function parseResume(fileData: { mimeType: string; data: string } | string) {
   const ai = getGenAI();
 
-  const prompt = `Extract organized candidate data from this resume. Return ONLY a valid JSON object.
+  const prompt = `Extract organized candidate data from this resume for a recruitment system. Return ONLY a valid JSON object.
   Fields to extract: 
   - fullName (required)
   - email
   - phone
-  - summary
-  - domain (e.g. Software Engineering, Sales, HR)
-  - skills (array of strings)
+  - summary (professional bio)
+  - domain (e.g. Software Engineering, Sales, HR, Finance)
+  - skills (array of strings, e.g. ["React", "Python", "Project Management"])
   - experience (array of {role, company, duration, description})
   - education (array of {degree, school, year})
   - links (array of {label, url})`;
@@ -31,12 +31,12 @@ export async function parseResume(fileData: { mimeType: string; data: string } |
   const parts = [
     { text: prompt },
     ...(typeof fileData === 'string' 
-      ? [{ text: `Resume Text: ${fileData.slice(0, 30000)}` }] 
+      ? [{ text: `Resume Content: ${fileData.slice(0, 30000)}` }] 
       : [{ inlineData: fileData }])
   ];
 
   const response = await ai.models.generateContent({
-    model: "gemini-flash-latest",
+    model: "gemini-3-flash-preview",
     contents: { parts },
     config: {
       responseMimeType: "application/json",
