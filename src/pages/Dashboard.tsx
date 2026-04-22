@@ -110,37 +110,21 @@ export default function Dashboard() {
           reader.readAsDataURL(file);
         });
 
-        // Increased delay to respect Gemini API free tier rate limits (15 RPM -> 4 seconds between files)
-        if (acceptedFiles.indexOf(file) > 0) {
-          await new Promise(r => setTimeout(r, 4500));
+        // Use base64 directly for PDFs/DOCX/Images if possible
+        if (file.type === 'application/pdf' || 
+            file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
+            file.type === 'application/msword' ||
+            file.type.startsWith('image/')) {
+          parsed = await parseResume({
+            mimeType: file.type,
+            data: base64
+          });
+        } else {
+          const text = await file.text();
+          parsed = await parseResume(text);
         }
-
-        let retries = 0;
-        const maxRetries = 2;
         
-        while (retries <= maxRetries) {
-          try {
-            // Use base64 directly for PDFs/Images if possible
-            if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
-              parsed = await parseResume({
-                mimeType: file.type,
-                data: base64
-              });
-            } else {
-              const text = await file.text();
-              parsed = await parseResume(text);
-            }
-            break; // Success, exit while loop
-          } catch (err: any) {
-            if ((err.message?.includes('429') || err.message?.toLowerCase().includes('limit')) && retries < maxRetries) {
-              retries++;
-              // Wait longer before retrying (exponential backoff)
-              await new Promise(r => setTimeout(r, 6000 * retries));
-              continue;
-            }
-            throw err; // Re-throw if not a rate limit error or we've exhausted retries
-          }
-        }
+        // No more rate limit delay needed for local parsing
         
         // Global Duplicate check based on candidate email (across all recruiters)
         const emailQuery = query(collection(db, 'candidates'), where('email', '==', parsed.email?.toLowerCase() || ''));
@@ -198,22 +182,9 @@ export default function Dashboard() {
           break; // Stop processing further files
         }
         
-        // Handling for Project Denied/Permission errors
-        if (err.message?.includes('403') || err.message?.toLowerCase().includes('denied')) {
-          alert("Gemini AI Error: Your project has been denied access. This is usually due to a disabled API key or account restriction. Please check your API Key in Settings.");
-          setUploadStatus('error');
-          setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
-          break;
-        }
-
-        // Handling for Model Not Found errors
-        if (err.message?.includes('404')) {
-          alert("Gemini AI Error: The requested AI model was not found. We've switched to a stable version, please refresh and try again.");
-          setUploadStatus('error');
-          setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
-          break;
-        }
-
+        // Generic error handling for local parser
+        alert(`Parsing Error: Unable to extract data from ${file.name}. Please try another file format or check the file content.`);
+        
         setUploadStatus('error');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
       }
@@ -553,7 +524,7 @@ export default function Dashboard() {
             {isProcessing && (
               <div className="flex items-center gap-2 text-indigo-600 text-xs font-semibold animate-pulse">
                 <Loader2 className="animate-spin" size={14} />
-                AI Parsing Active...
+                Parsing Resumes...
               </div>
             )}
             <button 
