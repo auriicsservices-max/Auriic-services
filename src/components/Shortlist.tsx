@@ -1,10 +1,11 @@
 import React from 'react';
 import { Star, Users, Trash2, FileText, ChevronRight, Clock } from 'lucide-react';
 
-export default function Shortlist({ candidates, onCandidateSelect, onArchive }: { 
+export default function Shortlist({ candidates, onCandidateSelect, onArchive, role }: { 
     candidates: any[], 
     onCandidateSelect: (c: any) => void,
-    onArchive: (e: React.MouseEvent, id: string) => void
+    onArchive: (e: React.MouseEvent, id: string) => void,
+    role: string | null
 }) {
   const shortlisted = candidates.filter(c => c.isShortlisted && !c.isArchived);
 
@@ -32,7 +33,7 @@ export default function Shortlist({ candidates, onCandidateSelect, onArchive }: 
                         <tr>
                             <th className="px-6 py-4">Candidate</th>
                             <th className="px-6 py-4">Domain</th>
-                            <th className="px-6 py-4">Actions</th>
+                            <th className="px-6 py-4 text-right">Actions</th>
                         </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
@@ -45,13 +46,15 @@ export default function Shortlist({ candidates, onCandidateSelect, onArchive }: 
                                 <td className="px-6 py-4">
                                     <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">{candidate.domain || 'Unsorted'}</span>
                                 </td>
-                                <td className="px-6 py-4">
-                                    <button 
-                                        onClick={(e) => onArchive(e, candidate.id)}
-                                        className="text-slate-400 hover:text-red-500"
-                                    >
-                                        <Trash2 size={16} />
-                                    </button>
+                                <td className="px-6 py-4 text-right">
+                                    {role === 'admin' && (
+                                        <button 
+                                            onClick={(e) => onArchive(e, candidate.id)}
+                                            className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                        >
+                                            <Trash2 size={16} />
+                                        </button>
+                                    )}
                                 </td>
                             </tr>
                         ))}

@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, db } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs } from 'firebase/firestore';
 import { useDropzone } from 'react-dropzone';
 import { parseResume } from '../lib/gemini';
 import UserManagement from '../components/UserManagement';
@@ -60,7 +60,12 @@ export default function Dashboard() {
   useEffect(() => {
     const q = query(collection(db, 'candidates'), orderBy('createdAt', 'desc'));
     const unsubCandidates = onSnapshot(q, (snapshot) => {
-      setCandidates(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const allCandidates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      if (role === 'admin') {
+        setCandidates(allCandidates);
+      } else {
+        setCandidates(allCandidates.filter(c => c.uploadedBy === user?.uid));
+      }
     });
 
     // Fetch team members for uploader mapping (admin only)
@@ -121,11 +126,22 @@ export default function Dashboard() {
           await new Promise(r => setTimeout(r, 2000));
         }
         
-        // Duplicate check based on candidate email
-        const isDuplicate = candidates.some(c => c.email?.toLowerCase() === parsed.email?.toLowerCase());
+        // Global Duplicate check based on candidate email (across all recruiters)
+        const emailQuery = query(collection(db, 'candidates'), where('email', '==', parsed.email?.toLowerCase() || ''));
+        const querySnapshot = await getDocs(emailQuery);
+        const isDuplicate = !querySnapshot.empty;
         
         if (isDuplicate) {
-          setUploadStatus('duplicate');
+          const duplicateDoc = querySnapshot.docs[0].data();
+          const uploaderId = duplicateDoc.uploadedBy;
+          
+          if (uploaderId === user?.uid) {
+            setUploadStatus('duplicate');
+          } else {
+            // Found duplicate from another recruiter
+            alert(`This candidate (${parsed.fullName}) has already been uploaded by another team member. duplicate check passed.`);
+            setUploadStatus('duplicate');
+          }
           setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
           continue;
         }
@@ -143,6 +159,7 @@ export default function Dashboard() {
         
         await addDoc(collection(db, 'candidates'), {
           ...parsed,
+          email: parsed.email?.toLowerCase(),
           fullName: parsed.fullName || file.name.split('.')[0] || 'Unknown Candidate',
           fileName: file.name,
           fileType: file.type,
@@ -558,12 +575,22 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-indigo-50 dark:border-slate-800 shadow-sm flex items-center gap-4 transition-colors duration-300">
-                  <div className="w-12 h-12 bg-slate-50 dark:bg-slate-800 rounded-2xl flex items-center justify-center text-slate-400 dark:text-slate-500">
-                    <Users size={20} />
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                    candidates.some(c => c.followUpDate && new Date(c.followUpDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0]) 
+                      ? 'bg-red-50 dark:bg-red-900/40 text-red-600 dark:text-red-300 animate-pulse' 
+                      : 'bg-amber-50 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300'
+                  }`}>
+                    <Clock size={20} />
                   </div>
                   <div>
-                    <p className="text-[9px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-0.5">Teammates</p>
-                    <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">{fullTeamList.length}</h3>
+                    <p className="text-[9px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-0.5">Pending Follow-ups</p>
+                    <h3 className={`text-2xl font-bold tracking-tight ${
+                      candidates.some(c => c.followUpDate && new Date(c.followUpDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0])
+                        ? 'text-red-600 dark:text-red-400'
+                        : 'text-slate-800 dark:text-slate-100'
+                    }`}>
+                      {candidates.filter(c => c.followUpDate).length}
+                    </h3>
                   </div>
                 </div>
               </div>
@@ -828,7 +855,7 @@ export default function Dashboard() {
                 </div>
             </div>
           ) : activeTab === 'shortlist' ? (
-            <Shortlist candidates={candidates} onCandidateSelect={setSelectedCandidate} onArchive={handleArchiveCandidate} />
+            <Shortlist candidates={candidates} onCandidateSelect={setSelectedCandidate} onArchive={handleArchiveCandidate} role={role} />
           ) : activeTab === 'profile' ? (
             <UserProfile />
           ) : activeTab === 'logs' ? (

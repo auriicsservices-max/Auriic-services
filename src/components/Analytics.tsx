@@ -50,10 +50,83 @@ export default function Analytics({ candidates, onShortlist, onUpdateFollowUp, o
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* ... top cards ... */}
+      {/* Top Cards */}
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-300">
+          <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4">
+            <Users size={20} />
+          </div>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-widest">Talent Pool</p>
+          <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">{candidates.length}</h3>
+        </div>
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-300">
+          <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/40 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-4">
+            <Target size={20} />
+          </div>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-widest">Shortlisted</p>
+          <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tracking-tight">
+            {candidates.filter(c => c.isShortlisted).length}
+          </h3>
+        </div>
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-300">
+          <div className="w-10 h-10 bg-amber-50 dark:bg-amber-900/40 rounded-xl flex items-center justify-center text-amber-600 dark:text-amber-400 mb-4">
+            <Briefcase size={20} />
+          </div>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-widest">Unique Domains</p>
+          <h3 className="text-2xl font-bold text-amber-600 dark:text-amber-400 tracking-tight">
+            {Object.keys(domainDataMap).length}
+          </h3>
+        </div>
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-300">
+          <div className="w-10 h-10 bg-indigo-900 dark:bg-indigo-600 rounded-xl flex items-center justify-center text-white mb-4">
+            <TrendingUp size={20} />
+          </div>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-widest">Avg Skills/CV</p>
+          <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">
+            {(candidates.reduce((acc, c) => acc + (c.skills?.length || 0), 0) / (candidates.length || 1)).toFixed(1)}
+          </h3>
+        </div>
+      </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* ... domain chart ... */}
+        {/* Domain Distribution */}
+        <section className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm min-h-[400px] flex flex-col transition-colors duration-300">
+          <div className="mb-6">
+            <h3 className="text-xl font-serif text-slate-800 dark:text-slate-100">Domain Distribution</h3>
+            <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500">Industry landscape of talent pool</p>
+          </div>
+          <div className="flex-1 w-full h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={domainChartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  fill="#8884d8"
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {domainChartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: '1rem', 
+                    border: 'none', 
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                    backgroundColor: 'white',
+                    color: '#1e293b'
+                  }}
+                  itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
 
         {/* Top Skills List */}
         <section className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm min-h-[400px] flex flex-col transition-colors duration-300">
@@ -75,6 +148,45 @@ export default function Analytics({ candidates, onShortlist, onUpdateFollowUp, o
           </div>
         </section>
       </div>
+
+      {/* Skills Graph Section */}
+      <section className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-300">
+          <div className="mb-6">
+            <h3 className="text-xl font-serif text-slate-800 dark:text-slate-100">Skills Distribution</h3>
+            <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500">Volume of talent by core competency</p>
+          </div>
+          <div className="w-full h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={allSkillsData.slice(0, 10)} layout="vertical">
+                <XAxis type="number" hide />
+                <YAxis 
+                  dataKey="name" 
+                  type="category" 
+                  width={100} 
+                  tick={{ fontSize: 10, fontWeight: 'bold' }} 
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <Tooltip 
+                  cursor={{ fill: 'transparent' }}
+                  contentStyle={{ 
+                    borderRadius: '1rem', 
+                    border: 'none', 
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                    backgroundColor: 'white',
+                    color: '#1e293b'
+                  }}
+                />
+                <Bar 
+                  dataKey="count" 
+                  fill="#4F46E5" 
+                  radius={[0, 10, 10, 0]}
+                  barSize={20}
+                />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+      </section>
 
       {/* Skill Candidates Modal */}
       {showModal && (
