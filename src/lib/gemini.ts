@@ -5,9 +5,11 @@ let genAI: GoogleGenAI | null = null;
 function getGenAI() {
   if (!genAI) {
     const apiKey = process.env.GEMINI_API_KEY;
-    if (!apiKey) {
-      throw new Error("GEMINI_API_KEY is not defined. Please set it in your environment variables.");
+    if (!apiKey || apiKey === "undefined" || apiKey === "") {
+      console.error("Gemini API Error: GEMINI_API_KEY is missing from the client bundle.");
+      throw new Error("AI API Key not found. If you just added it to Vercel, please REDEPLOY your project to bake the key into the build.");
     }
+    console.log("Gemini AI: Initialized successfully.");
     genAI = new GoogleGenAI({ apiKey });
   }
   return genAI;
@@ -15,6 +17,8 @@ function getGenAI() {
 
 export async function parseResume(fileData: { mimeType: string; data: string } | string) {
   const ai = getGenAI();
+  const modelName = "gemini-flash-latest";
+  console.log("Gemini AI: Parsing resume using model " + modelName);
 
   const prompt = `Extract organized candidate data from this resume for a recruitment system. Return ONLY a valid JSON object.
   Fields to extract: 
@@ -36,7 +40,7 @@ export async function parseResume(fileData: { mimeType: string; data: string } |
   ];
 
   const response = await ai.models.generateContent({
-    model: "gemini-3-flash-preview",
+    model: modelName,
     contents: { parts },
     config: {
       responseMimeType: "application/json",
@@ -88,5 +92,11 @@ export async function parseResume(fileData: { mimeType: string; data: string } |
     }
   });
 
-  return JSON.parse(response.text || "{}");
+  const parsedText = response.text || "{}";
+  try {
+    return JSON.parse(parsedText);
+  } catch (err) {
+    console.error("Failed to parse AI response as JSON:", parsedText);
+    return { fullName: "Unparsed Candidate" };
+  }
 }

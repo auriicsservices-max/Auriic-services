@@ -184,22 +184,20 @@ export default function Dashboard() {
         
         // Handling for Project Denied/Permission errors
         if (err.message?.includes('403') || err.message?.toLowerCase().includes('denied')) {
-          alert("Gemini AI Error: Your project has been denied access. This is usually due to a disabled API key or account restriction. Please check your API Key in Settings.");
+          console.error("Gemini 403 Error:", err);
+          alert(`Gemini AI Error: Your project has been denied access (403). ${err.message}. Please check if the 'Generative Language API' is enabled in your Google Cloud Project or if your API Key in Settings is correct.`);
           setUploadStatus('error');
           setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
           break;
         }
 
-        // Handling for Model Not Found errors
-        if (err.message?.includes('404')) {
-          alert("Gemini AI Error: The requested AI model was not found. We've switched to a stable version, please refresh and try again.");
-          setUploadStatus('error');
-          setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
+        // Handling for Rate limits
+        if (err.message?.includes('429')) {
+          alert("Gemini AI Error: Rate limit reached (429). Please wait a moment before uploading more resumes.");
           break;
         }
 
-        setUploadStatus('error');
-        setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
+        alert(`Gemini AI Error: ${err.message || 'An unexpected error occurred during parsing.'}`);
       }
     }
     
