@@ -8,12 +8,26 @@ interface StatsProps {
   onShortlist: (id: string, currentStatus: boolean) => Promise<void>;
   onUpdateFollowUp: (id: string, note: string, date: string) => Promise<void>;
   onUpdateNotes: (id: string, notes: string) => Promise<void>;
+  teamMembers?: Record<string, string>;
+  role?: string | null;
 }
 
-export default function Analytics({ candidates, onShortlist, onUpdateFollowUp, onUpdateNotes }: StatsProps) {
+export default function Analytics({ candidates, onShortlist, onUpdateFollowUp, onUpdateNotes, teamMembers, role }: StatsProps) {
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+
+  // Process recruiter contribution data
+  const recruiterData = candidates.reduce((acc: any, c) => {
+    const uploaderId = c.uploadedBy || 'System';
+    const name = teamMembers?.[uploaderId] || uploaderId;
+    acc[name] = (acc[name] || 0) + 1;
+    return acc;
+  }, {});
+
+  const recruiterChartData = Object.entries(recruiterData)
+    .sort((a: any, b: any) => b[1] - a[1])
+    .map(([name, count]) => ({ name, count }));
 
   // Process domain data
   const domainDataMap = candidates.reduce((acc: any, c) => {
@@ -89,6 +103,33 @@ export default function Analytics({ candidates, onShortlist, onUpdateFollowUp, o
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Recruiter Contribution (Admin Only) */}
+        {role === 'admin' && (
+          <section className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm min-h-[400px] flex flex-col transition-colors duration-300">
+            <div className="mb-6">
+              <h3 className="text-xl font-serif text-slate-800 dark:text-slate-100">Team Contribution</h3>
+              <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500">CV counts per team member</p>
+            </div>
+            <div className="flex-1 w-full h-[300px]">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={recruiterChartData}>
+                  <XAxis dataKey="name" tick={{ fontSize: 10 }} hide={recruiterChartData.length > 5} />
+                  <YAxis tick={{ fontSize: 10 }} />
+                  <Tooltip 
+                    contentStyle={{ 
+                      borderRadius: '1rem', 
+                      border: 'none', 
+                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                      backgroundColor: 'white'
+                    }}
+                  />
+                  <Bar dataKey="count" fill="#10B981" radius={[10, 10, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        )}
+
         {/* Domain Distribution */}
         <section className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm min-h-[400px] flex flex-col transition-colors duration-300">
           <div className="mb-6">

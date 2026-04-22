@@ -721,6 +721,8 @@ export default function Dashboard() {
               onShortlist={handleShortlist} 
               onUpdateFollowUp={handleUpdateFollowUp} 
               onUpdateNotes={handleUpdateNotes} 
+              teamMembers={teamMembers}
+              role={role}
             />
           ) : activeTab === 'trash' ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-12">
