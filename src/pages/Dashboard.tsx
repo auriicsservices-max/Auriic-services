@@ -110,20 +110,36 @@ export default function Dashboard() {
           reader.readAsDataURL(file);
         });
 
-        // Use base64 directly for PDFs/Images if possible
-        if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
-          parsed = await parseResume({
-            mimeType: file.type,
-            data: base64
-          });
-        } else {
-          const text = await file.text();
-          parsed = await parseResume(text);
+        // Increased delay to respect Gemini API free tier rate limits (15 RPM -> 4 seconds between files)
+        if (acceptedFiles.indexOf(file) > 0) {
+          await new Promise(r => setTimeout(r, 4500));
         }
+
+        let retries = 0;
+        const maxRetries = 2;
         
-        // Small delay to respect rate limits (e.g. 2 seconds between files)
-        if (acceptedFiles.length > 1) {
-          await new Promise(r => setTimeout(r, 2000));
+        while (retries <= maxRetries) {
+          try {
+            // Use base64 directly for PDFs/Images if possible
+            if (file.type === 'application/pdf' || file.type.startsWith('image/')) {
+              parsed = await parseResume({
+                mimeType: file.type,
+                data: base64
+              });
+            } else {
+              const text = await file.text();
+              parsed = await parseResume(text);
+            }
+            break; // Success, exit while loop
+          } catch (err: any) {
+            if ((err.message?.includes('429') || err.message?.toLowerCase().includes('limit')) && retries < maxRetries) {
+              retries++;
+              // Wait longer before retrying (exponential backoff)
+              await new Promise(r => setTimeout(r, 6000 * retries));
+              continue;
+            }
+            throw err; // Re-throw if not a rate limit error or we've exhausted retries
+          }
         }
         
         // Global Duplicate check based on candidate email (across all recruiters)
