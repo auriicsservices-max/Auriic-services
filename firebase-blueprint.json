@@ -30,11 +30,30 @@
         "fileName": { "type": "string" },
         "fileType": { "type": "string" },
         "isShortlisted": { "type": "boolean" },
+        "isArchived": { "type": "boolean" },
         "uploadedBy": { "type": "string" },
         "notes": { "type": "string", "description": "Internal recruiter notes and comments" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "notesUpdatedBy": { "type": "string" },
+        "followUpNote": { "type": "string" },
+        "followUpDate": { "type": "string" },
+        "followUpUpdatedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["fullName", "uploadedBy", "createdAt"]
+    },
+    "ChatMessage": {
+      "title": "ChatMessage",
+      "description": "Internal team communication messages",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderRole": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["text", "senderId", "createdAt"]
     }
   },
   "firestore": {
@@ -42,17 +61,9 @@
       "schema": "User",
       "description": "User profiles and roles"
     },
-    "/invitations/{email}": {
-      "schema": {
-        "type": "object",
-        "properties": {
-          "email": { "type": "string" },
-          "role": { "type": "string", "enum": ["admin", "recruiter"] },
-          "createdAt": { "type": "string", "format": "date-time" }
-        },
-        "required": ["email", "role"]
-      },
-      "description": "Pre-registered users waiting for first login"
+    "/messages/{messageId}": {
+      "schema": "ChatMessage",
+      "description": "Global team chat messages"
     },
     "/candidates/{candidateId}": {
       "schema": "Candidate",

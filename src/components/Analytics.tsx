@@ -381,6 +381,7 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
           onShortlist={onShortlist} 
           onUpdateFollowUp={onUpdateFollowUp} 
           onUpdateNotes={onUpdateNotes}
+          teamMembers={teamMembers}
         />
       )}
     </div>

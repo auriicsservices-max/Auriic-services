@@ -12,6 +12,7 @@ import UserProfile from '../components/UserProfile';
 import Shortlist from '../components/Shortlist';
 import LogReview from '../components/LogReview';
 import ConfirmModal from '../components/ConfirmModal';
+import InternalChat from '../components/InternalChat';
 import LZString from 'lz-string';
 import { 
   Search, 
@@ -35,7 +36,8 @@ import {
   UserCircle,
   Activity,
   Menu,
-  X
+  X,
+  MessageSquare
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -48,10 +50,11 @@ export default function Dashboard() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ total: 0, processed: 0, failed: 0 });
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
-  const [activeTab, setActiveTab] = useState<'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs'>('candidates');
+  const [activeTab, setActiveTab] = useState<'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'chat'>('candidates');
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [viewScope, setViewScope] = useState<'mine' | 'all'>('all');
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
     title: string;
@@ -133,7 +136,7 @@ export default function Dashboard() {
     const q = query(collection(db, 'candidates'), orderBy('createdAt', 'desc'));
     const unsubCandidates = onSnapshot(q, (snapshot) => {
       const allCandidates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-      if (role === 'admin') {
+      if (role === 'admin' || viewScope === 'all') {
         setCandidates(allCandidates);
       } else {
         setCandidates(allCandidates.filter(c => c.uploadedBy === user?.uid));
@@ -149,28 +152,25 @@ export default function Dashboard() {
       }
     });
 
-    // Fetch team members for uploader mapping (admin only)
-    let unsubTeam = () => {};
-    if (role === 'admin') {
-      unsubTeam = onSnapshot(collection(db, 'users'), (snapshot) => {
-        const mapping: Record<string, string> = {};
-        const list: any[] = [];
-        snapshot.docs.forEach(doc => {
-          const data = doc.data();
-          mapping[doc.id] = data.name || data.email;
-          list.push({ id: doc.id, ...data });
-        });
-        setTeamMembers(mapping);
-        setFullTeamList(list);
+    // Fetch team members for uploader mapping (visible to all team members)
+    const unsubTeam = onSnapshot(collection(db, 'users'), (snapshot) => {
+      const mapping: Record<string, string> = {};
+      const list: any[] = [];
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        mapping[doc.id] = data.name || data.email;
+        list.push({ id: doc.id, ...data });
       });
-    }
+      setTeamMembers(mapping);
+      setFullTeamList(list);
+    });
 
     return () => {
       unsubCandidates();
       unsubLogs();
       unsubTeam();
     };
-  }, [role]);
+  }, [role, user, viewScope]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsProcessing(true);
@@ -549,6 +549,18 @@ export default function Dashboard() {
             Log Review
           </button>
 
+          <button 
+            onClick={() => { setActiveTab('chat'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
+            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'chat' 
+                ? 'bg-white text-indigo-900 shadow-lg' 
+                : 'text-indigo-100 hover:bg-white/10'
+            }`}
+          >
+            <MessageSquare className="w-5 h-5 mr-3" />
+            Team Intel
+          </button>
+
           {role === 'admin' && (
             <button 
               onClick={() => { setActiveTab('trash'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
@@ -699,6 +711,38 @@ export default function Dashboard() {
         <div className="p-8 flex-1 overflow-y-auto">
           {activeTab === 'candidates' ? (
             <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
+                <div className="flex items-center gap-4">
+                  <div className="flex -space-x-3">
+                    {[0, 1, 2].map((i) => (
+                      <div key={i} className="w-10 h-10 rounded-full border-2 border-slate-50 dark:border-slate-800 bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-[10px] font-bold text-slate-400">
+                        USR
+                      </div>
+                    ))}
+                  </div>
+                  <div>
+                    <h1 className="text-4xl font-serif text-slate-800 dark:text-slate-100 tracking-tight">Aurrum Index</h1>
+                    <p className="text-slate-400 dark:text-slate-500 text-[10px] uppercase font-black tracking-[0.2em] mt-1 ml-1">Candidate Intelligence Matrix</p>
+                  </div>
+                </div>
+                {role === 'recruiter' && (
+                  <div className="flex p-1 bg-slate-100 dark:bg-slate-800 rounded-xl transition-colors duration-300">
+                    <button 
+                      onClick={() => setViewScope('mine')}
+                      className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${viewScope === 'mine' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                    >
+                      My Candidates
+                    </button>
+                    <button 
+                      onClick={() => setViewScope('all')}
+                      className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${viewScope === 'all' ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-300 shadow-sm' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-200'}`}
+                    >
+                      All Activity
+                    </button>
+                  </div>
+                )}
+              </div>
+              
               {/* Stats Bar */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-indigo-50 dark:border-slate-800 shadow-sm flex items-center gap-4 transition-colors duration-300">
@@ -818,8 +862,9 @@ export default function Dashboard() {
                             )}
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-2">
-                                <div className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-700 dark:group-hover:text-indigo-400 transition-colors uppercase tracking-tight">{candidate.fullName}</div>
-                                {candidate.isShortlisted && <Star size={12} className="text-amber-500 fill-amber-500" />}
+                                <div className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-700 dark:group-hover:text-indigo-400 transition-colors uppercase tracking-tight truncate max-w-[150px]">{candidate.fullName}</div>
+                                {candidate.isShortlisted && <Star size={12} className="text-amber-500 fill-amber-500 shrink-0" />}
+                                {candidate.notes && <div className="w-1.5 h-1.5 rounded-full bg-indigo-400 shrink-0" title="Has internal notes" />}
                               </div>
                               <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{candidate.email || 'No contact mail'}</div>
                             </td>
@@ -860,6 +905,11 @@ export default function Dashboard() {
                                   title={candidate.followUpNote || 'Add Follow-up'}
                                 >
                                   <Clock size={14} />
+                                  {candidate.followUpNote && (
+                                    <div className="absolute -top-12 right-0 w-48 p-2 bg-indigo-900 text-white text-[8px] rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity shadow-xl z-20 border border-indigo-700 italic">
+                                      Reminder: "{candidate.followUpNote.slice(0, 80)}..."
+                                    </div>
+                                  )}
                                   {candidate.followUpUpdatedBy && (
                                     <div className="absolute -top-7 right-0 bg-slate-800 dark:bg-slate-700 text-white text-[8px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-10 border border-slate-700 dark:border-slate-600">
                                       By: {teamMembers[candidate.followUpUpdatedBy] || 'System'}
@@ -881,6 +931,11 @@ export default function Dashboard() {
                                 >
                                   Details <ChevronRight size={12} />
                                 </button>
+                                {candidate.notes && (
+                                  <div className="absolute -top-12 right-0 w-48 p-2 bg-slate-800 text-white text-[9px] rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity shadow-xl z-20 border border-slate-700 italic">
+                                    "{candidate.notes.slice(0, 80)}..."
+                                  </div>
+                                )}
                               </div>
                             </td>
                           </tr>
@@ -909,6 +964,10 @@ export default function Dashboard() {
               teamMembers={teamMembers}
               role={role}
             />
+          ) : activeTab === 'chat' ? (
+            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+               <InternalChat />
+            </div>
           ) : activeTab === 'trash' ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-12">
               {/* Candidate Trash */}
@@ -1109,6 +1168,7 @@ export default function Dashboard() {
         onShortlist={handleShortlist}
         onUpdateFollowUp={handleUpdateFollowUp}
         onUpdateNotes={handleUpdateNotes}
+        teamMembers={teamMembers}
       />
 
       <ConfirmModal 

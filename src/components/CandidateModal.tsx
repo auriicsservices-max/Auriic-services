@@ -12,9 +12,10 @@ interface CandidateModalProps {
   onShortlist: (id: string, currentStatus: boolean) => void;
   onUpdateFollowUp: (id: string, note: string, date: string) => void;
   onUpdateNotes: (id: string, notes: string) => void;
+  teamMembers: Record<string, string>;
 }
 
-export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp, onUpdateNotes }: CandidateModalProps) {
+export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp, onUpdateNotes, teamMembers }: CandidateModalProps) {
   const { user, role } = useAuth();
   const [followUpNote, setFollowUpNote] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
@@ -259,9 +260,16 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             </section>
 
             <section className="bg-slate-50 dark:bg-slate-800/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 transition-colors duration-300">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4 flex items-center gap-2">
-                <StickyNote size={12} /> Internal Notes
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-2">
+                  <StickyNote size={12} /> Internal Notes
+                </h3>
+                {candidate.notesUpdatedBy && (
+                  <span className="text-[9px] font-bold text-indigo-400 uppercase tracking-tighter shrink-0">
+                    Last: {teamMembers?.[candidate.notesUpdatedBy] || 'Team'}
+                  </span>
+                )}
+              </div>
               <div className="space-y-3">
                 <textarea 
                   value={generalNotes}
@@ -297,9 +305,16 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             </section>
 
             <section className="bg-indigo-600 p-6 rounded-3xl text-white">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-200 mb-4 flex items-center gap-2">
-                <Clock size={12} /> Follow-up Reminder
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-200 flex items-center gap-2">
+                  <Clock size={12} /> Follow-up Reminder
+                </h3>
+                {candidate.followUpUpdatedBy && (
+                  <span className="text-[9px] font-bold text-indigo-300 uppercase tracking-tighter shrink-0">
+                    By: {teamMembers?.[candidate.followUpUpdatedBy] || 'Team'}
+                  </span>
+                )}
+              </div>
               <div className="space-y-4">
                 <div className="space-y-1">
                   <label className="text-[9px] font-bold uppercase text-indigo-300 ml-1 tracking-wider">Next Follow-up Date</label>
