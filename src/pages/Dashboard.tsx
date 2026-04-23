@@ -45,10 +45,50 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ total: 0, processed: 0, failed: 0 });
-  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate'>('idle');
+  const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [activeTab, setActiveTab] = useState<'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs'>('candidates');
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  const toggleSelect = (e: React.MouseEvent, id: string) => {
+    e.stopPropagation();
+    const newSelected = new Set(selectedIds);
+    if (newSelected.has(id)) {
+      newSelected.delete(id);
+    } else {
+      newSelected.add(id);
+    }
+    setSelectedIds(newSelected);
+  };
+
+  const toggleSelectAll = (candidatesToShow: any[]) => {
+    if (selectedIds.size === candidatesToShow.length && candidatesToShow.length > 0) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(candidatesToShow.map(c => c.id)));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Are you sure you want to move ${selectedIds.size} candidates to trash?`)) return;
+    
+    setIsProcessing(true);
+    try {
+      const promises = Array.from(selectedIds).map(id => 
+        updateDoc(doc(db, 'candidates', id), { isArchived: true })
+      );
+      await Promise.all(promises);
+      setSelectedIds(new Set());
+      setUploadStatus('success');
+    } catch (err) {
+      console.error(err);
+      setUploadStatus('error');
+    } finally {
+      setIsProcessing(false);
+    }
+  };
 
   useEffect(() => {
     if (uploadStatus !== 'idle') {
@@ -135,12 +175,15 @@ export default function Dashboard() {
         if (isDuplicate) {
           const duplicateDoc = querySnapshot.docs[0].data();
           const uploaderId = duplicateDoc.uploadedBy;
+          const isArchived = duplicateDoc.isArchived;
           
-          if (uploaderId === user?.uid) {
+          if (isArchived) {
+            setUploadStatus('duplicateInTrash');
+          } else if (uploaderId === user?.uid) {
             setUploadStatus('duplicate');
           } else {
             // Found duplicate from another recruiter
-            alert(`This candidate (${parsed.fullName}) has already been uploaded by another team member. duplicate check passed.`);
+            alert(`This candidate (${parsed.fullName}) has already been uploaded by another team member. Duplicate check passed.`);
             setUploadStatus('duplicate');
           }
           setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
@@ -305,6 +348,7 @@ export default function Dashboard() {
     return terms.every(term => searchableText.includes(term));
   });
 
+  const activeCandidates = candidates.filter(c => !c.isArchived);
   const trashedCandidates = candidates.filter(c => c.isArchived);
   const trashedUsers = fullTeamList.filter(u => u.isArchived);
 
@@ -339,7 +383,7 @@ export default function Dashboard() {
 
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
           <button 
-            onClick={() => { setActiveTab('candidates'); setIsSidebarOpen(false); }}
+            onClick={() => { setActiveTab('candidates'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'candidates' 
                 ? 'bg-white text-indigo-900 shadow-lg' 
@@ -351,7 +395,7 @@ export default function Dashboard() {
           </button>
           
           <button 
-            onClick={() => { setActiveTab('shortlist'); setIsSidebarOpen(false); }}
+            onClick={() => { setActiveTab('shortlist'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'shortlist' 
                 ? 'bg-white text-indigo-900 shadow-lg' 
@@ -363,7 +407,7 @@ export default function Dashboard() {
           </button>
           
           <button 
-            onClick={() => { setActiveTab('analytics'); setIsSidebarOpen(false); }}
+            onClick={() => { setActiveTab('analytics'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'analytics' 
                 ? 'bg-white text-indigo-900 shadow-lg' 
@@ -375,7 +419,7 @@ export default function Dashboard() {
           </button>
 
           <button 
-            onClick={() => { setActiveTab('profile'); setIsSidebarOpen(false); }}
+            onClick={() => { setActiveTab('profile'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'profile' 
                 ? 'bg-white text-indigo-900 shadow-lg' 
@@ -387,7 +431,7 @@ export default function Dashboard() {
           </button>
 
           <button 
-            onClick={() => { setActiveTab('logs'); setIsSidebarOpen(false); }}
+            onClick={() => { setActiveTab('logs'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'logs' 
                 ? 'bg-white text-indigo-900 shadow-lg' 
@@ -400,7 +444,7 @@ export default function Dashboard() {
 
           {role === 'admin' && (
             <button 
-              onClick={() => { setActiveTab('trash'); setIsSidebarOpen(false); }}
+              onClick={() => { setActiveTab('trash'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
               className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
                 activeTab === 'trash' 
                   ? 'bg-white text-red-700 shadow-lg' 
@@ -425,7 +469,7 @@ export default function Dashboard() {
 
           {role === 'admin' && (
             <button 
-              onClick={() => { setActiveTab('users'); setIsSidebarOpen(false); }}
+              onClick={() => { setActiveTab('users'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
               className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
                 activeTab === 'users' 
                   ? 'bg-white text-indigo-900 shadow-lg' 
@@ -516,6 +560,12 @@ export default function Dashboard() {
                 Skipped: Duplicate detected
               </div>
             )}
+            {uploadStatus === 'duplicateInTrash' && (
+              <div className="flex items-center gap-2 text-amber-600 text-xs font-bold animate-in fade-in zoom-in-95 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
+                <AlertCircle size={14} />
+                Already in Trash. Restore from there.
+              </div>
+            )}
             {uploadStatus === 'error' && (
               <div className="flex items-center gap-2 text-red-600 text-xs font-bold animate-in fade-in zoom-in-95">
                 <AlertCircle size={14} />
@@ -550,7 +600,7 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <p className="text-[9px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-0.5">Total Records</p>
-                    <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">{candidates.length}</h3>
+                    <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">{activeCandidates.length}</h3>
                   </div>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-indigo-50 dark:border-slate-800 shadow-sm flex items-center gap-4 transition-colors duration-300">
@@ -559,12 +609,12 @@ export default function Dashboard() {
                   </div>
                   <div>
                     <p className="text-[9px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-0.5">Shortlisted</p>
-                    <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tracking-tight">{candidates.filter(c => c.isShortlisted).length}</h3>
+                    <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tracking-tight">{activeCandidates.filter(c => c.isShortlisted).length}</h3>
                   </div>
                 </div>
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-[2rem] border border-indigo-50 dark:border-slate-800 shadow-sm flex items-center gap-4 transition-colors duration-300">
                   <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                    candidates.some(c => c.followUpDate && new Date(c.followUpDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0]) 
+                    activeCandidates.some(c => c.followUpDate && new Date(c.followUpDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0]) 
                       ? 'bg-red-50 dark:bg-red-900/40 text-red-600 dark:text-red-300 animate-pulse' 
                       : 'bg-amber-50 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300'
                   }`}>
@@ -573,11 +623,11 @@ export default function Dashboard() {
                   <div>
                     <p className="text-[9px] text-slate-400 dark:text-slate-500 uppercase font-black tracking-widest mb-0.5">Pending Follow-ups</p>
                     <h3 className={`text-2xl font-bold tracking-tight ${
-                      candidates.some(c => c.followUpDate && new Date(c.followUpDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0])
+                      activeCandidates.some(c => c.followUpDate && new Date(c.followUpDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0])
                         ? 'text-red-600 dark:text-red-400'
                         : 'text-slate-800 dark:text-slate-100'
                     }`}>
-                      {candidates.filter(c => c.followUpDate).length}
+                      {activeCandidates.filter(c => c.followUpDate).length}
                     </h3>
                   </div>
                 </div>
@@ -602,11 +652,40 @@ export default function Dashboard() {
                   </div>
                 </div>
 
+                {role === 'admin' && selectedIds.size > 0 && (
+                  <div className="flex items-center justify-between px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-white dark:bg-slate-800 rounded-lg flex items-center justify-center text-red-600 dark:text-red-400 shadow-sm">
+                        <Trash2 size={16} />
+                      </div>
+                      <p className="text-sm font-bold text-red-700 dark:text-red-400">
+                        {selectedIds.size} candidates selected
+                      </p>
+                    </div>
+                    <button 
+                      onClick={handleBulkDelete}
+                      className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-xl text-xs font-bold shadow-lg shadow-red-200 dark:shadow-none transition-all active:scale-95 flex items-center gap-2"
+                    >
+                      Delete Selected
+                    </button>
+                  </div>
+                )}
+
                 {/* Candidates Table */}
                 <div className="overflow-hidden border border-slate-100 dark:border-slate-800 rounded-2xl transition-colors duration-300">
                   <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                       <tr>
+                        {role === 'admin' && (
+                          <th className="px-6 py-4 w-10">
+                            <input 
+                              type="checkbox" 
+                              checked={filteredCandidates.length > 0 && selectedIds.size === filteredCandidates.length}
+                              onChange={() => toggleSelectAll(filteredCandidates)}
+                              className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            />
+                          </th>
+                        )}
                         <th className="px-6 py-4">Candidate Identity</th>
                         <th className="px-6 py-4">Domain Focus</th>
                         <th className="px-6 py-4">Competencies</th>
@@ -619,7 +698,17 @@ export default function Dashboard() {
                         const isFollowUpDue = candidate.followUpDate && new Date(candidate.followUpDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0];
                         
                         return (
-                          <tr key={candidate.id} className="hover:bg-indigo-50/20 dark:hover:bg-indigo-900/10 group transition-all cursor-pointer" onClick={() => setSelectedCandidate(candidate)}>
+                          <tr key={candidate.id} className={`hover:bg-indigo-50/20 dark:hover:bg-indigo-900/10 group transition-all cursor-pointer ${selectedIds.has(candidate.id) ? 'bg-indigo-50/30 dark:bg-indigo-900/20' : ''}`} onClick={() => setSelectedCandidate(candidate)}>
+                            {role === 'admin' && (
+                              <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
+                                <input 
+                                  type="checkbox" 
+                                  checked={selectedIds.has(candidate.id)}
+                                  onChange={(e) => toggleSelect(e as any, candidate.id)}
+                                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                />
+                              </td>
+                            )}
                             <td className="px-6 py-4">
                               <div className="flex items-center gap-2">
                                 <div className="font-bold text-slate-800 dark:text-slate-200 group-hover:text-indigo-700 dark:group-hover:text-indigo-400 transition-colors uppercase tracking-tight">{candidate.fullName}</div>
@@ -692,7 +781,7 @@ export default function Dashboard() {
                       })}
                       {filteredCandidates.length === 0 && (
                         <tr>
-                          <td colSpan={5} className="px-6 py-20 text-center text-slate-300 dark:text-slate-700 font-medium italic transition-colors duration-300">
+                          <td colSpan={role === 'admin' ? 6 : 5} className="px-6 py-20 text-center text-slate-300 dark:text-slate-700 font-medium italic transition-colors duration-300">
                             <Users size={32} className="mx-auto mb-2 opacity-20" />
                             No matches found in standard index
                           </td>

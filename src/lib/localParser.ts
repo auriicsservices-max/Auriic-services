@@ -99,7 +99,67 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
     }
   }
 
-  // 4. Skills Extraction (Keywords based)
+  // 4. Extract Links (LinkedIn, GitHub, Portfolio) - Aggressive Pattern
+  const linkPatterns = [
+    { label: 'LinkedIn', regex: /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+/i },
+    { label: 'GitHub', regex: /(?:https?:\/\/)?(?:www\.)?github\.com\/[a-zA-Z0-9_-]+/i },
+    { label: 'Behance', regex: /(?:https?:\/\/)?(?:www\.)?behance\.net\/[a-zA-Z0-9_-]+/i },
+    { label: 'Dribbble', regex: /(?:https?:\/\/)?(?:www\.)?dribbble\.com\/[a-zA-Z0-9_-]+/i },
+    { label: 'Generic', regex: /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi }
+  ];
+
+  const foundLinksMap = new Map<string, string>();
+  linkPatterns.forEach(pattern => {
+    const matches = text.match(pattern.regex);
+    if (matches) {
+      matches.forEach(match => {
+        let url = match.trim();
+        if (!url.startsWith('http')) url = `https://${url}`;
+        
+        // Pick the best label
+        let label = pattern.label;
+        if (label === 'Generic') {
+            if (url.includes('linkedin.com')) label = 'LinkedIn';
+            else if (url.includes('github.com')) label = 'GitHub';
+            else if (url.includes('portfolio') || url.includes('personal')) label = 'Portfolio';
+            else label = 'Link';
+        }
+        
+        if (!foundLinksMap.has(url)) {
+          foundLinksMap.set(url, label);
+        }
+      });
+    }
+  });
+  resume.links = Array.from(foundLinksMap.entries()).map(([url, label]) => ({ label, url }));
+
+  // 5. Domain Extraction (Aggressive)
+  const domainKeywords: Record<string, string[]> = {
+    'Software Engineering': ['developer', 'software', 'engineer', 'frontend', 'backend', 'fullstack', 'coder', 'web', 'javascript', 'python', 'java', 'react'],
+    'Data Science': ['data', 'scientist', 'analysis', 'analytics', 'machine learning', 'ai', 'statistical', 'modeling', 'sql'],
+    'Marketing': ['marketing', 'brand', 'advertising', 'social media', 'content', 'seo', 'sem', 'campaign'],
+    'Sales': ['sales', 'account executive', 'business development', 'revenue', 'prospecting'],
+    'Human Resources': ['hr', 'recruiter', 'recruiting', 'talent', 'human resources', 'compensation', 'benefits'],
+    'Product Management': ['product manager', 'product owner', 'product design', 'strategy', 'roadmap'],
+    'Design': ['designer', 'ui', 'ux', 'product designer', 'graphic designer', 'illustrator', 'creative', 'adobe'],
+    'Finance': ['finance', 'accountant', 'accounting', 'banking', 'investment', 'ledger', 'audit'],
+    'Operations': ['operations', 'supply chain', 'admin', 'coordinator', 'logistics']
+  };
+
+  const domainScores: Record<string, number> = {};
+  Object.entries(domainKeywords).forEach(([dom, kws]) => {
+    domainScores[dom] = 0;
+    kws.forEach(kw => {
+      const regex = new RegExp(`\\b${kw}\\b`, 'gi');
+      const matches = text.match(regex);
+      if (matches) domainScores[dom] += matches.length;
+    });
+  });
+
+  const bestDomain = Object.entries(domainScores).reduce((a, b) => b[1] > a[1] ? b : a, ['General', 0]);
+  resume.domain = bestDomain[1] > 0 ? bestDomain[0] : 'General';
+
+  // 6. Skills Extraction (Keywords based)
   const commonSkills = [
     'React', 'Javascript', 'Typescript', 'Python', 'Java', 'C++', 'C#', 'Node.js', 
     'Express', 'React Native', 'Swift', 'Kotlin', 'AWS', 'Docker', 'Kubernetes',
@@ -123,7 +183,7 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
   });
   resume.skills = Array.from(foundSkills);
 
-  // 5. Section based extraction (Refined)
+  // 7. Section based extraction (Refined)
   const sections: Record<string, RegExp[]> = {
     summary: [/summary/i, /professional bio/i, /about me/i, /profile/i],
     experience: [/experience/i, /work history/i, /employment/i, /professional background/i],
