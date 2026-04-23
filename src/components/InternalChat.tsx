@@ -35,22 +35,33 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
   useEffect(() => {
     if (!user) return;
 
+    // Aggressively simplified query to avoid ALL composite index requirements
     const q = query(
       collection(db, 'direct_messages'),
-      where('recipientId', '==', user.uid),
-      where('read', '==', false),
-      orderBy('createdAt', 'desc'),
-      limit(200)
+      where('participants', 'array-contains', user.uid),
+      limit(500)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const counts: Record<string, number> = {};
       
+      // Get current user's read cursors
+      const currentUserData = teamMembers.find(t => t.uid === user.uid);
+      const readCursors = currentUserData?.readCursors || {};
+      
       snapshot.docs.forEach(doc => {
         const data = doc.data();
         const senderId = data.senderId;
-        if (senderId !== activePartnerId) {
-          counts[senderId] = (counts[senderId] || 0) + 1;
+        const recipientId = data.recipientId;
+        
+        if (recipientId === user.uid && senderId !== activePartnerId) {
+          const createdAt = data.createdAt?.toMillis() || 0;
+          const partnerReadCursor = readCursors[senderId];
+          const lastRead = partnerReadCursor?.toMillis ? partnerReadCursor.toMillis() : 0;
+
+          if (createdAt > lastRead) {
+            counts[senderId] = (counts[senderId] || 0) + 1;
+          }
         }
       });
       
@@ -60,36 +71,24 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
     return () => unsubscribe();
   }, [user, activePartnerId]);
 
-  // Update last read and mark messages as read
+  // Update last read (Local cursors method for better permissions)
   useEffect(() => {
     if (activePartnerId && user) {
-      const markMessagesAsRead = async () => {
+      const updateReadCursor = async () => {
         try {
-          const convId = getConversationId(user.uid, activePartnerId);
-          const q = query(
-            collection(db, 'direct_messages'),
-            where('conversationId', '==', convId),
-            where('recipientId', '==', user.uid),
-            where('read', '==', false)
-          );
-          
-          const snapshot = await getDocs(q);
-          if (!snapshot.empty) {
-            const batch = writeBatch(db);
-            snapshot.docs.forEach(d => {
-              batch.update(d.ref, { read: true });
-            });
-            await batch.commit();
-          }
+          const userDocRef = doc(db, 'users', user.uid);
+          await updateDoc(userDocRef, {
+            [`readCursors.${activePartnerId}`]: serverTimestamp()
+          });
         } catch (err) {
-          console.error("Error marking messages as read:", err);
+          console.error("Error updating read cursor:", err);
+          // Fallback to localStorage if Firestore update fails
+          localStorage.setItem(`lastRead_${user.uid}_${activePartnerId}`, Date.now().toString());
         }
       };
 
-      markMessagesAsRead();
+      updateReadCursor();
       
-      const now = Date.now();
-      localStorage.setItem(`lastRead_${user.uid}_${activePartnerId}`, now.toString());
       setUnreadCounts(prev => {
         const next = { ...prev };
         delete next[activePartnerId];
@@ -164,24 +163,29 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
 
     setIsLoading(true);
     const convId = getConversationId(user.uid, activePartnerId);
-    // Use smaller query to ensure better performance and index compatibility
+    // Aggressively simplified query (only one where) to avoid all composite index requirements
+    // We filter for conversationId locally to ensure we avoid "Missing Index" errors
     const q = query(
       collection(db, 'direct_messages'),
-      where('conversationId', '==', convId),
-      orderBy('createdAt', 'asc'),
-      limit(100)
+      where('participants', 'array-contains', user.uid),
+      limit(200)
     );
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const msgs = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
+      const msgs = snapshot.docs
+        .map(doc => ({ id: doc.id, ...doc.data() } as any))
+        .filter(msg => msg.conversationId === convId);
+        
+      // Sort locally
+      msgs.sort((a, b) => {
+        const t1 = a.createdAt?.toMillis() || 0;
+        const t2 = b.createdAt?.toMillis() || 0;
+        return t1 - t2;
+      });
       setMessages(msgs);
       setIsLoading(false);
     }, (error) => {
       console.error("Chat sync error:", error);
-      // Fallback: try query without ordering if it fails due to index
       setIsLoading(false);
     });
 
@@ -394,11 +398,17 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
                             </span>
                             {isOwn && (
                               <div className="flex items-center">
-                                {msg.read ? (
-                                  <CheckCheck size={10} className="text-blue-500" />
-                                ) : (
-                                  <Check size={10} className="text-slate-400" />
-                                )}
+                                {(() => {
+                                  const partnerReadCursor = activePartner?.readCursors?.[user.uid];
+                                  const lastRead = partnerReadCursor?.toMillis ? partnerReadCursor.toMillis() : 0;
+                                  const createdAt = msg.createdAt?.toMillis() || 0;
+                                  
+                                  return createdAt <= lastRead && lastRead > 0 ? (
+                                    <CheckCheck size={10} className="text-blue-500" />
+                                  ) : (
+                                    <Check size={10} className="text-slate-400" />
+                                  );
+                                })()}
                               </div>
                             )}
                           </div>

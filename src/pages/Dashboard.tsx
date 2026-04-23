@@ -143,12 +143,11 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user || !role) return;
 
-    // Listen for unread direct messages
+    // Aggressively simplified query to avoid composite index requirements
     const qChat = query(
       collection(db, 'direct_messages'),
-      where('recipientId', '==', user.uid),
-      orderBy('createdAt', 'desc'),
-      limit(50)
+      where('participants', 'array-contains', user.uid),
+      limit(100)
     );
 
     const unsubChat = onSnapshot(qChat, (snapshot) => {
@@ -157,16 +156,23 @@ export default function Dashboard() {
         return;
       }
 
+      // Get current user's read cursors from fullTeamList
+      const currentUserData = fullTeamList.find(u => u.id === user.uid);
+      const readCursors = currentUserData?.readCursors || {};
+
       let totalUnread = 0;
 
       snapshot.docs.forEach(doc => {
         const data = doc.data();
-        const senderId = data.senderId;
-        const createdAt = data.createdAt?.toMillis() || 0;
-        const lastRead = parseInt(localStorage.getItem(`lastRead_${user.uid}_${senderId}`) || '0');
+        if (data.recipientId === user.uid) {
+          const senderId = data.senderId;
+          const createdAt = data.createdAt?.toMillis() || 0;
+          const userReadCursorForSender = readCursors[senderId];
+          const lastRead = userReadCursorForSender?.toMillis ? userReadCursorForSender.toMillis() : 0;
 
-        if (createdAt > lastRead) {
-          totalUnread++;
+          if (createdAt > lastRead) {
+            totalUnread++;
+          }
         }
       });
       

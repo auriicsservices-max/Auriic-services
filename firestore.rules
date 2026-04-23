@@ -54,15 +54,16 @@ service cloud.firestore {
                data.role in ['admin', 'recruiter'];
       }
 
-      allow create: if isSignedIn() && isValidUser(request.resource.data);
-      allow update: if isSignedIn() && isValidUser(request.resource.data);
-      allow delete: if isSignedIn();
+      allow create: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      // Support updating own profile or status/readCursors
+      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow delete: if isAdmin();
     }
 
     // Invitations for pre-registration
     match /invitations/{email} {
       allow read: if isSignedIn();
-      allow write: if isSignedIn();
+      allow write: if isAdmin();
     }
 
     // Candidate Collection Rules
@@ -88,22 +89,17 @@ service cloud.firestore {
 
     // Direct Message Rules (DM)
     match /direct_messages/{messageId} {
-      allow get, list: if isSignedIn() && (
-        resource.data.get('participants', []).hasAny([request.auth.uid]) ||
+      // Allow read if user is sender, recipient, or in participants list
+      allow read: if isSignedIn() && (
         resource.data.senderId == request.auth.uid ||
-        resource.data.recipientId == request.auth.uid
+        resource.data.recipientId == request.auth.uid ||
+        resource.data.get('participants', []).hasAny([request.auth.uid])
       );
       
-      // Users can only send messages where they are one of the participants
+      // Allow create if user is sender and part of participants
       allow create: if isSignedIn() && (
-        request.resource.data.get('participants', []).hasAny([request.auth.uid]) ||
-        request.resource.data.senderId == request.auth.uid
-      );
-
-      // Users can mark messages as read if they are the recipient
-      allow update: if isSignedIn() && (
-        resource.data.recipientId == request.auth.uid &&
-        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.get('participants', []).hasAny([request.auth.uid])
       );
       
       allow delete: if isAdmin();
