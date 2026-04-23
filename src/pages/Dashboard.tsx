@@ -133,6 +133,8 @@ export default function Dashboard() {
   }, [uploadStatus]);
 
   useEffect(() => {
+    if (!user || !role) return;
+
     const q = query(collection(db, 'candidates'), orderBy('createdAt', 'desc'));
     const unsubCandidates = onSnapshot(q, (snapshot) => {
       const allCandidates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));

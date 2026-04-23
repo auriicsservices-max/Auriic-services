@@ -54,6 +54,29 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["text", "senderId", "createdAt"]
+    },
+    "DirectMessage": {
+      "title": "DirectMessage",
+      "description": "1-on-1 team member messages",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string" },
+        "senderId": { "type": "string" },
+        "recipientId": { "type": "string" },
+        "conversationId": { "type": "string" },
+        "senderName": { "type": "string" },
+        "senderRole": { "type": "string" },
+        "file": {
+          "type": "object",
+          "properties": {
+            "name": { "type": "string" },
+            "data": { "type": "string" },
+            "type": { "type": "string" }
+          }
+        },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["senderId", "recipientId", "conversationId", "createdAt"]
     }
   },
   "firestore": {
@@ -64,6 +87,10 @@
     "/messages/{messageId}": {
       "schema": "ChatMessage",
       "description": "Global team chat messages"
+    },
+    "/direct_messages/{messageId}": {
+      "schema": "DirectMessage",
+      "description": "Private team communications"
     },
     "/candidates/{candidateId}": {
       "schema": "Candidate",

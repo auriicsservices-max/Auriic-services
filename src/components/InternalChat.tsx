@@ -44,6 +44,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
     const q = query(
       collection(db, 'direct_messages'),
       where('conversationId', '==', convId),
+      where('participants', 'array-contains', user.uid),
       orderBy('createdAt', 'asc'),
       limit(100)
     );
@@ -54,6 +55,9 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
         ...doc.data()
       }));
       setMessages(msgs);
+      setIsLoading(false);
+    }, (error) => {
+      console.error("Chat sync error:", error);
       setIsLoading(false);
     });
 
@@ -76,6 +80,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
         text: newMessage.trim(),
         senderId: user.uid,
         recipientId: activePartnerId,
+        participants: [user.uid, activePartnerId],
         conversationId: convId,
         senderName: user.displayName || user.email?.split('@')[0] || 'Unknown',
         senderRole: role,
