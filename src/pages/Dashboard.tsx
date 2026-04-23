@@ -966,7 +966,7 @@ export default function Dashboard() {
             />
           ) : activeTab === 'chat' ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-               <InternalChat />
+               <InternalChat teamMembers={fullTeamList} />
             </div>
           ) : activeTab === 'trash' ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-12">
