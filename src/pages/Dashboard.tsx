@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, db } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs, limit } from 'firebase/firestore';
 import { useDropzone } from 'react-dropzone';
 import { parseResume } from '../lib/gemini';
 import UserManagement from '../components/UserManagement';
@@ -51,6 +51,14 @@ export default function Dashboard() {
   const [uploadProgress, setUploadProgress] = useState({ total: 0, processed: 0, failed: 0 });
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [activeTab, setActiveTab] = useState<'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'chat'>('candidates');
+  const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
+
+  useEffect(() => {
+    if (user?.uid) {
+      setLastReadTimestamp(parseInt(localStorage.getItem(`lastReadChat_${user.uid}`) || '0'));
+    }
+  }, [user?.uid]);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -135,6 +143,36 @@ export default function Dashboard() {
   useEffect(() => {
     if (!user || !role) return;
 
+    // Listen for unread direct messages
+    const qChat = query(
+      collection(db, 'direct_messages'),
+      where('recipientId', '==', user.uid),
+      orderBy('createdAt', 'desc'),
+      limit(50)
+    );
+
+    const unsubChat = onSnapshot(qChat, (snapshot) => {
+      if (activeTab === 'chat') {
+        setUnreadChatCount(0);
+        return;
+      }
+
+      let totalUnread = 0;
+
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const senderId = data.senderId;
+        const createdAt = data.createdAt?.toMillis() || 0;
+        const lastRead = parseInt(localStorage.getItem(`lastRead_${user.uid}_${senderId}`) || '0');
+
+        if (createdAt > lastRead) {
+          totalUnread++;
+        }
+      });
+      
+      setUnreadChatCount(totalUnread);
+    });
+
     const q = query(collection(db, 'candidates'), orderBy('createdAt', 'desc'));
     const unsubCandidates = onSnapshot(q, (snapshot) => {
       const allCandidates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
@@ -168,11 +206,12 @@ export default function Dashboard() {
     });
 
     return () => {
+      unsubChat();
       unsubCandidates();
       unsubLogs();
       unsubTeam();
     };
-  }, [role, user, viewScope]);
+  }, [role, user, viewScope, activeTab, lastReadTimestamp]);
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     setIsProcessing(true);
@@ -477,10 +516,11 @@ export default function Dashboard() {
       >
         <div className="p-6 flex items-center justify-between border-b border-white/10">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-white rounded flex items-center justify-center">
-              <span className="text-indigo-900 font-bold text-lg">A</span>
-            </div>
-            <h1 className="font-bold text-xl tracking-tight text-white italic font-serif">Aurrum</h1>
+            <img 
+              src="https://aurrum.co/wp-content/uploads/2026/03/Aurrum-Logo.png" 
+              alt="Aurrum Logo" 
+              className="h-10 w-auto object-contain brightness-0 invert"
+            />
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
@@ -524,7 +564,7 @@ export default function Dashboard() {
             }`}
           >
             <AnalyticsIcon className="w-5 h-5 mr-3" />
-            Talent Search
+            Talent Insights
           </button>
 
           <button 
@@ -552,15 +592,20 @@ export default function Dashboard() {
           </button>
 
           <button 
-            onClick={() => { setActiveTab('chat'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
-            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+            onClick={() => { setActiveTab('chat'); setIsSidebarOpen(false); setSelectedIds(new Set()); setUnreadChatCount(0); }}
+            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all relative ${
               activeTab === 'chat' 
                 ? 'bg-white text-indigo-900 shadow-lg' 
                 : 'text-indigo-100 hover:bg-white/10'
             }`}
           >
             <MessageSquare className="w-5 h-5 mr-3" />
-            Team Intel
+            Aurrum Chat
+            {unreadChatCount > 0 && activeTab !== 'chat' && (
+              <span className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-bounce shadow-lg">
+                {unreadChatCount > 9 ? '9+' : unreadChatCount}
+              </span>
+            )}
           </button>
 
           {role === 'admin' && (
@@ -665,7 +710,7 @@ export default function Dashboard() {
             <span className="hidden md:block cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" onClick={() => setActiveTab('candidates')}>Registry</span>
             <ChevronRight className="hidden md:block w-3 h-3" />
             <span className="text-slate-800 dark:text-slate-100 italic font-serif normal-case text-base tracking-normal">
-              {activeTab === 'candidates' ? 'Candidate Registry' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : 'Log Review'}
+              {activeTab === 'candidates' ? 'Candidate Registry' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'chat' ? 'Aurrum Chat' : 'Log Review'}
             </span>
           </div>
           <div className="flex items-center gap-4">

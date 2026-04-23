@@ -18,6 +18,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [fileAttachment, setFileAttachment] = useState<{ name: string; data: string; type: string } | null>(null);
+  const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -27,6 +28,50 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
     (u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
      u.email?.toLowerCase().includes(searchQuery.toLowerCase()))
   );
+
+  // Sync unread counts
+  useEffect(() => {
+    if (!user) return;
+
+    const q = query(
+      collection(db, 'direct_messages'),
+      where('recipientId', '==', user.uid),
+      orderBy('createdAt', 'desc'),
+      limit(200)
+    );
+
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const counts: Record<string, number> = {};
+      
+      snapshot.docs.forEach(doc => {
+        const data = doc.data();
+        const senderId = data.senderId;
+        const createdAt = data.createdAt?.toMillis() || 0;
+        const lastRead = parseInt(localStorage.getItem(`lastRead_${user.uid}_${senderId}`) || '0');
+
+        if (createdAt > lastRead && senderId !== activePartnerId) {
+          counts[senderId] = (counts[senderId] || 0) + 1;
+        }
+      });
+      
+      setUnreadCounts(counts);
+    });
+
+    return () => unsubscribe();
+  }, [user, activePartnerId]);
+
+  // Update last read when switching partners
+  useEffect(() => {
+    if (activePartnerId && user) {
+      const now = Date.now();
+      localStorage.setItem(`lastRead_${user.uid}_${activePartnerId}`, now.toString());
+      setUnreadCounts(prev => {
+        const next = { ...prev };
+        delete next[activePartnerId];
+        return next;
+      });
+    }
+  }, [activePartnerId, user]);
 
   // Create a stable conversation ID for 1-on-1 chats
   const getConversationId = (id1: string, id2: string) => {
@@ -89,6 +134,8 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
       });
       setNewMessage('');
       setFileAttachment(null);
+      // Also update last read when sending
+      localStorage.setItem(`lastRead_${user.uid}_${activePartnerId}`, Date.now().toString());
     } catch (err) {
       console.error('Error sending message:', err);
     }
@@ -156,6 +203,11 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
                   <p className="text-xs font-bold truncate">{u.name || u.email}</p>
                   <p className={`text-[8px] uppercase font-black tracking-tighter ${activePartnerId === u.uid ? 'text-indigo-200' : 'text-slate-400'}`}>{u.role}</p>
                 </div>
+                {unreadCounts[u.uid] > 0 && (
+                  <div className="w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg animate-in zoom-in">
+                    {unreadCounts[u.uid]}
+                  </div>
+                )}
                 {u.role === 'admin' && <Shield size={12} className={activePartnerId === u.uid ? 'text-indigo-200' : 'text-amber-500'} />}
               </button>
             ))
