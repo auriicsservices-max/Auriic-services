@@ -88,8 +88,7 @@ service cloud.firestore {
 
     // Direct Message Rules (DM)
     match /direct_messages/{messageId} {
-      // Users can read messages where they are participants, either via array or legacy fields
-      allow read: if isSignedIn() && (
+      allow get, list: if isSignedIn() && (
         resource.data.get('participants', []).hasAny([request.auth.uid]) ||
         resource.data.senderId == request.auth.uid ||
         resource.data.recipientId == request.auth.uid
@@ -100,8 +99,20 @@ service cloud.firestore {
         request.resource.data.get('participants', []).hasAny([request.auth.uid]) ||
         request.resource.data.senderId == request.auth.uid
       );
+
+      // Users can mark messages as read if they are the recipient
+      allow update: if isSignedIn() && (
+        resource.data.recipientId == request.auth.uid &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read'])
+      );
       
       allow delete: if isAdmin();
+    }
+
+    // Typing State Rules
+    match /typing_states/{conversationId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn();
     }
   }
 }

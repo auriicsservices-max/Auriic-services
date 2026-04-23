@@ -171,7 +171,7 @@ export default function Dashboard() {
       });
       
       setUnreadChatCount(totalUnread);
-    });
+    }, (err) => console.error("Chat count listener error:", err));
 
     const q = query(collection(db, 'candidates'), orderBy('createdAt', 'desc'));
     const unsubCandidates = onSnapshot(q, (snapshot) => {
@@ -181,7 +181,7 @@ export default function Dashboard() {
       } else {
         setCandidates(allCandidates.filter(c => c.uploadedBy === user?.uid));
       }
-    });
+    }, (err) => console.error("Candidates listener error:", err));
 
     const unsubLogs = onSnapshot(query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc')), (snapshot) => {
       const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
@@ -190,7 +190,7 @@ export default function Dashboard() {
       } else {
         setActivityLogs(logs.filter(log => log.userId === user?.uid));
       }
-    });
+    }, (err) => console.error("Logs listener error:", err));
 
     // Fetch team members for uploader mapping (visible to all team members)
     const unsubTeam = onSnapshot(collection(db, 'users'), (snapshot) => {
@@ -203,7 +203,7 @@ export default function Dashboard() {
       });
       setTeamMembers(mapping);
       setFullTeamList(list);
-    });
+    }, (err) => console.error("Team listener error:", err));
 
     return () => {
       unsubChat();
@@ -650,8 +650,9 @@ export default function Dashboard() {
 
         <div className="p-4 border-t border-white/10">
           <div className="flex items-center gap-3 p-3 bg-white/10 rounded-xl group transition-all hover:bg-white/20">
-            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-indigo-900 font-bold text-xs uppercase shadow-sm">
+            <div className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-indigo-900 font-bold text-xs uppercase shadow-sm relative">
               {user?.displayName?.slice(0, 2) || user?.email?.slice(0, 2)}
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-indigo-900 rounded-full shadow-sm" />
             </div>
             <div className="overflow-hidden flex-1">
               <p className="text-xs font-bold text-white truncate">{user?.email}</p>

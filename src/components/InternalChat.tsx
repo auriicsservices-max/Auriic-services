@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { db } from '../lib/firebase';
-import { collection, query, orderBy, onSnapshot, addDoc, limit, serverTimestamp, where, doc, setDoc, getDoc } from 'firebase/firestore';
+import { collection, query, orderBy, onSnapshot, addDoc, limit, serverTimestamp, where, doc, setDoc, getDoc, updateDoc, writeBatch, getDocs } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
-import { Send, User, Shield, MessageSquare, Clock, Search, FileText, Plus, Paperclip, X, Download } from 'lucide-react';
+import { Send, User, Shield, MessageSquare, Clock, Search, FileText, Plus, Paperclip, X, Download, Check, CheckCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface InternalChatProps {
@@ -19,8 +19,10 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
   const [isSearching, setIsSearching] = useState(false);
   const [fileAttachment, setFileAttachment] = useState<{ name: string; data: string; type: string } | null>(null);
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
+  const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const typingTimeoutRef = useRef<any>(null);
 
   // Filter team members based on search
   const filteredUsers = teamMembers.filter(u => 
@@ -36,6 +38,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
     const q = query(
       collection(db, 'direct_messages'),
       where('recipientId', '==', user.uid),
+      where('read', '==', false),
       orderBy('createdAt', 'desc'),
       limit(200)
     );
@@ -46,10 +49,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
       snapshot.docs.forEach(doc => {
         const data = doc.data();
         const senderId = data.senderId;
-        const createdAt = data.createdAt?.toMillis() || 0;
-        const lastRead = parseInt(localStorage.getItem(`lastRead_${user.uid}_${senderId}`) || '0');
-
-        if (createdAt > lastRead && senderId !== activePartnerId) {
+        if (senderId !== activePartnerId) {
           counts[senderId] = (counts[senderId] || 0) + 1;
         }
       });
@@ -60,9 +60,34 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
     return () => unsubscribe();
   }, [user, activePartnerId]);
 
-  // Update last read when switching partners
+  // Update last read and mark messages as read
   useEffect(() => {
     if (activePartnerId && user) {
+      const markMessagesAsRead = async () => {
+        try {
+          const convId = getConversationId(user.uid, activePartnerId);
+          const q = query(
+            collection(db, 'direct_messages'),
+            where('conversationId', '==', convId),
+            where('recipientId', '==', user.uid),
+            where('read', '==', false)
+          );
+          
+          const snapshot = await getDocs(q);
+          if (!snapshot.empty) {
+            const batch = writeBatch(db);
+            snapshot.docs.forEach(d => {
+              batch.update(d.ref, { read: true });
+            });
+            await batch.commit();
+          }
+        } catch (err) {
+          console.error("Error marking messages as read:", err);
+        }
+      };
+
+      markMessagesAsRead();
+      
       const now = Date.now();
       localStorage.setItem(`lastRead_${user.uid}_${activePartnerId}`, now.toString());
       setUnreadCounts(prev => {
@@ -71,7 +96,60 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
         return next;
       });
     }
+  }, [activePartnerId, user, messages.length]);
+
+  // Typing indicator listener
+  useEffect(() => {
+    if (!activePartnerId || !user) {
+      setIsPartnerTyping(false);
+      return;
+    }
+
+    const convId = getConversationId(user.uid, activePartnerId);
+    const typingRef = doc(db, 'typing_states', convId);
+    
+    const unsubscribe = onSnapshot(typingRef, (doc) => {
+      if (doc.exists()) {
+        const data = doc.data();
+        setIsPartnerTyping(!!data.typing?.[activePartnerId]);
+      } else {
+        setIsPartnerTyping(false);
+      }
+    });
+
+    return () => unsubscribe();
   }, [activePartnerId, user]);
+
+  const setTypingStatus = async (isTyping: boolean) => {
+    if (!user || !activePartnerId) return;
+    const convId = getConversationId(user.uid, activePartnerId);
+    const typingRef = doc(db, 'typing_states', convId);
+    
+    try {
+      await setDoc(typingRef, {
+        typing: {
+          [user.uid]: isTyping
+        }
+      }, { merge: true });
+    } catch (err) {
+      console.error("Error setting typing status:", err);
+    }
+  };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setNewMessage(e.target.value);
+    
+    // Set typing to true
+    setTypingStatus(true);
+    
+    // Clear existing timeout
+    if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    
+    // Set timeout to set typing to false
+    typingTimeoutRef.current = setTimeout(() => {
+      setTypingStatus(false);
+    }, 2000);
+  };
 
   // Create a stable conversation ID for 1-on-1 chats
   const getConversationId = (id1: string, id2: string) => {
@@ -86,10 +164,10 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
 
     setIsLoading(true);
     const convId = getConversationId(user.uid, activePartnerId);
+    // Use smaller query to ensure better performance and index compatibility
     const q = query(
       collection(db, 'direct_messages'),
       where('conversationId', '==', convId),
-      where('participants', 'array-contains', user.uid),
       orderBy('createdAt', 'asc'),
       limit(100)
     );
@@ -103,6 +181,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
       setIsLoading(false);
     }, (error) => {
       console.error("Chat sync error:", error);
+      // Fallback: try query without ordering if it fails due to index
       setIsLoading(false);
     });
 
@@ -130,6 +209,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
         senderName: user.displayName || user.email?.split('@')[0] || 'Unknown',
         senderRole: role,
         file: fileAttachment,
+        read: false,
         createdAt: serverTimestamp()
       });
       setNewMessage('');
@@ -196,8 +276,11 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
                 onClick={() => setActivePartnerId(u.uid)}
                 className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all ${activePartnerId === u.uid ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 dark:shadow-none' : 'hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'}`}
               >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold ${activePartnerId === u.uid ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold relative ${activePartnerId === u.uid ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
                   {u.name?.slice(0, 2).toUpperCase() || '??'}
+                  {u.status === 'online' && (
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full shadow-sm" />
+                  )}
                 </div>
                 <div className="text-left flex-1 min-w-0">
                   <p className="text-xs font-bold truncate">{u.name || u.email}</p>
@@ -230,14 +313,25 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
             {/* Chat Header */}
             <header className="px-8 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold">
+                <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold relative">
                   {activePartner?.name?.slice(0, 2).toUpperCase()}
+                  {activePartner?.status === 'online' && (
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full shadow-sm" />
+                  )}
                 </div>
                 <div>
                   <h4 className="font-bold text-slate-800 dark:text-slate-100">{activePartner?.name}</h4>
                   <div className="flex items-center gap-2">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">Active Session</span>
+                    <span className={`w-1.5 h-1.5 rounded-full ${activePartner?.status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                      {isPartnerTyping ? (
+                        <span className="text-indigo-500 flex items-center gap-1">
+                          typing<span className="animate-bounce">.</span><span className="animate-bounce delay-100">.</span><span className="animate-bounce delay-200">.</span>
+                        </span>
+                      ) : (
+                        activePartner?.status === 'online' ? 'Active Session' : 'Offline'
+                      )}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -294,9 +388,20 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
                               </div>
                             )}
                           </div>
-                          <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter px-1">
-                            {formatTime(msg.createdAt)}
-                          </span>
+                          <div className="flex items-center gap-1.5 px-1 mt-0.5">
+                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                              {formatTime(msg.createdAt)}
+                            </span>
+                            {isOwn && (
+                              <div className="flex items-center">
+                                {msg.read ? (
+                                  <CheckCheck size={10} className="text-blue-500" />
+                                ) : (
+                                  <Check size={10} className="text-slate-400" />
+                                )}
+                              </div>
+                            )}
+                          </div>
                         </div>
                       </motion.div>
                     );
@@ -327,7 +432,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
                     <input 
                       type="text"
                       value={newMessage}
-                      onChange={(e) => setNewMessage(e.target.value)}
+                      onChange={handleInputChange}
                       placeholder="Type a secure message..."
                       className="w-full pl-12 pr-12 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500/50 text-sm font-medium text-slate-800 dark:text-slate-100 transition-all placeholder:text-slate-400"
                     />
