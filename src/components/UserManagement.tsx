@@ -7,6 +7,7 @@ import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
 import { UserPlus, Shield, User as UserIcon, Trash2, Mail, Lock, Loader2, RotateCcw, AlertTriangle, RefreshCcw, Database } from 'lucide-react';
+import ConfirmModal from './ConfirmModal';
 
 export default function UserManagement() {
   const { user, role } = useAuth();
@@ -18,6 +19,30 @@ export default function UserManagement() {
   const [isResetting, setIsResetting] = useState(false);
   const [error, setError] = useState('');
   const [view, setView] = useState<'active' | 'trash'>('active');
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant?: 'danger' | 'warning' | 'info';
+    confirmText?: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const showAlert = (title: string, message: string) => {
+    setConfirmConfig({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {},
+      variant: 'info',
+      confirmText: 'OK'
+    });
+  };
 
   useEffect(() => {
     const usersQ = query(collection(db, 'users'));
@@ -85,12 +110,19 @@ export default function UserManagement() {
   };
 
   const handleArchiveUser = async (userId: string) => {
-    if (!window.confirm('Move this user to Trash? They will lose access to the portal immediately.')) return;
-    try {
-      await updateDoc(doc(db, 'users', userId), { isArchived: true });
-    } catch (err) {
-      console.error(err);
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Move User to Trash',
+      message: 'Move this user to Trash? They will lose access to the portal immediately.',
+      onConfirm: async () => {
+        try {
+          await updateDoc(doc(db, 'users', userId), { isArchived: true });
+        } catch (err) {
+          console.error(err);
+        }
+      },
+      variant: 'warning'
+    });
   };
 
   const handleRestoreUser = async (userId: string) => {
@@ -102,37 +134,47 @@ export default function UserManagement() {
   };
 
   const handleDeleteUserPermanently = async (userId: string) => {
-    if (!window.confirm('PERMANENT DELETE. This will remove the user entry from the database. Note: The user account in Firebase Auth remains but they will have NO role/access.')) return;
-    try {
-      await deleteDoc(doc(db, 'users', userId));
-    } catch (err) {
-      console.error(err);
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Team Member',
+      message: 'PERMANENT DELETE. This will remove the user entry from the database. Note: The user account in Firebase Auth remains but they will have NO role/access.',
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'users', userId));
+        } catch (err) {
+          console.error(err);
+        }
+      },
+      variant: 'danger'
+    });
   };
 
   const handleResetDatabase = async () => {
-    const confirmation = window.confirm(
-      "EXTREME CAUTION: This will PERMANENTLY DELETE ALL candidates from the database. This action cannot be undone. Are you absolutely sure you want to proceed?"
-    );
-    if (!confirmation) return;
-
-    setIsResetting(true);
-    try {
-      const candidatesRef = collection(db, 'candidates');
-      const snapshot = await getDocs(candidatesRef);
-      
-      const batch = writeBatch(db);
-      snapshot.docs.forEach((d) => {
-        batch.delete(d.ref);
-      });
-      
-      await batch.commit();
-      alert(`Success: ${snapshot.size} candidate records have been purged.`);
-    } catch (err: any) {
-      console.error(err);
-      setError("Database reset failed: " + err.message);
-    }
-    setIsResetting(false);
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Reset Database',
+      message: "EXTREME CAUTION: This will PERMANENTLY DELETE ALL candidates from the database. This action cannot be undone. Are you absolutely sure you want to proceed?",
+      onConfirm: async () => {
+        setIsResetting(true);
+        try {
+          const candidatesRef = collection(db, 'candidates');
+          const snapshot = await getDocs(candidatesRef);
+          
+          const batch = writeBatch(db);
+          snapshot.docs.forEach((d) => {
+            batch.delete(d.ref);
+          });
+          
+          await batch.commit();
+          showAlert('Database Purge Complete', `Success: ${snapshot.size} candidate records have been purged.`);
+        } catch (err: any) {
+          console.error(err);
+          setError("Database reset failed: " + err.message);
+        }
+        setIsResetting(false);
+      },
+      variant: 'danger'
+    });
   };
 
   if (role !== 'admin') {
@@ -337,6 +379,16 @@ export default function UserManagement() {
           </button>
         </div>
       </section>
+
+      <ConfirmModal 
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        onConfirm={confirmConfig.onConfirm}
+        onCancel={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+        variant={confirmConfig.variant}
+        confirmText={confirmConfig.confirmText}
+      />
     </div>
   );
 }

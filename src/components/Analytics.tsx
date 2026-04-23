@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend } from 'recharts';
-import { TrendingUp, Users, Target, Briefcase, X, User } from 'lucide-react';
+import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line, CartesianGrid } from 'recharts';
+import { TrendingUp, Users, Target, Briefcase, X, User, Activity } from 'lucide-react';
 import CandidateModal from './CandidateModal';
 
 interface StatsProps {
   candidates: any[];
+  activityLogs?: any[];
   onShortlist: (id: string, currentStatus: boolean) => Promise<void>;
   onUpdateFollowUp: (id: string, note: string, date: string) => Promise<void>;
   onUpdateNotes: (id: string, notes: string) => Promise<void>;
@@ -12,7 +13,7 @@ interface StatsProps {
   role?: string | null;
 }
 
-export default function Analytics({ candidates, onShortlist, onUpdateFollowUp, onUpdateNotes, teamMembers, role }: StatsProps) {
+export default function Analytics({ candidates, activityLogs = [], onShortlist, onUpdateFollowUp, onUpdateNotes, teamMembers, role }: StatsProps) {
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
@@ -28,6 +29,27 @@ export default function Analytics({ candidates, onShortlist, onUpdateFollowUp, o
   const recruiterChartData = Object.entries(recruiterData)
     .sort((a: any, b: any) => b[1] - a[1])
     .map(([name, count]) => ({ name, count }));
+
+  // Process activity data
+  const actionDistribution = activityLogs.reduce((acc: any, log) => {
+    const action = log.action || 'Unknown';
+    acc[action] = (acc[action] || 0) + 1;
+    return acc;
+  }, {});
+
+  const actionChartData = Object.entries(actionDistribution).map(([name, value]) => ({ name, value }));
+
+  // Activity over time (Last 7 days)
+  const last7Days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date();
+    d.setDate(d.getDate() - i);
+    return d.toISOString().split('T')[0];
+  }).reverse();
+
+  const activityTrends = last7Days.map(date => {
+    const count = activityLogs.filter(log => log.timestamp?.startsWith(date)).length;
+    return { date: date.split('-').slice(1).join('/'), count };
+  });
 
   // Process domain data
   const domainDataMap = candidates.reduce((acc: any, c) => {
@@ -65,7 +87,7 @@ export default function Analytics({ candidates, onShortlist, onUpdateFollowUp, o
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Top Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
         <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-300">
           <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4">
             <Users size={20} />
@@ -92,6 +114,13 @@ export default function Analytics({ candidates, onShortlist, onUpdateFollowUp, o
           </h3>
         </div>
         <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-300">
+          <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-400 mb-4">
+            <Activity size={20} />
+          </div>
+          <p className="text-[10px] text-slate-400 dark:text-slate-500 uppercase font-bold tracking-widest">Total Actions</p>
+          <h3 className="text-2xl font-bold text-slate-800 dark:text-slate-100 tracking-tight">{activityLogs.length}</h3>
+        </div>
+        <div className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-300">
           <div className="w-10 h-10 bg-indigo-900 dark:bg-indigo-600 rounded-xl flex items-center justify-center text-white mb-4">
             <TrendingUp size={20} />
           </div>
@@ -103,6 +132,86 @@ export default function Analytics({ candidates, onShortlist, onUpdateFollowUp, o
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        {/* Recruiter Activity Trends */}
+        <section className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm min-h-[400px] flex flex-col transition-colors duration-300">
+          <div className="mb-6">
+            <h3 className="text-xl font-serif text-slate-800 dark:text-slate-100 italic">Platform Pulse</h3>
+            <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500">Activity volume over the last 7 days</p>
+          </div>
+          <div className="flex-1 w-full h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <LineChart data={activityTrends}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
+                <XAxis 
+                    dataKey="date" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fill: '#94a3b8', fontWeight: 'bold' }}
+                />
+                <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 10, fill: '#94a3b8' }}
+                />
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: '1rem', 
+                    border: 'none', 
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                    backgroundColor: 'white'
+                  }}
+                />
+                <Line 
+                    type="monotone" 
+                    dataKey="count" 
+                    stroke="#4F46E5" 
+                    strokeWidth={4} 
+                    dot={{ fill: '#4F46E5', strokeWidth: 2, r: 4, stroke: '#fff' }}
+                    activeDot={{ r: 6, strokeWidth: 0 }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        {/* Action Breakdown */}
+        <section className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm min-h-[400px] flex flex-col transition-colors duration-300">
+          <div className="mb-6">
+            <h3 className="text-xl font-serif text-slate-800 dark:text-slate-100">Workflow Dynamics</h3>
+            <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500">Composition of user actions</p>
+          </div>
+          <div className="flex-1 w-full h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={actionChartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={60}
+                  outerRadius={100}
+                  paddingAngle={5}
+                  dataKey="value"
+                >
+                  {actionChartData.map((entry, index) => (
+                    <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
+                  ))}
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: '1rem', 
+                    border: 'none', 
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                    backgroundColor: 'white',
+                    color: '#1e293b'
+                  }}
+                  itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
+                />
+                <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
         {/* Recruiter Contribution (Admin Only) */}
         {role === 'admin' && (
           <section className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm min-h-[400px] flex flex-col transition-colors duration-300">

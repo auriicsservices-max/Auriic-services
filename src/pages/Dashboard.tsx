@@ -11,6 +11,7 @@ import ThemeToggle from '../components/ThemeToggle';
 import UserProfile from '../components/UserProfile';
 import Shortlist from '../components/Shortlist';
 import LogReview from '../components/LogReview';
+import ConfirmModal from '../components/ConfirmModal';
 import LZString from 'lz-string';
 import { 
   Search, 
@@ -40,6 +41,7 @@ import {
 export default function Dashboard() {
   const { user, role } = useAuth();
   const [candidates, setCandidates] = useState<any[]>([]);
+  const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<Record<string, string>>({});
   const [fullTeamList, setFullTeamList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -50,6 +52,30 @@ export default function Dashboard() {
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant?: 'danger' | 'warning' | 'info';
+    confirmText?: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const showAlert = (title: string, message: string) => {
+    setConfirmConfig({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {},
+      variant: 'info',
+      confirmText: 'OK'
+    });
+  };
 
   const toggleSelect = (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
@@ -72,22 +98,28 @@ export default function Dashboard() {
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (!window.confirm(`Are you sure you want to move ${selectedIds.size} candidates to trash?`)) return;
-    
-    setIsProcessing(true);
-    try {
-      const promises = Array.from(selectedIds).map(id => 
-        updateDoc(doc(db, 'candidates', id), { isArchived: true })
-      );
-      await Promise.all(promises);
-      setSelectedIds(new Set());
-      setUploadStatus('success');
-    } catch (err) {
-      console.error(err);
-      setUploadStatus('error');
-    } finally {
-      setIsProcessing(false);
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Bulk Archive',
+      message: `Are you sure you want to move ${selectedIds.size} candidates to trash?`,
+      onConfirm: async () => {
+        setIsProcessing(true);
+        try {
+          const promises = Array.from(selectedIds).map((id: string) => 
+            updateDoc(doc(db, 'candidates', id), { isArchived: true })
+          );
+          await Promise.all(promises);
+          setSelectedIds(new Set());
+          setUploadStatus('success');
+        } catch (err) {
+          console.error(err);
+          setUploadStatus('error');
+        } finally {
+          setIsProcessing(false);
+        }
+      },
+      variant: 'danger'
+    });
   };
 
   useEffect(() => {
@@ -105,6 +137,15 @@ export default function Dashboard() {
         setCandidates(allCandidates);
       } else {
         setCandidates(allCandidates.filter(c => c.uploadedBy === user?.uid));
+      }
+    });
+
+    const unsubLogs = onSnapshot(query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc')), (snapshot) => {
+      const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      if (role === 'admin') {
+        setActivityLogs(logs);
+      } else {
+        setActivityLogs(logs.filter(log => log.userId === user?.uid));
       }
     });
 
@@ -126,6 +167,7 @@ export default function Dashboard() {
 
     return () => {
       unsubCandidates();
+      unsubLogs();
       unsubTeam();
     };
   }, [role]);
@@ -183,7 +225,7 @@ export default function Dashboard() {
             setUploadStatus('duplicate');
           } else {
             // Found duplicate from another recruiter
-            alert(`This candidate (${parsed.fullName}) has already been uploaded by another team member. Duplicate check passed.`);
+            showAlert('Duplicate Found', `This candidate (${parsed.fullName}) has already been uploaded by another team member. Duplicate check passed.`);
             setUploadStatus('duplicate');
           }
           setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
@@ -222,12 +264,12 @@ export default function Dashboard() {
         console.error(err);
         // Special handling for quota errors
         if (err.message?.includes('429') || err.message?.toLowerCase().includes('limit')) {
-          alert("Rate limit reached. Please wait a minute before uploading more resumes.");
+          showAlert('Rate Limit', "Rate limit reached. Please wait a minute before uploading more resumes.");
           break; // Stop processing further files
         }
         
         // Generic error handling for local parser
-        alert(`Parsing Error: Unable to extract data from ${file.name}. Please try another file format or check the file content.`);
+        showAlert('Parsing Error', `Unable to extract data from ${file.name}. Please try another file format or check the file content.`);
         
         setUploadStatus('error');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
@@ -293,12 +335,19 @@ export default function Dashboard() {
 
   const handleArchiveCandidate = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!window.confirm('Move this candidate to trash?')) return;
-    try {
-      await updateDoc(doc(db, 'candidates', id), { isArchived: true });
-    } catch (err) {
-      console.error(err);
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Move to Trash',
+      message: 'Are you sure you want to move this candidate to trash?',
+      onConfirm: async () => {
+        try {
+          await updateDoc(doc(db, 'candidates', id), { isArchived: true });
+        } catch (err) {
+          console.error(err);
+        }
+      },
+      variant: 'warning'
+    });
   };
 
   const handleRestoreCandidate = async (e: React.MouseEvent, id: string) => {
@@ -312,12 +361,63 @@ export default function Dashboard() {
 
   const handlePermanentDeleteCandidate = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
-    if (!window.confirm('PERMANENT DELETE. This cannot be undone. Are you sure?')) return;
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Permanent Delete',
+      message: 'PERMANENT DELETE. This cannot be undone. Are you sure?',
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'candidates', id));
+        } catch (err) {
+          console.error(err);
+        }
+      },
+      variant: 'danger'
+    });
+  };
+
+  const handleBulkRestoreTrash = async () => {
+    if (selectedIds.size === 0) return;
+    setIsProcessing(true);
     try {
-      await deleteDoc(doc(db, 'candidates', id));
+      const promises = Array.from(selectedIds).map((id: string) => 
+        updateDoc(doc(db, 'candidates', id), { isArchived: false })
+      );
+      await Promise.all(promises);
+      setSelectedIds(new Set());
+      setUploadStatus('success');
     } catch (err) {
       console.error(err);
+      setUploadStatus('error');
+    } finally {
+      setIsProcessing(false);
     }
+  };
+
+  const handleBulkPermanentDeleteTrash = async () => {
+    if (selectedIds.size === 0) return;
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Bulk Permanent Delete',
+      message: `PERMANENTLY DELETE ${selectedIds.size} candidates? This action is irreversible.`,
+      onConfirm: async () => {
+        setIsProcessing(true);
+        try {
+          const promises = Array.from(selectedIds).map((id: string) => 
+            deleteDoc(doc(db, 'candidates', id))
+          );
+          await Promise.all(promises);
+          setSelectedIds(new Set());
+          setUploadStatus('success');
+        } catch (err) {
+          console.error(err);
+          setUploadStatus('error');
+        } finally {
+          setIsProcessing(false);
+        }
+      },
+      variant: 'danger'
+    });
   };
 
   const handleRestoreUser = async (e: React.MouseEvent, userId: string) => {
@@ -331,12 +431,19 @@ export default function Dashboard() {
 
   const handleDeleteUserPermanently = async (e: React.MouseEvent, userId: string) => {
     e.stopPropagation();
-    if (!window.confirm('PERMANENT DELETE for Team Member? They will lose all database records. Authentication remains but they will have no role.')) return;
-    try {
-      await deleteDoc(doc(db, 'users', userId));
-    } catch (err) {
-      console.error(err);
-    }
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Team Member',
+      message: 'PERMANENT DELETE for Team Member? They will lose all database records. Authentication remains but they will have no role.',
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'users', userId));
+        } catch (err) {
+          console.error(err);
+        }
+      },
+      variant: 'danger'
+    });
   };
 
   // Boolean Search logic
@@ -795,6 +902,7 @@ export default function Dashboard() {
           ) : activeTab === 'analytics' ? (
             <Analytics 
               candidates={candidates} 
+              activityLogs={activityLogs}
               onShortlist={handleShortlist} 
               onUpdateFollowUp={handleUpdateFollowUp} 
               onUpdateNotes={handleUpdateNotes} 
@@ -815,10 +923,47 @@ export default function Dashboard() {
                   </div>
                 </div>
 
+                {role === 'admin' && selectedIds.size > 0 && (
+                  <div className="flex items-center justify-between px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900 rounded-2xl animate-in fade-in slide-in-from-top-2">
+                    <div className="flex items-center gap-3">
+                      <div className="w-8 h-8 bg-white dark:bg-slate-800 rounded-lg flex items-center justify-center text-red-600 dark:text-red-400 shadow-sm">
+                        <Trash2 size={16} />
+                      </div>
+                      <p className="text-sm font-bold text-red-700 dark:text-red-400">
+                        {selectedIds.size} candidates selected in Trash
+                      </p>
+                    </div>
+                    <div className="flex gap-2">
+                      <button 
+                        onClick={handleBulkRestoreTrash}
+                        className="bg-emerald-600 hover:bg-emerald-700 text-white px-6 py-2 rounded-xl text-xs font-bold shadow-lg shadow-emerald-200 dark:shadow-none transition-all active:scale-95 flex items-center gap-2"
+                      >
+                        <RotateCcw size={14} /> Restore Selected
+                      </button>
+                      <button 
+                        onClick={handleBulkPermanentDeleteTrash}
+                        className="bg-red-600 hover:bg-red-700 text-white px-6 py-2 rounded-xl text-xs font-bold shadow-lg shadow-red-200 dark:shadow-none transition-all active:scale-95 flex items-center gap-2"
+                      >
+                        Delete Permanently
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <div className="overflow-hidden border border-slate-100 dark:border-slate-800 rounded-2xl transition-colors duration-300">
                   <table className="w-full text-left border-collapse">
                     <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
                       <tr>
+                        {role === 'admin' && (
+                          <th className="px-6 py-4 w-10">
+                            <input 
+                              type="checkbox" 
+                              checked={trashedCandidates.length > 0 && selectedIds.size === trashedCandidates.length}
+                              onChange={() => toggleSelectAll(trashedCandidates)}
+                              className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                            />
+                          </th>
+                        )}
                         <th className="px-6 py-4">Candidate Identity</th>
                         <th className="px-6 py-4">Domain Focus</th>
                         <th className="px-6 py-4 text-right">Actions</th>
@@ -826,7 +971,18 @@ export default function Dashboard() {
                     </thead>
                     <tbody className="text-sm text-slate-600 dark:text-slate-400 divide-y divide-slate-100 dark:divide-slate-800">
                       {trashedCandidates.map((candidate) => (
-                        <tr key={candidate.id} className="hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
+                        <tr key={candidate.id} className={`hover:bg-slate-50 dark:hover:bg-slate-800 transition-all ${selectedIds.has(candidate.id) ? 'bg-indigo-50/30 dark:bg-indigo-900/20' : ''}`}>
+                          {role === 'admin' && (
+                            <td className="px-6 py-4">
+                              <input 
+                                type="checkbox" 
+                                checked={selectedIds.has(candidate.id)}
+                                onChange={(e) => toggleSelect(e as any, candidate.id)}
+                                className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500 cursor-pointer"
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                            </td>
+                          )}
                           <td className="px-6 py-4">
                             <div className="font-bold text-slate-800 dark:text-slate-200 uppercase tracking-tight">{candidate.fullName}</div>
                             <div className="text-[10px] text-slate-400 dark:text-slate-500 font-medium">{candidate.email || 'No contact mail'}</div>
@@ -857,7 +1013,7 @@ export default function Dashboard() {
                       ))}
                       {trashedCandidates.length === 0 && (
                         <tr>
-                          <td colSpan={3} className="px-6 py-20 text-center text-slate-300 dark:text-slate-700 font-medium italic transition-colors duration-300">
+                          <td colSpan={role === 'admin' ? 4 : 3} className="px-6 py-20 text-center text-slate-300 dark:text-slate-700 font-medium italic transition-colors duration-300">
                             <Trash2 size={32} className="mx-auto mb-2 opacity-20" />
                             No candidates in trash
                           </td>
@@ -953,6 +1109,16 @@ export default function Dashboard() {
         onShortlist={handleShortlist}
         onUpdateFollowUp={handleUpdateFollowUp}
         onUpdateNotes={handleUpdateNotes}
+      />
+
+      <ConfirmModal 
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        onConfirm={confirmConfig.onConfirm}
+        onCancel={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+        variant={confirmConfig.variant}
+        confirmText={confirmConfig.confirmText}
       />
     </div>
   );

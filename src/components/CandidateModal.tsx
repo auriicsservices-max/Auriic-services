@@ -3,6 +3,7 @@ import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code
 import LZString from 'lz-string';
 import { useAuth } from '../contexts/AuthContext';
 import { logActivity } from '../lib/logger';
+import ConfirmModal from './ConfirmModal';
 
 interface CandidateModalProps {
   candidate: any;
@@ -20,6 +21,30 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const [generalNotes, setGeneralNotes] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  const [confirmConfig, setConfirmConfig] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: string;
+    onConfirm: () => void;
+    variant?: 'danger' | 'warning' | 'info';
+    confirmText?: string;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    onConfirm: () => {},
+  });
+
+  const showAlert = (title: string, message: string) => {
+    setConfirmConfig({
+      isOpen: true,
+      title,
+      message,
+      onConfirm: () => {},
+      variant: 'info',
+      confirmText: 'OK'
+    });
+  };
 
   useEffect(() => {
     if (candidate) {
@@ -77,7 +102,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       a.download = `${candidate.fullName}_resume.txt`;
       a.click();
     } else {
-      alert("No resume text or file available for download.");
+      showAlert('Download Unavailable', "No resume text or file available for download.");
     }
   };
 
@@ -310,6 +335,16 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
           </div>
         </div>
       </div>
+
+      <ConfirmModal 
+        isOpen={confirmConfig.isOpen}
+        title={confirmConfig.title}
+        message={confirmConfig.message}
+        onConfirm={confirmConfig.onConfirm}
+        onCancel={() => setConfirmConfig(prev => ({ ...prev, isOpen: false }))}
+        variant={confirmConfig.variant}
+        confirmText={confirmConfig.confirmText}
+      />
     </div>
   );
 }
