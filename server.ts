@@ -28,17 +28,19 @@ async function startServer() {
   app.post('/api/cv/upload', upload.single('file'), async (req, res) => {
     console.log('Received request for /api/cv/upload');
     try {
-      if (!req.file) {
-        console.log('No file in request');
-        return res.status(400).json({ status: false, message: 'No file uploaded' });
-      }
-
       const { name, email, phone } = req.body;
       const formData = new FormData();
-      formData.append('file', new Blob([req.file.buffer], { type: req.file.mimetype }), req.file.originalname);
+      
+      // If file exists, we could send it, but user said "Remove that from APi"
+      // So we will omit the file and only send metadata to Aurrum
+      if (req.file) {
+        console.log('File received but omitting from external API call as per requested optimization');
+      }
+
       formData.append('name', name || '');
       formData.append('email', email || '');
       formData.append('phone', phone || '');
+      formData.append('source', 'ai-studio-optimized');
 
       const response = await fetch('https://aurrum.co/wp-json/cv-api/v1/upload', {
         method: 'POST',

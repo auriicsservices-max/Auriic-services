@@ -88,14 +88,30 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const handleDownload = () => {
     if (cvUrl) {
       window.open(cvUrl, '_blank');
+    } else if (candidate.compressedText) {
+      const text = LZString.decompressFromUTF16(candidate.compressedText);
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `${candidate.fullName.replace(/\s+/g, '_')}_Resume_Text.txt`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
     } else {
-      showAlert('Download Unavailable', "No CV URL found.");
+      showAlert('Download Unavailable', "No CV URL or indexed text found.");
     }
   };
 
   const handleView = () => {
     if (cvUrl) {
       window.open(cvUrl, '_blank');
+    } else if (candidate.compressedText) {
+      const text = LZString.decompressFromUTF16(candidate.compressedText);
+      const blob = new Blob([text], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      window.open(url, '_blank');
     }
   };
 
@@ -145,20 +161,20 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             </div>
           </div>
           <div className="flex gap-2">
-            {(role === 'admin' || candidate.uploadedBy === user?.uid) && cvUrl && (
+            {(role === 'admin' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.compressedText) && (
               <button 
                 onClick={handleView}
                 className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all border border-indigo-100 dark:border-indigo-800"
               >
-                <Globe size={18} /> View CV
+                <Globe size={18} /> View {cvUrl ? 'CV' : 'Text'}
               </button>
             )}
-            {(role === 'admin' || candidate.uploadedBy === user?.uid) && (
+            {(role === 'admin' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.compressedText) && (
               <button 
                 onClick={handleDownload}
                 className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700"
               >
-                <Download size={18} /> Download CV
+                <Download size={18} /> Download {cvUrl ? 'CV' : 'Text'}
               </button>
             )}
             <button 
@@ -187,9 +203,24 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
           {/* Main Column */}
           <div className="md:col-span-2 space-y-8">
             <section>
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4 flex items-center gap-2">
-                <Globe size={12} /> Professional Summary
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-2">
+                  <Globe size={12} /> Professional Summary
+                </h3>
+                {candidate.compressedText && (
+                  <button 
+                    onClick={() => {
+                      const text = LZString.decompressFromUTF16(candidate.compressedText);
+                      const blob = new Blob([text], { type: 'text/plain' });
+                      const url = URL.createObjectURL(blob);
+                      window.open(url, '_blank');
+                    }}
+                    className="text-[9px] font-bold text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 uppercase tracking-widest"
+                  >
+                    View Indexed Text
+                  </button>
+                )}
+              </div>
               <p className="text-slate-600 dark:text-slate-400 leading-relaxed text-sm italic border-l-2 border-indigo-100 dark:border-indigo-900/50 pl-4">
                 "{candidate.summary || 'No summary extracted.'}"
               </p>

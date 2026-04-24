@@ -243,38 +243,44 @@ export default function Dashboard() {
         // 2. Heuristic Data Scraping
         parsed = await parseResumeHeuristically(text);
         
-        // 3. Upload file + metadata to Aurrum API
+        // Compress text to store in Firebase (saving space)
+        const compressedText = LZString.compressToUTF16(text);
+        const isLargeFile = file.size > 2 * 1024 * 1024; // 2MB+ is "large" for our context
+        
+        // 3. Upload metadata to Aurrum API (Removed file to bypass limits)
         const formData = new FormData();
-        formData.append('file', file);
+        // Remove file from API call as requested: formData.append('file', file);
         formData.append('name', parsed.fullName || file.name);
         formData.append('email', parsed.email);
         formData.append('phone', parsed.phone);
+        formData.append('is_compressed', '1');
 
-        const response = await fetch('/api/cv/upload', {
-          method: 'POST',
-          body: formData
-        });
-        
-        const responseText = await response.text();
-        let result;
+        let result = { status: false, data: { id: null, url: null, name: parsed.fullName || file.name }, message: '' };
         try {
-          result = JSON.parse(responseText);
-        } catch (e) {
-          console.error('Failed to parse response JSON:', responseText);
-          throw new Error('Server returned an unexpected response. Please check your upload configuration.');
+          const response = await fetch('/api/cv/upload', {
+            method: 'POST',
+            body: formData
+          });
+          
+          const responseText = await response.text();
+          try {
+            result = JSON.parse(responseText);
+          } catch (e) {
+            console.warn('API returned non-JSON, but proceeding with local storage');
+          }
+        } catch (apiErr) {
+          console.warn('API upload failed, sticking to local storage:', apiErr);
         }
         
-        if (!result.status) {
-          throw new Error(result.message || 'Upload failed');
-        }
-
         // 4. Store meta in Firebase
         await addDoc(collection(db, 'candidates'), {
           ...parsed,
-          cid: result.data.id,
-          url: result.data.url,
+          compressedText,
+          isLargeFile,
+          cid: result.data?.id || null,
+          url: result.data?.url || null,
           email: parsed.email?.toLowerCase(),
-          fullName: result.data.name,
+          fullName: result.data?.name || parsed.fullName || file.name,
           fileName: file.name,
           fileType: file.type,
           isShortlisted: false,
