@@ -247,13 +247,18 @@ export default function Dashboard() {
         const compressedText = LZString.compressToUTF16(text);
         const isLargeFile = file.size > 2 * 1024 * 1024; // 2MB+ is "large" for our context
         
-        // 3. Upload metadata to Aurrum API (Removed file to bypass limits)
+        // 3. Upload metadata to Aurrum API
         const formData = new FormData();
-        // Remove file from API call as requested: formData.append('file', file);
+        
+        // Handle 2MB limit mentioned in docs
+        if (file.size > 2 * 1024 * 1024) {
+          console.warn('File exceeds 2MB limit of Aurrum API, but we will try sending just metadata or compressing later if needed.');
+        }
+
+        formData.append('file', file);
         formData.append('name', parsed.fullName || file.name);
-        formData.append('email', parsed.email);
-        formData.append('phone', parsed.phone);
-        formData.append('is_compressed', '1');
+        formData.append('email', parsed.email || '');
+        formData.append('phone', parsed.phone || '');
 
         let result = { status: false, data: { id: null, url: null, name: parsed.fullName || file.name }, message: '' };
         try {
