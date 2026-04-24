@@ -135,7 +135,7 @@ export default function Dashboard() {
 
   const fetchCandidates = useCallback(async () => {
     try {
-      const response = await fetch('/api/cv/list');
+      const response = await fetch('http://localhost:3000/api/cv/list');
       const data = await response.json();
       if (data.status) {
         const mapped = data.data.map((c: any) => ({
@@ -159,6 +159,7 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    console.log("Current origin:", window.location.origin);
     if (!user || !role) return;
     fetchCandidates();
   }, [user, role, fetchCandidates]);
@@ -280,7 +281,7 @@ export default function Dashboard() {
         formData.append('email', parsed.email || 'unknown@example.com');
         if (parsed.phone) formData.append('phone', parsed.phone);
 
-        const uploadRes = await fetch('/api/cv/upload', {
+        const uploadRes = await fetch('http://localhost:3000/api/cv/upload', {
           method: 'POST',
           body: formData
         });
