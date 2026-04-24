@@ -26,8 +26,10 @@ async function startServer() {
   });
 
   app.post('/api/cv/upload', upload.single('file'), async (req, res) => {
+    console.log('Received request for /api/cv/upload');
     try {
       if (!req.file) {
+        console.log('No file in request');
         return res.status(400).json({ status: false, message: 'No file uploaded' });
       }
 
@@ -69,6 +71,7 @@ async function startServer() {
   });
 
   app.get('/api/cv/list', async (req, res) => {
+    console.log('Received request for /api/cv/list');
     try {
       const response = await fetch('https://aurrum.co/wp-json/cv-api/v1/list', {
         headers: {
@@ -108,6 +111,7 @@ async function startServer() {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
+      console.log('Serving static file for:', req.url);
       res.sendFile(path.join(distPath, 'index.html'));
     });
   }

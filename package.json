@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && cp metadata.json firebase-applet-config.json dist/",
+    "build": "vite build && npx cpx 'metadata.json' 'dist/' && npx cpx 'firebase-applet-config.json' 'dist/'",
     "start": "node server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",

@@ -249,35 +249,23 @@ export default function Dashboard() {
         formData.append('name', parsed.fullName || file.name);
         formData.append('email', parsed.email);
         formData.append('phone', parsed.phone);
-        formData.append('compressedData', LZString.compressToUTF16(JSON.stringify(parsed)));
 
-        let result: any;
-        let attempts = 0;
-        while (attempts < 5) {
-          const response = await fetch('/api/cv/upload', {
-            method: 'POST',
-            body: formData
-          });
-          
-          const responseText = await response.text();
-          if (responseText.trim().startsWith('<!doctype html>')) {
-            console.warn('Server is warming up, retrying...');
-            await new Promise(resolve => setTimeout(resolve, 5000));
-            attempts++;
-            continue;
-          }
-          
-          try {
-            result = JSON.parse(responseText);
-            break;
-          } catch (e) {
-            console.error('Failed to parse response JSON:', responseText);
-            throw new Error('Server returned an unexpected response. Please check your upload configuration.');
-          }
+        const response = await fetch('/api/cv/upload', {
+          method: 'POST',
+          body: formData
+        });
+        
+        const responseText = await response.text();
+        let result;
+        try {
+          result = JSON.parse(responseText);
+        } catch (e) {
+          console.error('Failed to parse response JSON:', responseText);
+          throw new Error('Server returned an unexpected response. Please check your upload configuration.');
         }
-
-        if (!result || !result.status) {
-          throw new Error(result?.message || 'Upload failed after retries');
+        
+        if (!result.status) {
+          throw new Error(result.message || 'Upload failed');
         }
 
         // 4. Store meta in Firebase
