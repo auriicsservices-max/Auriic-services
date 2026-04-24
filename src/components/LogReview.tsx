@@ -64,11 +64,7 @@ export default function LogReview() {
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
                 {logs.map(log => (
                     <tr key={log.id}>
-                        <td className="px-6 py-4 text-xs font-mono text-slate-500">
-                          {log.timestamp?.toDate 
-                            ? log.timestamp.toDate().toLocaleString() 
-                            : new Date(log.timestamp).toLocaleString()}
-                        </td>
+                        <td className="px-6 py-4 text-xs font-mono text-slate-500">{new Date(log.timestamp).toLocaleString()}</td>
                         {role === 'admin' && (
                           <td className="px-6 py-4 text-xs font-bold text-slate-600 dark:text-slate-400">
                             {usersMap[log.userId] || 'System/AI'}

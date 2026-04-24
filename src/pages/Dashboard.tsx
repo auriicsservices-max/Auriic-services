@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, db } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs, limit, serverTimestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, setDoc, doc, deleteDoc, where, getDocs, limit, serverTimestamp } from 'firebase/firestore';
 import { useDropzone } from 'react-dropzone';
 import { parseResume } from '../lib/gemini';
 import UserManagement from '../components/UserManagement';
@@ -117,7 +117,7 @@ export default function Dashboard() {
         setIsProcessing(true);
         try {
           const promises = Array.from(selectedIds).map((id: string) => 
-            updateDoc(doc(db, 'candidates', id), { isArchived: true })
+            setDoc(doc(db, 'candidates', id), { isArchived: true }, { merge: true })
           );
           await Promise.all(promises);
           setSelectedIds(new Set());
@@ -135,7 +135,7 @@ export default function Dashboard() {
 
   const fetchCandidates = useCallback(async () => {
     try {
-      const response = await fetch('http://localhost:3000/api/cv/list');
+      const response = await fetch('/api/cv/list');
       const data = await response.json();
       if (data.status) {
         const mapped = data.data.map((c: any) => ({
@@ -159,7 +159,6 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    console.log("Current origin:", window.location.origin);
     if (!user || !role) return;
     fetchCandidates();
   }, [user, role, fetchCandidates]);
@@ -281,7 +280,7 @@ export default function Dashboard() {
         formData.append('email', parsed.email || 'unknown@example.com');
         if (parsed.phone) formData.append('phone', parsed.phone);
 
-        const uploadRes = await fetch('http://localhost:3000/api/cv/upload', {
+        const uploadRes = await fetch('/api/cv/upload', {
           method: 'POST',
           body: formData
         });
@@ -331,7 +330,7 @@ export default function Dashboard() {
 
   const handleShortlist = async (id: string, currentStatus: boolean) => {
     try {
-      await updateDoc(doc(db, 'candidates', id), { isShortlisted: !currentStatus });
+      await setDoc(doc(db, 'candidates', id), { isShortlisted: !currentStatus }, { merge: true });
       if (selectedCandidate?.id === id) {
         setSelectedCandidate((prev: any) => ({ ...prev, isShortlisted: !currentStatus }));
       }
@@ -342,12 +341,12 @@ export default function Dashboard() {
 
   const handleUpdateFollowUp = async (id: string, note: string, date: string) => {
     try {
-      await updateDoc(doc(db, 'candidates', id), { 
+      await setDoc(doc(db, 'candidates', id), { 
         followUpNote: note,
         followUpDate: date,
         followUpUpdatedBy: user?.uid,
         updatedAt: new Date().toISOString()
-      });
+      }, { merge: true });
       if (selectedCandidate?.id === id) {
         setSelectedCandidate((prev: any) => ({ ...prev, followUpNote: note, followUpDate: date, followUpUpdatedBy: user?.uid }));
       }
@@ -358,11 +357,11 @@ export default function Dashboard() {
 
   const handleUpdateNotes = async (id: string, notes: string) => {
     try {
-      await updateDoc(doc(db, 'candidates', id), { 
+      await setDoc(doc(db, 'candidates', id), { 
         notes,
         notesUpdatedBy: user?.uid,
         updatedAt: new Date().toISOString()
-      });
+      }, { merge: true });
       if (selectedCandidate?.id === id) {
         setSelectedCandidate((prev: any) => ({ ...prev, notes, notesUpdatedBy: user?.uid }));
       }
@@ -379,7 +378,7 @@ export default function Dashboard() {
       message: 'Are you sure you want to move this candidate to trash?',
       onConfirm: async () => {
         try {
-          await updateDoc(doc(db, 'candidates', id), { isArchived: true });
+          await setDoc(doc(db, 'candidates', id), { isArchived: true }, { merge: true });
         } catch (err) {
           console.error(err);
         }
@@ -391,7 +390,7 @@ export default function Dashboard() {
   const handleRestoreCandidate = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     try {
-      await updateDoc(doc(db, 'candidates', id), { isArchived: false });
+      await setDoc(doc(db, 'candidates', id), { isArchived: false }, { merge: true });
     } catch (err) {
       console.error(err);
     }
@@ -419,7 +418,7 @@ export default function Dashboard() {
     setIsProcessing(true);
     try {
       const promises = Array.from(selectedIds).map((id: string) => 
-        updateDoc(doc(db, 'candidates', id), { isArchived: false })
+        setDoc(doc(db, 'candidates', id), { isArchived: false }, { merge: true })
       );
       await Promise.all(promises);
       setSelectedIds(new Set());
