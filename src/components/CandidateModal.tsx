@@ -47,25 +47,57 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     });
   };
 
+  const [cvUrl, setCvUrl] = useState<string | null>(null);
+
+  const fetchCVUrl = async () => {
+      try {
+          const response = await fetch('/api/cv/list', {
+              headers: { 'x-api-key': 'AURRUM_SECRET_123' }
+          });
+          let data;
+          try {
+            data = await response.json();
+          } catch (e) {
+            console.error('Failed to parse list API response', e);
+            throw new Error('Invalid JSON response from server');
+          }
+          if (data.status && data.data) {
+              const matchedCV = data.data.find((item: any) => item.id == candidate.cid);
+              if (matchedCV) {
+                  setCvUrl(matchedCV.url);
+              }
+          }
+      } catch (err) {
+          console.error('Failed to fetch CV URL', err);
+      }
+  };
+
   useEffect(() => {
     if (candidate) {
       setFollowUpNote(candidate.followUpNote || '');
       setFollowUpDate(candidate.followUpDate || '');
       setGeneralNotes(candidate.notes || '');
+      if (candidate.cid) {
+          fetchCVUrl();
+      }
     }
   }, [candidate]);
 
   if (!isOpen || !candidate) return null;
 
-  const getFileData = () => {
-    if (!candidate.fileData) return null;
-    if (candidate.isCompressed) {
-      return LZString.decompressFromUTF16(candidate.fileData);
+  const handleDownload = () => {
+    if (cvUrl) {
+      window.open(cvUrl, '_blank');
+    } else {
+      showAlert('Download Unavailable', "No CV URL found.");
     }
-    return candidate.fileData;
   };
 
-  const fileData = getFileData();
+  const handleView = () => {
+    if (cvUrl) {
+      window.open(cvUrl, '_blank');
+    }
+  };
 
   const handleShortlistClick = async () => {
     if (role !== 'admin' && role !== 'recruiter') return;
@@ -85,35 +117,6 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     await onUpdateNotes(candidate.id, generalNotes);
     await logActivity('Notes Update', { candidateId: candidate.id }, user!.uid, role!);
     setIsSavingNotes(false);
-  };
-
-  const handleDownload = () => {
-    if (fileData) {
-      const a = document.createElement('a');
-      a.href = fileData;
-      a.download = candidate.fileName || `${candidate.fullName}_resume`;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-    } else if (candidate.rawText) {
-      const blob = new Blob([candidate.rawText], { type: 'text/plain' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = `${candidate.fullName}_resume.txt`;
-      a.click();
-    } else {
-      showAlert('Download Unavailable', "No resume text or file available for download.");
-    }
-  };
-
-  const handleView = () => {
-    if (fileData) {
-      const win = window.open();
-      if (win) {
-        win.document.write(`<iframe src="${fileData}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
-      }
-    }
   };
 
   return (
@@ -142,19 +145,19 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             </div>
           </div>
           <div className="flex gap-2">
-            {candidate.fileType === 'application/pdf' && fileData && (
+            {cvUrl && (
               <button 
                 onClick={handleView}
                 className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all border border-indigo-100 dark:border-indigo-800"
               >
-                <Globe size={18} /> View Document
+                <Globe size={18} /> View CV
               </button>
             )}
             <button 
               onClick={handleDownload}
               className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700"
             >
-              <Download size={18} /> {fileData ? `Download ${candidate.fileType?.split('/')[1]?.toUpperCase() || 'CV'}` : 'Download Text Version'}
+              <Download size={18} /> Download CV
             </button>
             <button 
               onClick={onClose}

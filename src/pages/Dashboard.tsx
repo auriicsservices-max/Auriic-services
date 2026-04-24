@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { auth, db } from '../lib/firebase';
 import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs, limit } from 'firebase/firestore';
 import { useDropzone } from 'react-dropzone';
-import { parseResume } from '../lib/gemini';
+import { parseResumeHeuristically, extractTextFromPDF, extractTextFromDocx, ParsedResume } from '../lib/localParser';
 import UserManagement from '../components/UserManagement';
 import CandidateModal from '../components/CandidateModal';
 import Analytics from '../components/Analytics';
@@ -182,7 +182,7 @@ export default function Dashboard() {
     const q = query(collection(db, 'candidates'), orderBy('createdAt', 'desc'));
     const unsubCandidates = onSnapshot(q, (snapshot) => {
       const allCandidates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-      if (role === 'admin' || viewScope === 'all') {
+      if (role === 'admin') {
         setCandidates(allCandidates);
       } else {
         setCandidates(allCandidates.filter(c => c.uploadedBy === user?.uid));
@@ -226,104 +226,71 @@ export default function Dashboard() {
     
     for (const file of acceptedFiles) {
       try {
-        let parsed;
-        let fileBase64 = null;
+        let parsed: ParsedResume;
         
-        // Convert to base64 for multimodal parsing or storage
-        const base64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader();
-          reader.onload = () => {
-            const result = reader.result as string;
-            resolve(result.split(',')[1]); // Only the data part
-          };
-          reader.readAsDataURL(file);
-        });
-
-        // Use ArrayBuffer directly for PDFs/DOCX/Images for better stability
-        if (file.type === 'application/pdf' || 
-            file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
-            file.type === 'application/msword' ||
-            file.type.startsWith('image/')) {
+        // 1. Text Extraction in browser
+        let text = '';
+        if (file.type === 'application/pdf') {
           const buffer = await file.arrayBuffer();
-          parsed = await parseResume({
-            mimeType: file.type,
-            data: buffer
-          });
+          text = await extractTextFromPDF(buffer);
+        } else if (file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' || file.type === 'application/msword') {
+          const buffer = await file.arrayBuffer();
+          text = await extractTextFromDocx(buffer);
         } else {
-          const text = await file.text();
-          parsed = await parseResume(text);
-        }
-        
-        // No more rate limit delay needed for local parsing
-        
-        // Global Duplicate check based on candidate email (across all recruiters)
-        const emailQuery = query(collection(db, 'candidates'), where('email', '==', parsed.email?.toLowerCase() || ''));
-        const querySnapshot = await getDocs(emailQuery);
-        const isDuplicate = !querySnapshot.empty;
-        
-        if (isDuplicate) {
-          const duplicateDoc = querySnapshot.docs[0].data();
-          const uploaderId = duplicateDoc.uploadedBy;
-          const isArchived = duplicateDoc.isArchived;
-          
-          if (isArchived) {
-            setUploadStatus('duplicateInTrash');
-          } else if (uploaderId === user?.uid) {
-            setUploadStatus('duplicate');
-          } else {
-            // Found duplicate from another recruiter
-            showAlert('Duplicate Found', `This candidate (${parsed.fullName}) has already been uploaded by another team member. Duplicate check passed.`);
-            setUploadStatus('duplicate');
-          }
-          setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
-          continue;
+          text = await file.text();
         }
 
-        // Firestore 1MB limit check: LZString + Base64
-        // We budget 800KB for the WHOLE document to be safe.
-        let isLargeFile = false;
-        if (file.size < 800 * 1024) { 
-           const fullBase64 = `data:${file.type};base64,${base64}`;
-           // Use compressToUTF16 as it's efficient for Firestore storage
-           fileBase64 = LZString.compressToUTF16(fullBase64);
-        } else {
-          isLargeFile = true;
+        // 2. Heuristic Data Scraping
+        parsed = await parseResumeHeuristically(text);
+        
+        // 3. Upload file + metadata to Aurrum API
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('name', parsed.fullName || file.name);
+        formData.append('email', parsed.email);
+        formData.append('phone', parsed.phone);
+
+        const response = await fetch('/api/cv/upload', {
+          method: 'POST',
+          body: formData
+        });
+        
+        let result;
+        try {
+          result = await response.json();
+        } catch (e) {
+          throw new Error('Server returned invalid JSON response');
         }
         
+        if (!result.status) {
+          throw new Error(result.message || 'Upload failed');
+        }
+
+        // 4. Store meta in Firebase
         await addDoc(collection(db, 'candidates'), {
           ...parsed,
+          cid: result.data.id,
+          url: result.data.url,
           email: parsed.email?.toLowerCase(),
-          fullName: parsed.fullName || file.name.split('.')[0] || 'Unknown Candidate',
+          fullName: result.data.name,
           fileName: file.name,
           fileType: file.type,
-          fileData: fileBase64,
-          isCompressed: !!fileBase64,
-          rawText: file.type.startsWith('text/') ? (await file.text()).slice(0, 5000) : `Extracted data from ${file.name}`,
-          isLargeFile,
           isShortlisted: false,
           isArchived: false,
           uploadedBy: user?.uid,
           createdAt: new Date().toISOString()
         });
+        
         setUploadStatus('success');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1 }));
       } catch (err: any) {
         console.error(err);
-        // Special handling for quota errors
-        if (err.message?.includes('429') || err.message?.toLowerCase().includes('limit')) {
-          showAlert('Rate Limit', "Rate limit reached. Please wait a minute before uploading more resumes.");
-          break; // Stop processing further files
-        }
-        
-        // Generic error handling for local parser
-        showAlert('Parsing Error', `Unable to extract data from ${file.name}. Please try another file format or check the file content.`);
-        
+        showAlert('Upload Error', `Unable to process ${file.name}: ${err.message}`);
         setUploadStatus('error');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
       }
     }
     
-    // Smooth reset
     setTimeout(() => {
       setIsProcessing(false);
       setUploadProgress({ total: 0, processed: 0, failed: 0 });
