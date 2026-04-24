@@ -88,7 +88,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   };
 
   const handleDownload = () => {
-    if (fileData) {
+    if (candidate.resumeUrl) {
+      window.open(candidate.resumeUrl, '_blank');
+    } else if (fileData) {
       const a = document.createElement('a');
       a.href = fileData;
       a.download = candidate.fileName || `${candidate.fullName}_resume`;
@@ -108,7 +110,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   };
 
   const handleView = () => {
-    if (fileData) {
+    if (candidate.resumeUrl) {
+      window.open(candidate.resumeUrl, '_blank');
+    } else if (fileData) {
       const win = window.open();
       if (win) {
         win.document.write(`<iframe src="${fileData}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
@@ -142,7 +146,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             </div>
           </div>
           <div className="flex gap-2">
-            {candidate.fileType === 'application/pdf' && fileData && (
+            {(candidate.resumeUrl || (candidate.fileType === 'application/pdf' && fileData)) && (
               <button 
                 onClick={handleView}
                 className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all border border-indigo-100 dark:border-indigo-800"
@@ -154,7 +158,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               onClick={handleDownload}
               className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700"
             >
-              <Download size={18} /> {fileData ? `Download ${candidate.fileType?.split('/')[1]?.toUpperCase() || 'CV'}` : 'Download Text Version'}
+              <Download size={18} /> {candidate.resumeUrl ? 'Open Link' : (fileData ? `Download ${candidate.fileType?.split('/')[1]?.toUpperCase() || 'CV'}` : 'Download Text Version')}
             </button>
             <button 
               onClick={onClose}

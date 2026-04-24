@@ -47,7 +47,18 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
   }).reverse();
 
   const activityTrends = last7Days.map(date => {
-    const count = activityLogs.filter(log => log.timestamp?.startsWith(date)).length;
+    const count = activityLogs.filter(log => {
+      if (!log || !log.timestamp) return false;
+      let timestampString = '';
+      if (log.timestamp.toDate && typeof log.timestamp.toDate === 'function') {
+        timestampString = log.timestamp.toDate().toISOString();
+      } else if (typeof log.timestamp === 'string') {
+        timestampString = log.timestamp;
+      } else if (log.timestamp instanceof Date) {
+        timestampString = log.timestamp.toISOString();
+      }
+      return typeof timestampString === 'string' && timestampString.startsWith(date);
+    }).length;
     return { date: date.split('-').slice(1).join('/'), count };
   });
 
