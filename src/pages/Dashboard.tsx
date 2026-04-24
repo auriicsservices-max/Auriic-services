@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, db } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, setDoc, doc, deleteDoc, where, getDocs, limit, serverTimestamp } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs, limit } from 'firebase/firestore';
 import { useDropzone } from 'react-dropzone';
 import { parseResume } from '../lib/gemini';
 import UserManagement from '../components/UserManagement';
@@ -117,7 +117,7 @@ export default function Dashboard() {
         setIsProcessing(true);
         try {
           const promises = Array.from(selectedIds).map((id: string) => 
-            setDoc(doc(db, 'candidates', id), { isArchived: true }, { merge: true })
+            updateDoc(doc(db, 'candidates', id), { isArchived: true })
           );
           await Promise.all(promises);
           setSelectedIds(new Set());
@@ -132,36 +132,6 @@ export default function Dashboard() {
       variant: 'danger'
     });
   };
-
-  const fetchCandidates = useCallback(async () => {
-    try {
-      const response = await fetch('/api/cv/list');
-      const data = await response.json();
-      if (data.status) {
-        const mapped = data.data.map((c: any) => ({
-          id: c.id.toString(),
-          fullName: c.name || 'Anonymous',
-          email: c.email,
-          phone: c.phone || 'N/A',
-          resumeUrl: c.url,
-          createdAt: c.date,
-          status: 'External',
-          isArchived: false,
-          experience: [],
-          education: [],
-          skills: []
-        }));
-        setCandidates(mapped);
-      }
-    } catch (error) {
-      console.error('Error fetching candidates:', error);
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!user || !role) return;
-    fetchCandidates();
-  }, [user, role, fetchCandidates]);
 
   useEffect(() => {
     if (uploadStatus !== 'idle') {
@@ -209,6 +179,16 @@ export default function Dashboard() {
       setUnreadChatCount(totalUnread);
     }, (err) => console.error("Chat count listener error:", err));
 
+    const q = query(collection(db, 'candidates'), orderBy('createdAt', 'desc'));
+    const unsubCandidates = onSnapshot(q, (snapshot) => {
+      const allCandidates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+      if (role === 'admin' || viewScope === 'all') {
+        setCandidates(allCandidates);
+      } else {
+        setCandidates(allCandidates.filter(c => c.uploadedBy === user?.uid));
+      }
+    }, (err) => console.error("Candidates listener error:", err));
+
     const unsubLogs = onSnapshot(query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc')), (snapshot) => {
       const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
       if (role === 'admin') {
@@ -233,6 +213,7 @@ export default function Dashboard() {
 
     return () => {
       unsubChat();
+      unsubCandidates();
       unsubLogs();
       unsubTeam();
     };
@@ -273,52 +254,81 @@ export default function Dashboard() {
           parsed = await parseResume(text);
         }
         
-        // Use parsing results for upload
-        const formData = new FormData();
-        formData.append('file', file);
-        formData.append('name', parsed.fullName || file.name.split('.')[0] || 'Unknown');
-        formData.append('email', parsed.email || 'unknown@example.com');
-        if (parsed.phone) formData.append('phone', parsed.phone);
-
-        const uploadRes = await fetch('/api/cv/upload', {
-          method: 'POST',
-          body: formData
-        });
-
-        const uploadData = await uploadRes.json();
+        // No more rate limit delay needed for local parsing
         
-        if (uploadData.status) {
-          // Log activity in Firebase (still useful for history/audit)
-          await addDoc(collection(db, 'activity_logs'), {
-            userId: user?.uid,
-            userName: user?.displayName || user?.email,
-            action: 'CV Uploaded External',
-            details: `Candidate ${parsed.fullName || 'Unknown'} uploaded to External Storage`,
-            timestamp: serverTimestamp()
-          });
-
-          setUploadStatus('success');
-          setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1 }));
-        } else {
-          throw new Error(uploadData.message || 'API Upload failed');
+        // Global Duplicate check based on candidate email (across all recruiters)
+        const emailQuery = query(collection(db, 'candidates'), where('email', '==', parsed.email?.toLowerCase() || ''));
+        const querySnapshot = await getDocs(emailQuery);
+        const isDuplicate = !querySnapshot.empty;
+        
+        if (isDuplicate) {
+          const duplicateDoc = querySnapshot.docs[0].data();
+          const uploaderId = duplicateDoc.uploadedBy;
+          const isArchived = duplicateDoc.isArchived;
+          
+          if (isArchived) {
+            setUploadStatus('duplicateInTrash');
+          } else if (uploaderId === user?.uid) {
+            setUploadStatus('duplicate');
+          } else {
+            // Found duplicate from another recruiter
+            showAlert('Duplicate Found', `This candidate (${parsed.fullName}) has already been uploaded by another team member. Duplicate check passed.`);
+            setUploadStatus('duplicate');
+          }
+          setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
+          continue;
         }
+
+        // Firestore 1MB limit check: LZString + Base64
+        // We budget 800KB for the WHOLE document to be safe.
+        let isLargeFile = false;
+        if (file.size < 800 * 1024) { 
+           const fullBase64 = `data:${file.type};base64,${base64}`;
+           // Use compressToUTF16 as it's efficient for Firestore storage
+           fileBase64 = LZString.compressToUTF16(fullBase64);
+        } else {
+          isLargeFile = true;
+        }
+        
+        await addDoc(collection(db, 'candidates'), {
+          ...parsed,
+          email: parsed.email?.toLowerCase(),
+          fullName: parsed.fullName || file.name.split('.')[0] || 'Unknown Candidate',
+          fileName: file.name,
+          fileType: file.type,
+          fileData: fileBase64,
+          isCompressed: !!fileBase64,
+          rawText: file.type.startsWith('text/') ? (await file.text()).slice(0, 5000) : `Extracted data from ${file.name}`,
+          isLargeFile,
+          isShortlisted: false,
+          isArchived: false,
+          uploadedBy: user?.uid,
+          createdAt: new Date().toISOString()
+        });
+        setUploadStatus('success');
+        setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1 }));
       } catch (err: any) {
         console.error(err);
-        showAlert('Upload Error', err.message || 'Failed to process file');
+        // Special handling for quota errors
+        if (err.message?.includes('429') || err.message?.toLowerCase().includes('limit')) {
+          showAlert('Rate Limit', "Rate limit reached. Please wait a minute before uploading more resumes.");
+          break; // Stop processing further files
+        }
+        
+        // Generic error handling for local parser
+        showAlert('Parsing Error', `Unable to extract data from ${file.name}. Please try another file format or check the file content.`);
+        
         setUploadStatus('error');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
       }
     }
-    
-    // Refresh list from External API
-    await fetchCandidates();
     
     // Smooth reset
     setTimeout(() => {
       setIsProcessing(false);
       setUploadProgress({ total: 0, processed: 0, failed: 0 });
     }, 3000);
-  }, [user, fetchCandidates]);
+  }, [user, candidates]);
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
     onDrop, 
@@ -330,7 +340,7 @@ export default function Dashboard() {
 
   const handleShortlist = async (id: string, currentStatus: boolean) => {
     try {
-      await setDoc(doc(db, 'candidates', id), { isShortlisted: !currentStatus }, { merge: true });
+      await updateDoc(doc(db, 'candidates', id), { isShortlisted: !currentStatus });
       if (selectedCandidate?.id === id) {
         setSelectedCandidate((prev: any) => ({ ...prev, isShortlisted: !currentStatus }));
       }
@@ -341,12 +351,12 @@ export default function Dashboard() {
 
   const handleUpdateFollowUp = async (id: string, note: string, date: string) => {
     try {
-      await setDoc(doc(db, 'candidates', id), { 
+      await updateDoc(doc(db, 'candidates', id), { 
         followUpNote: note,
         followUpDate: date,
         followUpUpdatedBy: user?.uid,
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      });
       if (selectedCandidate?.id === id) {
         setSelectedCandidate((prev: any) => ({ ...prev, followUpNote: note, followUpDate: date, followUpUpdatedBy: user?.uid }));
       }
@@ -357,11 +367,11 @@ export default function Dashboard() {
 
   const handleUpdateNotes = async (id: string, notes: string) => {
     try {
-      await setDoc(doc(db, 'candidates', id), { 
+      await updateDoc(doc(db, 'candidates', id), { 
         notes,
         notesUpdatedBy: user?.uid,
         updatedAt: new Date().toISOString()
-      }, { merge: true });
+      });
       if (selectedCandidate?.id === id) {
         setSelectedCandidate((prev: any) => ({ ...prev, notes, notesUpdatedBy: user?.uid }));
       }
@@ -378,7 +388,7 @@ export default function Dashboard() {
       message: 'Are you sure you want to move this candidate to trash?',
       onConfirm: async () => {
         try {
-          await setDoc(doc(db, 'candidates', id), { isArchived: true }, { merge: true });
+          await updateDoc(doc(db, 'candidates', id), { isArchived: true });
         } catch (err) {
           console.error(err);
         }
@@ -390,7 +400,7 @@ export default function Dashboard() {
   const handleRestoreCandidate = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     try {
-      await setDoc(doc(db, 'candidates', id), { isArchived: false }, { merge: true });
+      await updateDoc(doc(db, 'candidates', id), { isArchived: false });
     } catch (err) {
       console.error(err);
     }
@@ -418,7 +428,7 @@ export default function Dashboard() {
     setIsProcessing(true);
     try {
       const promises = Array.from(selectedIds).map((id: string) => 
-        setDoc(doc(db, 'candidates', id), { isArchived: false }, { merge: true })
+        updateDoc(doc(db, 'candidates', id), { isArchived: false })
       );
       await Promise.all(promises);
       setSelectedIds(new Set());

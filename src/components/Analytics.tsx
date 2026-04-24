@@ -48,10 +48,8 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
 
   const activityTrends = last7Days.map(date => {
     const count = activityLogs.filter(log => {
-      const time = log.timestamp;
-      if (!time) return false;
-      const timeString = (time instanceof Date) ? time.toISOString() : String(time);
-      return timeString.startsWith(date);
+      const timestamp = log.timestamp?.toDate ? log.timestamp.toDate().toISOString() : (log.timestamp || '');
+      return typeof timestamp === 'string' && timestamp.startsWith(date);
     }).length;
     return { date: date.split('-').slice(1).join('/'), count };
   });

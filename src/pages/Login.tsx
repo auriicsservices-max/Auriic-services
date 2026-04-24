@@ -15,9 +15,7 @@ export default function Login() {
       await signInWithPopup(auth, googleProvider);
       navigate('/dashboard');
     } catch (err: any) {
-      if (!err.message.toLowerCase().includes('access denied')) {
-        setError(err.message);
-      }
+      setError(err.message);
     }
   };
 
@@ -27,9 +25,7 @@ export default function Login() {
       await signInWithEmailAndPassword(auth, email, password);
       navigate('/dashboard');
     } catch (err: any) {
-      if (!err.message.toLowerCase().includes('access denied')) {
-        setError(err.message);
-      }
+      setError(err.message);
     }
   };
 
