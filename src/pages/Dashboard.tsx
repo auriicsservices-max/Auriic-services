@@ -249,21 +249,35 @@ export default function Dashboard() {
         formData.append('name', parsed.fullName || file.name);
         formData.append('email', parsed.email);
         formData.append('phone', parsed.phone);
+        formData.append('compressedData', LZString.compressToUTF16(JSON.stringify(parsed)));
 
-        const response = await fetch('/api/cv/upload', {
-          method: 'POST',
-          body: formData
-        });
-        
-        let result;
-        try {
-          result = await response.json();
-        } catch (e) {
-          throw new Error('Server returned invalid JSON response');
+        let result: any;
+        let attempts = 0;
+        while (attempts < 5) {
+          const response = await fetch('/api/cv/upload', {
+            method: 'POST',
+            body: formData
+          });
+          
+          const responseText = await response.text();
+          if (responseText.trim().startsWith('<!doctype html>')) {
+            console.warn('Server is warming up, retrying...');
+            await new Promise(resolve => setTimeout(resolve, 5000));
+            attempts++;
+            continue;
+          }
+          
+          try {
+            result = JSON.parse(responseText);
+            break;
+          } catch (e) {
+            console.error('Failed to parse response JSON:', responseText);
+            throw new Error('Server returned an unexpected response. Please check your upload configuration.');
+          }
         }
-        
-        if (!result.status) {
-          throw new Error(result.message || 'Upload failed');
+
+        if (!result || !result.status) {
+          throw new Error(result?.message || 'Upload failed after retries');
         }
 
         // 4. Store meta in Firebase

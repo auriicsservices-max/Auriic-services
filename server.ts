@@ -20,7 +20,10 @@ async function startServer() {
     res.json({ status: 'ok', env: process.env.NODE_ENV });
   });
 
-  const upload = multer({ storage: multer.memoryStorage() });
+  const upload = multer({ 
+    storage: multer.memoryStorage(),
+    limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  });
 
   app.post('/api/cv/upload', upload.single('file'), async (req, res) => {
     try {
@@ -44,13 +47,20 @@ async function startServer() {
       });
 
       const contentType = response.headers.get('content-type');
+      const responseText = await response.text();
+      console.log('API Response Content-Type:', contentType);
+      console.log('API Response Text:', responseText);
       if (contentType && contentType.includes('application/json')) {
-        const data = await response.json();
-        res.json(data);
+        try {
+          const data = JSON.parse(responseText);
+          res.json(data);
+        } catch (e) {
+          console.error('Failed to parse JSON:', responseText);
+          res.status(500).json({ status: false, message: 'Upload failed: Invalid JSON. Raw: ' + responseText.substring(0, 100) });
+        }
       } else {
-        const text = await response.text();
-        console.error('Non-JSON response:', text);
-        res.status(500).json({ status: false, message: 'Upload failed: Invalid response format' });
+        console.error('Non-JSON response:', responseText);
+        res.status(500).json({ status: false, message: 'Upload failed: Invalid response format. Raw: ' + responseText.substring(0, 100) });
       }
     } catch (error) {
       console.error(error);
@@ -66,13 +76,18 @@ async function startServer() {
         }
       });
       const contentType = response.headers.get('content-type');
+      const responseText = await response.text();
       if (contentType && contentType.includes('application/json')) {
-        const data = await response.json();
-        res.json(data);
+        try {
+          const data = JSON.parse(responseText);
+          res.json(data);
+        } catch (e) {
+          console.error('Failed to parse list JSON:', responseText);
+          res.status(500).json({ status: false, message: 'List failed: Invalid JSON. Raw: ' + responseText.substring(0, 100) });
+        }
       } else {
-        const text = await response.text();
-        console.error('Non-JSON response:', text);
-        res.status(500).json({ status: false, message: 'List failed: Invalid response format' });
+        console.error('Non-JSON response for list:', responseText);
+        res.status(500).json({ status: false, message: 'List failed: Invalid response format. Raw: ' + responseText.substring(0, 100) });
       }
     } catch (error) {
       console.error(error);
