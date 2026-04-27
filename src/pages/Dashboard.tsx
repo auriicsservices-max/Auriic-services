@@ -13,6 +13,7 @@ import Shortlist from '../components/Shortlist';
 import LogReview from '../components/LogReview';
 import ConfirmModal from '../components/ConfirmModal';
 import InternalChat from '../components/InternalChat';
+import QuotaNotice from '../components/QuotaNotice';
 import LZString from 'lz-string';
 import { 
   Search, 
@@ -41,7 +42,7 @@ import {
 } from 'lucide-react';
 
 export default function Dashboard() {
-  const { user, role } = useAuth();
+  const { user, role, quotaExceeded, setQuotaExceeded } = useAuth();
   const [candidates, setCandidates] = useState<any[]>([]);
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<Record<string, string>>({});
@@ -177,7 +178,10 @@ export default function Dashboard() {
       });
       
       setUnreadChatCount(totalUnread);
-    }, (err) => console.error("Chat count listener error:", err));
+    }, (err: any) => {
+      console.error("Chat count listener error:", err);
+      if (err.code === 'resource-exhausted') setQuotaExceeded(true);
+    });
 
     const q = query(collection(db, 'candidates'), orderBy('createdAt', 'desc'));
     const unsubCandidates = onSnapshot(q, (snapshot) => {
@@ -187,7 +191,10 @@ export default function Dashboard() {
       } else {
         setCandidates(allCandidates.filter(c => c.uploadedBy === user?.uid));
       }
-    }, (err) => console.error("Candidates listener error:", err));
+    }, (err: any) => {
+      console.error("Candidates listener error:", err);
+      if (err.code === 'resource-exhausted') setQuotaExceeded(true);
+    });
 
     const unsubLogs = onSnapshot(query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc')), (snapshot) => {
       const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
@@ -196,7 +203,10 @@ export default function Dashboard() {
       } else {
         setActivityLogs(logs.filter(log => log.userId === user?.uid));
       }
-    }, (err) => console.error("Logs listener error:", err));
+    }, (err: any) => {
+      console.error("Logs listener error:", err);
+      if (err.code === 'resource-exhausted') setQuotaExceeded(true);
+    });
 
     // Fetch team members for uploader mapping (visible to all team members)
     const unsubTeam = onSnapshot(collection(db, 'users'), (snapshot) => {
@@ -209,7 +219,10 @@ export default function Dashboard() {
       });
       setTeamMembers(mapping);
       setFullTeamList(list);
-    }, (err) => console.error("Team listener error:", err));
+    }, (err: any) => {
+      console.error("Team listener error:", err);
+      if (err.code === 'resource-exhausted') setQuotaExceeded(true);
+    });
 
     return () => {
       unsubChat();
@@ -250,15 +263,13 @@ export default function Dashboard() {
         // 3. Upload metadata to Aurrum API
         const formData = new FormData();
         
-        // Handle 2MB limit mentioned in docs
-        if (file.size > 2 * 1024 * 1024) {
-          console.warn('File exceeds 2MB limit of Aurrum API, but we will try sending just metadata or compressing later if needed.');
-        }
-
+        // Aurrum API requirements: file (Required), name (Required), email (Required)
         formData.append('file', file);
         formData.append('name', parsed.fullName || file.name);
-        formData.append('email', parsed.email || '');
-        formData.append('phone', parsed.phone || '');
+        formData.append('email', parsed.email || 'pending@aurrum.co');
+        if (parsed.phone) {
+          formData.append('phone', parsed.phone);
+        }
 
         let result = { status: false, data: { id: null, url: null, name: parsed.fullName || file.name }, message: '' };
         try {
@@ -267,11 +278,11 @@ export default function Dashboard() {
             body: formData
           });
           
-          const responseText = await response.text();
-          try {
-            result = JSON.parse(responseText);
-          } catch (e) {
-            console.warn('API returned non-JSON, but proceeding with local storage');
+          if (response.ok) {
+            const data = await response.json();
+            result = data;
+          } else {
+            console.warn('API upload response not OK:', response.status);
           }
         } catch (apiErr) {
           console.warn('API upload failed, sticking to local storage:', apiErr);
@@ -743,7 +754,11 @@ export default function Dashboard() {
         </header>
 
         <div className="p-8 flex-1 overflow-y-auto">
-          {activeTab === 'candidates' ? (
+          {quotaExceeded ? (
+            <div className="h-full flex items-center justify-center p-4">
+              <QuotaNotice onRetry={() => window.location.reload()} />
+            </div>
+          ) : activeTab === 'candidates' ? (
             <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
                 <div className="flex items-center gap-4">

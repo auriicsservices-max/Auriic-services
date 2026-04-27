@@ -3,11 +3,12 @@ import { db } from '../lib/firebase';
 import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { Clock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import QuotaNotice from './QuotaNotice';
 
 export default function LogReview() {
   const [logs, setLogs] = useState<any[]>([]);
   const [usersMap, setUsersMap] = useState<Record<string, string>>({});
-  const { role } = useAuth();
+  const { role, quotaExceeded, setQuotaExceeded } = useAuth();
 
   useEffect(() => {
     const q = query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc'));
@@ -19,6 +20,9 @@ export default function LogReview() {
       } else {
         setLogs(allLogs.filter((log: any) => log.userRole === role));
       }
+    }, (err: any) => {
+      console.error("Logs update error:", err);
+      if (err.code === 'resource-exhausted') setQuotaExceeded(true);
     });
   }, [role]);
 
@@ -30,6 +34,9 @@ export default function LogReview() {
           mapping[doc.id] = doc.data().name || doc.data().email;
         });
         setUsersMap(mapping);
+      }, (err: any) => {
+        console.error("Users mapping error:", err);
+        if (err.code === 'resource-exhausted') setQuotaExceeded(true);
       });
       return unsub;
     }
@@ -48,7 +55,11 @@ export default function LogReview() {
     }
   };
 
-  return (
+  return quotaExceeded ? (
+    <div className="flex-1 flex items-center justify-center p-8">
+      <QuotaNotice onRetry={() => window.location.reload()} />
+    </div>
+  ) : (
     <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-300">
       <h2 className="text-3xl font-serif text-slate-800 dark:text-slate-100 mb-8">Activity Logs</h2>
       <div className="overflow-hidden border border-slate-100 dark:border-slate-800 rounded-2xl">

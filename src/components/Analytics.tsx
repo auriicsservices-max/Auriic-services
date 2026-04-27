@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line, CartesianGrid } from 'recharts';
 import { TrendingUp, Users, Target, Briefcase, X, User, Activity } from 'lucide-react';
 import CandidateModal from './CandidateModal';
+import QuotaNotice from './QuotaNotice';
+import { useAuth } from '../contexts/AuthContext';
 
 interface StatsProps {
   candidates: any[];
@@ -14,6 +16,7 @@ interface StatsProps {
 }
 
 export default function Analytics({ candidates, activityLogs = [], onShortlist, onUpdateFollowUp, onUpdateNotes, teamMembers, role }: StatsProps) {
+  const { quotaExceeded } = useAuth();
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
@@ -63,6 +66,13 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
 
   const domainChartData = Object.entries(domainDataMap).map(([name, value]) => ({ name, value }));
 
+  // Shortlist conversion data
+  const shortlistedCount = candidates.filter(c => c.isShortlisted).length;
+  const shortlistChartData = [
+    { name: 'Shortlisted', value: shortlistedCount },
+    { name: 'Under Review', value: candidates.length - shortlistedCount }
+  ];
+
   // Process skills data (all)
   const skillsMap = candidates.reduce((acc: any, c) => {
     c.skills?.forEach((skill: string) => {
@@ -87,7 +97,11 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
     setShowModal(true);
   };
 
-  return (
+  return quotaExceeded ? (
+    <div className="flex-1 flex items-center justify-center p-8">
+      <QuotaNotice onRetry={() => window.location.reload()} />
+    </div>
+  ) : (
     <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Top Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
@@ -276,6 +290,40 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
                   itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
                 />
                 <Legend />
+              </PieChart>
+            </ResponsiveContainer>
+          </div>
+        </section>
+
+        {/* Shortlist Conversion */}
+        <section className="bg-white dark:bg-slate-900 p-8 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-sm min-h-[400px] flex flex-col transition-colors duration-300">
+          <div className="mb-6">
+            <h3 className="text-xl font-serif text-slate-800 dark:text-slate-100">Selection Efficiency</h3>
+            <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500">Funnel from pool to shortlist</p>
+          </div>
+          <div className="flex-1 w-full h-[300px]">
+            <ResponsiveContainer width="100%" height="100%">
+              <PieChart>
+                <Pie
+                  data={shortlistChartData}
+                  cx="50%"
+                  cy="50%"
+                  innerRadius={0}
+                  outerRadius={100}
+                  dataKey="value"
+                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
+                >
+                  <Cell fill="#10B981" />
+                  <Cell fill="#F1F5F9" stroke="#E2E8F0" />
+                </Pie>
+                <Tooltip 
+                  contentStyle={{ 
+                    borderRadius: '1rem', 
+                    border: 'none', 
+                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
+                    backgroundColor: 'white'
+                  }}
+                />
               </PieChart>
             </ResponsiveContainer>
           </div>

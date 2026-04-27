@@ -7,14 +7,23 @@ interface AuthContextType {
   user: User | null;
   role: 'admin' | 'recruiter' | null;
   loading: boolean;
+  quotaExceeded: boolean;
+  setQuotaExceeded: (value: boolean) => void;
 }
 
-const AuthContext = createContext<AuthContextType>({ user: null, role: null, loading: true });
+const AuthContext = createContext<AuthContextType>({ 
+  user: null, 
+  role: null, 
+  loading: true,
+  quotaExceeded: false,
+  setQuotaExceeded: () => {}
+});
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<'admin' | 'recruiter' | null>(null);
   const [loading, setLoading] = useState(true);
+  const [quotaExceeded, setQuotaExceeded] = useState(false);
 
   useEffect(() => {
     let statusInterval: any;
@@ -94,7 +103,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user?.uid]);
 
   return (
-    <AuthContext.Provider value={{ user, role, loading }}>
+    <AuthContext.Provider value={{ user, role, loading, quotaExceeded, setQuotaExceeded }}>
       {children}
     </AuthContext.Provider>
   );

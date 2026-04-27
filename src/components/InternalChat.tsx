@@ -4,13 +4,14 @@ import { collection, query, orderBy, onSnapshot, addDoc, limit, serverTimestamp,
 import { useAuth } from '../contexts/AuthContext';
 import { Send, User, Shield, MessageSquare, Clock, Search, FileText, Plus, Paperclip, X, Download, Check, CheckCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import QuotaNotice from './QuotaNotice';
 
 interface InternalChatProps {
   teamMembers: any[];
 }
 
 export default function InternalChat({ teamMembers }: InternalChatProps) {
-  const { user, role } = useAuth();
+  const { user, role, quotaExceeded, setQuotaExceeded } = useAuth();
   const [activePartnerId, setActivePartnerId] = useState<string | null>(null);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
@@ -66,6 +67,9 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
       });
       
       setUnreadCounts(counts);
+    }, (err: any) => {
+      console.error("Unread counts listener error:", err);
+      if (err.code === 'resource-exhausted') setQuotaExceeded(true);
     });
 
     return () => unsubscribe();
@@ -114,6 +118,9 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
       } else {
         setIsPartnerTyping(false);
       }
+    }, (err: any) => {
+      console.error("Typing indicator error:", err);
+      if (err.code === 'resource-exhausted') setQuotaExceeded(true);
     });
 
     return () => unsubscribe();
@@ -184,9 +191,10 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
       });
       setMessages(msgs);
       setIsLoading(false);
-    }, (error) => {
-      console.error("Chat sync error:", error);
+    }, (err: any) => {
+      console.error("Chat sync error:", err);
       setIsLoading(false);
+      if (err.code === 'resource-exhausted') setQuotaExceeded(true);
     });
 
     return () => unsubscribe();
@@ -248,7 +256,11 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
 
   const activePartner = teamMembers.find(u => u.uid === activePartnerId);
 
-  return (
+  return quotaExceeded ? (
+    <div className="flex-1 flex items-center justify-center p-8">
+      <QuotaNotice onRetry={() => window.location.reload()} />
+    </div>
+  ) : (
     <div className="flex h-[75vh] bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden transition-all duration-300">
       {/* Sidebar - Users List */}
       <aside className="w-80 border-r border-slate-100 dark:border-slate-800 flex flex-col bg-slate-50/50 dark:bg-slate-900/50">

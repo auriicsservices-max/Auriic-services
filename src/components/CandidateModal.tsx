@@ -48,8 +48,11 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   };
 
   const [cvUrl, setCvUrl] = useState<string | null>(null);
+  const [newSkill, setNewSkill] = useState('');
+  const [skills, setSkills] = useState<string[]>([]);
 
   const fetchCVUrl = async () => {
+      if (!candidate?.cid) return;
       try {
           const response = await fetch('/api/cv/list', {
               headers: { 'x-api-key': 'AURRUM_SECRET_123' }
@@ -59,7 +62,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             data = await response.json();
           } catch (e) {
             console.error('Failed to parse list API response', e);
-            throw new Error('Invalid JSON response from server');
+            return;
           }
           if (data.status && data.data) {
               const matchedCV = data.data.find((item: any) => item.id == candidate.cid);
@@ -77,6 +80,13 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       setFollowUpNote(candidate.followUpNote || '');
       setFollowUpDate(candidate.followUpDate || '');
       setGeneralNotes(candidate.notes || '');
+      setSkills(candidate.skills || []);
+      
+      // Initialize cvUrl with candidate.url if exists
+      if (candidate.url) {
+        setCvUrl(candidate.url);
+      }
+      
       if (candidate.cid) {
           fetchCVUrl();
       }
@@ -86,8 +96,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   if (!isOpen || !candidate) return null;
 
   const handleDownload = () => {
-    if (cvUrl) {
-      window.open(cvUrl, '_blank');
+    const finalUrl = cvUrl || candidate.url;
+    if (finalUrl) {
+      window.open(finalUrl, '_blank');
     } else if (candidate.compressedText) {
       const text = LZString.decompressFromUTF16(candidate.compressedText);
       const blob = new Blob([text], { type: 'text/plain' });
@@ -105,8 +116,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   };
 
   const handleView = () => {
-    if (cvUrl) {
-      window.open(cvUrl, '_blank');
+    const finalUrl = cvUrl || candidate.url;
+    if (finalUrl) {
+      window.open(finalUrl, '_blank');
     } else if (candidate.compressedText) {
       const text = LZString.decompressFromUTF16(candidate.compressedText);
       const blob = new Blob([text], { type: 'text/plain' });
@@ -133,6 +145,41 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     await onUpdateNotes(candidate.id, generalNotes);
     await logActivity('Notes Update', { candidateId: candidate.id }, user!.uid, role!);
     setIsSavingNotes(false);
+  };
+
+  const handleAddSkill = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newSkill.trim()) return;
+    const s = newSkill.trim().toUpperCase();
+    if (skills.includes(s)) {
+      setNewSkill('');
+      return;
+    }
+    const updatedSkills = [...skills, s];
+    setSkills(updatedSkills);
+    setNewSkill('');
+    try {
+      // Update in DB immediately
+      const { updateDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+      await updateDoc(doc(db, 'candidates', candidate.id), { skills: updatedSkills });
+      await logActivity('Skill Added', { candidateId: candidate.id, skill: s }, user!.uid, role!);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleRemoveSkill = async (skillToRemove: string) => {
+    const updatedSkills = skills.filter(s => s !== skillToRemove);
+    setSkills(updatedSkills);
+    try {
+      const { updateDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+      await updateDoc(doc(db, 'candidates', candidate.id), { skills: updatedSkills });
+      await logActivity('Skill Removed', { candidateId: candidate.id, skill: skillToRemove }, user!.uid, role!);
+    } catch (err) {
+      console.error(err);
+    }
   };
 
   return (
@@ -166,7 +213,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                 onClick={handleView}
                 className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all border border-indigo-100 dark:border-indigo-800"
               >
-                <Globe size={18} /> View {cvUrl ? 'CV' : 'Text'}
+                <Globe size={18} /> View CV
               </button>
             )}
             {(role === 'admin' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.compressedText) && (
@@ -174,7 +221,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                 onClick={handleDownload}
                 className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700"
               >
-                <Download size={18} /> Download {cvUrl ? 'CV' : 'Text'}
+                <Download size={18} /> Download CV
               </button>
             )}
             <button 
@@ -187,13 +234,13 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
         </header>
 
         {/* Banner for Large Files */}
-        {candidate.isLargeFile && (
+        {candidate.isLargeFile && !(cvUrl || candidate.url) && (
           <div className="mx-8 mt-4 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl flex items-center gap-3">
             <span className="flex-shrink-0 w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center text-amber-600 dark:text-amber-400">
-              <Clock size={16} />
+              <Loader2 className="animate-spin" size={16} />
             </span>
             <p className="text-[10px] text-amber-800 dark:text-amber-200 font-medium leading-relaxed">
-              <strong>Large File Support:</strong> This CV exceeds constant limit. To ensure database stability, we've indexed the full text for search, but the original PDF preview was omitted. You can download the extracted text version above.
+              <strong>Large File:</strong> Extracting full PDF URL. If it doesn't appear, you can use the text version below.
             </p>
           </div>
         )}
@@ -207,17 +254,12 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 flex items-center gap-2">
                   <Globe size={12} /> Professional Summary
                 </h3>
-                {candidate.compressedText && (
+                {(cvUrl || candidate.url || candidate.compressedText) && (
                   <button 
-                    onClick={() => {
-                      const text = LZString.decompressFromUTF16(candidate.compressedText);
-                      const blob = new Blob([text], { type: 'text/plain' });
-                      const url = URL.createObjectURL(blob);
-                      window.open(url, '_blank');
-                    }}
+                    onClick={handleView}
                     className="text-[9px] font-bold text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 uppercase tracking-widest"
                   >
-                    View Indexed Text
+                    View Original CV
                   </button>
                 )}
               </div>
@@ -262,15 +304,40 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
           <div className="space-y-8">
             <section>
               <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mb-4 flex items-center gap-2">
-                <Code size={12} /> Skills & Tools
+                <Code size={12} /> Skills & Core Competencies
               </h3>
-              <div className="flex flex-wrap gap-2">
-                {candidate.skills?.map((skill: string) => (
-                  <span key={skill} className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-full text-[10px] font-bold uppercase tracking-wider transition-colors duration-300">
+              <div className="flex flex-wrap gap-2 mb-4">
+                {skills.map((skill: string) => (
+                  <span key={skill} className="group px-3 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 transition-all">
                     {skill}
+                    {(role === 'admin' || role === 'recruiter') && (
+                      <button 
+                        onClick={() => handleRemoveSkill(skill)}
+                        className="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
+                      >
+                        <X size={10} />
+                      </button>
+                    )}
                   </span>
                 ))}
               </div>
+              {(role === 'admin' || role === 'recruiter') && (
+                <form onSubmit={handleAddSkill} className="flex gap-2">
+                  <input 
+                    type="text"
+                    value={newSkill}
+                    onChange={(e) => setNewSkill(e.target.value)}
+                    placeholder="Add skill (e.g. REACT)..."
+                    className="flex-1 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-800 rounded-xl px-3 py-1.5 text-[10px] focus:outline-none focus:ring-1 focus:ring-indigo-500 font-bold uppercase"
+                  />
+                  <button 
+                    type="submit"
+                    className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-700 transition-all"
+                  >
+                    Add
+                  </button>
+                </form>
+              )}
             </section>
 
             <section>
