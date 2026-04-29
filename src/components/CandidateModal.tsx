@@ -241,21 +241,30 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     audio.play().catch(e => console.warn('Audio failed to play (expected if interaction lost):', e));
 
     try {
+      const isRemoval = assignedTo === ''; // Check if it's a removal
+      
       await onUpdateAssignee(candidate.id, assignedTo);
-      await logActivity('Assignee Updated', { candidateId: candidate.id, userId: assignedTo }, user!.uid, role!);
+      
+      const activityAction = isRemoval ? 'Assignment Removed' : 'Assignee Updated'; // Log message
+      await logActivity(activityAction, { candidateId: candidate.id, userId: assignedTo }, user!.uid, role!);
       
       // Show desktop notification if enabled
       if (Notification.permission === 'granted') {
-          new Notification('Candidate Assigned', {
-              body: `Successfully assigned ${candidate.fullName} to ${teamMembers[assignedTo] || 'Recruiter'}.`,
+          const title = isRemoval ? 'Assignment Removed' : 'Candidate Assigned';
+          const body = isRemoval 
+              ? `Assignment removed for ${candidate.fullName}.`
+              : `Successfully assigned ${candidate.fullName} to ${teamMembers[assignedTo] || 'Recruiter'}.`;
+              
+          new Notification(title, {
+              body,
               icon: 'https://aurrum.co/wp-content/uploads/2026/04/Aurrum_Logo-2.png'
           });
       }
       
-      showAlert('Success', 'Candidate assigned successfully.');
+      showAlert('Success', isRemoval ? 'Assignment removed successfully.' : 'Candidate assigned successfully.');
     } catch (err) {
       console.error(err);
-      showAlert('Error', 'Failed to assign candidate.');
+      showAlert('Error', 'Failed to update assignment.');
     } finally {
       setIsSavingAssignee(false);
     }
@@ -518,21 +527,15 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   </div>
                 )}
                 {candidate.assignedTo && (
-                  <div className="flex justify-between text-[10px] items-center">
-                    <span className="text-[var(--text-muted)]">Assigned to</span>
-                    <button 
-                      onClick={() => onContact(candidate.assignedTo)}
-                      className="flex items-center gap-1.5 text-indigo-500 hover:text-indigo-600 font-bold group"
-                    >
-                      {teamMembers?.[candidate.assignedTo] || 'Unknown'}
-                      <MessageSquare size={10} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </button>
-                  </div>
-                )}
-                {candidate.assignedBy && (
                   <div className="flex justify-between text-[10px]">
-                    <span className="text-[var(--text-muted)]">Assigned by</span>
-                    <span className="font-bold text-indigo-400">{teamMembers?.[candidate.assignedBy] || 'Admin'}</span>
+                    <span className="text-[var(--text-muted)]">
+                      {role === 'admin' ? 'Assigned to' : 'Assigned by'}
+                    </span>
+                    <span className="font-bold text-indigo-400">
+                      {role === 'admin' 
+                        ? `${teamMembers?.[candidate.assignedTo] || 'Recruiter'} (recruiter)` 
+                        : `${teamMembers?.[candidate.assignedBy] || 'Admin'} (admin)`}
+                    </span>
                   </div>
                 )}
                 <div className="flex justify-between text-[10px]">

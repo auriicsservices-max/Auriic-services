@@ -51,6 +51,7 @@ export default function Dashboard() {
   const { theme } = useTheme();
   const [candidates, setCandidates] = useState<any[]>([]);
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  const [recentChatMessages, setRecentChatMessages] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<Record<string, string>>({});
   const [fullTeamList, setFullTeamList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -90,6 +91,28 @@ export default function Dashboard() {
   }, [user?.uid]);
   const [showNotifications, setShowNotifications] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+  const notificationRef = React.useRef<HTMLDivElement>(null);
+
+  // Close notification box when clicking outside
+  useEffect(() => {
+    function handleClickOutside(event: MouseEvent) {
+      if (notificationRef.current && !notificationRef.current.contains(event.target as Node)) {
+        setShowNotifications(false);
+      }
+    }
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [notificationRef]);
+
+  // Keep track of read notifications
+  const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
+
+  const markAsRead = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setReadNotifications(prev => new Set(prev).add(id));
+  };
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [viewScope, setViewScope] = useState<'mine' | 'all'>('all');
@@ -169,6 +192,11 @@ export default function Dashboard() {
         });
         
         setUnreadChatCount(totalUnread);
+        
+        setRecentChatMessages(snapshot.docs
+            .map(doc => ({ id: doc.id, ...doc.data() }))
+            .sort((a: any, b: any) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
+            .slice(0, 10));
 
         // Trigger Notification & Sound
         if (newestUnreadMsg && newestUnreadMsg.id !== lastNotifiedMessageId) {
@@ -605,6 +633,10 @@ export default function Dashboard() {
   // Boolean Search logic
   const filteredCandidates = candidates.filter(candidate => {
     if (candidate.isArchived) return false;
+    
+    // Role-based filtering
+    if (role !== 'admin' && candidate.assignedTo !== user?.uid) return false;
+
     if (!searchQuery.trim()) return true;
     const terms = searchQuery.toLowerCase().split(/\s+/);
     const searchableText = `${candidate.fullName} ${candidate.domain} ${candidate.summary} ${candidate.skills?.join(' ')} ${candidate.notes || ''} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''} ${teamMembers[candidate.followUpUpdatedBy] || ''}`.toLowerCase();
@@ -876,28 +908,47 @@ export default function Dashboard() {
               </div>
             )}
             
-            <div className="relative">
+            <div className="relative" ref={notificationRef}>
               <button 
                 onClick={() => setShowNotifications(!showNotifications)}
                 className="p-2 text-[var(--text-secondary)] hover:text-indigo-600 transition-colors relative"
               >
                 <Bell size={20} />
-                {activityLogs.length > 0 && (
+                {(activityLogs.length + recentChatMessages.length - readNotifications.size > 0) && (
                   <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
                 )}
               </button>
               
               {showNotifications && (
-                <div className="absolute top-full right-0 mt-2 w-80 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl shadow-xl z-50 p-4 max-h-[400px] overflow-y-auto">
-                  <h3 className="text-sm font-bold text-[var(--text-primary)] mb-4">Recent Notifications</h3>
-                  <div className="space-y-4">
-                    {activityLogs.slice(0, 10).map((log, i) => (
-                      <div key={i} className="text-xs text-[var(--text-secondary)] border-b border-[var(--border-color)] pb-2">
-                        <p className="font-bold text-[var(--text-primary)]">{log.action}</p>
-                        <p>{new Date(log.timestamp).toLocaleString()}</p>
+                <div className="absolute top-full right-0 mt-3 w-96 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-3xl shadow-2xl z-50 overflow-hidden flex flex-col max-h-[500px]">
+                  <div className="p-5 border-b border-[var(--border-color)] flex justify-between items-center">
+                    <h3 className="text-sm font-black text-[var(--text-primary)] uppercase tracking-widest">Recent Notifications</h3>
+                    <span className="text-[10px] font-bold text-[var(--text-muted)] bg-[var(--sidebar-bg)] px-2 py-1 rounded-md">
+                      {Math.max(0, activityLogs.length + recentChatMessages.length - readNotifications.size)} New
+                    </span>
+                  </div>
+                  <div className="overflow-y-auto p-2 space-y-1">
+                    {[...activityLogs.map(log => ({ ...log, type: 'activity', id: log.id, timestamp: log.timestamp })), 
+                      ...recentChatMessages.map(msg => ({ ...msg, type: 'chat', id: msg.id, action: `Message from ${teamMembers[msg.senderId] || 'Unknown'}`, timestamp: msg.createdAt?.toMillis() }))
+                     ].filter(log => !readNotifications.has(log.id)).sort((a: any, b: any) => b.timestamp - a.timestamp).slice(0, 15).map((log, i) => (
+                      <div key={log.id} className="group p-3 hover:bg-[var(--sidebar-bg)] rounded-2xl flex items-start gap-3 transition-colors border border-transparent hover:border-[var(--border-color)]">
+                        <div className={`mt-1 w-2 h-2 rounded-full ${log.type === 'chat' ? 'bg-indigo-500' : 'bg-slate-400'}`} />
+                        <div className="flex-1">
+                          <p className="text-xs font-bold text-[var(--text-primary)]">{log.action}</p>
+                          <p className="text-[10px] text-[var(--text-muted)] mt-0.5">{new Date(log.timestamp).toLocaleString()}</p>
+                        </div>
+                        <button 
+                          onClick={(e) => markAsRead(log.id, e)}
+                          className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-[var(--bg-primary)] rounded-lg text-[var(--text-muted)] transition-opacity"
+                          title="Mark as read"
+                        >
+                          <X size={12} />
+                        </button>
                       </div>
                     ))}
-                    {activityLogs.length === 0 && <p className="text-xs text-[var(--text-muted)]">No new notifications.</p>}
+                    {(activityLogs.length + recentChatMessages.length - readNotifications.size === 0) && (
+                      <div className="p-10 text-center text-xs text-[var(--text-muted)] italic">No new notifications.</div>
+                    )}
                   </div>
                 </div>
               )}
@@ -1082,9 +1133,13 @@ export default function Dashboard() {
                               </div>
                               <div className="text-[10px] text-[var(--text-muted)] font-medium">
                                 {candidate.email || 'No contact mail'}
-                                {candidate.assignedBy && (
+                                {candidate.assignedTo && (
                                   <span className="block italic text-[9px] text-indigo-300">
-                                    Assigned by: {teamMembers[candidate.assignedBy] || 'Admin'}
+                                    {role === 'admin' ? (
+                                      <>Assigned to: {teamMembers[candidate.assignedTo] || 'Recruiter'} (recruiter)</>
+                                    ) : (
+                                      <>Assigned by: {teamMembers[candidate.assignedBy] || 'Admin'} (admin)</>
+                                    )}
                                   </span>
                                 )}
                               </div>
