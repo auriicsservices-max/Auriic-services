@@ -635,7 +635,7 @@ export default function Dashboard() {
     if (candidate.isArchived) return false;
     
     // Role-based filtering
-    if (role !== 'admin' && candidate.assignedTo !== user?.uid) return false;
+    if (role !== 'admin' && candidate.uploadedBy !== user?.uid && candidate.assignedTo !== user?.uid) return false;
 
     if (!searchQuery.trim()) return true;
     const terms = searchQuery.toLowerCase().split(/\s+/);
