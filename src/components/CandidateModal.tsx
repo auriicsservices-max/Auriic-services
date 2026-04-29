@@ -313,7 +313,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               </div>
             </div>
             <div className="flex gap-2">
-              {(role === 'admin' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.compressedText) && (
+              {(role === 'admin' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText) && (
                 <button 
                   onClick={handleView}
                   className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all border border-indigo-100 dark:border-indigo-800"
@@ -321,7 +321,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   <Globe size={18} /> View CV
                 </button>
               )}
-              {(role === 'admin' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.compressedText) && (
+              {(role === 'admin' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText) && (
                 <button 
                   onClick={handleDownload}
                   className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700"

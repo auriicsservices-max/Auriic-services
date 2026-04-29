@@ -226,6 +226,7 @@ export default function Dashboard() {
 
     // Conditional listeners to save quota
     let unsubCandidates = () => {};
+    let unsubAssigned = () => {};
     let unsubLogs = () => {};
     let unsubTrash = () => {};
     let unsubTeam = () => {};
@@ -234,16 +235,39 @@ export default function Dashboard() {
       const q = query(
         collection(db, 'candidates'), 
         where('isArchived', '==', false),
+        ...(role !== 'admin' ? [where('uploadedBy', '==', user?.uid)] : []),
         orderBy('createdAt', 'desc'),
         limit(200)
       );
       unsubCandidates = onSnapshot(q, (snapshot) => {
-        const allCandidates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-        setCandidates(allCandidates);
+        const uploaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        setCandidates(prev => {
+             const others = prev.filter(c => c.assignedTo === user?.uid);
+             const merged = [...uploaded, ...others];
+             return Array.from(new Map(merged.map(c => [c.id, c])).values());
+        });
       }, (err: any) => {
         console.error("Candidates listener error:", err);
         if (err.code === 'resource-exhausted') setQuotaExceeded(true);
       });
+      
+      if (role !== 'admin') {
+         const qAssigned = query(
+            collection(db, 'candidates'), 
+            where('isArchived', '==', false),
+            where('assignedTo', '==', user?.uid),
+            orderBy('createdAt', 'desc'),
+            limit(200)
+        );
+        unsubAssigned = onSnapshot(qAssigned, (snapshot) => {
+          const assigned = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+           setCandidates(prev => {
+             const others = prev.filter(c => c.uploadedBy === user?.uid);
+             const merged = [...assigned, ...others];
+             return Array.from(new Map(merged.map(c => [c.id, c])).values());
+          });
+        });
+      }
     }
 
     if (!quotaExceeded && activeTab === 'trash') {
@@ -297,6 +321,7 @@ export default function Dashboard() {
     return () => {
       unsubChat();
       unsubCandidates();
+      unsubAssigned();
       unsubLogs();
       unsubTrash();
       unsubTeam();
@@ -633,10 +658,6 @@ export default function Dashboard() {
   // Boolean Search logic
   const filteredCandidates = candidates.filter(candidate => {
     if (candidate.isArchived) return false;
-    
-    // Role-based filtering
-    if (role !== 'admin' && candidate.uploadedBy !== user?.uid && candidate.assignedTo !== user?.uid) return false;
-
     if (!searchQuery.trim()) return true;
     const terms = searchQuery.toLowerCase().split(/\s+/);
     const searchableText = `${candidate.fullName} ${candidate.domain} ${candidate.summary} ${candidate.skills?.join(' ')} ${candidate.notes || ''} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''} ${teamMembers[candidate.followUpUpdatedBy] || ''}`.toLowerCase();
