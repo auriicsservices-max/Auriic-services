@@ -235,13 +235,14 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
 
   const handleUpdateAssignee = async () => {
     setIsSavingAssignee(true);
+    
+    // Play sound immediately on user interaction
+    const audio = new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_3230617233.mp3?filename=message-124468.mp3');
+    audio.play().catch(e => console.warn('Audio failed to play (expected if interaction lost):', e));
+
     try {
       await onUpdateAssignee(candidate.id, assignedTo);
       await logActivity('Assignee Updated', { candidateId: candidate.id, userId: assignedTo }, user!.uid, role!);
-      
-      // Play sound
-      const audio = new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_3230617233.mp3?filename=message-124468.mp3');
-      audio.play().catch(e => console.error('Audio failed to play', e));
       
       // Show desktop notification if enabled
       if (Notification.permission === 'granted') {
