@@ -235,10 +235,29 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
 
   const handleUpdateAssignee = async () => {
     setIsSavingAssignee(true);
-    await onUpdateAssignee(candidate.id, assignedTo);
-    await logActivity('Assignee Updated', { candidateId: candidate.id, userId: assignedTo }, user!.uid, role!);
-    setIsSavingAssignee(false);
-    showAlert('Success', 'Candidate assigned successfully.');
+    try {
+      await onUpdateAssignee(candidate.id, assignedTo);
+      await logActivity('Assignee Updated', { candidateId: candidate.id, userId: assignedTo }, user!.uid, role!);
+      
+      // Play sound
+      const audio = new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_3230617233.mp3?filename=message-124468.mp3');
+      audio.play().catch(e => console.error('Audio failed to play', e));
+      
+      // Show desktop notification if enabled
+      if (Notification.permission === 'granted') {
+          new Notification('Candidate Assigned', {
+              body: `Successfully assigned ${candidate.fullName} to ${teamMembers[assignedTo] || 'Recruiter'}.`,
+              icon: 'https://aurrum.co/wp-content/uploads/2026/04/Aurrum_Logo-2.png'
+          });
+      }
+      
+      showAlert('Success', 'Candidate assigned successfully.');
+    } catch (err) {
+      console.error(err);
+      showAlert('Error', 'Failed to assign candidate.');
+    } finally {
+      setIsSavingAssignee(false);
+    }
   };
 
   const handleRemoveSkill = async (skillToRemove: string) => {
