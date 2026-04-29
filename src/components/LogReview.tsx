@@ -60,11 +60,11 @@ export default function LogReview() {
       <QuotaNotice onRetry={() => window.location.reload()} />
     </div>
   ) : (
-    <div className="bg-white dark:bg-slate-900 p-8 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-300">
-      <h2 className="text-3xl font-serif text-slate-800 dark:text-slate-100 mb-8">Activity Logs</h2>
-      <div className="overflow-hidden border border-slate-100 dark:border-slate-800 rounded-2xl">
+    <div className="bg-[var(--card-bg)] p-8 rounded-[2rem] border border-[var(--border-color)] shadow-sm transition-colors duration-300">
+      <h2 className="text-3xl font-serif text-[var(--text-primary)] mb-8">Activity Logs</h2>
+      <div className="overflow-hidden border border-[var(--border-color)] rounded-2xl">
         <table className="w-full text-left border-collapse">
-            <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] uppercase font-bold text-slate-500">
+            <thead className="bg-[var(--sidebar-bg)] text-[10px] uppercase font-bold text-[var(--text-muted)]">
                 <tr>
                     <th className="px-6 py-4">Timestamp</th>
                     {role === 'admin' && <th className="px-6 py-4">Team Member</th>}
@@ -72,16 +72,16 @@ export default function LogReview() {
                     <th className="px-6 py-4">Role</th>
                 </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-[var(--border-color)]">
                 {logs.map(log => (
-                    <tr key={log.id}>
-                        <td className="px-6 py-4 text-xs font-mono text-slate-500">{new Date(log.timestamp).toLocaleString()}</td>
+                    <tr key={log.id} className="hover:bg-indigo-50/20 dark:hover:bg-indigo-900/10 transition-colors">
+                        <td className="px-6 py-4 text-xs font-mono text-[var(--text-muted)]">{new Date(log.timestamp).toLocaleString()}</td>
                         {role === 'admin' && (
-                          <td className="px-6 py-4 text-xs font-bold text-slate-600 dark:text-slate-400">
+                          <td className="px-6 py-4 text-xs font-bold text-[var(--text-secondary)]">
                             {usersMap[log.userId] || 'System/AI'}
                           </td>
                         )}
-                        <td className="px-6 py-4 text-sm font-bold text-slate-700">{formatActionMessage(log.action, log.details)}</td>
+                        <td className="px-6 py-4 text-sm font-bold text-[var(--text-primary)]">{formatActionMessage(log.action, log.details)}</td>
                         <td className="px-6 py-4 text-xs font-bold uppercase text-indigo-600">{log.userRole}</td>
                     </tr>
                 ))}

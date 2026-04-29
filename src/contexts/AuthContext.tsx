@@ -76,10 +76,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Heartbeat to keep online status fresh
           if (statusInterval) clearInterval(statusInterval);
           statusInterval = setInterval(async () => {
-            await updateDoc(userDocRef, { 
-              status: 'online', 
-              lastSeen: serverTimestamp() 
-            }).catch(console.error);
+            if (quotaExceeded) return;
+            try {
+              await updateDoc(userDocRef, { 
+                status: 'online', 
+                lastSeen: serverTimestamp() 
+              });
+            } catch (err: any) {
+              if (err.code === 'resource-exhausted') setQuotaExceeded(true);
+              console.error(err);
+            }
           }, 120000); // Every 2 minutes
 
           window.addEventListener('beforeunload', handleOffline);
@@ -88,8 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           if (statusInterval) clearInterval(statusInterval);
           window.removeEventListener('beforeunload', handleOffline);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Auth initialization error:", err);
+        if (err.code === 'resource-exhausted') setQuotaExceeded(true);
       } finally {
         setLoading(false);
       }

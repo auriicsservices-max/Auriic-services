@@ -16,32 +16,32 @@ export default function Shortlist({ candidates, onCandidateSelect, onArchive, ro
                 <Star size={24} />
             </div>
             <div>
-                <h3 className="text-xl font-serif text-slate-800 dark:text-slate-100">Shortlist</h3>
-                <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400 dark:text-slate-500">{shortlisted.length} candidates shortlisted</p>
+                <h3 className="text-xl font-serif text-[var(--text-primary)]">Shortlist</h3>
+                <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">{shortlisted.length} candidates shortlisted</p>
             </div>
         </div>
 
-        <div className="bg-white dark:bg-slate-900 overflow-hidden border border-slate-100 dark:border-slate-800 rounded-2xl">
+        <div className="bg-[var(--card-bg)] overflow-hidden border border-[var(--border-color)] rounded-2xl">
             {shortlisted.length === 0 ? (
-                <div className="py-20 text-center text-slate-400">
+                <div className="py-20 text-center text-[var(--text-muted)]">
                     <Star size={48} className="mx-auto mb-4 opacity-20" />
                     No candidates shortlisted yet
                 </div>
             ) : (
                 <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50 dark:bg-slate-800/50 text-[10px] uppercase font-bold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-800">
+                    <thead className="bg-[var(--sidebar-bg)] text-[10px] uppercase font-bold text-[var(--text-muted)] border-b border-[var(--border-color)]">
                         <tr>
                             <th className="px-6 py-4">Candidate</th>
                             <th className="px-6 py-4">Domain</th>
                             <th className="px-6 py-4 text-right">Actions</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                    <tbody className="divide-y divide-[var(--border-color)]">
                         {shortlisted.map(candidate => (
                             <tr key={candidate.id} className="hover:bg-indigo-50/20 dark:hover:bg-indigo-900/10 cursor-pointer" onClick={() => onCandidateSelect(candidate)}>
                                 <td className="px-6 py-4">
-                                    <div className="font-bold text-slate-800 dark:text-slate-200">{candidate.fullName}</div>
-                                    <div className="text-xs text-slate-400">{candidate.email}</div>
+                                    <div className="font-bold text-[var(--text-primary)]">{candidate.fullName}</div>
+                                    <div className="text-xs text-[var(--text-muted)]">{candidate.email}</div>
                                 </td>
                                 <td className="px-6 py-4">
                                     <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">{candidate.domain || 'Unsorted'}</span>
@@ -50,7 +50,7 @@ export default function Shortlist({ candidates, onCandidateSelect, onArchive, ro
                                     {role === 'admin' && (
                                         <button 
                                             onClick={(e) => onArchive(e, candidate.id)}
-                                            className="text-slate-400 hover:text-red-500 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
+                                            className="text-[var(--text-muted)] hover:text-red-500 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"
                                         >
                                             <Trash2 size={16} />
                                         </button>

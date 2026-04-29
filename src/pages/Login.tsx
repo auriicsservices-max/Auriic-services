@@ -3,12 +3,14 @@ import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
 import { auth, googleProvider } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, AlertCircle } from 'lucide-react';
+import { useTheme } from '../contexts/ThemeContext';
 
 export default function Login() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [error, setError] = useState('');
   const navigate = useNavigate();
+  const { theme } = useTheme();
 
   const handleGoogleLogin = async () => {
     try {
@@ -31,22 +33,20 @@ export default function Login() {
 
   return (
     <div 
-      style={{ backgroundColor: '#003e5af7' }}
-      className="min-h-screen flex items-center justify-center p-4 font-sans transition-colors duration-300"
+      className="min-h-screen flex items-center justify-center p-4 font-sans transition-colors duration-300 bg-[var(--bg-primary)]"
     >
-      <div className="bg-white/95 backdrop-blur-sm p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md border border-white/20 transition-all duration-300">
+      <div className="bg-[var(--card-bg)] backdrop-blur-sm p-10 rounded-[2.5rem] shadow-2xl w-full max-w-md border border-[var(--border-color)] transition-all duration-300">
         <div className="flex justify-center mb-10">
-          <div 
-            style={{ backgroundColor: '#003e5af7' }}
-            className="w-16 h-16 rounded-[1.5rem] flex items-center justify-center shadow-xl"
-          >
-            <span className="text-white font-bold text-3xl">A</span>
-          </div>
+          <img 
+            src={theme === 'dark' ? "https://aurrum.co/wp-content/uploads/2026/04/Aurrum-Logo-Golden-BG-1.png" : "https://aurrum.co/wp-content/uploads/2026/04/Aurrum_Logo-2.png"} 
+            alt="Aurrum Logo" 
+            className="h-20 w-auto object-contain"
+          />
         </div>
         
         <div className="text-center mb-10">
-          <h1 className="text-3xl font-serif italic text-indigo-950 tracking-tight">Aurrum Portal</h1>
-          <p className="text-indigo-600/60 font-bold uppercase tracking-widest text-[9px] mt-2">Precision Talent Acquisition</p>
+          <h1 className="text-3xl font-serif italic text-[var(--text-primary)] tracking-tight">Aurrum Portal</h1>
+          <p className="text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-widest text-[9px] mt-2">Precision Talent Acquisition</p>
         </div>
         
         {error && (

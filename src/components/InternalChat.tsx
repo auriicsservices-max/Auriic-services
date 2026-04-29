@@ -8,11 +8,18 @@ import QuotaNotice from './QuotaNotice';
 
 interface InternalChatProps {
   teamMembers: any[];
+  initialRecipientId?: string | null;
 }
 
-export default function InternalChat({ teamMembers }: InternalChatProps) {
+export default function InternalChat({ teamMembers, initialRecipientId }: InternalChatProps) {
   const { user, role, quotaExceeded, setQuotaExceeded } = useAuth();
-  const [activePartnerId, setActivePartnerId] = useState<string | null>(null);
+  const [activePartnerId, setActivePartnerId] = useState<string | null>(initialRecipientId || null);
+
+  useEffect(() => {
+    if (initialRecipientId) {
+      setActivePartnerId(initialRecipientId);
+    }
+  }, [initialRecipientId]);
   const [messages, setMessages] = useState<any[]>([]);
   const [newMessage, setNewMessage] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -34,7 +41,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
 
   // Sync unread counts
   useEffect(() => {
-    if (!user) return;
+    if (!user || quotaExceeded) return;
 
     // Aggressively simplified query to avoid ALL composite index requirements
     const q = query(
@@ -103,7 +110,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
 
   // Typing indicator listener
   useEffect(() => {
-    if (!activePartnerId || !user) {
+    if (!activePartnerId || !user || quotaExceeded) {
       setIsPartnerTyping(false);
       return;
     }
@@ -163,7 +170,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
   };
 
   useEffect(() => {
-    if (!activePartnerId || !user) {
+    if (!activePartnerId || !user || quotaExceeded) {
       setMessages([]);
       return;
     }
@@ -261,20 +268,20 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
       <QuotaNotice onRetry={() => window.location.reload()} />
     </div>
   ) : (
-    <div className="flex h-[75vh] bg-white dark:bg-slate-900 rounded-[2.5rem] border border-slate-200 dark:border-slate-800 shadow-xl overflow-hidden transition-all duration-300">
+    <div className="flex h-[75vh] bg-[var(--card-bg)] rounded-[2.5rem] border border-[var(--border-color)] shadow-xl overflow-hidden transition-all duration-300">
       {/* Sidebar - Users List */}
-      <aside className="w-80 border-r border-slate-100 dark:border-slate-800 flex flex-col bg-slate-50/50 dark:bg-slate-900/50">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800">
-          <h2 className="text-xl font-serif text-slate-800 dark:text-slate-100 mb-4">Team Direct</h2>
+      <aside className="w-80 border-r border-[var(--border-color)] flex flex-col bg-[var(--sidebar-bg)] font-sans">
+        <div className="p-6 border-b border-[var(--border-color)]">
+          <h2 className="text-xl font-serif text-[var(--text-primary)] mb-4">Aurrum Message Hub</h2>
           <div className="relative">
-            <Search className="absolute left-3 top-2.5 text-slate-400" size={16} />
+            <Search className="absolute left-3 top-2.5 text-[var(--text-muted)]" size={16} />
             <input 
               type="text"
               placeholder="Search team..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setIsSearching(true)}
-              className="w-full pl-10 pr-4 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all font-bold"
+              className="w-full pl-10 pr-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all font-bold text-[var(--text-primary)]"
             />
           </div>
         </div>
@@ -282,25 +289,25 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {filteredUsers.length === 0 ? (
             <div className="py-10 text-center px-4">
-              <User className="mx-auto text-slate-200 dark:text-slate-800 mb-2" size={32} />
-              <p className="text-[10px] uppercase font-bold tracking-widest text-slate-400">No members found</p>
+              <User className="mx-auto text-[var(--text-muted)] opacity-20 mb-2" size={32} />
+              <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">No members found</p>
             </div>
           ) : (
             filteredUsers.map(u => (
               <button 
                 key={u.uid}
                 onClick={() => setActivePartnerId(u.uid)}
-                className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all ${activePartnerId === u.uid ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 dark:shadow-none' : 'hover:bg-white dark:hover:bg-slate-800 text-slate-600 dark:text-slate-300'}`}
+                className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all ${activePartnerId === u.uid ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 dark:shadow-none' : 'hover:bg-[var(--bg-primary)] text-[var(--text-secondary)]'}`}
               >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold relative ${activePartnerId === u.uid ? 'bg-white/20' : 'bg-slate-100 dark:bg-slate-800'}`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold relative ${activePartnerId === u.uid ? 'bg-white/20' : 'bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-muted)]'}`}>
                   {u.name?.slice(0, 2).toUpperCase() || '??'}
                   {u.status === 'online' && (
-                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full shadow-sm" />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[var(--bg-primary)] rounded-full shadow-sm" />
                   )}
                 </div>
                 <div className="text-left flex-1 min-w-0">
                   <p className="text-xs font-bold truncate">{u.name || u.email}</p>
-                  <p className={`text-[8px] uppercase font-black tracking-tighter ${activePartnerId === u.uid ? 'text-indigo-200' : 'text-slate-400'}`}>{u.role}</p>
+                  <p className={`text-[8px] uppercase font-black tracking-tighter ${activePartnerId === u.uid ? 'text-indigo-200' : 'text-[var(--text-muted)]'}`}>{u.role}</p>
                 </div>
                 {unreadCounts[u.uid] > 0 && (
                   <div className="w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg animate-in zoom-in">
@@ -315,31 +322,31 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
       </aside>
 
       {/* Main Chat Area */}
-      <main className="flex-1 flex flex-col bg-white dark:bg-slate-900">
+      <main className="flex-1 flex flex-col bg-[var(--bg-primary)]">
         {!activePartnerId ? (
           <div className="flex-1 flex flex-col items-center justify-center p-12 text-center">
             <div className="w-24 h-24 bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-6 animate-pulse">
               <MessageSquare size={40} />
             </div>
-            <h3 className="text-2xl font-serif text-slate-800 dark:text-slate-100 italic">Secure Channel</h3>
-            <p className="text-sm text-slate-400 mt-2 max-w-xs">Select a team member to begin a private intelligence transmission.</p>
+            <h3 className="text-2xl font-serif text-[var(--text-primary)] italic">Aurrum Secure Channel</h3>
+            <p className="text-sm text-[var(--text-muted)] mt-2 max-w-xs">Select a team member to begin a private intelligence transmission.</p>
           </div>
         ) : (
           <>
             {/* Chat Header */}
-            <header className="px-8 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
+            <header className="px-8 py-4 border-b border-[var(--border-color)] flex items-center justify-between">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-indigo-100 dark:bg-indigo-900/40 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold relative">
                   {activePartner?.name?.slice(0, 2).toUpperCase()}
                   {activePartner?.status === 'online' && (
-                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-white dark:border-slate-900 rounded-full shadow-sm" />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[var(--bg-primary)] rounded-full shadow-sm" />
                   )}
                 </div>
                 <div>
-                  <h4 className="font-bold text-slate-800 dark:text-slate-100">{activePartner?.name}</h4>
+                  <h4 className="font-bold text-[var(--text-primary)]">{activePartner?.name}</h4>
                   <div className="flex items-center gap-2">
                     <span className={`w-1.5 h-1.5 rounded-full ${activePartner?.status === 'online' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'}`} />
-                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest leading-none">
+                    <span className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest leading-none">
                       {isPartnerTyping ? (
                         <span className="text-indigo-500 flex items-center gap-1">
                           typing<span className="animate-bounce">.</span><span className="animate-bounce delay-100">.</span><span className="animate-bounce delay-200">.</span>
@@ -360,10 +367,10 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
             >
               {isLoading && messages.length === 0 ? (
                 <div className="flex items-center justify-center h-full">
-                  <Clock className="animate-spin text-slate-300" size={24} />
+                  <Clock className="animate-spin text-[var(--text-muted)]" size={24} />
                 </div>
               ) : messages.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full opacity-30 italic text-slate-400 select-none">
+                <div className="flex flex-col items-center justify-center h-full opacity-30 italic text-[var(--text-muted)] select-none">
                   <p>Silence is the best discipline. Send a signal.</p>
                 </div>
               ) : (
@@ -381,7 +388,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
                           <div className={`p-4 rounded-3xl text-sm shadow-sm transition-all ${
                             isOwn 
                               ? 'bg-indigo-600 text-white rounded-tr-none' 
-                              : 'bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-slate-200 rounded-tl-none border border-slate-100 dark:border-slate-800'
+                              : 'bg-[var(--sidebar-bg)] text-[var(--text-primary)] rounded-tl-none border border-[var(--border-color)]'
                           }`}>
                             {msg.text && <p className="leading-relaxed">{msg.text}</p>}
                             
@@ -405,7 +412,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
                             )}
                           </div>
                           <div className="flex items-center gap-1.5 px-1 mt-0.5">
-                            <span className="text-[8px] font-bold text-slate-400 uppercase tracking-tighter">
+                            <span className="text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-tighter">
                               {formatTime(msg.createdAt)}
                             </span>
                             {isOwn && (
@@ -418,7 +425,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
                                   return createdAt <= lastRead && lastRead > 0 ? (
                                     <CheckCheck size={10} className="text-blue-500" />
                                   ) : (
-                                    <Check size={10} className="text-slate-400" />
+                                    <Check size={10} className="text-[var(--text-muted)] opacity-50" />
                                   );
                                 })()}
                               </div>
@@ -433,7 +440,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
             </div>
 
             {/* Input */}
-            <footer className="p-6 border-t border-slate-100 dark:border-slate-800">
+            <footer className="p-6 border-t border-[var(--border-color)]">
               <form onSubmit={handleSendMessage} className="space-y-4">
                 {fileAttachment && (
                   <div className="flex items-center justify-between p-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border border-indigo-100 dark:border-indigo-800 rounded-2xl animate-in fade-in zoom-in-95">
@@ -443,7 +450,7 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
                       </div>
                       <p className="text-[10px] font-bold uppercase">{fileAttachment.name}</p>
                     </div>
-                    <button onClick={() => setFileAttachment(null)} className="p-1 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-all">
+                    <button type="button" onClick={() => setFileAttachment(null)} className="p-1 hover:bg-red-100 dark:hover:bg-red-900 rounded-full transition-all">
                       <X size={14} />
                     </button>
                   </div>
@@ -456,12 +463,12 @@ export default function InternalChat({ teamMembers }: InternalChatProps) {
                       value={newMessage}
                       onChange={handleInputChange}
                       placeholder="Type a secure message..."
-                      className="w-full pl-12 pr-12 py-4 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500/50 text-sm font-medium text-slate-800 dark:text-slate-100 transition-all placeholder:text-slate-400"
+                      className="w-full pl-12 pr-12 py-4 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-2xl focus:outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500/50 text-sm font-medium text-[var(--text-primary)] transition-all placeholder:text-[var(--text-muted)]"
                     />
                     <button 
                       type="button"
                       onClick={() => fileInputRef.current?.click()}
-                      className="absolute left-3 top-3 p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-all"
+                      className="absolute left-3 top-3 p-2 text-[var(--text-muted)] hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 rounded-xl transition-all"
                     >
                       <Paperclip size={18} />
                     </button>

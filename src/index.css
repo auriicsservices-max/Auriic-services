@@ -8,66 +8,57 @@
 
 .animate-blink-red {
   animation: pulse-red 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  color: #ef4444; /* red-500 */
+  color: #ef4444; 
 }
 
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
   
-  --color-brand-primary: #003e5af7;
-  --color-brand-secondary: #002d42; /* Darker variant for sidebars */
-
-  /* Override indigo with the new brand color variants */
-  --color-indigo-50: color-mix(in srgb, var(--color-brand-primary), white 95%);
-  --color-indigo-100: color-mix(in srgb, var(--color-brand-primary), white 90%);
-  --color-indigo-400: color-mix(in srgb, var(--color-brand-primary), white 40%);
-  --color-indigo-500: color-mix(in srgb, var(--color-brand-primary), white 20%);
-  --color-indigo-600: var(--color-brand-primary);
-  --color-indigo-700: color-mix(in srgb, var(--color-brand-primary), black 20%);
-  --color-indigo-800: color-mix(in srgb, var(--color-brand-primary), black 40%);
-  --color-indigo-900: color-mix(in srgb, var(--color-brand-primary), black 60%);
+  --color-slate-50: var(--bg-primary);
+  --color-slate-950: var(--bg-primary);
   
-  /* Set base theme to use brand color */
-  --color-slate-50: color-mix(in srgb, var(--color-brand-primary), white 95%);
-  --color-slate-100: color-mix(in srgb, var(--color-brand-primary), white 90%);
-  --color-slate-200: color-mix(in srgb, var(--color-brand-primary), white 80%);
-  --color-slate-800: color-mix(in srgb, var(--color-brand-primary), black 40%);
-  --color-slate-900: color-mix(in srgb, var(--color-brand-primary), black 60%);
-  --color-slate-950: #001a26;
-
-  --color-tooltip-bg: var(--color-brand-secondary);
-  --color-tooltip-text: white;
+  --color-brand-dark: #003e5af7;
 }
 
 :root {
   --bg-primary: #ffffff;
   --text-primary: #1e293b;
+  --text-secondary: #475569;
+  --text-muted: #64748b;
   --card-bg: #ffffff;
-  --sidebar-bg: #003e5af7;
+  --sidebar-bg: #f1f5f9;
+  --border-color: #e2e8f0;
+  --accent-color: #4f46e5;
 }
 
 .dark {
-  --bg-primary: #001a26;
-  --text-primary: #f1f5f9;
-  --card-bg: rgba(0, 62, 90, 0.2);
-  --sidebar-bg: #00121a;
+  --bg-primary: #003e5af7;
+  --text-primary: #ffffff;
+  --text-secondary: #cbd5e1;
+  --text-muted: #94a3b8;
+  --card-bg: rgba(255, 255, 255, 0.05);
+  --sidebar-bg: #002d42;
+  --border-color: rgba(255, 255, 255, 0.1);
+  --accent-color: #818cf8;
 }
 
-.dark {
-  --color-tooltip-bg: #0f172a;
-  --color-tooltip-text: #f1f5f9;
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  transition: background-color 0.3s ease, color 0.3s ease;
 }
 
 @utility glass-panel {
   background: rgba(255, 255, 255, 0.9);
   backdrop-filter: blur(10px);
-  border: 1px solid rgba(226, 232, 240, 0.8);
+  border: 1px solid var(--border-color);
 }
 
 .dark .glass-panel {
-  background: rgba(15, 23, 42, 0.9);
-  border: 1px solid rgba(30, 41, 59, 0.8);
+  background: rgba(0, 62, 90, 0.7);
+  backdrop-filter: blur(10px);
+  border: 1px solid var(--border-color);
 }
 
 @utility boolean-chip {
@@ -79,13 +70,13 @@
 }
 
 @utility and-chip {
-  background: color-mix(in srgb, var(--color-brand-primary), white 85%);
-  color: var(--color-brand-primary);
+  background: #e0e7ff;
+  color: #4338ca;
 }
 
 .dark .and-chip {
-  background: color-mix(in srgb, var(--color-brand-primary), black 60%);
-  color: color-mix(in srgb, var(--color-brand-primary), white 40%);
+  background: rgba(129, 140, 248, 0.2);
+  color: #c7d2fe;
 }
 
 @utility or-chip {
@@ -94,8 +85,8 @@
 }
 
 .dark .or-chip {
-  background: rgba(153, 27, 27, 0.2);
-  color: #F87171;
+  background: rgba(239, 68, 68, 0.2);
+  color: #fecaca;
 }
 
 @utility not-chip {
@@ -104,7 +95,7 @@
 }
 
 .dark .not-chip {
-  background: rgba(100, 116, 139, 0.1);
-  color: #94a3b8;
+  background: rgba(255, 255, 255, 0.1);
+  color: #cbd5e1;
 }
 
