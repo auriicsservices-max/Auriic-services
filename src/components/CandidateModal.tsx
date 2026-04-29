@@ -85,10 +85,12 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   };
 
   const [cvUrl, setCvUrl] = useState<string | null>(null);
+  const [isFetchingCV, setIsFetchingCV] = useState<boolean>(false);
   const [skills, setSkills] = useState<string[]>([]);
 
   const fetchCVUrl = async () => {
       if (!candidate?.cid) return;
+      setIsFetchingCV(true);
       try {
           const response = await fetch('/api/cv/list', {
               headers: { 
@@ -109,9 +111,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               }
           }
       } catch (err) {
-          // If the specialized API fails, we don't necessarily want to alert the user
-          // as we still have the local content/compressed text.
-          console.warn('[CandidateModal] Sync fetch failed (expected if offline or rate-limited):', (err as Error).message);
+          console.warn('[CandidateModal] Sync fetch failed:', (err as Error).message);
+      } finally {
+          setIsFetchingCV(false);
       }
   };
 
@@ -123,9 +125,21 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       setAssignedTo(candidate.assignedTo || '');
       setSkills(candidate.skills || []);
       
-      // Initialize cvUrl with candidate.url if exists
-      if (candidate.url) {
-        setCvUrl(candidate.url);
+      // Initialize cvUrl with candidate.url if exists, or try to find a link in candidate.links
+      let initialCvUrl = candidate.url;
+      if (!initialCvUrl && candidate.links) {
+        const cvLink = candidate.links.find((l: any) => 
+          l.label?.toLowerCase().includes('cv') || 
+          l.label?.toLowerCase().includes('resume') ||
+          l.url?.toLowerCase().endsWith('.pdf')
+        );
+        if (cvLink) {
+          initialCvUrl = cvLink.url;
+        }
+      }
+      
+      if (initialCvUrl) {
+        setCvUrl(initialCvUrl);
       }
       
       if (candidate.cid) {

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
@@ -16,6 +16,7 @@ export default function UserProfile() {
   const [name, setName] = useState('');
   const [notificationsEnabled, setNotificationsEnabled] = useState(true);
   const [notificationSound, setNotificationSound] = useState(true);
+  const notificationAudioSrc = 'https://cdn.pixabay.com/download/audio/2021/08/04/audio_3230617233.mp3?filename=message-124468.mp3';
 
   useEffect(() => {
     if (!user) return;
@@ -149,8 +150,8 @@ export default function UserProfile() {
               <button 
                 type="button"
                 onClick={() => {
-                  const audio = new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_3230617233.mp3?filename=message-124468.mp3');
-                  audio.play().catch(e => setError('Audio block: Please click anywhere on the page first.'));
+                  const audio = new Audio(notificationAudioSrc);
+                  audio.play().catch(e => setError('Audio failed to play. Make sure to enable sound in your browser settings.'));
                 }}
                 className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline px-2"
               >
