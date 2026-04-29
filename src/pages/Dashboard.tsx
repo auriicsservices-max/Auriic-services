@@ -42,7 +42,8 @@ import {
   Menu,
   X,
   MessageSquare,
-  StickyNote
+  StickyNote,
+  Bell
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -87,6 +88,7 @@ export default function Dashboard() {
       setLastReadTimestamp(parseInt(localStorage.getItem(`lastReadChat_${user.uid}`) || '0'));
     }
   }, [user?.uid]);
+  const [showNotifications, setShowNotifications] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -843,6 +845,12 @@ export default function Dashboard() {
                 Upload Complete
               </div>
             )}
+            {uploadStatus === 'success' && (
+              <div className="flex items-center gap-2 text-emerald-600 text-xs font-bold animate-in fade-in zoom-in-95">
+                <CheckCircle2 size={14} />
+                Upload Complete
+              </div>
+            )}
             {uploadStatus === 'duplicate' && (
               <div className="flex items-center gap-2 text-amber-600 text-xs font-bold animate-in fade-in zoom-in-95 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
                 <AlertCircle size={14} />
@@ -867,6 +875,34 @@ export default function Dashboard() {
                 Parsing Resumes...
               </div>
             )}
+            
+            <div className="relative">
+              <button 
+                onClick={() => setShowNotifications(!showNotifications)}
+                className="p-2 text-[var(--text-secondary)] hover:text-indigo-600 transition-colors relative"
+              >
+                <Bell size={20} />
+                {activityLogs.length > 0 && (
+                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
+                )}
+              </button>
+              
+              {showNotifications && (
+                <div className="absolute top-full right-0 mt-2 w-80 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl shadow-xl z-50 p-4 max-h-[400px] overflow-y-auto">
+                  <h3 className="text-sm font-bold text-[var(--text-primary)] mb-4">Recent Notifications</h3>
+                  <div className="space-y-4">
+                    {activityLogs.slice(0, 10).map((log, i) => (
+                      <div key={i} className="text-xs text-[var(--text-secondary)] border-b border-[var(--border-color)] pb-2">
+                        <p className="font-bold text-[var(--text-primary)]">{log.action}</p>
+                        <p>{new Date(log.timestamp).toLocaleString()}</p>
+                      </div>
+                    ))}
+                    {activityLogs.length === 0 && <p className="text-xs text-[var(--text-muted)]">No new notifications.</p>}
+                  </div>
+                </div>
+              )}
+            </div>
+
             <button 
               {...getRootProps()}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center shadow-lg shadow-indigo-100 transition-all active:scale-95"
