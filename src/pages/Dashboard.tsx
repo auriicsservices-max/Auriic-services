@@ -64,14 +64,21 @@ export default function Dashboard() {
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
   const [lastNotifiedMessageId, setLastNotifiedMessageId] = useState<string | null>(null);
 
-  // Notification sound - Using a pleasant alert sound
+  // Notification sound - Using a stable and clean notification sound
   const playNotificationSound = useCallback(() => {
     try {
-      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2354/2354-preview.mp3');
-      audio.volume = 0.5;
-      audio.play().catch(e => console.warn('Audio play failed:', e));
+      // Using a stable UI sound from a reliable CDN
+      const audio = new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_3230617233.mp3?filename=message-124468.mp3');
+      audio.volume = 0.6;
+      const playPromise = audio.play();
+      
+      if (playPromise !== undefined) {
+        playPromise.catch(error => {
+          console.warn('[Dashboard] Auto-play was prevented. Audio will play after user interaction.', error);
+        });
+      }
     } catch (err) {
-      console.warn('Notification sound error:', err);
+      console.warn('[Dashboard] Notification sound error:', err);
     }
   }, []);
 
