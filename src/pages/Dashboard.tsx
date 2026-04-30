@@ -14,6 +14,7 @@ import UserProfile from '../components/UserProfile';
 import Shortlist from '../components/Shortlist';
 import LogReview from '../components/LogReview';
 import ConfirmModal from '../components/ConfirmModal';
+import OnboardingTour from '../components/OnboardingTour';
 import { enhancedParser } from '../services/enhancedParserService';
 import InternalChat from '../components/InternalChat';
 import QuotaNotice from '../components/QuotaNotice';
@@ -115,7 +116,19 @@ export default function Dashboard() {
     setReadNotifications(prev => new Set(prev).add(id));
   };
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [showTour, setShowTour] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+
+  useEffect(() => {
+    if (!localStorage.getItem('onboarding_done')) {
+      setShowTour(true);
+    }
+  }, []);
+
+  const closeTour = () => {
+    localStorage.setItem('onboarding_done', 'true');
+    setShowTour(false);
+  };
   const [viewScope, setViewScope] = useState<'mine' | 'all'>('all');
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
@@ -671,6 +684,7 @@ export default function Dashboard() {
 
   return (
     <div className="flex h-screen w-full bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans overflow-hidden transition-colors duration-300">
+      <OnboardingTour isOpen={showTour} onClose={closeTour} />
       {/* Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -681,6 +695,7 @@ export default function Dashboard() {
 
       {/* Sidebar */}
       <aside 
+        id="sidebar-nav"
         className={`w-64 bg-[var(--sidebar-bg)] text-[var(--text-primary)] flex flex-col transition-all duration-300 shadow-2xl fixed inset-y-0 left-0 z-40 lg:static lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
         <div className="p-6 flex items-center justify-between border-b border-[var(--border-color)]">
@@ -701,6 +716,7 @@ export default function Dashboard() {
 
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
           <button 
+            id="nav-home"
             onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'home' 
@@ -713,6 +729,7 @@ export default function Dashboard() {
           </button>
 
           <button 
+            id="nav-candidates"
             onClick={() => { setActiveTab('candidates'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'candidates' 
@@ -725,6 +742,7 @@ export default function Dashboard() {
           </button>
           
           <button 
+            id="nav-shortlist"
             onClick={() => { setActiveTab('shortlist'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'shortlist' 
@@ -737,6 +755,7 @@ export default function Dashboard() {
           </button>
           
           <button 
+            id="nav-analytics"
             onClick={() => { setActiveTab('analytics'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'analytics' 
@@ -749,6 +768,7 @@ export default function Dashboard() {
           </button>
 
           <button 
+            id="nav-profile"
             onClick={() => { setActiveTab('profile'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'profile' 
@@ -761,6 +781,7 @@ export default function Dashboard() {
           </button>
 
           <button 
+            id="nav-chat"
             onClick={() => { setActiveTab('chat'); setIsSidebarOpen(false); setSelectedIds(new Set()); setUnreadChatCount(0); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all relative ${
               activeTab === 'chat' 
@@ -794,6 +815,7 @@ export default function Dashboard() {
           <div className="h-px bg-[var(--border-color)] my-4" />
 
           <div 
+            id="sidebar-upload-area"
             {...getRootProps()} 
             className="flex items-center px-4 py-3 text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] rounded-xl text-sm font-bold cursor-pointer transition-all hover:shadow-sm"
           >
@@ -1078,6 +1100,7 @@ export default function Dashboard() {
                   </label>
                   <div className="flex gap-2 items-center bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-2xl px-4 py-3 ring-2 ring-transparent focus-within:ring-indigo-500/10 focus-within:border-indigo-500/50 transition-all">
                     <input 
+                      id="search-input"
                       type="text" 
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
