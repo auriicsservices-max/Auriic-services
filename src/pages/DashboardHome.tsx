@@ -76,7 +76,7 @@ export default function DashboardHome({ candidates, activityLogs, teamMembers }:
           <h3 className="text-2xl font-black text-slate-900 dark:text-white">{processed}</h3>
         </div>
         <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-          <div className="w-10 h-10 bg-purple-100 dark:bg-purple-900/40 rounded-xl flex items-center justify-center text-purple-600 dark:text-purple-400 mb-3">
+          <div className="w-10 h-10 bg-slate-100 dark:bg-slate-900/40 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-400 mb-3">
              <Star size={20} />
           </div>
           <p className="text-[10px] text-slate-500 uppercase font-bold tracking-wider mb-0.5">Shortlisted</p>

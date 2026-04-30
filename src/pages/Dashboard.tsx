@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, db } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs, limit } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs, limit, getDocFromServer } from 'firebase/firestore';
 import { useDropzone } from 'react-dropzone';
 import { extractTextFromPDF, extractTextFromDocx, parseResumeHeuristically, ParsedResume } from '../lib/localParser';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -14,7 +14,8 @@ import UserProfile from '../components/UserProfile';
 import Shortlist from '../components/Shortlist';
 import LogReview from '../components/LogReview';
 import ConfirmModal from '../components/ConfirmModal';
-import OnboardingTour from '../components/OnboardingTour';
+
+import BulkUpload from '../components/BulkUpload';
 import { enhancedParser } from '../services/enhancedParserService';
 import InternalChat from '../components/InternalChat';
 import QuotaNotice from '../components/QuotaNotice';
@@ -62,7 +63,7 @@ export default function Dashboard() {
   const [parsingStatus, setParsingStatus] = useState<Record<string, string>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; }>({ isOpen: false, message: '' });
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'chat'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'chat' | 'upload'>('home');
   const [chatRecipientId, setChatRecipientId] = useState<string | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
@@ -82,9 +83,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
   const playNotificationSound = useCallback(() => {
     try {
-      // Using a stable UI sound from a reliable CDN
-      const audio = new Audio('https://cdn.pixabay.com/download/audio/2021/08/04/audio_3230617233.mp3?filename=message-124468.mp3');
-      audio.volume = 0.6;
+      // Using a nicer, cleaner chat notification sound
+      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
+      audio.volume = 0.5;
       const playPromise = audio.play();
       
       if (playPromise !== undefined) {
@@ -139,19 +140,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     setReadNotifications(prev => new Set(prev).add(id));
   };
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
-  const [showTour, setShowTour] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
-
-  useEffect(() => {
-    if (!localStorage.getItem('onboarding_done')) {
-      setShowTour(true);
-    }
-  }, []);
-
-  const closeTour = () => {
-    localStorage.setItem('onboarding_done', 'true');
-    setShowTour(false);
-  };
   const [viewScope, setViewScope] = useState<'mine' | 'all'>('all');
   const [confirmConfig, setConfirmConfig] = useState<{
     isOpen: boolean;
@@ -236,8 +225,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             .slice(0, 10));
 
         // Trigger Notification & Sound
-        if (newestUnreadMsg && newestUnreadMsg.id !== lastNotifiedMessageId) {
-          setLastNotifiedMessageId(newestUnreadMsg.id);
+        if (newestUnreadMsg) {
           
           if (activeTab === 'chat' && document.visibilityState === 'visible') return;
 
@@ -707,7 +695,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
   return (
     <div className="flex h-screen w-full bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans overflow-hidden transition-colors duration-300">
-      <OnboardingTour isOpen={showTour} onClose={closeTour} />
       {/* Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
@@ -805,7 +792,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
           <button 
             id="nav-chat"
-            onClick={() => { setActiveTab('chat'); setIsSidebarOpen(false); setSelectedIds(new Set()); setUnreadChatCount(0); }}
+            onClick={() => { 
+                setActiveTab('chat'); 
+                setIsSidebarOpen(false); 
+                setSelectedIds(new Set()); 
+                setUnreadChatCount(0); 
+                if (Notification.permission === 'default') {
+                    Notification.requestPermission();
+                }
+            }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all relative ${
               activeTab === 'chat' 
                 ? 'bg-indigo-600 text-white shadow-lg' 
@@ -835,17 +830,18 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </button>
           )}
 
-          <div className="h-px bg-[var(--border-color)] my-4" />
-
-          <div 
-            id="sidebar-upload-area"
-            {...getRootProps()} 
-            className="flex items-center px-4 py-3 text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] rounded-xl text-sm font-bold cursor-pointer transition-all hover:shadow-sm"
+          <button 
+            id="nav-upload"
+            onClick={() => { setActiveTab('upload'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
+            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'upload' 
+                ? 'bg-indigo-600 text-white shadow-lg' 
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
+            }`}
           >
-            <input {...getInputProps()} />
-            <Upload className="w-5 h-5 mr-3 text-indigo-600" />
+            <Upload className={`w-5 h-5 mr-3 ${activeTab === 'upload' ? 'text-white' : 'text-indigo-600'}`} />
             Bulk Upload
-          </div>
+          </button>
 
           {role === 'admin' && (
             <button 
@@ -1041,6 +1037,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </div>
           ) : activeTab === 'home' ? (
             <DashboardHome candidates={candidates} activityLogs={activityLogs} teamMembers={teamMembers} />
+          ) : activeTab === 'upload' ? (
+            <BulkUpload onUpload={onDrop} isProcessing={isProcessing} />
           ) : activeTab === 'candidates' ? (
             <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">

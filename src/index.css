@@ -23,24 +23,24 @@
 
 :root {
   --bg-primary: #ffffff;
-  --text-primary: #1e293b;
+  --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #64748b;
   --card-bg: #ffffff;
-  --sidebar-bg: #f1f5f9;
+  --sidebar-bg: #f8fafc;
   --border-color: #e2e8f0;
-  --accent-color: #4f46e5;
+  --accent-color: #003e5a;
 }
 
 .dark {
-  --bg-primary: #003e5af7;
-  --text-primary: #ffffff;
+  --bg-primary: #003e5a;
+  --text-primary: #f8fafc;
   --text-secondary: #cbd5e1;
   --text-muted: #94a3b8;
-  --card-bg: rgba(255, 255, 255, 0.05);
-  --sidebar-bg: #002d42;
-  --border-color: rgba(255, 255, 255, 0.1);
-  --accent-color: #818cf8;
+  --card-bg: rgba(0, 72, 107, 1);
+  --sidebar-bg: #00354e;
+  --border-color: rgba(255, 255, 255, 0.08);
+  --accent-color: #f8fafc;
 }
 
 body {

@@ -299,42 +299,9 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
           </div>
         </section>
 
-        {/* Shortlist Conversion */}
-        <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm min-h-[400px] flex flex-col transition-colors duration-300 font-sans">
-          <div className="mb-6">
-            <h3 className="text-xl font-serif text-[var(--text-primary)]">Selection Efficiency</h3>
-            <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">Funnel from pool to shortlist</p>
-          </div>
-          <div className="flex-1 w-full h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={shortlistChartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={0}
-                  outerRadius={100}
-                  dataKey="value"
-                  label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                >
-                  <Cell fill="#10B981" />
-                  <Cell fill="#F1F5F9" stroke="#E2E8F0" />
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    borderRadius: '1rem', 
-                    border: 'none', 
-                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                    backgroundColor: 'var(--card-bg)'
-                  }}
-                />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
 
         {/* Top Skills List */}
-        <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm min-h-[400px] flex flex-col transition-colors duration-300 font-sans">
+        <section className="bg-[var(--card-bg)] p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-[var(--border-color)] shadow-sm flex flex-col transition-colors duration-300 font-sans">
           <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-xl font-serif text-[var(--text-primary)]">In-Demand Skills</h3>
@@ -351,15 +318,15 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
               ))}
             </select>
           </div>
-          <div className="flex-1 overflow-y-auto space-y-2 pr-2 custom-scrollbar">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 custom-scrollbar">
             {allSkillsData.map(({ name, count }: any) => (
               <button 
                 key={name}
                 onClick={() => handleSkillClick(name)}
-                className="w-full flex items-center justify-between p-4 bg-slate-50 dark:bg-slate-800 rounded-2xl hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
+                className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
               >
-                <span className="font-bold text-[var(--text-primary)] uppercase tracking-wider text-xs">{name}</span>
-                <span className="px-3 py-1 bg-white dark:bg-slate-700 rounded-lg text-[10px] font-bold text-indigo-600 dark:text-indigo-400 shadow-sm">{count} candidates</span>
+                <span className="font-bold text-[var(--text-primary)] uppercase tracking-wider text-[10px] truncate mr-2">{name}</span>
+                <span className="px-2 py-1 bg-white dark:bg-slate-700 rounded-md text-[9px] font-bold text-indigo-600 dark:text-indigo-400 shadow-sm whitespace-nowrap">{count}</span>
               </button>
             ))}
           </div>
