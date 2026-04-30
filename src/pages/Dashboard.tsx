@@ -761,18 +761,6 @@ export default function Dashboard() {
           </button>
 
           <button 
-            onClick={() => { setActiveTab('logs'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
-            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'logs' 
-                ? 'bg-indigo-600 text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
-            }`}
-          >
-            <Activity className={`w-5 h-5 mr-3 ${activeTab === 'logs' ? 'text-white' : 'text-indigo-600'}`} />
-            Log Review
-          </button>
-
-          <button 
             onClick={() => { setActiveTab('chat'); setIsSidebarOpen(false); setSelectedIds(new Set()); setUnreadChatCount(0); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all relative ${
               activeTab === 'chat' 
@@ -1007,7 +995,7 @@ export default function Dashboard() {
               <QuotaNotice onRetry={() => window.location.reload()} />
             </div>
           ) : activeTab === 'home' ? (
-            <DashboardHome candidates={candidates} activityLogs={activityLogs} />
+            <DashboardHome candidates={candidates} activityLogs={activityLogs} teamMembers={teamMembers} />
           ) : activeTab === 'candidates' ? (
             <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
@@ -1020,7 +1008,6 @@ export default function Dashboard() {
                     ))}
                   </div>
                   <div>
-                    <h1 className="text-4xl font-serif text-[var(--text-primary)] tracking-tight">Aurrum Index</h1>
                     <p className="text-[var(--text-muted)] text-[10px] uppercase font-black tracking-[0.2em] mt-1 ml-1">Candidate Intelligence Matrix</p>
                   </div>
                 </div>

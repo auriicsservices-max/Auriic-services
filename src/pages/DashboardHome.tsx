@@ -3,8 +3,9 @@ import { FileText, Users, Clock, Star, TrendingUp, Target, Upload, Activity } fr
 import { useAuth } from '../contexts/AuthContext';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'recharts';
 
-export default function DashboardHome({ candidates, activityLogs }: { candidates: any[], activityLogs: any[] }) {
+export default function DashboardHome({ candidates, activityLogs, teamMembers }: { candidates: any[], activityLogs: any[], teamMembers: Record<string, string> }) {
   const { user } = useAuth();
+  const userName = user?.uid ? teamMembers[user.uid] || user?.email?.split('@')[0] : user?.email?.split('@')[0];
   
   const total = candidates.length;
   const newCVs = candidates.filter(c => new Date(c.createdAt).getTime() > Date.now() - 24 * 60 * 60 * 1000).length;
@@ -36,13 +37,12 @@ export default function DashboardHome({ candidates, activityLogs }: { candidates
       {/* Welcome & Quote */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
         <div className="md:col-span-2 bg-gradient-to-br from-indigo-900 to-indigo-950 rounded-[2.5rem] p-8 text-white shadow-xl flex flex-col justify-between">
-            <div>
-              <h1 className="text-3xl font-bold mb-2">Welcome back, {user?.email?.split('@')[0]}!</h1>
-              <p className="text-indigo-200 text-sm max-w-lg mb-6">Let's build a stronger team today.</p>
+            <div className="flex flex-col justify-between">
+              <div>
+                <h1 className="text-3xl font-bold mb-2">Welcome back, {userName}!</h1>
+                <p className="text-indigo-200 text-sm max-w-lg mb-6">Let's build a stronger team today.</p>
+              </div>
             </div>
-            <button className="bg-white text-indigo-900 w-fit px-6 py-3 rounded-2xl text-sm font-bold shadow-lg hover:bg-indigo-50 transition-all flex items-center gap-2">
-                <Upload size={18} /> Upload New CVs
-            </button>
         </div>
         <div className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm flex flex-col justify-center">
             <h4 className="text-[10px] uppercase font-black text-[var(--text-muted)] tracking-widest mb-4">Daily Insight</h4>
