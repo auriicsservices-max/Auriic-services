@@ -66,9 +66,20 @@ export default function Dashboard() {
   const [chatRecipientId, setChatRecipientId] = useState<string | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
-  const [lastNotifiedMessageId, setLastNotifiedMessageId] = useState<string | null>(null);
 
-  // Notification sound - Using a stable and clean notification sound
+const handleFirestoreError = (error: any, operationType: string, path: string | null) => {
+    const errInfo = {
+        error: error instanceof Error ? error.message : String(error),
+        authInfo: {
+            userId: auth.currentUser?.uid,
+            email: auth.currentUser?.email,
+        },
+        operationType,
+        path
+    };
+    console.error('Firestore Error: ', JSON.stringify(errInfo));
+};
+
   const playNotificationSound = useCallback(() => {
     try {
       // Using a stable UI sound from a reliable CDN
@@ -87,10 +98,22 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
+    async function testConnection() {
+        try {
+          await getDocFromServer(doc(db, 'test', 'connection'));
+        } catch (error) {
+          if(error instanceof Error && error.message.includes('the client is offline')) {
+            console.error("Please check your Firebase configuration.");
+          }
+        }
+      }
+      testConnection();
+
     if (user?.uid) {
       setLastReadTimestamp(parseInt(localStorage.getItem(`lastReadChat_${user.uid}`) || '0'));
     }
   }, [user?.uid]);
+
   const [showNotifications, setShowNotifications] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const notificationRef = React.useRef<HTMLDivElement>(null);
@@ -233,7 +256,7 @@ export default function Dashboard() {
           }
         }
       }, (err: any) => {
-        console.error("Chat count listener error:", err);
+        handleFirestoreError(err, 'get', 'chat');
         if (err.code === 'resource-exhausted') setQuotaExceeded(true);
       });
     }
@@ -261,7 +284,7 @@ export default function Dashboard() {
              return Array.from(new Map(merged.map(c => [c.id, c])).values());
         });
       }, (err: any) => {
-        console.error("Candidates listener error:", err);
+        handleFirestoreError(err, 'get', 'candidates');
         if (err.code === 'resource-exhausted') setQuotaExceeded(true);
       });
       
@@ -309,7 +332,7 @@ export default function Dashboard() {
         const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
         setActivityLogs(logs);
       }, (err: any) => {
-        console.error("Logs listener error:", err);
+        handleFirestoreError(err, 'get', 'activity_logs');
         if (err.code === 'resource-exhausted') setQuotaExceeded(true);
       });
     }
