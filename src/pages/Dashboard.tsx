@@ -6,6 +6,7 @@ import { useDropzone } from 'react-dropzone';
 import { extractTextFromPDF, extractTextFromDocx, parseResumeHeuristically, ParsedResume } from '../lib/localParser';
 import { GoogleGenAI, Type } from "@google/genai";
 import UserManagement from '../components/UserManagement';
+import DashboardHome from './DashboardHome';
 import CandidateModal from '../components/CandidateModal';
 import Analytics from '../components/Analytics';
 import ThemeToggle from '../components/ThemeToggle';
@@ -60,7 +61,7 @@ export default function Dashboard() {
   const [parsingStatus, setParsingStatus] = useState<Record<string, string>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; }>({ isOpen: false, message: '' });
-  const [activeTab, setActiveTab] = useState<'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'chat'>('candidates');
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'chat'>('home');
   const [chatRecipientId, setChatRecipientId] = useState<string | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
@@ -700,6 +701,18 @@ export default function Dashboard() {
 
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
           <button 
+            onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
+            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'home' 
+                ? 'bg-indigo-600 text-white shadow-lg' 
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
+            }`}
+          >
+            <LayoutDashboard className={`w-5 h-5 mr-3 ${activeTab === 'home' ? 'text-white' : 'text-indigo-600'}`} />
+            Dashboard
+          </button>
+
+          <button 
             onClick={() => { setActiveTab('candidates'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'candidates' 
@@ -935,7 +948,7 @@ export default function Dashboard() {
                 className="p-2 text-[var(--text-secondary)] hover:text-indigo-600 transition-colors relative"
               >
                 <Bell size={20} />
-                {(activityLogs.length + recentChatMessages.length - readNotifications.size > 0) && (
+                {(activityLogs.filter(log => !readNotifications.has(log.id)).length > 0) && (
                   <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
                 )}
               </button>
@@ -949,11 +962,13 @@ export default function Dashboard() {
                     </span>
                   </div>
                   <div className="overflow-y-auto p-2 space-y-1">
-                    {[...activityLogs.map(log => ({ ...log, type: 'activity', id: log.id, timestamp: log.timestamp })), 
-                      ...recentChatMessages.map(msg => ({ ...msg, type: 'chat', id: msg.id, action: `Message from ${teamMembers[msg.senderId] || 'Unknown'}`, timestamp: msg.createdAt?.toMillis() }))
-                     ].filter(log => !readNotifications.has(log.id)).sort((a: any, b: any) => b.timestamp - a.timestamp).slice(0, 15).map((log, i) => (
+                    {activityLogs.map(log => ({ ...log, type: 'activity', id: log.id, timestamp: log.timestamp }))
+                      .filter(log => !readNotifications.has(log.id))
+                      .sort((a: any, b: any) => b.timestamp - a.timestamp)
+                      .slice(0, 15)
+                      .map((log, i) => (
                       <div key={log.id} className="group p-3 hover:bg-[var(--sidebar-bg)] rounded-2xl flex items-start gap-3 transition-colors border border-transparent hover:border-[var(--border-color)]">
-                        <div className={`mt-1 w-2 h-2 rounded-full ${log.type === 'chat' ? 'bg-indigo-500' : 'bg-slate-400'}`} />
+                        <div className="mt-1 w-2 h-2 rounded-full bg-slate-400" />
                         <div className="flex-1">
                           <p className="text-xs font-bold text-[var(--text-primary)]">{log.action}</p>
                           <p className="text-[10px] text-[var(--text-muted)] mt-0.5">{new Date(log.timestamp).toLocaleString()}</p>
@@ -967,7 +982,7 @@ export default function Dashboard() {
                         </button>
                       </div>
                     ))}
-                    {(activityLogs.length + recentChatMessages.length - readNotifications.size === 0) && (
+                    {activityLogs.filter(log => !readNotifications.has(log.id)).length === 0 && (
                       <div className="p-10 text-center text-xs text-[var(--text-muted)] italic">No new notifications.</div>
                     )}
                   </div>
@@ -991,6 +1006,8 @@ export default function Dashboard() {
             <div className="h-full flex items-center justify-center p-4">
               <QuotaNotice onRetry={() => window.location.reload()} />
             </div>
+          ) : activeTab === 'home' ? (
+            <DashboardHome candidates={candidates} activityLogs={activityLogs} />
           ) : activeTab === 'candidates' ? (
             <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">

@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare } from 'lucide-react';
+import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown } from 'lucide-react';
 import LZString from 'lz-string';
 import { useAuth } from '../contexts/AuthContext';
 import { logActivity } from '../lib/logger';
 import ConfirmModal from './ConfirmModal';
+import { fetchCvList } from '../services/cvApiService';
 
 interface CandidateModalProps {
   candidate: any;
@@ -92,23 +93,15 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       if (!candidate?.cid) return;
       setIsFetchingCV(true);
       try {
-          const response = await fetch('/api/cv/list', {
-              headers: { 
-                'Content-Type': 'application/json',
-                'x-api-key': 'AURRUM_SECRET_123' 
-              }
-          });
-          
-          if (!response.ok) {
-            throw new Error(`API returned ${response.status}`);
-          }
-
-          const data = await response.json();
-          if (data.status && data.data) {
-              const matchedCV = data.data.find((item: any) => item.id == candidate.cid);
-              if (matchedCV) {
-                  setCvUrl(matchedCV.url);
-              }
+          const cvList = await fetchCvList();
+          console.log('Fetched CV list:', cvList);
+          const matchedCV = cvList.find((item: any) => 
+            item.email?.toLowerCase() === candidate.email?.toLowerCase()
+          );
+          if (matchedCV) {
+              setCvUrl(matchedCV.url);
+          } else {
+            console.log('No CV found for', candidate.email);
           }
       } catch (err) {
           console.warn('[CandidateModal] Sync fetch failed:', (err as Error).message);
@@ -463,10 +456,11 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   <Phone className="text-indigo-500 dark:text-indigo-400" size={16} />
                   <p className="text-xs font-medium text-[var(--text-secondary)]">{candidate.phone || 'N/A'}</p>
                 </div>
+                {/* Force download using download attribute in addition to handler, prioritize cvUrl */}
                 {(cvUrl || candidate.url) && (
-                  <a href={cvUrl || candidate.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 rounded-xl transition-all hover:border-emerald-200 group">
+                  <a href={cvUrl || candidate.url} download target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 rounded-xl transition-all hover:border-emerald-200 group">
                     <Download className="text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" size={16} />
-                    <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 truncate">View PDF Attachment</p>
+                    <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 truncate">Download PDF Attachment</p>
                   </a>
                 )}
                 {candidate.links?.map((link: any, i: number) => (
@@ -553,16 +547,19 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                 <Users size={12} /> Assign to Recruiter
               </h3>
               <div className="space-y-3">
-                <select 
-                  value={assignedTo}
-                  onChange={(e) => setAssignedTo(e.target.value)}
-                  className="w-full bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl px-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)]"
-                >
-                  <option value="">Unassigned</option>
-                  {teamMembers && Object.entries(teamMembers).map(([id, name]) => (
-                    <option key={id} value={id}>{name}</option>
-                  ))}
-                </select>
+                <div className="relative">
+                  <select 
+                    value={assignedTo}
+                    onChange={(e) => setAssignedTo(e.target.value)}
+                    className="w-full bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl pl-4 pr-10 py-2.5 text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/50 text-[var(--text-primary)] appearance-none cursor-pointer hover:border-indigo-400 transition-colors"
+                  >
+                    <option value="">Unassigned</option>
+                    {teamMembers && Object.entries(teamMembers).map(([id, name]) => (
+                      <option key={id} value={id}>{name}</option>
+                    ))}
+                  </select>
+                  <ChevronDown size={16} className="absolute right-3 top-2.5 text-[var(--text-muted)] pointer-events-none" />
+                </div>
                 <button 
                   onClick={handleUpdateAssignee}
                   disabled={isSavingAssignee}

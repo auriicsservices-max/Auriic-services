@@ -1,15 +1,20 @@
 import { extractTextFromPDF, extractTextFromDocx, parseResumeHeuristically, ParsedResume } from "../lib/localParser";
+import { GoogleGenAI, Type } from "@google/genai";
 
 /**
  * Enhanced CV Parsing Service
- * High-performance, rule-based extraction engine for CVs.
- * Completely local and privacy-focused (No LLM/AI models used).
+ * High-performance, heuristic extraction engine, augmented with Gemini LLM for precision.
  */
 export class EnhancedCVParser {
-  
+  private ai: GoogleGenAI;
+
+  constructor() {
+    this.ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY || '' });
+  }
+
   /**
    * Main entry point for parsing a CV file.
-   * Returns both the parsed data and the original extracted text.
+   * Uses rule-based extraction followed by LLM-based enhancement for accuracy.
    */
   async parse(file: File): Promise<{ parsed: ParsedResume; text: string }> {
     let text = "";
@@ -17,14 +22,16 @@ export class EnhancedCVParser {
       // 1. High Velocity Text Extraction
       text = await this.extractText(file);
       
-      // 2. Advanced Heuristic Extraction (Rule-based)
-      // This analyzes patterns, keywords, and document structure
-      const parsed = await parseResumeHeuristically(text);
+      // 2. Initial Heuristic Extraction
+      const initialParsed = await parseResumeHeuristically(text);
       
-      return { parsed, text };
+      // 3. LLM Enhancement for Precision
+      const enhancedParsed = await this.enhanceWithGemini(text, initialParsed);
+      
+      return { parsed: enhancedParsed, text };
     } catch (error) {
-      console.error("[EnhancedCVParser] Extraction failed:", error);
-      // Ensure we always return something useful even on failure
+      console.error("[EnhancedCVParser] Parsing failed, falling back to heuristics:", error);
+      // Fallback
       if (!text) {
         try {
           text = await this.extractText(file);
@@ -35,6 +42,46 @@ export class EnhancedCVParser {
       const parsed = await parseResumeHeuristically(text);
       return { parsed, text };
     }
+  }
+
+  private async enhanceWithGemini(text: string, initial: ParsedResume): Promise<ParsedResume> {
+    if (!process.env.GEMINI_API_KEY) return initial;
+
+    const prompt = `Parse the following CV text and extract specific fields.
+    Return only valid JSON matching this schema:
+    {
+        "fullName": "string",
+        "email": "string",
+        "phone": "string",
+        "summary": "string",
+        "domain": "string",
+        "skills": ["string"],
+        "experience": [{"role": "string", "company": "string", "duration": "string", "description": "string"}],
+        "education": [{"degree": "string", "school": "string", "year": "string"}],
+        "links": [{"label": "string", "url": "string"}]
+    }
+    If a field is not found, leave as empty string or empty array.
+    CV Text:
+    ${text.substring(0, 10000)} // Truncate for token limits if necessary
+    `;
+
+    try {
+        const response = await this.ai.models.generateContent({
+            model: "gemini-3-flash-preview",
+            contents: prompt,
+            config: {
+                responseMimeType: "application/json",
+            },
+        });
+        
+        if (response.text) {
+            const enhanced = JSON.parse(response.text);
+            return { ...initial, ...enhanced };
+        }
+    } catch (e) {
+        console.error("Gemini enhancement failed", e);
+    }
+    return initial;
   }
 
   private async extractText(file: File): Promise<string> {
