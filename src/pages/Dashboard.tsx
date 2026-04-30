@@ -16,6 +16,7 @@ import LogReview from '../components/LogReview';
 import ConfirmModal from '../components/ConfirmModal';
 
 import BulkUpload from '../components/BulkUpload';
+import CVRepository from '../components/CVRepository';
 import { enhancedParser } from '../services/enhancedParserService';
 import InternalChat from '../components/InternalChat';
 import QuotaNotice from '../components/QuotaNotice';
@@ -63,7 +64,7 @@ export default function Dashboard() {
   const [parsingStatus, setParsingStatus] = useState<Record<string, string>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; }>({ isOpen: false, message: '' });
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'chat' | 'upload'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'chat' | 'upload' | 'repository'>('home');
   const [chatRecipientId, setChatRecipientId] = useState<string | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
@@ -405,6 +406,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     setDuplicateNotification({ isOpen: false, message: '' });
     setUploadProgress({ total: acceptedFiles.length, processed: 0, failed: 0 });
     
+    // Track emails in this batch to prevent duplicates if Firebase hasn't updated yet
+    const addedEmailsInBatch = new Set<string>();
+    
     let currentDone = 0;
     for (const file of acceptedFiles) {
       try {
@@ -420,10 +424,12 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         parsed.email = (parsed.email || 'pending@aurrum.co').toLowerCase();
 
         // CHECK FOR DUPLICATES
-        const duplicate = candidates.find(c => c.email === parsed.email);
-        if (duplicate) {
-          const workerId = duplicate.assignedTo || duplicate.uploadedBy;
-          const workerName = workerId ? (teamMembers[workerId] || 'Unknown Recruiter') : 'Admin';
+        const isDuplicateInState = candidates.find(c => c.email === parsed.email);
+        const isDuplicateInBatch = addedEmailsInBatch.has(parsed.email);
+        
+        if (isDuplicateInState || isDuplicateInBatch) {
+          const workerId = isDuplicateInState ? (isDuplicateInState.assignedTo || isDuplicateInState.uploadedBy) : 'this batch';
+          const workerName = isDuplicateInState ? (teamMembers[workerId] || 'Unknown Recruiter') : 'this batch';
           setDuplicateNotification({ 
             isOpen: true, 
             message: `Candidate ${parsed.fullName} is already added and currently being handled by ${workerName}`
@@ -432,6 +438,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
           continue;
         }
+
+        // Add to batch tracking
+        addedEmailsInBatch.add(parsed.email);
 
         // Compress text to store in Firebase (saving space)
         const compressedText = LZString.compressToUTF16(text);
@@ -831,16 +840,16 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           )}
 
           <button 
-            id="nav-upload"
-            onClick={() => { setActiveTab('upload'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
+            id="nav-repository"
+            onClick={() => { setActiveTab('repository'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'upload' 
+              activeTab === 'repository' 
                 ? 'bg-indigo-600 text-white shadow-lg' 
                 : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
             }`}
           >
-            <Upload className={`w-5 h-5 mr-3 ${activeTab === 'upload' ? 'text-white' : 'text-indigo-600'}`} />
-            Bulk Upload
+            <FileText className={`w-5 h-5 mr-3 ${activeTab === 'repository' ? 'text-white' : 'text-indigo-600'}`} />
+            CV Repository
           </button>
 
           {role === 'admin' && (
@@ -930,7 +939,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <span className="hidden md:block cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" onClick={() => setActiveTab('candidates')}>Aurrum CV Parsing Software</span>
             <ChevronRight className="hidden md:block w-3 h-3 text-[var(--text-muted)]" />
             <span className="text-[var(--text-primary)] italic font-serif normal-case text-base tracking-normal">
-              {activeTab === 'candidates' ? 'Aurrum CV Parsing Software' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'chat' ? 'Aurrum Chat' : 'Log Review'}
+              {activeTab === 'candidates' ? 'Candidates Database' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'chat' ? 'Aurrum Chat' : activeTab === 'repository' ? 'CV Repository' : activeTab === 'upload' ? 'Bulk Upload' : 'Dashboard Home'}
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -1037,6 +1046,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </div>
           ) : activeTab === 'home' ? (
             <DashboardHome candidates={candidates} activityLogs={activityLogs} teamMembers={teamMembers} />
+          ) : activeTab === 'repository' ? (
+            <CVRepository candidates={candidates} />
           ) : activeTab === 'upload' ? (
             <BulkUpload onUpload={onDrop} isProcessing={isProcessing} />
           ) : activeTab === 'candidates' ? (
