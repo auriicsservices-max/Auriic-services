@@ -55,6 +55,7 @@ export default function Dashboard() {
   const { theme } = useTheme();
   const [candidates, setCandidates] = useState<any[]>([]);
   const candidateMapRef = useRef(new Map<string, any>());
+  const lastLogTimestampRef = useRef<number>(Date.now());
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
   
   const syncCandidates = useCallback(() => {
@@ -185,12 +186,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     }
   }, [uploadStatus]);
 
-  const [refreshCount, setRefreshCount] = useState(0);
-
-  const forceRefresh = () => {
-    setRefreshCount(prev => prev + 1);
-  };
- 
   useEffect(() => {
     if (!user || !role) return;
 
@@ -338,6 +333,20 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         limit(100)
       ), (snapshot) => {
         const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        
+        // Activity notifications
+        const newLogs = logs.filter(log => (log.timestamp?.toMillis() || 0) > lastLogTimestampRef.current);
+        const relevantNewLogs = newLogs.filter(log => log.affectedUserId === user?.uid || log.assignedTo === user?.uid);
+        
+        if (relevantNewLogs.length > 0) {
+            playNotificationSound();
+            showAlert('Activity Update', relevantNewLogs[0].message || 'You have a new activity update');
+        }
+        
+        if (logs.length > 0) {
+            lastLogTimestampRef.current = logs[0].timestamp?.toMillis() || Date.now();
+        }
+        
         setActivityLogs(logs);
       }, (err: any) => {
         handleFirestoreError(err, 'get', 'activity_logs');
@@ -367,7 +376,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       unsubTrash();
       unsubTeam();
     };
-  }, [role, user, refreshCount]); // Removed activeTab and viewScope
+  }, [role, user]); // Removed activeTab and viewScope
 
 
 
@@ -755,11 +764,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'home' 
-                ? 'bg-indigo-600 text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
+                ? 'bg-[var(--accent-purple)] text-white shadow-lg' 
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:shadow-sm'
             }`}
           >
-            <LayoutDashboard className={`w-5 h-5 mr-3 ${activeTab === 'home' ? 'text-white' : 'text-indigo-600'}`} />
+            <LayoutDashboard className={`w-5 h-5 mr-3 ${activeTab === 'home' ? 'text-white' : 'text-[var(--accent-teal)]'}`} />
             Dashboard
           </button>
 
@@ -768,11 +777,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             onClick={() => { setActiveTab('candidates'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'candidates' 
-                ? 'bg-indigo-600 text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
+                ? 'bg-[var(--accent-purple)] text-white shadow-lg' 
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:shadow-sm'
             }`}
           >
-            <Users className={`w-5 h-5 mr-3 ${activeTab === 'candidates' ? 'text-white' : 'text-indigo-600'}`} />
+            <Users className={`w-5 h-5 mr-3 ${activeTab === 'candidates' ? 'text-white' : 'text-[var(--accent-teal)]'}`} />
             Candidates
           </button>
           
@@ -781,11 +790,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             onClick={() => { setActiveTab('upload'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'upload' 
-                ? 'bg-indigo-600 text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
+                ? 'bg-[var(--accent-purple)] text-white shadow-lg' 
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:shadow-sm'
             }`}
           >
-            <Upload className={`w-5 h-5 mr-3 ${activeTab === 'upload' ? 'text-white' : 'text-indigo-600'}`} />
+            <Upload className={`w-5 h-5 mr-3 ${activeTab === 'upload' ? 'text-white' : 'text-[var(--accent-teal)]'}`} />
             CV Parsing
           </button>
 
@@ -794,11 +803,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             onClick={() => { setActiveTab('shortlist'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'shortlist' 
-                ? 'bg-indigo-600 text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
+                ? 'bg-[var(--accent-purple)] text-white shadow-lg' 
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:shadow-sm'
             }`}
           >
-            <Star className={`w-5 h-5 mr-3 ${activeTab === 'shortlist' ? 'text-white' : 'text-indigo-600'}`} />
+            <Star className={`w-5 h-5 mr-3 ${activeTab === 'shortlist' ? 'text-white' : 'text-[var(--accent-teal)]'}`} />
             Shortlist
           </button>
           
@@ -807,11 +816,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             onClick={() => { setActiveTab('analytics'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'analytics' 
-                ? 'bg-indigo-600 text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
+                ? 'bg-[var(--accent-purple)] text-white shadow-lg' 
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:shadow-sm'
             }`}
           >
-            <AnalyticsIcon className={`w-5 h-5 mr-3 ${activeTab === 'analytics' ? 'text-white' : 'text-indigo-600'}`} />
+            <AnalyticsIcon className={`w-5 h-5 mr-3 ${activeTab === 'analytics' ? 'text-white' : 'text-[var(--accent-teal)]'}`} />
             Talent Insights
           </button>
 
@@ -820,11 +829,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             onClick={() => { setActiveTab('profile'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
               activeTab === 'profile' 
-                ? 'bg-indigo-600 text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
+                ? 'bg-[var(--accent-purple)] text-white shadow-lg' 
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:shadow-sm'
             }`}
           >
-            <UserCircle className={`w-5 h-5 mr-3 ${activeTab === 'profile' ? 'text-white' : 'text-indigo-600'}`} />
+            <UserCircle className={`w-5 h-5 mr-3 ${activeTab === 'profile' ? 'text-white' : 'text-[var(--accent-teal)]'}`} />
             My Profile
           </button>
 
@@ -841,11 +850,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all relative ${
               activeTab === 'chat' 
-                ? 'bg-indigo-600 text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
+                ? 'bg-[var(--accent-purple)] text-white shadow-lg' 
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:shadow-sm'
             }`}
           >
-            <MessageSquare className={`w-5 h-5 mr-3 ${activeTab === 'chat' ? 'text-white' : 'text-indigo-600'}`} />
+            <MessageSquare className={`w-5 h-5 mr-3 ${activeTab === 'chat' ? 'text-white' : 'text-[var(--accent-teal)]'}`} />
             Aurrum Chat
             {unreadChatCount > 0 && activeTab !== 'chat' && (
               <span className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-bounce shadow-lg">
@@ -972,9 +981,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <button onClick={forceRefresh} className="p-2 bg-[var(--bg-primary)] rounded-full hover:bg-[var(--border-color)] transition-colors">
-              <RotateCcw className="w-5 h-5 text-[var(--text-secondary)]" />
-            </button>
             {uploadStatus === 'success' && (
               <div className="flex items-center gap-2 text-emerald-600 text-xs font-bold animate-in fade-in zoom-in-95">
                 <CheckCircle2 size={14} />

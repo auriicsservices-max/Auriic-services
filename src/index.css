@@ -23,24 +23,28 @@
 
 :root {
   --bg-primary: #ffffff;
+  --bg-secondary: #f1f5f9;
   --text-primary: #0f172a;
   --text-secondary: #475569;
   --text-muted: #64748b;
   --card-bg: #ffffff;
-  --sidebar-bg: #f8fafc;
+  --sidebar-bg: #ffffff;
   --border-color: #e2e8f0;
-  --accent-color: #003e5a;
+  --accent-purple: #7c3aed;
+  --accent-teal: #0891b2;
 }
 
 .dark {
-  --bg-primary: #003e5a;
+  --bg-primary: #0f172a;
+  --bg-secondary: #1e293b;
   --text-primary: #f8fafc;
-  --text-secondary: #cbd5e1;
-  --text-muted: #94a3b8;
-  --card-bg: rgba(0, 72, 107, 1);
-  --sidebar-bg: #00354e;
-  --border-color: rgba(255, 255, 255, 0.08);
-  --accent-color: #f8fafc;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --card-bg: #1e293b;
+  --sidebar-bg: #0f172a;
+  --border-color: #334155;
+  --accent-purple: #a855f7;
+  --accent-teal: #22d3ee;
 }
 
 body {
