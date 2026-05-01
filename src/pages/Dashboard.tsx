@@ -777,6 +777,19 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           </button>
           
           <button 
+            id="nav-upload"
+            onClick={() => { setActiveTab('upload'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
+            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+              activeTab === 'upload' 
+                ? 'bg-indigo-600 text-white shadow-lg' 
+                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
+            }`}
+          >
+            <Upload className={`w-5 h-5 mr-3 ${activeTab === 'upload' ? 'text-white' : 'text-indigo-600'}`} />
+            CV Parsing
+          </button>
+
+          <button 
             id="nav-shortlist"
             onClick={() => { setActiveTab('shortlist'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
             className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
@@ -955,7 +968,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <span className="hidden md:block cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" onClick={() => setActiveTab('candidates')}>Aurrum CV Parsing Software</span>
             <ChevronRight className="hidden md:block w-3 h-3 text-[var(--text-muted)]" />
             <span className="text-[var(--text-primary)] italic font-serif normal-case text-base tracking-normal">
-              {activeTab === 'candidates' ? 'Candidates Database' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'chat' ? 'Aurrum Chat' : activeTab === 'repository' ? 'CV Repository' : activeTab === 'upload' ? 'Bulk Upload' : 'Dashboard Home'}
+              {activeTab === 'candidates' ? 'Candidates Database' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'chat' ? 'Aurrum Chat' : activeTab === 'repository' ? 'CV Repository' : activeTab === 'upload' ? 'CV Parsing' : 'Dashboard Home'}
             </span>
           </div>
           <div className="flex items-center gap-4">

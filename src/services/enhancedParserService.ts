@@ -75,7 +75,9 @@ export class EnhancedCVParser {
         });
         
         if (response.text) {
-            const enhanced = JSON.parse(response.text);
+            // Remove potential markdown code block wrappers
+            const cleanedText = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+            const enhanced = JSON.parse(cleanedText);
             return { ...initial, ...enhanced };
         }
     } catch (e) {
