@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, db } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs, limit, getDocFromServer } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs, limit, getDocFromServer, QuerySnapshot } from 'firebase/firestore';
 import { useDropzone } from 'react-dropzone';
 import { extractTextFromPDF, extractTextFromDocx, parseResumeHeuristically, ParsedResume } from '../lib/localParser';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -54,7 +54,13 @@ export default function Dashboard() {
   const { user, role, quotaExceeded, setQuotaExceeded } = useAuth();
   const { theme } = useTheme();
   const [candidates, setCandidates] = useState<any[]>([]);
+  const candidateMapRef = useRef(new Map<string, any>());
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
+  
+  const syncCandidates = useCallback(() => {
+    setCandidates(Array.from(candidateMapRef.current.values()));
+  }, []);
+
   const [recentChatMessages, setRecentChatMessages] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<Record<string, string>>({});
   const [fullTeamList, setFullTeamList] = useState<any[]>([]);
@@ -179,6 +185,12 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     }
   }, [uploadStatus]);
 
+  const [refreshCount, setRefreshCount] = useState(0);
+
+  const forceRefresh = () => {
+    setRefreshCount(prev => prev + 1);
+  };
+ 
   useEffect(() => {
     if (!user || !role) return;
 
@@ -192,7 +204,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     let unsubChat = () => {};
     if (!quotaExceeded) {
       unsubChat = onSnapshot(qChat, (snapshot) => {
-        // Get current user's read cursors from fullTeamList
         const currentUserData = fullTeamList.find(u => u.id === user.uid);
         const readCursors = currentUserData?.readCursors || {};
         const notificationsEnabled = currentUserData?.notificationsEnabled !== false;
@@ -250,14 +261,14 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       });
     }
 
-    // Conditional listeners to save quota
+    // Unconditional listeners
     let unsubCandidates = () => {};
     let unsubAssigned = () => {};
     let unsubLogs = () => {};
     let unsubTrash = () => {};
     let unsubTeam = () => {};
 
-    if (!quotaExceeded && ['candidates', 'shortlist', 'analytics', 'chat'].includes(activeTab)) {
+    if (!quotaExceeded) {
       const q = query(
         collection(db, 'candidates'), 
         where('isArchived', '==', false),
@@ -266,12 +277,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         limit(200)
       );
       unsubCandidates = onSnapshot(q, (snapshot) => {
-        const uploaded = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-        setCandidates(prev => {
-             const others = prev.filter(c => c.assignedTo === user?.uid);
-             const merged = [...uploaded, ...others];
-             return Array.from(new Map(merged.map(c => [c.id, c])).values());
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === 'removed') {
+                candidateMapRef.current.delete(change.doc.id);
+            } else {
+                candidateMapRef.current.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
+            }
         });
+        syncCandidates();
+
       }, (err: any) => {
         handleFirestoreError(err, 'get', 'candidates');
         if (err.code === 'resource-exhausted') setQuotaExceeded(true);
@@ -286,17 +300,18 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             limit(200)
         );
         unsubAssigned = onSnapshot(qAssigned, (snapshot) => {
-          const assigned = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-           setCandidates(prev => {
-             const others = prev.filter(c => c.uploadedBy === user?.uid);
-             const merged = [...assigned, ...others];
-             return Array.from(new Map(merged.map(c => [c.id, c])).values());
+          snapshot.docChanges().forEach((change) => {
+             if (change.type === 'removed') {
+                candidateMapRef.current.delete(change.doc.id);
+             } else {
+                candidateMapRef.current.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
+             }
           });
+          syncCandidates();
         });
       }
-    }
 
-    if (!quotaExceeded && activeTab === 'trash') {
+      // Trash - unconditional
       const qTrash = query(
         collection(db, 'candidates'), 
         where('isArchived', '==', true),
@@ -304,15 +319,19 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         limit(100)
       );
       unsubTrash = onSnapshot(qTrash, (snapshot) => {
-        const trashed = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-        setCandidates(trashed);
+        snapshot.docChanges().forEach((change) => {
+            if (change.type === 'removed') {
+                candidateMapRef.current.delete(change.doc.id);
+            } else {
+                candidateMapRef.current.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
+            }
+        });
+        syncCandidates();
       }, (err: any) => {
         console.error("Trash listener error:", err);
-        if (err.code === 'resource-exhausted') setQuotaExceeded(true);
       });
-    }
 
-    if (!quotaExceeded && (activeTab === 'logs' || activeTab === 'analytics')) {
+      // Logs - unconditional
       unsubLogs = onSnapshot(query(
         collection(db, 'activity_logs'), 
         orderBy('timestamp', 'desc'), 
@@ -322,12 +341,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         setActivityLogs(logs);
       }, (err: any) => {
         handleFirestoreError(err, 'get', 'activity_logs');
-        if (err.code === 'resource-exhausted') setQuotaExceeded(true);
       });
-    }
 
-    // Team members listener
-    if (!quotaExceeded) {
+      // Team members listener
       unsubTeam = onSnapshot(query(collection(db, 'users'), limit(50)), (snapshot) => {
         const mapping: Record<string, string> = {};
         const list: any[] = [];
@@ -340,7 +356,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         setFullTeamList(list);
       }, (err: any) => {
         console.error("Team listener error:", err);
-        if (err.code === 'resource-exhausted') setQuotaExceeded(true);
       });
     }
 
@@ -352,7 +367,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       unsubTrash();
       unsubTeam();
     };
-  }, [role, user, viewScope, activeTab, lastReadTimestamp]);
+  }, [role, user, refreshCount]); // Removed activeTab and viewScope
+
 
 
   const toggleSelect = (e: React.MouseEvent, id: string) => {
@@ -943,6 +959,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </span>
           </div>
           <div className="flex items-center gap-4">
+            <button onClick={forceRefresh} className="p-2 bg-[var(--bg-primary)] rounded-full hover:bg-[var(--border-color)] transition-colors">
+              <RotateCcw className="w-5 h-5 text-[var(--text-secondary)]" />
+            </button>
             {uploadStatus === 'success' && (
               <div className="flex items-center gap-2 text-emerald-600 text-xs font-bold animate-in fade-in zoom-in-95">
                 <CheckCircle2 size={14} />
@@ -1045,9 +1064,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               <QuotaNotice onRetry={() => window.location.reload()} />
             </div>
           ) : activeTab === 'home' ? (
-            <DashboardHome candidates={candidates} activityLogs={activityLogs} teamMembers={teamMembers} />
+            <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} />
           ) : activeTab === 'repository' ? (
-            <CVRepository candidates={candidates} />
+            <CVRepository candidates={activeCandidates} />
           ) : activeTab === 'upload' ? (
             <BulkUpload onUpload={onDrop} isProcessing={isProcessing} />
           ) : activeTab === 'candidates' ? (

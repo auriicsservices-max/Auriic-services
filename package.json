@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "vite build && npx cpx 'metadata.json' 'dist/' && npx cpx 'firebase-applet-config.json' 'dist/'",
+    "build": "vite build && npx cpx2 'metadata.json' 'dist/' && npx cpx2 'firebase-applet-config.json' 'dist/'",
     "start": "node server.ts",
     "preview": "vite preview",
     "clean": "rm -rf dist",
@@ -41,6 +41,7 @@
     "@types/multer": "^2.1.0",
     "@types/node": "^22.14.0",
     "autoprefixer": "^10.4.21",
+    "cpx2": "^8.0.2",
     "tailwindcss": "^4.1.14",
     "tsx": "^4.21.0",
     "typescript": "~5.8.2",
