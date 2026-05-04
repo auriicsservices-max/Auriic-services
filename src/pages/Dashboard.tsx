@@ -241,6 +241,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               playNotificationSound();
             }
 
+            /*
             if (Notification.permission === 'granted') {
               const senderName = teamMembers[newestUnreadMsg.senderId] || 'New Message';
               new Notification(`Aurrum Chat: ${senderName}`, {
@@ -248,6 +249,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 icon: 'https://aurrum.co/wp-content/uploads/2026/04/Aurrum_Logo-2.png'
               });
             }
+            */
           }
         }
       }, (err: any) => {
@@ -259,7 +261,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     // Unconditional listeners
     let unsubCandidates = () => {};
     let unsubAssigned = () => {};
-    let unsubLogs = () => {};
+    let unsubNotifications = () => {};
     let unsubTrash = () => {};
     let unsubTeam = () => {};
 
@@ -326,30 +328,30 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         console.error("Trash listener error:", err);
       });
 
-      // Logs - unconditional
-      unsubLogs = onSnapshot(query(
-        collection(db, 'activity_logs'), 
-        orderBy('timestamp', 'desc'), 
-        limit(100)
+      // Notifications - unconditional
+      unsubNotifications = onSnapshot(query(
+        collection(db, 'notifications'), 
+        where('userId', '==', user?.uid),
+        orderBy('createdAt', 'desc'), 
+        limit(10)
       ), (snapshot) => {
-        const logs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        const notificationsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
         
-        // Activity notifications
-        const newLogs = logs.filter(log => (log.timestamp?.toMillis() || 0) > lastLogTimestampRef.current);
-        const relevantNewLogs = newLogs.filter(log => log.affectedUserId === user?.uid || log.assignedTo === user?.uid);
+        // Notify for new chat or assignment notifications
+        const recentNotifications = notificationsData.filter(n => 
+          (n.createdAt?.toMillis() || Date.now()) > lastLogTimestampRef.current && 
+          (n.type === 'chat' || n.type === 'assignment')
+        );
         
-        if (relevantNewLogs.length > 0) {
+        if (recentNotifications.length > 0) {
             playNotificationSound();
-            showAlert('Activity Update', relevantNewLogs[0].message || 'You have a new activity update');
         }
         
-        if (logs.length > 0) {
-            lastLogTimestampRef.current = logs[0].timestamp?.toMillis() || Date.now();
+        if (notificationsData.length > 0) {
+            lastLogTimestampRef.current = notificationsData[0].createdAt?.toMillis() || Date.now();
         }
-        
-        setActivityLogs(logs);
       }, (err: any) => {
-        handleFirestoreError(err, 'get', 'activity_logs');
+        handleFirestoreError(err, 'get', 'notifications');
       });
 
       // Team members listener
@@ -372,7 +374,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       unsubChat();
       unsubCandidates();
       unsubAssigned();
-      unsubLogs();
+      unsubNotifications();
       unsubTrash();
       unsubTeam();
     };
@@ -1018,54 +1020,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               </div>
             )}
             
-            <div className="relative" ref={notificationRef}>
-              <button 
-                onClick={() => setShowNotifications(!showNotifications)}
-                className="p-2 text-[var(--text-secondary)] hover:text-indigo-600 transition-colors relative"
-              >
-                <Bell size={20} />
-                {(activityLogs.filter(log => !readNotifications.has(log.id)).length > 0) && (
-                  <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full" />
-                )}
-              </button>
-              
-              {showNotifications && (
-                <div className="absolute top-full right-0 mt-3 w-96 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-3xl shadow-2xl z-50 overflow-hidden flex flex-col max-h-[500px]">
-                  <div className="p-5 border-b border-[var(--border-color)] flex justify-between items-center">
-                    <h3 className="text-sm font-black text-[var(--text-primary)] uppercase tracking-widest">Recent Notifications</h3>
-                    <span className="text-[10px] font-bold text-[var(--text-muted)] bg-[var(--sidebar-bg)] px-2 py-1 rounded-md">
-                      {Math.max(0, activityLogs.length + recentChatMessages.length - readNotifications.size)} New
-                    </span>
-                  </div>
-                  <div className="overflow-y-auto p-2 space-y-1">
-                    {activityLogs.map(log => ({ ...log, type: 'activity', id: log.id, timestamp: log.timestamp }))
-                      .filter(log => !readNotifications.has(log.id))
-                      .sort((a: any, b: any) => b.timestamp - a.timestamp)
-                      .slice(0, 15)
-                      .map((log, i) => (
-                      <div key={log.id} className="group p-3 hover:bg-[var(--sidebar-bg)] rounded-2xl flex items-start gap-3 transition-colors border border-transparent hover:border-[var(--border-color)]">
-                        <div className="mt-1 w-2 h-2 rounded-full bg-slate-400" />
-                        <div className="flex-1">
-                          <p className="text-xs font-bold text-[var(--text-primary)]">{log.action}</p>
-                          <p className="text-[10px] text-[var(--text-muted)] mt-0.5">{new Date(log.timestamp).toLocaleString()}</p>
-                        </div>
-                        <button 
-                          onClick={(e) => markAsRead(log.id, e)}
-                          className="opacity-0 group-hover:opacity-100 p-1.5 hover:bg-[var(--bg-primary)] rounded-lg text-[var(--text-muted)] transition-opacity"
-                          title="Mark as read"
-                        >
-                          <X size={12} />
-                        </button>
-                      </div>
-                    ))}
-                    {activityLogs.filter(log => !readNotifications.has(log.id)).length === 0 && (
-                      <div className="p-10 text-center text-xs text-[var(--text-muted)] italic">No new notifications.</div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-
+            
             <button 
               {...getRootProps()}
               className="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-bold flex items-center shadow-lg shadow-indigo-100 transition-all active:scale-95"

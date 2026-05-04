@@ -5,6 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Send, User, Shield, MessageSquare, Clock, Search, FileText, Plus, Paperclip, X, Download, Check, CheckCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import QuotaNotice from './QuotaNotice';
+import { createNotification } from '../lib/notifications';
 
 interface InternalChatProps {
   teamMembers: any[];
@@ -231,6 +232,16 @@ export default function InternalChat({ teamMembers, initialRecipientId }: Intern
         read: false,
         createdAt: serverTimestamp()
       });
+      
+      // Send notification
+      await createNotification(
+          activePartnerId,
+          "New Message",
+          `${user.displayName || 'Someone'} sent you a message`,
+          "chat",
+          { senderId: user.uid, conversationId: convId }
+      );
+      
       setNewMessage('');
       setFileAttachment(null);
       // Also update last read when sending

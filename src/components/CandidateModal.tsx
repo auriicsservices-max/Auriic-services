@@ -3,6 +3,7 @@ import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code
 import LZString from 'lz-string';
 import { useAuth } from '../contexts/AuthContext';
 import { logActivity } from '../lib/logger';
+import { createNotification } from '../lib/notifications';
 import ConfirmModal from './ConfirmModal';
 import { fetchCvList } from '../services/cvApiService';
 
@@ -240,6 +241,17 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       
       const activityAction = isRemoval ? 'Assignment Removed' : 'Assignee Updated'; // Log message
       await logActivity(activityAction, { candidateId: candidate.id, userId: assignedTo }, user!.uid, role!);
+      
+      // Update notification collection
+      if (!isRemoval && assignedTo) {
+          await createNotification(
+              assignedTo,
+              "New Assignment",
+              `You have been assigned to ${candidate.fullName}`,
+              "assignment",
+              { candidateId: candidate.id }
+          );
+      }
       
       // Show desktop notification if enabled
       if (Notification.permission === 'granted') {

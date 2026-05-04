@@ -74,6 +74,14 @@ service cloud.firestore {
       allow delete: if isSignedIn();
     }
 
+    // Notifications Collection Rules
+    match /notifications/{notificationId} {
+      allow list: if isSignedIn();
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
+    }
+
     // Activity Logs Collection Rules
     match /activity_logs/{logId} {
       allow read: if isSignedIn();
