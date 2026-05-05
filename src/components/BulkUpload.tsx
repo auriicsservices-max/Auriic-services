@@ -62,6 +62,7 @@ export default function BulkUpload({ onUpload, isProcessing }: BulkUploadProps) 
               <div className="text-slate-500 font-black text-xl">Processing...</div>
           </div>
       )}
+
     </div>
   );
 }

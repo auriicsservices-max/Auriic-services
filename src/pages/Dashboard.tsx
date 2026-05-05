@@ -533,6 +533,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     setTimeout(() => {
       setIsProcessing(false);
       setUploadProgress({ total: 0, processed: 0, failed: 0 });
+      setActiveTab('candidates');
     }, 3000);
   }, [user, candidates, teamMembers]); 
 
