@@ -43,7 +43,7 @@ adminDb.collection('notifications').onSnapshot(async (snapshot) => {
             },
             tokens: tokens
           };
-          await adminMessaging.sendMulticast(message);
+          await adminMessaging.sendEachForMulticast(message);
         }
       } catch(err) {
         console.error('Error sending push notification:', err);

@@ -55,6 +55,29 @@
       },
       "required": ["text", "senderId", "createdAt"]
     },
+    "TrainingCV": {
+      "title": "TrainingCV",
+      "description": "Gold-standard CVs for manual extraction training",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "email": { "type": "string" },
+        "phone": { "type": "string" },
+        "location": { "type": "string" },
+        "linkedin": { "type": "string" },
+        "summary": { "type": "string" },
+        "skills": { "type": "array", "items": { "type": "string" } },
+        "experience": { "type": "array" },
+        "education": { "type": "array" },
+        "certifications": { "type": "array", "items": { "type": "string" } },
+        "ats_score": { "type": "number" },
+        "missing_keywords": { "type": "array", "items": { "type": "string" } },
+        "suggestions": { "type": "array", "items": { "type": "string" } },
+        "uploadedBy": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["name", "email", "uploadedBy", "createdAt"]
+    },
     "DirectMessage": {
       "title": "DirectMessage",
       "description": "1-on-1 team member messages",
@@ -91,6 +114,10 @@
     "/direct_messages/{messageId}": {
       "schema": "DirectMessage",
       "description": "Private team communications"
+    },
+    "/training_cvs/{cvId}": {
+      "schema": "TrainingCV",
+      "description": "Stored examples for resume parsing"
     },
     "/candidates/{candidateId}": {
       "schema": "Candidate",

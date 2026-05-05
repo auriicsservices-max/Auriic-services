@@ -333,20 +333,20 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
         </section>
       </div>
 
-      {/* Skills Graph Section */}
+        {/* Skills Graph Section */}
       <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm transition-colors duration-300 font-sans">
           <div className="mb-6">
             <h3 className="text-xl font-serif text-[var(--text-primary)]">Skills Distribution</h3>
-            <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">Volume of talent by core competency</p>
+            <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">Top 15 skills by core competency frequency</p>
           </div>
-          <div className="w-full h-[300px]">
+          <div className="w-full h-[400px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={allSkillsData.slice(0, 10)} layout="vertical">
+              <BarChart data={allSkillsData.slice(0, 15)} layout="vertical">
                 <XAxis type="number" hide />
                 <YAxis 
                   dataKey="name" 
                   type="category" 
-                  width={100} 
+                  width={120} 
                   tick={{ fontSize: 10, fontWeight: 'bold', fill: 'var(--text-muted)' }} 
                   axisLine={false}
                   tickLine={false}
@@ -355,17 +355,19 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
                   cursor={{ fill: 'transparent' }}
                   contentStyle={{ 
                     borderRadius: '1rem', 
-                    border: 'none', 
+                    border: '1px solid var(--border-color)', 
                     boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
                     backgroundColor: 'var(--card-bg)',
-                    color: 'var(--text-primary)'
+                    color: 'var(--text-primary)',
+                    padding: '10px'
                   }}
+                  itemStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#4F46E5' }}
                 />
                 <Bar 
                   dataKey="count" 
                   fill="#4F46E5" 
                   radius={[0, 10, 10, 0]}
-                  barSize={20}
+                  barSize={25}
                 />
               </BarChart>
             </ResponsiveContainer>

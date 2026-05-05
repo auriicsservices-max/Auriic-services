@@ -82,6 +82,11 @@ service cloud.firestore {
       allow update: if isSignedIn();
     }
 
+    // Training CV Collection Rules
+    match /training_cvs/{cvId} {
+      allow read, write: if isAdmin();
+    }
+
     // Activity Logs Collection Rules
     match /activity_logs/{logId} {
       allow read: if isSignedIn();

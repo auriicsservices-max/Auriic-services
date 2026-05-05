@@ -8,4 +8,6 @@ const app = initializeApp(firebaseConfig);
 export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
 export const auth = getAuth(app);
 export const googleProvider = new GoogleAuthProvider();
-export const messaging = getMessaging(app);
+
+// Wrap in check for window/typeof navigator to avoid errors in node env
+export const messaging = typeof document !== 'undefined' ? getMessaging(app) : null;
