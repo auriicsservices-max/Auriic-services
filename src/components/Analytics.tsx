@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line, CartesianGrid } from 'recharts';
-import { TrendingUp, Users, Target, Briefcase, X, User, Activity } from 'lucide-react';
+import { TrendingUp, Users, Target, Briefcase, X, User, Activity, Search } from 'lucide-react';
+import Select from 'react-select';
 import CandidateModal from './CandidateModal';
 import QuotaNotice from './QuotaNotice';
 import { useAuth } from '../contexts/AuthContext';
@@ -22,6 +23,7 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+  const [skillSearch, setSkillSearch] = useState('');
 
   // Process recruiter contribution data
   const recruiterData = candidates.reduce((acc: any, c) => {
@@ -99,281 +101,130 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
     setShowModal(true);
   };
 
+  const skillOptions = allSkillsData.map((s: any) => ({ value: s.name, label: s.name }));
+
+  const customSelectStyles = {
+    control: (provided: any, state: any) => ({
+      ...provided,
+      backgroundColor: 'var(--bg-primary)',
+      borderColor: 'var(--border-color)',
+      borderRadius: '0.75rem',
+      padding: '0.25rem',
+      boxShadow: 'none',
+      cursor: 'pointer',
+      '&:hover': {
+        borderColor: 'var(--indigo-500)',
+      },
+    }),
+    option: (provided: any, state: any) => ({
+      ...provided,
+      backgroundColor: state.isFocused ? 'var(--sidebar-bg)' : 'var(--bg-primary)',
+      color: 'var(--text-primary)',
+      fontSize: '0.75rem',
+      cursor: 'pointer',
+    }),
+    menu: (provided: any) => ({ ...provided, backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-color)', borderRadius: '1rem', overflow: 'hidden' }),
+    input: (provided: any) => ({ ...provided, color: 'var(--text-primary)' }),
+    singleValue: (provided: any) => ({ ...provided, color: 'var(--text-primary)' }),
+  };
+
+  const filteredSkills = allSkillsData.filter(({ name }) => name.toLowerCase().includes(skillSearch.toLowerCase()));
+
   return quotaExceeded ? (
     <div className="flex-1 flex items-center justify-center p-8">
       <QuotaNotice onRetry={() => window.location.reload()} />
     </div>
   ) : (
-    <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 text-[var(--text-primary)]">
+    <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 text-[var(--text-primary)] pb-12">
+      <div className="flex items-center justify-between">
+         <h2 className="text-3xl font-serif text-[var(--text-primary)]">Talent Insights</h2>
+         <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">Real-time candidate analytics</p>
+      </div>
+
       {/* Top Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-        <div className="bg-[var(--card-bg)] p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm transition-colors duration-300 font-sans">
-          <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-900/20 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-4">
-            <Users size={20} />
+      <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
+        {[
+          { label: 'Total Candidates', value: candidates.length, icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
+          { label: 'Shortlisted', value: candidates.filter(c => c.isShortlisted).length, icon: Target, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/40' },
+          { label: 'Unique Domains', value: Object.keys(domainDataMap).length, icon: Briefcase, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/40' },
+          { label: 'Total Actions', value: activityLogs.length, icon: Activity, color: 'text-slate-600', bg: 'bg-slate-100 dark:bg-slate-800' },
+          { label: 'Avg Skills/CV', value: (candidates.reduce((acc, c) => acc + (c.skills?.length || 0), 0) / (candidates.length || 1)).toFixed(1), icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-900 dark:bg-indigo-600' },
+        ].map((item, idx) => (
+          <div key={idx} className="bg-[var(--card-bg)] p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm hover:shadow-md transition-all duration-300">
+            <div className={`w-10 h-10 ${item.bg} rounded-xl flex items-center justify-center ${item.color} mb-4`}>
+              <item.icon size={20} />
+            </div>
+            <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest">{item.label}</p>
+            <h3 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight">{item.value}</h3>
           </div>
-          <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest">Talent Pool</p>
-          <h3 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight">{candidates.length}</h3>
-        </div>
-        <div className="bg-[var(--card-bg)] p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm transition-colors duration-300 font-sans">
-          <div className="w-10 h-10 bg-emerald-50 dark:bg-emerald-900/40 rounded-xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 mb-4">
-            <Target size={20} />
-          </div>
-          <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest">Shortlisted</p>
-          <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tracking-tight">
-            {candidates.filter(c => c.isShortlisted).length}
-          </h3>
-        </div>
-        <div className="bg-[var(--card-bg)] p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm transition-colors duration-300 font-sans">
-          <div className="w-10 h-10 bg-amber-50 dark:bg-amber-900/40 rounded-xl flex items-center justify-center text-amber-600 dark:text-amber-400 mb-4">
-            <Briefcase size={20} />
-          </div>
-          <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest">Unique Domains</p>
-          <h3 className="text-2xl font-bold text-amber-600 dark:text-amber-400 tracking-tight">
-            {Object.keys(domainDataMap).length}
-          </h3>
-        </div>
-        <div className="bg-[var(--card-bg)] p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm transition-colors duration-300 font-sans">
-          <div className="w-10 h-10 bg-slate-100 dark:bg-slate-800 rounded-xl flex items-center justify-center text-slate-600 dark:text-slate-400 mb-4">
-            <Activity size={20} />
-          </div>
-          <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest">Total Actions</p>
-          <h3 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight">{activityLogs.length}</h3>
-        </div>
-        <div className="bg-[var(--card-bg)] p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm transition-colors duration-300 font-sans">
-          <div className="w-10 h-10 bg-indigo-900 dark:bg-indigo-600 rounded-xl flex items-center justify-center text-white mb-4">
-            <TrendingUp size={20} />
-          </div>
-          <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest">Avg Skills/CV</p>
-          <h3 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight">
-            {(candidates.reduce((acc, c) => acc + (c.skills?.length || 0), 0) / (candidates.length || 1)).toFixed(1)}
-          </h3>
-        </div>
+        ))}
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Recruiter Activity Trends */}
-        <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm min-h-[400px] flex flex-col transition-colors duration-300 font-sans">
-          <div className="mb-6">
-            <h3 className="text-xl font-serif text-[var(--text-primary)] italic">Platform Pulse</h3>
-            <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">Activity volume over the last 7 days</p>
-          </div>
-          <div className="flex-1 w-full h-[300px]">
+        {/* Platform Pulse */}
+        <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm flex flex-col font-sans">
+          <h3 className="text-xl font-serif text-[var(--text-primary)] italic mb-6">Platform Pulse</h3>
+          <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={activityTrends}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
-                <XAxis 
-                    dataKey="date" 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 10, fill: 'var(--text-muted)', fontWeight: 'bold' }}
-                />
-                <YAxis 
-                    axisLine={false} 
-                    tickLine={false} 
-                    tick={{ fontSize: 10, fill: 'var(--text-muted)' }}
-                />
-                <Tooltip 
-                  contentStyle={{ 
-                    borderRadius: '1rem', 
-                    border: 'none', 
-                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                    backgroundColor: 'var(--card-bg)',
-                    color: 'var(--text-primary)'
-                  }}
-                />
-                <Line 
-                    type="monotone" 
-                    dataKey="count" 
-                    stroke="#4F46E5" 
-                    strokeWidth={4} 
-                    dot={{ fill: '#4F46E5', strokeWidth: 2, r: 4, stroke: '#fff' }}
-                    activeDot={{ r: 6, strokeWidth: 0 }}
-                />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)', fontWeight: 'bold' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
+                <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)' }} />
+                <Line type="monotone" dataKey="count" stroke="#4F46E5" strokeWidth={4} dot={{ fill: '#4F46E5', strokeWidth: 2, r: 4, stroke: '#fff' }} />
               </LineChart>
             </ResponsiveContainer>
           </div>
         </section>
 
-        {/* Action Breakdown */}
-        <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm min-h-[400px] flex flex-col transition-colors duration-300 font-sans">
-          <div className="mb-6">
-            <h3 className="text-xl font-serif text-[var(--text-primary)]">Workflow Dynamics</h3>
-            <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">Composition of user actions</p>
-          </div>
-          <div className="flex-1 w-full h-[300px]">
+        {/* Workflow Dynamics */}
+        <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm flex flex-col font-sans">
+          <h3 className="text-xl font-serif text-[var(--text-primary)] mb-6">Workflow Dynamics</h3>
+          <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
-                <Pie
-                  data={actionChartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {actionChartData.map((entry, index) => (
+                <Pie data={actionChartData} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={5} dataKey="value">
+                  {actionChartData.map((_, index) => (
                     <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
                   ))}
                 </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    borderRadius: '1rem', 
-                    border: 'none', 
-                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                    backgroundColor: 'var(--card-bg)',
-                    color: 'var(--text-primary)'
-                  }}
-                  itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                />
+                <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)' }} />
                 <Legend />
               </PieChart>
             </ResponsiveContainer>
-          </div>
-        </section>
-
-        {/* Recruiter Contribution (Admin Only) */}
-        {role === 'admin' && (
-          <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm min-h-[400px] flex flex-col transition-colors duration-300 font-sans">
-            <div className="mb-6">
-              <h3 className="text-xl font-serif text-[var(--text-primary)]">Team Contribution</h3>
-              <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">CV counts per team member</p>
-            </div>
-            <div className="flex-1 w-full h-[300px]">
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={recruiterChartData}>
-                  <XAxis dataKey="name" tick={{ fontSize: 10, fill: 'var(--text-muted)' }} hide={recruiterChartData.length > 5} />
-                  <YAxis tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
-                  <Tooltip 
-                    contentStyle={{ 
-                      borderRadius: '1rem', 
-                      border: 'none', 
-                      boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                      backgroundColor: 'var(--card-bg)',
-                      color: 'var(--text-primary)'
-                    }}
-                  />
-                  <Bar dataKey="count" fill="#10B981" radius={[10, 10, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
-          </section>
-        )}
-
-        {/* Domain Distribution */}
-        <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm min-h-[400px] flex flex-col transition-colors duration-300 font-sans">
-          <div className="mb-6">
-            <h3 className="text-xl font-serif text-[var(--text-primary)]">Domain Distribution</h3>
-            <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">Industry landscape of talent pool</p>
-          </div>
-          <div className="flex-1 w-full h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie
-                  data={domainChartData}
-                  cx="50%"
-                  cy="50%"
-                  innerRadius={60}
-                  outerRadius={100}
-                  fill="#8884d8"
-                  paddingAngle={5}
-                  dataKey="value"
-                >
-                  {domainChartData.map((entry, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                  ))}
-                </Pie>
-                <Tooltip 
-                  contentStyle={{ 
-                    borderRadius: '1rem', 
-                    border: 'none', 
-                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                    backgroundColor: 'var(--card-bg)',
-                    color: 'var(--text-primary)'
-                  }}
-                  itemStyle={{ fontSize: '12px', fontWeight: 'bold' }}
-                />
-                <Legend />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-
-
-        {/* Top Skills List */}
-        <section className="bg-[var(--card-bg)] p-6 md:p-8 rounded-[2rem] md:rounded-[2.5rem] border border-[var(--border-color)] shadow-sm flex flex-col transition-colors duration-300 font-sans">
-          <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <div>
-              <h3 className="text-xl font-serif text-[var(--text-primary)]">In-Demand Skills</h3>
-              <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">Filter talent by expertise</p>
-            </div>
-            <select 
-              onChange={(e) => e.target.value && handleSkillClick(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2 text-xs font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-indigo-500 outline-none cursor-pointer transition-all hover:bg-slate-100 dark:hover:bg-slate-700 shadow-sm"
-              value={selectedSkill || ''}
-            >
-              <option value="">Select Skill...</option>
-              {allSkillsData.map(({ name }: any) => (
-                <option key={name} value={name}>{name}</option>
-              ))}
-            </select>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 custom-scrollbar">
-            {allSkillsData.map(({ name, count }: any) => (
-              <button 
-                key={name}
-                onClick={() => handleSkillClick(name)}
-                className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-all group"
-              >
-                <span className="font-bold text-[var(--text-primary)] uppercase tracking-wider text-[10px] truncate mr-2">{name}</span>
-                <span className="px-2 py-1 bg-white dark:bg-slate-700 rounded-md text-[9px] font-bold text-indigo-600 dark:text-indigo-400 shadow-sm whitespace-nowrap">{count}</span>
-              </button>
-            ))}
           </div>
         </section>
       </div>
 
-        {/* Skills Graph Section */}
-      <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm transition-colors duration-300 font-sans">
-          <div className="mb-6">
-            <h3 className="text-xl font-serif text-[var(--text-primary)]">Skills Distribution</h3>
-            <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">Top 15 skills by core competency frequency</p>
-          </div>
-          <div className="w-full h-[400px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={allSkillsData.slice(0, 15)} layout="vertical">
-                <XAxis type="number" hide />
-                <YAxis 
-                  dataKey="name" 
-                  type="category" 
-                  width={120} 
-                  tick={{ fontSize: 10, fontWeight: 'bold', fill: 'var(--text-muted)' }} 
-                  axisLine={false}
-                  tickLine={false}
-                />
-                <Tooltip 
-                  cursor={{ fill: 'transparent' }}
-                  contentStyle={{ 
-                    borderRadius: '1rem', 
-                    border: '1px solid var(--border-color)', 
-                    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.1)',
-                    backgroundColor: 'var(--card-bg)',
-                    color: 'var(--text-primary)',
-                    padding: '10px'
-                  }}
-                  itemStyle={{ fontSize: '12px', fontWeight: 'bold', color: '#4F46E5' }}
-                />
-                <Bar 
-                  dataKey="count" 
-                  fill="#4F46E5" 
-                  radius={[0, 10, 10, 0]}
-                  barSize={25}
-                />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
+      {/* Skills Analysis */}
+      <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm flex flex-col font-sans">
+        <h3 className="text-xl font-serif text-[var(--text-primary)] mb-6">Talent Skillscape</h3>                
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <div className="lg:col-span-1 space-y-6">
+                <Select options={skillOptions} onChange={(opt) => opt && handleSkillClick(opt.value)} styles={customSelectStyles} placeholder="Search skill..." isClearable />
+                <input type="text" placeholder="Search skills overview..." value={skillSearch} onChange={(e) => setSkillSearch(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-3 text-xs font-bold text-[var(--text-primary)] shadow-sm" />
+                <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto">
+                    {filteredSkills.map(({ name, count }: any) => (
+                        <button key={name} onClick={() => handleSkillClick(name)} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-indigo-50 transition-all">
+                            <span className="font-bold text-[10px] truncate mr-2">{name}</span>
+                            <span className="px-2 py-1 bg-white rounded-md text-[9px] font-bold text-indigo-600 shadow-sm">{count}</span>
+                        </button>
+                    ))}
+                </div>
+            </div>
+            <div className="lg:col-span-2 h-[400px]">
+                 <ResponsiveContainer width="100%" height="100%">
+                    <BarChart data={allSkillsData.slice(0, 10)} layout="vertical">
+                      <XAxis type="number" hide />
+                      <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                      <Tooltip contentStyle={{ backgroundColor: 'var(--card-bg)', borderRadius: '1rem' }} />
+                      <Bar dataKey="count" fill="#4F46E5" radius={[0, 10, 10, 0]} barSize={20} />
+                    </BarChart>
+                 </ResponsiveContainer>
+            </div>
+        </div>
       </section>
-
+      
       {/* Skill Candidates Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
