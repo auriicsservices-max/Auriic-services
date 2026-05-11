@@ -181,6 +181,7 @@ export default function UserManagement() {
     });
   };
 
+
   if (role !== 'admin') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 bg-[var(--bg-primary)] rounded-[2rem] border border-[var(--border-color)] shadow-sm transition-colors duration-300">
@@ -282,6 +283,7 @@ export default function UserManagement() {
             >
               Active ({activeUsers.length})
             </button>
+
             <button 
               onClick={() => setView('trash')}
               className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all ${view === 'trash' ? 'bg-[var(--card-bg)] text-red-600 dark:text-red-400 shadow-sm' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
@@ -308,16 +310,30 @@ export default function UserManagement() {
                     {u.addedBy === 'admin' && (
                         <p className="text-[9px] text-[var(--text-muted)] font-medium italic opacity-60">Direct invite</p>
                     )}
-                    {u.role === 'recruiter' && (
-                      <button 
-                          onClick={async () => {
-                              await updateDoc(doc(db, 'users', u.id), { canAssignCandidates: !u.canAssignCandidates });
-                          }}
-                          className={`flex items-center gap-1.5 transition-all duration-200 text-[9px] uppercase font-black px-2 py-1 rounded-md cursor-pointer hover:scale-[1.02] active:scale-[0.98] ${u.canAssignCandidates ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-[var(--sidebar-bg)] text-[var(--text-muted)]'}`}
-                      >
-                          <Shield size={10} className={`${u.canAssignCandidates ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
-                          {u.canAssignCandidates ? 'Permission Active' : 'Access Restricted'}
-                      </button>
+                    {(role === 'admin' || role === 'team_leader') && u.role === 'recruiter' && (
+                        <div className="flex items-center gap-1.5 mt-2">
+                           <select 
+                            value={u.teamLeaderId || ''}
+                            onChange={async (e) => {
+                                await updateDoc(doc(db, 'users', u.id), { teamLeaderId: e.target.value });
+                            }}
+                            className="bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-lg px-2 py-1 text-[9px] text-[var(--text-primary)]"
+                          >
+                            <option value="">No Team Leader</option>
+                            {users.filter(x => x.role === 'team_leader').map(tl => (
+                                <option key={tl.id} value={tl.id}>{tl.name || tl.email}</option>
+                            ))}
+                          </select>
+                          <button 
+                              onClick={async () => {
+                                  await updateDoc(doc(db, 'users', u.id), { canAssignCandidates: !u.canAssignCandidates });
+                              }}
+                              className={`flex items-center gap-1.5 transition-all duration-200 text-[9px] uppercase font-black px-2 py-1 rounded-md cursor-pointer hover:scale-[1.02] active:scale-[0.98] ${u.canAssignCandidates ? 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-700 dark:text-emerald-300' : 'bg-[var(--sidebar-bg)] text-[var(--text-muted)]'}`}
+                          >
+                              <Shield size={10} className={`${u.canAssignCandidates ? 'text-emerald-500' : 'text-[var(--text-muted)]'}`} />
+                              {u.canAssignCandidates ? 'Permission Active' : 'Access Restricted'}
+                          </button>
+                        </div>
                     )}
                   </div>
                 </div>

@@ -24,7 +24,7 @@ service cloud.firestore {
       return isSignedIn() && (
         request.auth.token.email == 'darshanwala894@gmail.com' || 
         request.auth.token.email == 'auriicsservices@gmail.com' ||
-        getUserData().get('role', 'none') == 'admin'
+        getUserData().get('role', 'none') in ['admin', 'team_leader']
       );
     }
 
