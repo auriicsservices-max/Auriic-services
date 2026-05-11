@@ -9,6 +9,7 @@ interface AuthContextType {
   loading: boolean;
   quotaExceeded: boolean;
   setQuotaExceeded: (value: boolean) => void;
+  isPrivileged: boolean;
 }
 
 const AuthContext = createContext<AuthContextType>({ 
@@ -16,7 +17,8 @@ const AuthContext = createContext<AuthContextType>({
   role: null, 
   loading: true,
   quotaExceeded: false,
-  setQuotaExceeded: () => {}
+  setQuotaExceeded: () => {},
+  isPrivileged: false
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -24,6 +26,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [role, setRole] = useState<'admin' | 'team_leader' | 'recruiter' | null>(null);
   const [loading, setLoading] = useState(true);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
+  const isPrivileged = role === 'admin' || role === 'team_leader';
 
   useEffect(() => {
     let statusInterval: any;
@@ -110,7 +113,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user?.uid]);
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, quotaExceeded, setQuotaExceeded }}>
+    <AuthContext.Provider value={{ user, role, loading, quotaExceeded, setQuotaExceeded, isPrivileged }}>
       {children}
     </AuthContext.Provider>
   );

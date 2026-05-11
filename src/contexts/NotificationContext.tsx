@@ -1,0 +1,104 @@
+import React, { createContext, useContext, useEffect, useState } from 'react';
+import { collection, query, onSnapshot, orderBy, Timestamp, where } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { useAuth } from './AuthContext';
+import { auth } from '../lib/firebase';
+
+enum OperationType {
+  CREATE = 'create',
+  UPDATE = 'update',
+  DELETE = 'delete',
+  LIST = 'list',
+  GET = 'get',
+  WRITE = 'write',
+}
+
+function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errInfo = {
+    error: error instanceof Error ? error.message : String(error),
+    authInfo: {
+      userId: auth.currentUser?.uid,
+      email: auth.currentUser?.email,
+      emailVerified: auth.currentUser?.emailVerified,
+      isAnonymous: auth.currentUser?.isAnonymous,
+      tenantId: auth.currentUser?.tenantId,
+      providerInfo: auth.currentUser?.providerData?.map(provider => ({
+        providerId: provider.providerId,
+        email: provider.email,
+      })) || []
+    },
+    operationType,
+    path
+  };
+  console.error('Firestore Error: ', JSON.stringify(errInfo));
+  // Not re-throwing here to avoid breaking app functionality, 
+  // keeping it for debugging as per requirements.
+}
+
+interface Notification {
+  id: string;
+  text: string;
+  senderId: string;
+  senderName: string;
+  senderRole: string;
+  recipientId: string;
+  relatedCandidateId?: string;
+  createdAt: Timestamp;
+}
+
+interface NotificationContextType {
+  notifications: Notification[];
+  unreadCount: number;
+}
+
+const NotificationContext = createContext<NotificationContextType>({
+  notifications: [],
+  unreadCount: 0,
+});
+
+export function NotificationProvider({ children }: { children: React.ReactNode }) {
+  const { user, role } = useAuth();
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+
+  useEffect(() => {
+    if (!user || !role) return;
+
+    // Admin/TL see all, Recruiter sees assigned or all_privileged (for broadcast)
+    let q;
+    if (role === 'admin' || role === 'team_leader') {
+      q = query(
+        collection(db, 'notifications'),
+        orderBy('createdAt', 'desc')
+      );
+    } else {
+      q = query(
+        collection(db, 'notifications'),
+        where('recipientId', 'in', [user.uid, 'all']),
+        orderBy('createdAt', 'desc')
+      );
+    }
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      const allNotifs: Notification[] = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      } as Notification));
+      
+      setNotifications(allNotifs);
+      setUnreadCount(allNotifs.length);
+    }, (error) => {
+      handleFirestoreError(error, OperationType.GET, 'notifications');
+    });
+
+    return () => unsub();
+  }, [user, role]);
+
+  return (
+    <NotificationContext.Provider value={{ notifications, unreadCount }}>
+      {children}
+    </NotificationContext.Provider>
+  );
+}
+
+export const useNotifications = () => useContext(NotificationContext);

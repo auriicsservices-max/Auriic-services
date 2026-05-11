@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown } from 'lucide-react';
 import LZString from 'lz-string';
+import { formatUKDate } from '../lib/dateUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { logActivity } from '../lib/logger';
-import { createNotification } from '../lib/notifications';
+import { createNotification } from '../services/notificationService';
 import ConfirmModal from './ConfirmModal';
 import { fetchCvList } from '../services/cvApiService';
 
@@ -518,7 +519,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               <div className="space-y-2">
                 <div className="flex justify-between text-[10px] items-center">
                   <span className="text-[var(--text-muted)]">Indexed on</span>
-                  <span className="font-mono text-[var(--text-secondary)]">{new Date(candidate.createdAt).toLocaleDateString()}</span>
+                  <span className="font-mono text-[var(--text-secondary)]">{formatUKDate(candidate.createdAt)}</span>
                 </div>
                 {candidate.uploadedBy && candidate.uploadedBy !== user?.uid && (
                   <div className="flex justify-between text-[10px] items-center">

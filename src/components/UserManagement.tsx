@@ -343,13 +343,6 @@ export default function UserManagement() {
                 {view === 'active' ? (
                   <>
                     <button 
-                      onClick={() => handleUpdateRole(u.id, u.role)}
-                      className="p-2 text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 dark:hover:bg-indigo-900/40 hover:bg-indigo-50 rounded-xl transition-all"
-                      title="Switch Role"
-                    >
-                      <Shield size={18} />
-                    </button>
-                    <button 
                       onClick={() => handleArchiveUser(u.id)}
                       className="p-2 text-slate-300 dark:text-slate-700 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-xl transition-all"
                       title="Move to Trash"
@@ -374,7 +367,8 @@ export default function UserManagement() {
                       <AlertTriangle size={18} />
                     </button>
                   </>
-                )}
+                )
+                  }
               </div>
             </div>
           ))}

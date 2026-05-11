@@ -19,6 +19,7 @@ import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
 import { enhancedParser } from '../services/enhancedParserService';
 import InternalChat from '../components/InternalChat';
+import NotificationBadge from '../components/NotificationBadge';
 import QuotaNotice from '../components/QuotaNotice';
 import LZString from 'lz-string';
 import { useTheme } from '../contexts/ThemeContext';
@@ -51,7 +52,7 @@ import {
 } from 'lucide-react';
 
 export default function Dashboard() {
-  const { user, role, quotaExceeded, setQuotaExceeded } = useAuth();
+  const { user, role, quotaExceeded, setQuotaExceeded, isPrivileged } = useAuth();
   const { theme } = useTheme();
   const [candidates, setCandidates] = useState<any[]>([]);
   const candidateMapRef = useRef(new Map<string, any>());
@@ -866,7 +867,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             )}
           </button>
 
-          {role === 'admin' && (
+          {isPrivileged && (
             <button 
               onClick={() => { setActiveTab('trash'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
               className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
@@ -893,7 +894,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             CV Repository
           </button>
 
-          {role === 'admin' && (
+          {isPrivileged && (
             <button 
               onClick={() => { setActiveTab('users'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
               className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
@@ -984,6 +985,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </span>
           </div>
           <div className="flex items-center gap-4">
+            <NotificationBadge />
             {uploadStatus === 'success' && (
               <div className="flex items-center gap-2 text-emerald-600 text-xs font-bold animate-in fade-in zoom-in-95">
                 <CheckCircle2 size={14} />
@@ -1138,7 +1140,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   </div>
                 </div>
 
-                {role === 'admin' && selectedIds.size > 0 && (
+                {isPrivileged && selectedIds.size > 0 && (
                   <div className="flex items-center justify-between px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900 rounded-2xl animate-in fade-in slide-in-from-top-2">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-[var(--card-bg)] rounded-lg flex items-center justify-center text-red-600 dark:text-red-400 shadow-sm border border-red-100 dark:border-red-900/50">
@@ -1185,7 +1187,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                         
                         return (
                           <tr key={candidate.id} className={`hover:bg-indigo-50/20 dark:hover:bg-indigo-900/10 group transition-all cursor-pointer ${selectedIds.has(candidate.id) ? 'bg-indigo-50/30 dark:bg-indigo-900/20' : ''}`} onClick={() => setSelectedCandidate(candidate)}>
-                            {role === 'admin' && (
+                            {isPrivileged && (
                               <td className="px-6 py-4" onClick={(e) => e.stopPropagation()}>
                                 <input 
                                   type="checkbox" 
@@ -1209,7 +1211,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                                 {candidate.email || 'No contact mail'}
                                 {candidate.assignedTo && (
                                   <span className="block italic text-[9px] text-indigo-300">
-                                    {role === 'admin' ? (
+                                    {isPrivileged ? (
                                       <>Assigned to: {teamMembers[candidate.assignedTo] || 'Recruiter'} (recruiter)</>
                                     ) : (
                                       <>Assigned by: {teamMembers[candidate.assignedBy] || 'Admin'} (admin)</>
@@ -1266,7 +1268,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                                     </div>
                                   )}
                                 </button>
-                                {role === 'admin' && (
+                                {isPrivileged && (
                                   <button 
                                     onClick={(e) => handleArchiveCandidate(e, candidate.id)}
                                     className="p-1.5 text-[var(--text-muted)] hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-lg transition-all opacity-0 group-hover:opacity-100"
@@ -1293,7 +1295,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                       })}
                       {filteredCandidates.length === 0 && (
                         <tr>
-                          <td colSpan={role === 'admin' ? 6 : 5} className="px-6 py-20 text-center text-[var(--text-muted)] font-medium italic transition-colors duration-300">
+                          <td colSpan={isPrivileged ? 6 : 5} className="px-6 py-20 text-center text-[var(--text-muted)] font-medium italic transition-colors duration-300">
                             <Users size={32} className="mx-auto mb-2 opacity-20" />
                             No matches found in standard index
                           </td>
@@ -1334,7 +1336,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   </div>
                 </div>
 
-                {role === 'admin' && selectedIds.size > 0 && (
+                {isPrivileged && selectedIds.size > 0 && (
                   <div className="flex items-center justify-between px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900 rounded-2xl animate-in fade-in slide-in-from-top-2">
                     <div className="flex items-center gap-3">
                       <div className="w-8 h-8 bg-white dark:bg-slate-800 rounded-lg flex items-center justify-center text-red-600 dark:text-red-400 shadow-sm">

@@ -80,10 +80,18 @@ service cloud.firestore {
 
     // Notifications Collection Rules
     match /notifications/{notificationId} {
-      allow list: if isSignedIn();
-      allow read: if isSignedIn();
+      allow list: if isSignedIn() && (
+        getUserData().role in ['admin', 'team_leader'] || 
+        resource.data.recipientId == request.auth.uid ||
+        resource.data.recipientId == 'all'
+      );
+      allow read: if isSignedIn() && (
+        getUserData().role in ['admin', 'team_leader'] || 
+        resource.data.recipientId == request.auth.uid ||
+        resource.data.recipientId == 'all'
+      );
       allow create: if isSignedIn();
-      allow update: if isSignedIn();
+      allow update: if isSignedIn(); // Add ownership verification here later if needed
     }
 
     // Training CV Collection Rules
