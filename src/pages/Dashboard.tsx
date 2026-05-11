@@ -447,19 +447,19 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         // Ensure parsed object exists
         if (!parsed) throw new Error("Parser returned empty data");
         
-        parsed.fullName = parsed.fullName || file.name.split('.')[0];
-        parsed.email = (parsed.email || 'pending@aurrum.co').toLowerCase();
+        parsed.candidate.name = parsed.candidate.name || file.name.split('.')[0];
+        parsed.candidate.email = (parsed.candidate.email || 'pending@aurrum.co').toLowerCase();
 
         // CHECK FOR DUPLICATES
-        const isDuplicateInState = candidates.find(c => c.email === parsed.email);
-        const isDuplicateInBatch = addedEmailsInBatch.has(parsed.email);
+        const isDuplicateInState = candidates.find(c => c.email === parsed.candidate.email);
+        const isDuplicateInBatch = addedEmailsInBatch.has(parsed.candidate.email);
         
         if (isDuplicateInState || isDuplicateInBatch) {
           const workerId = isDuplicateInState ? (isDuplicateInState.assignedTo || isDuplicateInState.uploadedBy) : 'this batch';
           const workerName = isDuplicateInState ? (teamMembers[workerId] || 'Unknown Recruiter') : 'this batch';
           setDuplicateNotification({ 
             isOpen: true, 
-            message: `Candidate ${parsed.fullName} is already added and currently being handled by ${workerName}`
+            message: `Candidate ${parsed.candidate.name} is already added and currently being handled by ${workerName}`
           });
           setUploadStatus('duplicate');
           setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
@@ -467,7 +467,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         }
 
         // Add to batch tracking
-        addedEmailsInBatch.add(parsed.email);
+        addedEmailsInBatch.add(parsed.candidate.email);
 
         // Compress text to store in Firebase (saving space)
         const compressedText = LZString.compressToUTF16(text);
@@ -478,13 +478,13 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         
         // Aurrum API requirements: file (Required), name (Required), email (Required)
         formData.append('file', file);
-        formData.append('name', parsed.fullName || file.name);
-        formData.append('email', parsed.email || 'pending@aurrum.co');
-        if (parsed.phone) {
-          formData.append('phone', parsed.phone);
+        formData.append('name', parsed.candidate.name || file.name);
+        formData.append('email', parsed.candidate.email || 'pending@aurrum.co');
+        if (parsed.candidate.phone) {
+          formData.append('phone', parsed.candidate.phone);
         }
 
-        let result = { status: false, data: { id: null, url: null, name: parsed.fullName || file.name }, message: '' };
+        let result = { status: false, data: { id: null, url: null, name: parsed.candidate.name || file.name }, message: '' };
         try {
           const response = await fetch('/api/cv/upload', {
             method: 'POST',
@@ -508,8 +508,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           isLargeFile,
           cid: result.data?.id || null,
           url: result.data?.url || null,
-          email: parsed.email?.toLowerCase(),
-          fullName: result.data?.name || parsed.fullName || file.name,
+          email: parsed.candidate.email?.toLowerCase(),
+          fullName: result.data?.name || parsed.candidate.name || file.name,
           fileName: file.name,
           fileType: file.type,
           isShortlisted: false,
@@ -1199,8 +1199,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                               <div className="flex items-center gap-2">
                                 <div className="font-bold text-[var(--text-primary)] group-hover:text-indigo-700 dark:group-hover:text-indigo-400 transition-colors uppercase tracking-tight truncate max-w-[150px]">{candidate.fullName}</div>
                                 {candidate.isShortlisted && <Star size={12} className="text-amber-500 fill-amber-500 shrink-0" />}
-                                {candidate.notes && <StickyNote size={12} className="text-indigo-400 shrink-0" title="Has internal notes" />}
-                                {(candidate.followUpDate && !candidate.notes) && <Clock size={12} className="text-pink-400 shrink-0" title="Has follow-up" />}
+                                {candidate.notes && <StickyNote size={12} className="text-indigo-400 shrink-0" />}
+                                {(candidate.followUpDate && !candidate.notes) && <Clock size={12} className="text-pink-400 shrink-0" />}
                                 {candidate.assignedTo && (
                                   <span className="text-[9px] text-indigo-400 font-bold bg-indigo-50 dark:bg-indigo-900/40 px-1.5 py-0.5 rounded-md">Assigned</span>
                                 )}

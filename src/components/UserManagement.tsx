@@ -14,7 +14,7 @@ export default function UserManagement() {
   const [users, setUsers] = useState<any[]>([]);
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState<'admin' | 'recruiter'>('recruiter');
+  const [newRole, setNewRole] = useState<'admin' | 'team_leader' | 'recruiter'>('recruiter');
   const [isAdding, setIsAdding] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [error, setError] = useState('');
@@ -100,7 +100,11 @@ export default function UserManagement() {
   };
 
   const handleUpdateRole = async (userId: string, currentRole: string) => {
-    const nextRole = currentRole === 'admin' ? 'recruiter' : 'admin';
+    let nextRole: 'admin' | 'team_leader' | 'recruiter' = 'admin';
+    if (currentRole === 'admin') nextRole = 'team_leader';
+    else if (currentRole === 'team_leader') nextRole = 'recruiter';
+    else nextRole = 'admin';
+    
     try {
       await updateDoc(doc(db, 'users', userId), { role: nextRole });
       await logActivity('Update Role', { userId, nextRole }, user!.uid, role!);
@@ -242,6 +246,7 @@ export default function UserManagement() {
               className="w-full bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-xl px-4 text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/10 h-11"
             >
               <option value="recruiter">Recruiter</option>
+              <option value="team_leader">Team Leader</option>
               <option value="admin">Admin</option>
             </select>
           </div>
@@ -324,7 +329,7 @@ export default function UserManagement() {
                     <button 
                       onClick={() => handleUpdateRole(u.id, u.role)}
                       className="p-2 text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 dark:hover:bg-indigo-900/40 hover:bg-indigo-50 rounded-xl transition-all"
-                      title={`Switch to ${u.role === 'admin' ? 'Recruiter' : 'Admin'}`}
+                      title="Switch Role"
                     >
                       <Shield size={18} />
                     </button>

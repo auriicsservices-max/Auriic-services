@@ -28,10 +28,14 @@ service cloud.firestore {
       );
     }
 
+    function isTeamLeader() {
+      return isSignedIn() && getUserData().get('role', 'none') == 'team_leader';
+    }
+
     function isTeamMember() {
       let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return isSignedIn() && (
-        isAdmin() || (user.role == 'recruiter' && user.get('isArchived', false) == false)
+        isAdmin() || (user.role in ['team_leader', 'recruiter'] && user.get('isArchived', false) == false)
       );
     }
 
@@ -51,7 +55,7 @@ service cloud.firestore {
       function isValidUser(data) {
         return data.uid is string && 
                data.email is string && 
-               data.role in ['admin', 'recruiter'];
+               data.role in ['admin', 'team_leader', 'recruiter'];
       }
 
       allow create: if isSignedIn() && (request.auth.uid == userId || isAdmin());

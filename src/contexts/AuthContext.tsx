@@ -5,7 +5,7 @@ import { auth, db } from '../lib/firebase';
 
 interface AuthContextType {
   user: User | null;
-  role: 'admin' | 'recruiter' | null;
+  role: 'admin' | 'team_leader' | 'recruiter' | null;
   loading: boolean;
   quotaExceeded: boolean;
   setQuotaExceeded: (value: boolean) => void;
@@ -21,7 +21,7 @@ const AuthContext = createContext<AuthContextType>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<'admin' | 'recruiter' | null>(null);
+  const [role, setRole] = useState<'admin' | 'team_leader' | 'recruiter' | null>(null);
   const [loading, setLoading] = useState(true);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
 

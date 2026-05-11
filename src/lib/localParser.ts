@@ -110,11 +110,11 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
 
   // 1. Extract Email
   const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i);
-  if (emailMatch) resume.email = emailMatch[0];
+  if (emailMatch) resume.candidate.email = emailMatch[0];
 
   // 2. Extract Phone (Improved)
   const phoneMatch = text.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{4}/);
-  if (phoneMatch) resume.phone = phoneMatch[0];
+  if (phoneMatch) resume.candidate.phone = phoneMatch[0];
 
   // 3. Extract Name (Heuristic refined: check first few lines for capitalized names)
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
@@ -127,87 +127,25 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
 
         const words = line.split(/\s+/);
         if (words.length >= 2 && words.length <= 4 && words.every(w => /^[A-Z]/.test(w))) {
-            resume.fullName = line;
+            resume.candidate.name = line;
             break;
         }
     }
     
-    if (!resume.fullName) {
+    if (!resume.candidate.name) {
         for (let i = 0; i < Math.min(5, lines.length); i++) {
             const line = lines[i];
             if (line.length > 3 && line.length < 35 && !line.includes('@') && !line.includes(':')) {
-                resume.fullName = line;
+                resume.candidate.name = line;
                 break;
             }
         }
     }
   }
 
-  // 4. Extract Links (LinkedIn, GitHub, Portfolio)
-  const linkPatterns = [
-    { label: 'LinkedIn', regex: /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/[a-zA-Z0-9_-]+/i },
-    { label: 'GitHub', regex: /(?:https?:\/\/)?(?:www\.)?github\.com\/[a-zA-Z0-9_-]+/i },
-    { label: 'Behance', regex: /(?:https?:\/\/)?(?:www\.)?behance\.net\/[a-zA-Z0-9_-]+/i },
-    { label: 'Dribbble', regex: /(?:https?:\/\/)?(?:www\.)?dribbble\.com\/[a-zA-Z0-9_-]+/i },
-    { label: 'X', regex: /(?:https?:\/\/)?(?:www\.)?(?:twitter|x)\.com\/[a-zA-Z0-9_-]+/i },
-    { label: 'Generic', regex: /https?:\/\/(www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b([-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi }
-  ];
-
-  const foundLinksMap = new Map<string, string>();
-  linkPatterns.forEach(pattern => {
-    const matches = text.match(pattern.regex);
-    if (matches) {
-      matches.forEach(match => {
-        let url = match.trim();
-        if (!url.startsWith('http')) url = `https://${url}`;
-        
-        let label = pattern.label;
-        if (label === 'Generic') {
-            if (url.includes('linkedin.com')) label = 'LinkedIn';
-            else if (url.includes('github.com')) label = 'GitHub';
-            else if (url.includes('twitter.com') || url.includes('x.com')) label = 'X';
-            else if (url.includes('portfolio') || url.includes('personal')) label = 'Portfolio';
-            else label = 'Link';
-        }
-        
-        if (!foundLinksMap.has(url)) {
-          foundLinksMap.set(url, label);
-        }
-      });
-    }
-  });
-  resume.links = Array.from(foundLinksMap.entries()).map(([url, label]) => ({ label, url }));
-
-  // 5. Domain Extraction (Aggressive Score System)
-  const domainKeywords: Record<string, string[]> = {
-    'Software Engineering': ['developer', 'software', 'engineer', 'frontend', 'backend', 'fullstack', 'coder', 'web', 'javascript', 'python', 'java', 'react', 'c++', 'c#', 'node', 'express', 'devops', 'cloud', 'architecture', 'api', 'docker', 'database', 'typescript', 'full stack'],
-    'Data Science & AI': ['data', 'scientist', 'analysis', 'analytics', 'machine learning', 'ai', 'statistical', 'modeling', 'sql', 'big data', 'pandas', 'numpy', 'tensorflow', 'pytorch', 'deep learning', 'nlp', 'bi', 'llm', 'rag', 'genai', 'pinecone'],
-    'Telecommunications': ['telecom', 'wireless', '5g', '4g', 'rf', 'network infrastructure', 'fiber optics', 'antennae', 'base station', 'ran', 'site development', 'in-building', 'macro wireless', 'telecommunications systems'],
-    'Project & Program Management': ['pmp', 'project manager', 'program manager', 'scrum master', 'agile', 'lifecycle', 'budgeting', 'scheduling', 'resource allocation', 'stakeholder', 'vendor management', 'rfp', 'change order', 'pmo', 'milestones'],
-    'Marketing': ['marketing', 'brand', 'advertising', 'social media', 'content', 'seo', 'sem', 'campaign', 'growth', 'copywriter', 'pr', 'communications', 'digital marketing', 'email marketing'],
-    'Sales': ['sales', 'account executive', 'business development', 'revenue', 'prospecting', 'lead generation', 'closing', 'saas sales', 'crm', 'client acquisition'],
-    'Human Resources': ['hr', 'recruiter', 'recruiting', 'talent', 'human resources', 'compensation', 'benefits', 'compliance', 'sourcing', 'onboarding', 'hiring', 'culture'],
-    'Design & Creative': ['designer', 'ui', 'ux', 'product designer', 'graphic designer', 'illustrator', 'creative', 'adobe', 'figma', 'sketch', 'canva', 'prototyping', 'interaction design', 'motion design'],
-    'Finance & Accounting': ['finance', 'accountant', 'accounting', 'banking', 'investment', 'ledger', 'audit', 'tax', 'financial analyst', 'treasury', 'cpa', 'wealth management'],
-    'Infrastructure & Networking': ['cisco', 'juniper', 'router', 'switch', 'data center', 'tcp/ip', 'lan', 'wan', 'cctv', 'ubiquiti', 'vlan', 'subnet', 'firewall', 'palo alto', 'nexus'],
-    'Construction & Engineering': ['construction', 'civil', 'osha', 'autocad', 'blueprints', 'permitting', 'site survey', 'infrastructure development', 'zoning', 'estimating', 'mop'],
-    'Humanitarian & NGO': ['unhcr', 'ngo', 'non-profit', 'humanitarian', 'refugee', 'protection', 'advocacy', 'peacekeeping', 'disaster relief']
-  };
-
-  const domainScores: Record<string, number> = {};
-  Object.entries(domainKeywords).forEach(([dom, kws]) => {
-    domainScores[dom] = 0;
-    kws.forEach(kw => {
-      const escapedKw = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      const regex = new RegExp(`(^|[^a-zA-Z0-9#+.])${escapedKw}([^a-zA-Z0-9#+.]|$)`, 'gi');
-      const matches = text.match(regex);
-      if (matches) domainScores[dom] += matches.length;
-    });
-  });
-
-  const bestDomain = Object.entries(domainScores).reduce((a, b) => b[1] > a[1] ? b : a, ['General', 0]);
-  resume.domain = bestDomain[1] > 2 ? bestDomain[0] : 'General';
-
+  // 4. Extract Links (Removed based on new structure)
+  // 5. Domain Extraction (Removed based on new structure)
+  
   // 6. Skills Extraction (Broad Dictionary)
   const commonSkills = [
     'React', 'Javascript', 'Typescript', 'Python', 'Java', 'C++', 'C#', 'Node.js', 
@@ -296,7 +234,8 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
       
       return {
         degree: degreeMatch ? degreeMatch[0] : (lines[0] || 'Degree'),
-        school: lines.find(l => !l.match(/(?:Bachelor|Master|B\.S\.|M\.S\.|PhD|Associate|Degree|BSc|MSc|MBA|Engineering|Diploma|B\.A\.|M\.A\.)/i) && l.length > 5) || lines[1] || 'Institution',
+        institution: lines.find(l => !l.match(/(?:Bachelor|Master|B\.S\.|M\.S\.|PhD|Associate|Degree|BSc|MSc|MBA|Engineering|Diploma|B\.A\.|M\.A\.)/i) && l.length > 5) || lines[1] || 'Institution',
+        location: 'N/A',
         year: yearMatch ? yearMatch[0] : 'N/A'
       };
     });
@@ -338,12 +277,15 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
       if (!found) role = header;
 
       const dateMatch = block.match(datePattern);
+      const dateParts = dateMatch ? dateMatch[0].split(/[-–—to]+/i) : ['N/A', 'N/A'];
       
       return {
-        role,
         company,
-        duration: dateMatch ? dateMatch[0] : 'N/A',
-        description: lines.slice(found ? 1 : 1, 12).join(' ').substring(0, 1000)
+        job_title: role,
+        location: null,
+        start_date: dateParts[0].trim(),
+        end_date: dateParts[1] ? dateParts[1].trim() : 'Present',
+        responsibilities: lines.slice(found ? 1 : 1, 12)
       };
     });
   }
