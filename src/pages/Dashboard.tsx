@@ -18,11 +18,14 @@ import ConfirmModal from '../components/ConfirmModal';
 import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
 import { enhancedParser } from '../services/enhancedParserService';
+import { createNotification, formatNotificationMessage } from '../services/notificationService';
 import InternalChat from '../components/InternalChat';
 import NotificationBadge from '../components/NotificationBadge';
 import QuotaNotice from '../components/QuotaNotice';
 import LZString from 'lz-string';
 import { useTheme } from '../contexts/ThemeContext';
+import { useNotifications } from '../contexts/NotificationContext';
+import { useTimezone } from '../contexts/TimezoneContext';
 import { 
   Search, 
   Upload, 
@@ -54,6 +57,8 @@ import {
 export default function Dashboard() {
   const { user, role, quotaExceeded, setQuotaExceeded, isPrivileged } = useAuth();
   const { theme } = useTheme();
+  const { notifications } = useNotifications();
+  const { timezone, setTimezone, formatDate } = useTimezone();
   const [candidates, setCandidates] = useState<any[]>([]);
   const candidateMapRef = useRef(new Map<string, any>());
   const lastLogTimestampRef = useRef<number>(Date.now());
@@ -503,7 +508,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         }
         
         // 4. Store meta in Firebase
-        await addDoc(collection(db, 'candidates'), {
+        const newCandidateRef = await addDoc(collection(db, 'candidates'), {
           ...parsed,
           compressedText,
           isLargeFile,
@@ -518,6 +523,22 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           uploadedBy: user?.uid,
           createdAt: new Date().toISOString()
         });
+        
+        // Notify
+        const message = formatNotificationMessage(
+            user?.displayName || 'System',
+            "uploaded CV for",
+            parsed.candidate.name || file.name,
+            "Resume parsing completed"
+        );
+        await createNotification(
+            message,
+            user!.uid,
+            user?.displayName || 'System',
+            role!,
+            'all',
+            newCandidateRef.id
+        );
         
         setUploadStatus('success');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1 }));
@@ -550,8 +571,27 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
   const handleShortlist = async (id: string, currentStatus: boolean) => {
     try {
       await updateDoc(doc(db, 'candidates', id), { isShortlisted: !currentStatus });
+      const candidate = candidates.find(c => c.id === id);
       if (selectedCandidate?.id === id) {
         setSelectedCandidate((prev: any) => ({ ...prev, isShortlisted: !currentStatus }));
+      }
+      
+      // Notify
+      if (candidate) {
+          const message = formatNotificationMessage(
+              user?.displayName || 'System',
+              !currentStatus ? "shortlisted candidate" : "removed from shortlist",
+              candidate.fullName,
+              "Candidate action"
+          );
+          await createNotification(
+              message,
+              user!.uid,
+              user?.displayName || 'System',
+              role!,
+              'all',
+              id
+          );
       }
     } catch (err) {
       console.error(err);
@@ -566,8 +606,27 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         followUpUpdatedBy: user?.uid,
         updatedAt: new Date().toISOString()
       });
+      const candidate = candidates.find(c => c.id === id);
       if (selectedCandidate?.id === id) {
         setSelectedCandidate((prev: any) => ({ ...prev, followUpNote: note, followUpDate: date, followUpUpdatedBy: user?.uid }));
+      }
+      
+      // Notify
+      if (candidate) {
+          const message = formatNotificationMessage(
+              user?.displayName || 'System',
+              "updated follow-up for candidate",
+              candidate.fullName,
+              "Interview progress"
+          );
+          await createNotification(
+              message,
+              user!.uid,
+              user?.displayName || 'System',
+              role!,
+              'all',
+              id
+          );
       }
     } catch (err) {
       console.error(err);
@@ -581,8 +640,27 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         notesUpdatedBy: user?.uid,
         updatedAt: new Date().toISOString()
       });
+      const candidate = candidates.find(c => c.id === id);
       if (selectedCandidate?.id === id) {
         setSelectedCandidate((prev: any) => ({ ...prev, notes, notesUpdatedBy: user?.uid }));
+      }
+      
+      // Notify
+      if (candidate) {
+          const message = formatNotificationMessage(
+              user?.displayName || 'System',
+              "added feedback for candidate",
+              candidate.fullName,
+              "Interview feedback added"
+          );
+          await createNotification(
+              message,
+              user!.uid,
+              user?.displayName || 'System',
+              role!,
+              'all',
+              id
+          );
       }
     } catch (err) {
       console.error(err);
@@ -597,8 +675,26 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         assignedBy: user?.uid,
         updatedAt: new Date().toISOString()
       });
+      const candidate = candidates.find(c => c.id === id);
       if (selectedCandidate?.id === id) {
         setSelectedCandidate((prev: any) => ({ ...prev, assignedTo: userId, assignedBy: user?.uid }));
+      }
+      // Notify
+      if (candidate) {
+          const message = formatNotificationMessage(
+              user?.displayName || 'System',
+              "assigned candidate",
+              candidate.fullName,
+              "Profile assignment"
+          );
+          await createNotification(
+              message,
+              user!.uid,
+              user?.displayName || 'System',
+              role!,
+              userId,
+              id
+          );
       }
     } catch (err) {
       console.error(err);
@@ -985,7 +1081,34 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <NotificationBadge />
+            <button 
+                onClick={() => setTimezone(timezone === 'Europe/London' ? 'Asia/Kolkata' : 'Europe/London')}
+                className="text-[10px] font-bold text-[var(--text-muted)] hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors uppercase tracking-widest hidden md:block"
+            >
+                {timezone === 'Europe/London' ? 'BST Mode' : 'IST Mode'}
+            </button>
+            <NotificationBadge onClick={() => setShowNotifications(!showNotifications)} />
+            
+            {showNotifications && (
+              <div 
+                ref={notificationRef}
+                className="absolute right-8 top-16 w-80 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl shadow-xl z-50 p-4 max-h-[60vh] overflow-y-auto"
+              >
+                <h3 className="text-sm font-bold mb-4">Notifications</h3>
+                {notifications.length === 0 ? (
+                  <p className="text-xs text-[var(--text-muted)]">No new notifications</p>
+                ) : (
+                  <div className="space-y-3">
+                    {notifications.map((n: any) => (
+                      <div key={n.id} className="text-xs text-[var(--text-primary)] border-b border-[var(--border-color)] pb-2 flex flex-col gap-1">
+                        <p>{n.text}</p>
+                        <span className="text-[10px] text-[var(--text-muted)]">{formatDate(n.createdAt?.toDate())}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
             {uploadStatus === 'success' && (
               <div className="flex items-center gap-2 text-emerald-600 text-xs font-bold animate-in fade-in zoom-in-95">
                 <CheckCircle2 size={14} />

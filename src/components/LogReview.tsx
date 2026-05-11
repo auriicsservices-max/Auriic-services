@@ -3,12 +3,14 @@ import { db } from '../lib/firebase';
 import { collection, query, onSnapshot, orderBy } from 'firebase/firestore';
 import { Clock } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTimezone } from '../contexts/TimezoneContext';
 import QuotaNotice from './QuotaNotice';
 
 export default function LogReview() {
   const [logs, setLogs] = useState<any[]>([]);
   const [usersMap, setUsersMap] = useState<Record<string, string>>({});
   const { role, quotaExceeded, setQuotaExceeded } = useAuth();
+  const { formatDate } = useTimezone();
 
   useEffect(() => {
     const q = query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc'));
@@ -75,7 +77,7 @@ export default function LogReview() {
             <tbody className="divide-y divide-[var(--border-color)]">
                 {logs.map(log => (
                     <tr key={log.id} className="hover:bg-indigo-50/20 dark:hover:bg-indigo-900/10 transition-colors">
-                        <td className="px-6 py-4 text-xs font-mono text-[var(--text-muted)]">{new Date(log.timestamp).toLocaleString()}</td>
+                        <td className="px-6 py-4 text-xs font-mono text-[var(--text-muted)]">{formatDate(log.timestamp)}</td>
                         {role === 'admin' && (
                           <td className="px-6 py-4 text-xs font-bold text-[var(--text-secondary)]">
                             {usersMap[log.userId] || 'System/AI'}

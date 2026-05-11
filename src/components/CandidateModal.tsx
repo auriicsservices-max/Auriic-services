@@ -3,8 +3,9 @@ import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code
 import LZString from 'lz-string';
 import { formatUKDate } from '../lib/dateUtils';
 import { useAuth } from '../contexts/AuthContext';
+import { useTimezone } from '../contexts/TimezoneContext';
 import { logActivity } from '../lib/logger';
-import { createNotification } from '../services/notificationService';
+import { createNotification, formatNotificationMessage } from '../services/notificationService';
 import ConfirmModal from './ConfirmModal';
 import { fetchCvList } from '../services/cvApiService';
 
@@ -22,6 +23,7 @@ interface CandidateModalProps {
 
 export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp, onUpdateNotes, onUpdateAssignee, onContact, teamMembers }: CandidateModalProps) {
   const { user, role } = useAuth();
+  const { formatDate } = useTimezone();
   const [followUpNote, setFollowUpNote] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [generalNotes, setGeneralNotes] = useState('');
@@ -519,7 +521,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               <div className="space-y-2">
                 <div className="flex justify-between text-[10px] items-center">
                   <span className="text-[var(--text-muted)]">Indexed on</span>
-                  <span className="font-mono text-[var(--text-secondary)]">{formatUKDate(candidate.createdAt)}</span>
+                  <span className="font-mono text-[var(--text-secondary)]">{formatDate(candidate.createdAt)}</span>
                 </div>
                 {candidate.uploadedBy && candidate.uploadedBy !== user?.uid && (
                   <div className="flex justify-between text-[10px] items-center">

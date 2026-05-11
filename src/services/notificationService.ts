@@ -1,6 +1,15 @@
 import { collection, addDoc, serverTimestamp, Timestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
+export const formatNotificationMessage = (
+  userName: string,
+  action: string,
+  candidateName: string,
+  purpose: string
+) => {
+  return `${userName} ${action} ${candidateName} — ${purpose}`;
+};
+
 export async function createNotification(
   text: string, 
   senderId: string, 
