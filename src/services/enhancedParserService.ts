@@ -48,40 +48,73 @@ export class EnhancedCVParser {
     if (!process.env.GEMINI_API_KEY) return initial;
 
     const prompt = `Parse the following CV text and extract specific fields.
-    Return only valid JSON matching this schema:
+    Return only valid JSON matching this exact schema:
     {
-        "fullName": "string",
+      "file_name": "string",
+      "candidate": {
+        "name": "string",
         "email": "string",
         "phone": "string",
-        "summary": "string",
-        "domain": "string",
-        "skills": ["string"],
-        "experience": [{"role": "string", "company": "string", "duration": "string", "description": "string"}],
-        "education": [{"degree": "string", "school": "string", "year": "string"}],
-        "links": [{"label": "string", "url": "string"}]
+        "location": "string",
+        "linkedin": "string"
+      },
+      "summary": "string",
+      "skills": ["string"],
+      "experience": [
+        {
+          "company": "string",
+          "job_title": "string",
+          "location": "string",
+          "start_date": "string",
+          "end_date": "string",
+          "responsibilities": ["string"]
+        }
+      ],
+      "education": [
+        {
+          "institution": "string",
+          "location": "string",
+          "degree": "string",
+          "year": "string"
+        }
+      ],
+      "certifications": ["string"],
+      "achievements": ["string"]
     }
-    If a field is not found, leave as empty string or empty array.
+    If a field is not found, leave as empty string, empty array, or null as appropriate.
     CV Text:
-    ${text.substring(0, 10000)} // Truncate for token limits if necessary
+    ${text.substring(0, 10000)}
     `;
 
     try {
-        const response = await this.ai.models.generateContent({
-            model: "gemini-3-flash-preview",
-            contents: prompt,
-            config: {
-                responseMimeType: "application/json",
-            },
-        });
+        let retries = 0;
+        const maxRetries = 3;
         
-        if (response.text) {
-            // Remove potential markdown code block wrappers
-            const cleanedText = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
-            const enhanced = JSON.parse(cleanedText);
-            return { ...initial, ...enhanced };
+        while (retries < maxRetries) {
+            try {
+                const response = await this.ai.models.generateContent({
+                    model: "gemini-1.5-flash", // Use a known stable model if -preview was wrong, or stick to flash
+                    contents: prompt,
+                    config: {
+                        responseMimeType: "application/json",
+                    },
+                });
+                
+                if (response.text) {
+                    const cleanedText = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+                    const enhanced = JSON.parse(cleanedText);
+                    return { ...initial, ...enhanced };
+                }
+                break; // No response.text, break retry
+            } catch (e: any) {
+                retries++;
+                console.error(`Gemini enhancement attempt ${retries} failed`, e);
+                if (retries >= maxRetries) throw e;
+                await new Promise(resolve => setTimeout(resolve, 1000 * retries)); // Exponential backoff
+            }
         }
     } catch (e) {
-        console.error("Gemini enhancement failed", e);
+        console.error("Gemini enhancement failed after retries", e);
     }
     return initial;
   }

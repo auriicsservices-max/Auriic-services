@@ -7,27 +7,32 @@ const PDFJS_VERSION = '4.10.38';
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.mjs`;
 
 export interface ParsedResume {
-  fullName: string;
-  email: string;
-  phone: string;
+  file_name: string;
+  candidate: {
+    name: string;
+    email: string;
+    phone: string;
+    location: string;
+    linkedin: string | null;
+  };
   summary: string;
-  domain: string;
   skills: string[];
   experience: Array<{
-    role: string;
     company: string;
-    duration: string;
-    description: string;
+    job_title: string;
+    location: string | null;
+    start_date: string;
+    end_date: string;
+    responsibilities: string[];
   }>;
   education: Array<{
+    institution: string;
+    location: string | null;
     degree: string;
-    school: string;
     year: string;
   }>;
-  links: Array<{
-    label: string;
-    url: string;
-  }>;
+  certifications: string[];
+  achievements: string[];
 }
 
 export async function extractTextFromPDF(pdfBuffer: ArrayBuffer): Promise<string> {
@@ -87,15 +92,20 @@ export async function extractTextFromDocx(docxBuffer: ArrayBuffer): Promise<stri
 
 export async function parseResumeHeuristically(text: string): Promise<ParsedResume> {
   const resume: ParsedResume = {
-    fullName: '',
-    email: '',
-    phone: '',
+    file_name: '',
+    candidate: {
+      name: '',
+      email: '',
+      phone: '',
+      location: '',
+      linkedin: null
+    },
     summary: '',
-    domain: '',
     skills: [],
     experience: [],
     education: [],
-    links: []
+    certifications: [],
+    achievements: []
   };
 
   // 1. Extract Email
