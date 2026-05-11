@@ -19,15 +19,18 @@ export function TimezoneProvider({ children }: { children: React.ReactNode }) {
 
   const formatDate = (date: Date | string | number) => {
     const d = new Date(date);
-    return d.toLocaleString('en-GB', {
+    const formatted = d.toLocaleString('en-GB', {
       timeZone: timezone,
-      day: '2-digit',
-      month: '2-digit',
+      day: 'numeric',
+      month: 'short',
       year: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
-    }) + (timezone === 'Europe/London' ? ' (BST)' : ' (IST)');
+    });
+    
+    const tzLabel = timezone === 'Europe/London' ? 'BST' : 'IST';
+    return formatted.replace(/am/i, 'AM').replace(/pm/i, 'PM') + ` (${tzLabel})`;
   };
 
   return (

@@ -337,7 +337,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       // Notifications - unconditional
       unsubNotifications = onSnapshot(query(
         collection(db, 'notifications'), 
-        where('userId', '==', user?.uid),
+        where('recipientId', 'in', [user?.uid, 'all']),                
         orderBy('createdAt', 'desc'), 
         limit(10)
       ), (snapshot) => {
@@ -578,11 +578,13 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       
       // Notify
       if (candidate) {
+          const action = !currentStatus ? "shortlisted candidate" : "removed from shortlist";
+          const purpose = !currentStatus ? "Candidate shortlisted" : "Candidate removed from shortlist";
           const message = formatNotificationMessage(
               user?.displayName || 'System',
-              !currentStatus ? "shortlisted candidate" : "removed from shortlist",
+              action,
               candidate.fullName,
-              "Candidate action"
+              purpose
           );
           await createNotification(
               message,
@@ -615,7 +617,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       if (candidate) {
           const message = formatNotificationMessage(
               user?.displayName || 'System',
-              "updated follow-up for candidate",
+              "updated status for candidate",
               candidate.fullName,
               "Interview progress"
           );
@@ -684,7 +686,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           const message = formatNotificationMessage(
               user?.displayName || 'System',
               "assigned candidate",
-              candidate.fullName,
+              `${candidate.fullName} to ${teamMembers[userId] || 'Recruiter'}`,
               "Profile assignment"
           );
           await createNotification(
