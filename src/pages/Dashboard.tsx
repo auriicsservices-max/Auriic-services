@@ -275,7 +275,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       const q = query(
         collection(db, 'candidates'), 
         where('isArchived', '==', false),
-        ...(role !== 'admin' ? [where('uploadedBy', '==', user?.uid)] : []),
+        ...(role !== 'admin' && role !== 'team_leader' ? [where('uploadedBy', '==', user?.uid)] : []),
         orderBy('createdAt', 'desc'),
         limit(200)
       );
@@ -294,7 +294,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         if (err.code === 'resource-exhausted') setQuotaExceeded(true);
       });
       
-      if (role !== 'admin') {
+      if (role !== 'admin' && role !== 'team_leader') {
          const qAssigned = query(
             collection(db, 'candidates'), 
             where('isArchived', '==', false),
@@ -670,7 +670,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
   };
 
   const handleUpdateAssignee = async (id: string, userId: string) => {
-    if (role !== 'admin') return;
+    if (role !== 'admin' && role !== 'team_leader') return;
     try {
       await updateDoc(doc(db, 'candidates', id), { 
         assignedTo: userId,
@@ -1289,7 +1289,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   <table className="w-full text-left border-collapse">
                     <thead className="bg-[var(--sidebar-bg)] text-[10px] uppercase font-bold text-[var(--text-muted)] border-b border-[var(--border-color)]">
                       <tr>
-                        {role === 'admin' && (
+                        {isPrivileged && (
                           <th className="px-6 py-4 w-10">
                             <input 
                               type="checkbox" 
@@ -1492,7 +1492,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   <table className="w-full text-left border-collapse">
                     <thead className="bg-[var(--sidebar-bg)] text-[10px] uppercase font-bold text-[var(--text-muted)] border-b border-[var(--border-color)]">
                       <tr>
-                        {role === 'admin' && (
+                        {isPrivileged && (
                           <th className="px-6 py-4 w-10">
                             <input 
                               type="checkbox" 
@@ -1510,7 +1510,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                     <tbody className="text-sm text-[var(--text-secondary)] divide-y divide-[var(--border-color)]">
                       {trashedCandidates.map((candidate) => (
                         <tr key={candidate.id} className={`hover:bg-indigo-50/20 dark:hover:bg-indigo-900/10 transition-all ${selectedIds.has(candidate.id) ? 'bg-indigo-50/30 dark:bg-indigo-900/20' : ''}`}>
-                          {role === 'admin' && (
+                          {isPrivileged && (
                             <td className="px-6 py-4">
                               <input 
                                 type="checkbox" 
@@ -1551,7 +1551,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                       ))}
                       {trashedCandidates.length === 0 && (
                         <tr>
-                          <td colSpan={role === 'admin' ? 4 : 3} className="px-6 py-20 text-center text-[var(--text-muted)] font-medium italic transition-colors duration-300">
+                          <td colSpan={isPrivileged ? 4 : 3} className="px-6 py-20 text-center text-[var(--text-muted)] font-medium italic transition-colors duration-300">
                             <Trash2 size={32} className="mx-auto mb-2 opacity-20" />
                             No candidates in trash
                           </td>

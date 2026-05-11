@@ -22,7 +22,7 @@ interface CandidateModalProps {
 }
 
 export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp, onUpdateNotes, onUpdateAssignee, onContact, teamMembers }: CandidateModalProps) {
-  const { user, role } = useAuth();
+  const { user, role, isPrivileged } = useAuth();
   const { formatDate } = useTimezone();
   const [followUpNote, setFollowUpNote] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
@@ -198,7 +198,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   };
 
   const handleShortlistClick = async () => {
-    if (role !== 'admin' && role !== 'recruiter') return;
+    if (!isPrivileged && role !== 'recruiter') return;
     const newStatus = !candidate.isShortlisted;
     await onShortlist(candidate.id, candidate.isShortlisted);
     await logActivity('Shortlist Toggle', { candidateId: candidate.id, status: newStatus }, user!.uid, role);
@@ -244,17 +244,6 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       
       const activityAction = isRemoval ? 'Assignment Removed' : 'Assignee Updated'; // Log message
       await logActivity(activityAction, { candidateId: candidate.id, userId: assignedTo }, user!.uid, role!);
-      
-      // Update notification collection
-      if (!isRemoval && assignedTo) {
-          await createNotification(
-              assignedTo,
-              "New Assignment",
-              `You have been assigned to ${candidate.fullName}`,
-              "assignment",
-              { candidateId: candidate.id }
-          );
-      }
       
       // Show desktop notification if enabled
       if (Notification.permission === 'granted') {
@@ -309,8 +298,8 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   <h2 className="text-3xl font-serif text-[var(--text-primary)]">{candidate.fullName || 'Unnamed Candidate'}</h2>
                   <button 
                     onClick={handleShortlistClick}
-                    disabled={role !== 'admin' && role !== 'recruiter'}
-                    className={`p-1.5 rounded-full transition-colors ${role !== 'admin' && role !== 'recruiter' ? 'opacity-50 cursor-not-allowed' : ''} ${candidate.isShortlisted ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-300 dark:text-slate-700 hover:text-slate-400 dark:hover:text-slate-500'}`}
+                    disabled={!isPrivileged && role !== 'recruiter'}
+                    className={`p-1.5 rounded-full transition-colors ${!isPrivileged && role !== 'recruiter' ? 'opacity-50 cursor-not-allowed' : ''} ${candidate.isShortlisted ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-300 dark:text-slate-700 hover:text-slate-400 dark:hover:text-slate-500'}`}
                   >
                     {candidate.isShortlisted ? <Star fill="currentColor" size={20} /> : <StarOff size={20} />}
                   </button>
@@ -445,7 +434,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                 {skills.map((skill: string) => (
                   <span key={skill} className="group px-3 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 transition-all">
                     {skill}
-                    {(role === 'admin' || role === 'recruiter') && (
+                    {(isPrivileged || role === 'recruiter') && (
                       <button 
                         onClick={() => handleRemoveSkill(skill)}
                         className="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
@@ -538,12 +527,12 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                 {candidate.assignedTo && (
                   <div className="flex justify-between text-[10px]">
                     <span className="text-[var(--text-muted)]">
-                      {role === 'admin' ? 'Assigned to' : 'Assigned by'}
+                      {isPrivileged ? 'Assigned to' : 'Assigned by'}
                     </span>
                     <span className="font-bold text-indigo-400">
-                      {role === 'admin' 
+                      {isPrivileged 
                         ? `${teamMembers?.[candidate.assignedTo] || 'Recruiter'} (recruiter)` 
-                        : `${teamMembers?.[candidate.assignedBy] || 'Admin'} (admin)`}
+                        : `${teamMembers?.[candidate.assignedBy] || 'Privileged User'} (privileged)`}
                     </span>
                   </div>
                 )}
@@ -556,7 +545,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               </div>
             </section>
 
-            {role === 'admin' && (
+            {isPrivileged && (
             <section className="bg-[var(--sidebar-bg)] p-6 rounded-3xl border border-[var(--border-color)] transition-colors duration-300">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
                 <Users size={12} /> Assign to Recruiter
