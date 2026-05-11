@@ -15,6 +15,7 @@ import Shortlist from '../components/Shortlist';
 import LogReview from '../components/LogReview';
 import ConfirmModal from '../components/ConfirmModal';
 
+import TimezoneWidget from '../components/TimezoneWidget';
 import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
 import { enhancedParser } from '../services/enhancedParserService';
@@ -860,6 +861,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           </div>
         </div>
 
+        <TimezoneWidget />
+
         <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
           <button 
             id="nav-home"
@@ -1083,12 +1086,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <button 
-                onClick={() => setTimezone(timezone === 'Europe/London' ? 'Asia/Kolkata' : 'Europe/London')}
-                className="text-[10px] font-bold text-[var(--text-muted)] hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors uppercase tracking-widest hidden md:block"
-            >
-                {timezone === 'Europe/London' ? 'BST Mode' : 'IST Mode'}
-            </button>
             <NotificationBadge onClick={() => setShowNotifications(!showNotifications)} />
             
             {showNotifications && (

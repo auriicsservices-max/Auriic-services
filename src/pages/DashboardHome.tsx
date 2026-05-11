@@ -1,10 +1,12 @@
 import React, { useMemo } from 'react';
 import { FileText, Users, Clock, Star, TrendingUp, Target, Upload, Activity } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { useTimezone } from '../contexts/TimezoneContext';
 import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, Tooltip } from 'recharts';
 
 export default function DashboardHome({ candidates, activityLogs, teamMembers }: { candidates: any[], activityLogs: any[], teamMembers: Record<string, string> }) {
   const { user } = useAuth();
+  const { formatDate } = useTimezone();
   const userName = user?.uid ? teamMembers[user.uid] || user?.email?.split('@')[0] : user?.email?.split('@')[0];
   
   const total = candidates.length;
@@ -38,9 +40,21 @@ export default function DashboardHome({ candidates, activityLogs, teamMembers }:
     <div id="dashboard-home-container" className="space-y-6 sm:space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500 text-[var(--text-primary)]">
       {/* Welcome & Quote */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 sm:gap-6 lg:gap-8">
-        <div className="md:col-span-2 bg-gradient-to-br from-[var(--accent-teal)] to-[var(--accent-purple)] rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col justify-center">
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">Welcome back, {userName}!</h1>
-            <p className="text-white/80 text-sm max-w-lg mb-0">Let's build a stronger team today.</p>
+        <div className="md:col-span-2 bg-gradient-to-br from-[var(--accent-teal)] to-[var(--accent-purple)] rounded-3xl p-6 sm:p-8 text-white shadow-xl flex flex-col justify-center relative overflow-hidden">
+            <div className="absolute -right-8 -top-8 w-32 h-32 bg-white/10 rounded-full blur-3xl" />
+            <div className="absolute -left-8 -bottom-8 w-32 h-32 bg-indigo-500/20 rounded-full blur-3xl" />
+            
+            <div className="relative z-10">
+              <h1 className="text-2xl sm:text-3xl font-bold mb-2">Welcome back, {userName}!</h1>
+              <div className="flex items-center gap-4">
+                <p className="text-white/80 text-sm max-w-lg mb-0">Let's build a stronger team today.</p>
+                <div className="h-4 w-[1px] bg-white/20 hidden sm:block" />
+                <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-white/90 bg-white/10 px-2 py-0.5 rounded-full border border-white/10">
+                  <Clock size={10} />
+                  {formatDate(new Date())}
+                </div>
+              </div>
+            </div>
         </div>
         <div className="bg-[var(--card-bg)] p-6 sm:p-8 rounded-3xl border border-[var(--border-color)] shadow-sm flex flex-col justify-center">
             <h4 className="text-[10px] uppercase font-black text-[var(--text-muted)] tracking-widest mb-3">Daily Insight</h4>
@@ -79,7 +93,7 @@ export default function DashboardHome({ candidates, activityLogs, teamMembers }:
                        </div>
                        <div className="flex-1">
                            <p className="text-sm font-bold text-[var(--text-primary)]">{log.action}</p>
-                           <p className="text-[10px] text-[var(--text-muted)] font-mono">{new Date(log.timestamp?.toDate ? log.timestamp.toDate() : log.timestamp).toLocaleString()}</p>
+                           <p className="text-[10px] text-[var(--text-muted)] font-mono">{formatDate(log.timestamp?.toDate ? log.timestamp.toDate() : log.timestamp)}</p>
                        </div>
                    </div>
                ))}
