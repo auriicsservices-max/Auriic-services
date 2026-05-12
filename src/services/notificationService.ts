@@ -26,6 +26,7 @@ export async function createNotification(
       senderRole,
       recipientId,
       relatedCandidateId,
+      read: false,
       createdAt: serverTimestamp()
     });
   } catch (error) {

@@ -58,7 +58,7 @@ import {
 export default function Dashboard() {
   const { user, role, quotaExceeded, setQuotaExceeded, isPrivileged } = useAuth();
   const { theme } = useTheme();
-  const { notifications } = useNotifications();
+  const { notifications, markAsRead, markAllAsRead } = useNotifications();
   const { timezone, setTimezone, formatDate } = useTimezone();
   const [candidates, setCandidates] = useState<any[]>([]);
   const candidateMapRef = useRef(new Map<string, any>());
@@ -147,13 +147,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     };
   }, [notificationRef]);
 
-  // Keep track of read notifications
-  const [readNotifications, setReadNotifications] = useState<Set<string>>(new Set());
-
-  const markAsRead = (id: string, e: React.MouseEvent) => {
-    e.stopPropagation();
-    setReadNotifications(prev => new Set(prev).add(id));
-  };
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [viewScope, setViewScope] = useState<'mine' | 'all'>('all');
@@ -1093,13 +1086,25 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 ref={notificationRef}
                 className="absolute right-8 top-16 w-80 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl shadow-xl z-50 p-4 max-h-[60vh] overflow-y-auto"
               >
-                <h3 className="text-sm font-bold mb-4">Notifications</h3>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-sm font-bold">Notifications</h3>
+                  <button 
+                    onClick={() => markAllAsRead()}
+                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-wider"
+                  >
+                    Mark all read
+                  </button>
+                </div>
                 {notifications.length === 0 ? (
                   <p className="text-xs text-[var(--text-muted)]">No new notifications</p>
                 ) : (
                   <div className="space-y-3">
                     {notifications.map((n: any) => (
-                      <div key={n.id} className="text-xs text-[var(--text-primary)] border-b border-[var(--border-color)] pb-2 flex flex-col gap-1">
+                      <div 
+                        key={n.id} 
+                        onClick={() => !n.read && markAsRead(n.id)}
+                        className={`text-xs p-2 rounded-xl transition-all cursor-pointer ${n.read ? 'text-[var(--text-secondary)] opacity-60' : 'text-[var(--text-primary)] bg-indigo-50/50 dark:bg-indigo-900/10 border-l-2 border-indigo-500'} flex flex-col gap-1`}
+                      >
                         <p>{n.text}</p>
                         <span className="text-[10px] text-[var(--text-muted)]">{formatDate(n.createdAt?.toDate())}</span>
                       </div>

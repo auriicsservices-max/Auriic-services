@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, query, onSnapshot, orderBy, Timestamp, where } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, Timestamp, where, updateDoc, doc, writeBatch } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import { auth } from '../lib/firebase';
@@ -44,16 +44,21 @@ interface Notification {
   recipientId: string;
   relatedCandidateId?: string;
   createdAt: Timestamp;
+  read: boolean;
 }
 
 interface NotificationContextType {
   notifications: Notification[];
   unreadCount: number;
+  markAsRead: (id: string) => Promise<void>;
+  markAllAsRead: () => Promise<void>;
 }
 
 const NotificationContext = createContext<NotificationContextType>({
   notifications: [],
   unreadCount: 0,
+  markAsRead: async () => {},
+  markAllAsRead: async () => {},
 });
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
@@ -86,7 +91,8 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       } as Notification));
       
       setNotifications(allNotifs);
-      setUnreadCount(allNotifs.length);
+      const unread = allNotifs.filter(n => !n.read).length;
+      setUnreadCount(unread);
     }, (error) => {
       handleFirestoreError(error, OperationType.GET, 'notifications');
     });
@@ -94,8 +100,32 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     return () => unsub();
   }, [user, role]);
 
+  const markAsRead = async (id: string) => {
+    try {
+      await updateDoc(doc(db, 'notifications', id), { read: true });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, `notifications/${id}`);
+    }
+  };
+
+  const markAllAsRead = async () => {
+    if (!user || notifications.length === 0) return;
+    const unread = notifications.filter(n => !n.read);
+    if (unread.length === 0) return;
+
+    try {
+      const batch = writeBatch(db);
+      unread.forEach(n => {
+        batch.update(doc(db, 'notifications', n.id), { read: true });
+      });
+      await batch.commit();
+    } catch (error) {
+      handleFirestoreError(error, OperationType.UPDATE, 'notifications (batch)');
+    }
+  };
+
   return (
-    <NotificationContext.Provider value={{ notifications, unreadCount }}>
+    <NotificationContext.Provider value={{ notifications, unreadCount, markAsRead, markAllAsRead }}>
       {children}
     </NotificationContext.Provider>
   );

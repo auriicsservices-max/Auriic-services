@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import { signInWithPopup, signInWithEmailAndPassword } from 'firebase/auth';
-import { auth, googleProvider } from '../lib/firebase';
+import { signInWithEmailAndPassword } from 'firebase/auth';
+import { auth } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
 import { LogIn, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
@@ -20,15 +20,6 @@ export default function Login() {
     setTimeout(() => {
       navigate('/dashboard');
     }, 2000);
-  };
-
-  const handleGoogleLogin = async () => {
-    try {
-      await signInWithPopup(auth, googleProvider);
-      handleAuthSuccess();
-    } catch (err: any) {
-      setError(err.message);
-    }
   };
 
   const handleEmailLogin = async (e: React.FormEvent) => {
@@ -129,21 +120,6 @@ export default function Login() {
             Secure Login
           </button>
         </form>
-        
-        <div className="relative flex items-center py-2">
-          <div className="flex-grow border-t border-slate-100 dark:border-slate-800"></div>
-          <span className="flex-shrink mx-4 text-slate-300 dark:text-slate-700 text-[9px] font-bold uppercase tracking-widest">Or</span>
-          <div className="flex-grow border-t border-slate-100 dark:border-slate-800"></div>
-        </div>
-        
-        <button 
-          onClick={handleGoogleLogin}
-          type="button"
-          className="w-full border border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 p-3 rounded-lg font-semibold hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 text-sm mt-4"
-        >
-          <img src="https://www.google.com/favicon.ico" className="w-4 h-4" alt="Google" />
-          Sign in with Google
-        </button>
       </div>
     </div>
   );

@@ -7,6 +7,9 @@ A full-stack application designed to parse, analyze, and manage resume data. It 
 - **Intelligent CV Parsing:** Uses AI to extract candidate data (experience, skills, education) in structured JSON format.
 - **Analytics Dashboard:** Visualizes talent distribution, skill trends, and team activity using interactive charts.
 - **Talent Management:** Features include shortlisting candidates, updating statuses, and tracking recruiter activities.
+- **Multi-Region Coordination:** Beautifully designed timezone widget for real-time tracking and switching between major recruitment hubs (e.g., London BST, Mumbai IST).
+- **Proactive Notification System:** Enhanced alerting with "Mark as Read" tracking for team-wide coordination. Notifications follow a standardized format for instant clarity.
+- **Hierarchical Access Control:** Robust role-based permissions allowing Admins and Team Leaders to oversee portfolios while protecting data integrity.
 - **Secure Data Handling:** Firestore-backed storage with hardened security rules (ABAC model) for data privacy.
 
 ## Technical Stack
@@ -18,7 +21,7 @@ A full-stack application designed to parse, analyze, and manage resume data. It 
 - `/src/components`: Reusable UI components (Analytics charts, modals, data cards).
 - `/src/services`: API service logic and parsing services (including robust Gemini parsing with retry logic).
 - `/src/lib`: Core utilities (Firebase setup, local CSV/PDF parsing, logging, notifications).
-- `/src/contexts`: Shared state management (Auth, etc.).
+- `/src/contexts`: Shared state management (Auth, Timezone tracking, and Real-time Notification systems).
 
 ## Development & Configuration
 - **Environment Variables:** Required keys (Gemini API, Firebase config) are documented in `.env.example`.
