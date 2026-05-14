@@ -21,24 +21,28 @@ export class EnhancedCVParser {
     try {
       // 1. High Velocity Text Extraction
       text = await this.extractText(file);
-      
-      // 2. Initial Heuristic Extraction
+      return this.analyzeText(text);
+    } catch (error) {
+      console.error("[EnhancedCVParser] Parsing failed:", error);
+      const parsed = await parseResumeHeuristically(text || "Error extracting text.");
+      return { parsed, text };
+    }
+  }
+
+  /**
+   * Directly analyze text using Gemini for core extraction.
+   */
+  async analyzeText(text: string): Promise<{ parsed: ParsedResume; text: string }> {
+    try {
+      // 1. Initial Heuristic Extraction
       const initialParsed = await parseResumeHeuristically(text);
       
-      // 3. LLM Enhancement for Precision
+      // 2. LLM Enhancement for Precision
       const enhancedParsed = await this.enhanceWithGemini(text, initialParsed);
       
       return { parsed: enhancedParsed, text };
     } catch (error) {
-      console.error("[EnhancedCVParser] Parsing failed, falling back to heuristics:", error);
-      // Fallback
-      if (!text) {
-        try {
-          text = await this.extractText(file);
-        } catch (e) {
-          text = "Extraction Error. Please check file format.";
-        }
-      }
+      console.error("[EnhancedCVParser] Text analysis failed:", error);
       const parsed = await parseResumeHeuristically(text);
       return { parsed, text };
     }
@@ -56,7 +60,8 @@ export class EnhancedCVParser {
         "email": "string",
         "phone": "string",
         "location": "string",
-        "linkedin": "string"
+        "linkedin": "string",
+        "links": ["string"]
       },
       "summary": "string",
       "skills": ["string"],
@@ -87,34 +92,21 @@ export class EnhancedCVParser {
     `;
 
     try {
-        let retries = 0;
-        const maxRetries = 3;
-        
-        while (retries < maxRetries) {
-            try {
-                const response = await this.ai.models.generateContent({
-                    model: "gemini-1.5-flash", // Use a known stable model if -preview was wrong, or stick to flash
-                    contents: prompt,
-                    config: {
-                        responseMimeType: "application/json",
-                    },
-                });
-                
-                if (response.text) {
-                    const cleanedText = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
-                    const enhanced = JSON.parse(cleanedText);
-                    return { ...initial, ...enhanced };
-                }
-                break; // No response.text, break retry
-            } catch (e: any) {
-                retries++;
-                console.error(`Gemini enhancement attempt ${retries} failed`, e);
-                if (retries >= maxRetries) throw e;
-                await new Promise(resolve => setTimeout(resolve, 1000 * retries)); // Exponential backoff
-            }
-        }
-    } catch (e) {
-        console.error("Gemini enhancement failed after retries", e);
+      const response = await this.ai.models.generateContent({
+        model: "gemini-2.0-flash-exp",
+        contents: prompt,
+        config: {
+          responseMimeType: "application/json",
+        },
+      });
+      
+      if (response.text) {
+        const cleanedText = response.text.replace(/```json/g, '').replace(/```/g, '').trim();
+        const enhanced = JSON.parse(cleanedText);
+        return { ...initial, ...enhanced };
+      }
+    } catch (e: any) {
+      console.error("[EnhancedCVParser] Gemini enhancement failed", e);
     }
     return initial;
   }

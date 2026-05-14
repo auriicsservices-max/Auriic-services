@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, db } from '../lib/firebase';
-import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs, limit, getDocFromServer, QuerySnapshot } from 'firebase/firestore';
+import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs, limit, getDocFromServer, getDoc, QuerySnapshot } from 'firebase/firestore';
 import { useDropzone } from 'react-dropzone';
 import { extractTextFromPDF, extractTextFromDocx, parseResumeHeuristically, ParsedResume } from '../lib/localParser';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -15,6 +15,7 @@ import Shortlist from '../components/Shortlist';
 import LogReview from '../components/LogReview';
 import ConfirmModal from '../components/ConfirmModal';
 
+import SystemSettings from '../components/SystemSettings';
 import TimezoneWidget from '../components/TimezoneWidget';
 import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
@@ -52,7 +53,8 @@ import {
   X,
   MessageSquare,
   StickyNote,
-  Bell
+  Bell,
+  Settings
 } from 'lucide-react';
 
 export default function Dashboard() {
@@ -66,7 +68,12 @@ export default function Dashboard() {
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
   
   const syncCandidates = useCallback(() => {
-    setCandidates(Array.from(candidateMapRef.current.values()));
+    const sorted = Array.from(candidateMapRef.current.values()).sort((a: any, b: any) => {
+      const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
+      const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
+      return dateB - dateA;
+    });
+    setCandidates(sorted);
   }, []);
 
   const [recentChatMessages, setRecentChatMessages] = useState<any[]>([]);
@@ -78,7 +85,8 @@ export default function Dashboard() {
   const [parsingStatus, setParsingStatus] = useState<Record<string, string>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; }>({ isOpen: false, message: '' });
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'chat' | 'upload' | 'repository'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'chat' | 'upload' | 'repository' | 'settings'>('home');
+  const [bulkLimit, setBulkLimit] = useState<number>(20);
   const [chatRecipientId, setChatRecipientId] = useState<string | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
@@ -125,9 +133,23 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       }
       testConnection();
 
+    // Real-time Global Settings Listener
+    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
+      if (docSnap.exists()) {
+        setBulkLimit(docSnap.data().bulkUploadLimit || 20);
+      }
+    }, (err) => {
+      handleFirestoreError(err, 'get', 'settings/global');
+      console.warn("Using default upload limit due to listener error");
+    });
+
     if (user?.uid) {
       setLastReadTimestamp(parseInt(localStorage.getItem(`lastReadChat_${user.uid}`) || '0'));
     }
+
+    return () => {
+      unsubSettings();
+    };
   }, [user?.uid]);
 
   const [showNotifications, setShowNotifications] = useState(false);
@@ -428,6 +450,16 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
   };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
+    // Enforcement of Bulk Upload Limit (Admins bypass)
+    if (role !== 'admin' && acceptedFiles.length > bulkLimit) {
+      setDuplicateNotification({
+        isOpen: true,
+        message: `Batch rejected: You can only upload up to ${bulkLimit} CVs at once to ensure processing quality. Please reduce your batch size.`
+      });
+      setUploadStatus('error');
+      return;
+    }
+
     setIsProcessing(true);
     setUploadStatus('idle');
     setDuplicateNotification({ isOpen: false, message: '' });
@@ -502,18 +534,50 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         }
         
         // 4. Store meta in Firebase
+        const normalizedExperience = parsed.experience?.map(exp => ({
+          role: exp.job_title || '',
+          company: exp.company || '',
+          duration: `${exp.start_date || ''} - ${exp.end_date || ''}`.trim(),
+          description: exp.responsibilities?.join(". ") || ""
+        })) || [];
+
+        const normalizedEducation = parsed.education?.map(edu => ({
+          degree: edu.degree || '',
+          school: edu.institution || '',
+          year: edu.year || ''
+        })) || [];
+
         const newCandidateRef = await addDoc(collection(db, 'candidates'), {
-          ...parsed,
+          fullName: result.data?.name || parsed.candidate.name || file.name,
+          email: (parsed.candidate.email || 'pending@aurrum.co').toLowerCase(),
+          phone: parsed.candidate.phone || '',
+          location: parsed.candidate.location || '',
+          summary: parsed.summary || '',
+          skills: parsed.skills || [],
+          experience: normalizedExperience,
+          education: normalizedEducation,
+          projects: parsed.projects || [],
+          certifications: parsed.certifications || [],
+          achievements: parsed.achievements || [],
+          links: [
+            ...(parsed.candidate.linkedin ? [{ url: parsed.candidate.linkedin, label: 'LinkedIn' }] : []),
+            ...(parsed.candidate.links?.map(url => ({ 
+              url, 
+              label: url.includes('github') ? 'GitHub' : 
+                     url.includes('twitter') ? 'Twitter' : 
+                     url.includes('behance') ? 'Behance' : 
+                     url.includes('portfolio') ? 'Portfolio' : 'Link' 
+            })) || [])
+          ],
           compressedText,
           isLargeFile,
           cid: result.data?.id || null,
           url: result.data?.url || null,
-          email: parsed.candidate.email?.toLowerCase(),
-          fullName: result.data?.name || parsed.candidate.name || file.name,
           fileName: file.name,
           fileType: file.type,
           isShortlisted: false,
           isArchived: false,
+          aiAnalyzed: true,
           uploadedBy: user?.uid,
           createdAt: new Date().toISOString()
         });
@@ -1001,6 +1065,20 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               Team Hub
             </button>
           )}
+
+          {role === 'admin' && (
+            <button 
+              onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
+              className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
+                activeTab === 'settings' 
+                  ? 'bg-indigo-600 text-white shadow-lg' 
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
+              }`}
+            >
+              <Settings className={`w-5 h-5 mr-3 ${activeTab === 'settings' ? 'text-white' : 'text-indigo-600'}`} />
+              System Settings
+            </button>
+          )}
         </nav>
 
         <div className="p-4 border-t border-[var(--border-color)]">
@@ -1170,7 +1248,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           ) : activeTab === 'home' ? (
             <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} />
           ) : activeTab === 'repository' ? (
-            <CVRepository candidates={activeCandidates} />
+            <CVRepository candidates={activeCandidates} onSelect={setSelectedCandidate} />
           ) : activeTab === 'upload' ? (
             <BulkUpload onUpload={onDrop} isProcessing={isProcessing} />
           ) : activeTab === 'candidates' ? (
@@ -1635,6 +1713,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <UserProfile />
           ) : activeTab === 'logs' ? (
             <LogReview />
+          ) : activeTab === 'settings' ? (
+            <SystemSettings />
           ) : (
             <UserManagement />
           )}

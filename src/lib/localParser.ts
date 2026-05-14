@@ -14,6 +14,7 @@ export interface ParsedResume {
     phone: string;
     location: string;
     linkedin: string | null;
+    links?: string[];
   };
   summary: string;
   skills: string[];
@@ -30,6 +31,11 @@ export interface ParsedResume {
     location: string | null;
     degree: string;
     year: string;
+  }>;
+  projects?: Array<{
+    title: string;
+    description: string;
+    link?: string;
   }>;
   certifications: string[];
   achievements: string[];
@@ -98,12 +104,14 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
       email: '',
       phone: '',
       location: '',
-      linkedin: null
+      linkedin: null,
+      links: []
     },
     summary: '',
     skills: [],
     experience: [],
     education: [],
+    projects: [],
     certifications: [],
     achievements: []
   };
@@ -143,7 +151,21 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
     }
   }
 
-  // 4. Extract Links (Removed based on new structure)
+  // 4. Extract Links
+  const linkRegex = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi;
+  const allLinks = text.match(linkRegex) || [];
+  const uniqueLinks = Array.from(new Set(allLinks));
+  
+  resume.candidate.links = uniqueLinks.filter(link => {
+    if (link.toLowerCase().includes('linkedin.com')) {
+      resume.candidate.linkedin = link;
+      return false; // Already handled
+    }
+    // Filter out common unrelated links
+    const ignored = ['pdfjs', 'schema.org', 'w3.org', 'google.com/search'];
+    return !ignored.some(i => link.toLowerCase().includes(i));
+  });
+
   // 5. Domain Extraction (Removed based on new structure)
   
   // 6. Skills Extraction (Broad Dictionary)

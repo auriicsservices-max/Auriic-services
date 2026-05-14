@@ -1,6 +1,7 @@
 export async function fetchCvList() {
     try {
-        const response = await fetch('https://aurrum.co/wp-json/cv-api/v1/list');
+        // Use local proxy to avoid CORS and include AURRUM_API_KEY via server
+        const response = await fetch('/api/cv/list');
         const data = await response.json();
         if (data.status) {
             return data.data;

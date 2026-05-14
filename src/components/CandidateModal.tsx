@@ -1,6 +1,16 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown } from 'lucide-react';
+import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown, Linkedin, Github, Twitter, ExternalLink } from 'lucide-react';
 import LZString from 'lz-string';
+
+// Helper to get icon for link
+const getLinkIcon = (label: string) => {
+  const l = label.toLowerCase();
+  if (l.includes('linkedin')) return <Linkedin size={16} />;
+  if (l.includes('github')) return <Github size={16} />;
+  if (l.includes('twitter')) return <Twitter size={16} />;
+  if (l.includes('cv') || l.includes('resume')) return <Download size={16} />;
+  return <ExternalLink size={16} />;
+};
 import { formatUKDate } from '../lib/dateUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { useTimezone } from '../contexts/TimezoneContext';
@@ -8,6 +18,9 @@ import { logActivity } from '../lib/logger';
 import { createNotification, formatNotificationMessage } from '../services/notificationService';
 import ConfirmModal from './ConfirmModal';
 import { fetchCvList } from '../services/cvApiService';
+import { enhancedParser } from '../services/enhancedParserService';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 interface CandidateModalProps {
   candidate: any;
@@ -94,21 +107,27 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const [skills, setSkills] = useState<string[]>([]);
 
   const fetchCVUrl = async () => {
-      if (!candidate?.cid) return;
+      if (!candidate?.cid && !candidate?.email) return;
       setIsFetchingCV(true);
       try {
           const cvList = await fetchCvList();
-          console.log('Fetched CV list:', cvList);
-          const matchedCV = cvList.find((item: any) => 
-            item.email?.toLowerCase() === candidate.email?.toLowerCase()
+          // Try to match by ID (CID) first for best precision
+          let matchedCV = cvList.find((item: any) => 
+            String(item.id) === String(candidate.cid)
           );
+          
+          // Fallback to email matching ONLY if ID match fails
+          if (!matchedCV && candidate.email) {
+            matchedCV = cvList.find((item: any) => 
+              item.email?.toLowerCase() === candidate.email?.toLowerCase()
+            );
+          }
+
           if (matchedCV) {
               setCvUrl(matchedCV.url);
-          } else {
-            console.log('No CV found for', candidate.email);
           }
       } catch (err) {
-          console.warn('[CandidateModal] Sync fetch failed:', (err as Error).message);
+          console.warn('[CandidateModal] CV sync fetch failed:', (err as Error).message);
       } finally {
           setIsFetchingCV(false);
       }
@@ -121,9 +140,12 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       setGeneralNotes(candidate.notes || '');
       setAssignedTo(candidate.assignedTo || '');
       setSkills(candidate.skills || []);
+      setSearchTerm(''); // Clear search on candidate change
       
-      // Initialize cvUrl with candidate.url if exists, or try to find a link in candidate.links
+      // Initialize cvUrl with candidate.url (the most specific link)
+      // and only fall back to other links if it's missing
       let initialCvUrl = candidate.url;
+      
       if (!initialCvUrl && candidate.links) {
         const cvLink = candidate.links.find((l: any) => 
           l.label?.toLowerCase().includes('cv') || 
@@ -135,10 +157,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
         }
       }
       
-      if (initialCvUrl) {
-        setCvUrl(initialCvUrl);
-      }
+      setCvUrl(initialCvUrl || null);
       
+      // Always try to fetch from API if we have a CID to ensure we have the most up-to-date link
       if (candidate.cid) {
           fetchCVUrl();
       }
@@ -151,21 +172,18 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     const finalUrl = cvUrl || candidate.url;
     if (finalUrl) {
       try {
-        // Attempt high-fidelity direct download via blob if CORS permits
-        const resp = await fetch(finalUrl);
-        if (!resp.ok) throw new Error('Fetch failed');
-        const blob = await resp.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.style.display = 'none';
-        a.href = url;
-        a.download = `${candidate.fullName?.replace(/\s+/g, '_') || 'CV'}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        window.URL.revokeObjectURL(url);
-        document.body.removeChild(a);
+        // High-fidelity naming for download
+        const fileName = `${candidate.fullName?.replace(/\s+/g, '_') || 'Candidate'}_CV.pdf`;
+        
+        // Use direct link approach with a temporary <a> tag for most reliability
+        const link = document.createElement('a');
+        link.href = finalUrl;
+        link.setAttribute('download', fileName);
+        link.setAttribute('target', '_blank'); // Ensures it doesn't navigate current page
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
       } catch (err) {
-        // Fallback to opening in new tab if CORS or other network error occurs
         window.open(finalUrl, '_blank');
       }
     } else if (candidate.compressedText) {
@@ -173,15 +191,14 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       const blob = new Blob([text || ''], { type: 'text/plain' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.style.display = 'none';
       a.href = url;
       a.download = `${candidate.fullName?.replace(/\s+/g, '_') || 'Candidate'}_Resume.txt`;
       document.body.appendChild(a);
       a.click();
-      window.URL.revokeObjectURL(url);
+      URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } else {
-      showAlert('Download Unavailable', "No CV URL or indexed text found for this candidate.");
+      showAlert('Download Unavailable', "No valid CV link or text found for this candidate.");
     }
   };
 
@@ -310,20 +327,24 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               </div>
             </div>
             <div className="flex gap-2">
-              {(role === 'admin' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText) && (
+              {(role === 'admin' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid) && (
                 <button 
                   onClick={handleView}
-                  className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all border border-indigo-100 dark:border-indigo-800"
+                  disabled={isFetchingCV}
+                  className={`px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all border border-indigo-100 dark:border-indigo-800 ${isFetchingCV ? 'opacity-70 cursor-wait' : ''}`}
                 >
-                  <Globe size={18} /> View CV
+                  {isFetchingCV ? <Loader2 size={18} className="animate-spin" /> : <Globe size={18} />}
+                  {isFetchingCV ? 'Syncing...' : 'View CV'}
                 </button>
               )}
-              {(role === 'admin' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText) && (
+              {(role === 'admin' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid) && (
                 <button 
                   onClick={handleDownload}
-                  className="px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700"
+                  disabled={isFetchingCV}
+                  className={`px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 ${isFetchingCV ? 'opacity-70 cursor-wait' : ''}`}
                 >
-                  <Download size={18} /> Download CV
+                  {isFetchingCV ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
+                  {isFetchingCV ? 'Syncing...' : 'Download CV'}
                 </button>
               )}
               <button 
@@ -422,6 +443,62 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                 ))}
               </div>
             </section>
+
+            {candidate.projects?.length > 0 && (
+              <section>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
+                  <Star size={12} className="text-indigo-500" /> Key Projects
+                </h3>
+                <div className="space-y-4">
+                  {candidate.projects.map((project: any, i: number) => (
+                    <div key={i} className="p-4 bg-indigo-50/20 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800/50 rounded-2xl">
+                      <div className="flex items-center justify-between mb-2">
+                        <h4 className="font-bold text-[var(--text-primary)] text-xs">{project.title}</h4>
+                        {project.link && (
+                          <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-[10px] text-indigo-500 hover:underline">
+                            View Project
+                          </a>
+                        )}
+                      </div>
+                      <p className="text-[var(--text-secondary)] text-[11px] leading-relaxed italic">
+                        {project.description}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {candidate.certifications?.length > 0 && (
+              <section>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
+                  <Star size={12} className="text-amber-500" /> Certifications & Licenses
+                </h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {candidate.certifications.map((cert: string, i: number) => (
+                    <div key={i} className="p-3 bg-amber-50/30 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/50 rounded-xl text-[11px] font-medium text-amber-900 dark:text-amber-200">
+                      {cert}
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
+
+            {candidate.achievements?.length > 0 && (
+              <section>
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
+                  <Globe size={12} className="text-emerald-500" /> Key Achievements
+                </h3>
+                <ul className="space-y-2">
+                  {candidate.achievements.map((ach: string, i: number) => (
+                    <li key={i} className="text-xs text-[var(--text-secondary)] flex items-start gap-2">
+                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
+                      {ach}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
           </div>
 
           {/* Sidebar Column */}
@@ -460,16 +537,24 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   <Phone className="text-indigo-500 dark:text-indigo-400" size={16} />
                   <p className="text-xs font-medium text-[var(--text-secondary)]">{candidate.phone || 'N/A'}</p>
                 </div>
-                {/* Force download using download attribute in addition to handler, prioritize cvUrl */}
-                {(cvUrl || candidate.url) && (
-                  <a href={cvUrl || candidate.url} download target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 rounded-xl transition-all hover:border-emerald-200 group">
-                    <Download className="text-emerald-600 dark:text-emerald-400 group-hover:scale-110 transition-transform" size={16} />
-                    <p className="text-xs font-bold text-emerald-700 dark:text-emerald-300 truncate">Download PDF Attachment</p>
-                  </a>
+                {/* Secondary verification of CV presence */}
+                {(cvUrl || candidate.url || candidate.cid) && (
+                  <div className={`flex items-center gap-3 p-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-100 dark:border-emerald-800 rounded-xl transition-all ${isFetchingCV ? 'opacity-70' : ''}`}>
+                    {isFetchingCV ? <Loader2 className="animate-spin text-emerald-600" size={16} /> : <Download className="text-emerald-600 dark:text-emerald-400" size={16} />}
+                    <button 
+                      onClick={handleDownload}
+                      disabled={isFetchingCV}
+                      className="text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:underline text-left truncate"
+                    >
+                      {isFetchingCV ? 'Finding latest Aurrum CV...' : 'Download Original Attachment'}
+                    </button>
+                  </div>
                 )}
                 {candidate.links?.map((link: any, i: number) => (
                     <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800 rounded-xl transition-all hover:border-indigo-200">
-                        <Globe className="text-indigo-500 dark:text-indigo-400" size={16} />
+                        <div className="text-indigo-500 dark:text-indigo-400">
+                            {getLinkIcon(link.label || 'Link')}
+                        </div>
                         <p className="text-xs font-bold text-indigo-700 dark:text-indigo-300 truncate">{link.label || 'Link'}</p>
                     </a>
                 ))}
