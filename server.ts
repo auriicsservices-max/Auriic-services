@@ -3,60 +3,66 @@ import { createServer as createViteServer } from 'vite';
 import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
-import { initializeApp } from 'firebase-admin/app';
+import fs from 'fs';
+import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
+import { RobustResumeParser } from './src/services/resumeParser.server.ts';
+const resumeParser = new RobustResumeParser();
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-// Initialize Admin SDK
-const adminApp = initializeApp({
-  projectId: 'ai-studio-applet-webapp-ddf84'
-});
-
-const adminDb = getFirestore(adminApp);
-const adminMessaging = getMessaging(adminApp);
-
-// Notification Listener
-adminDb.collection('notifications').onSnapshot(async (snapshot) => {
-  snapshot.docChanges().forEach(async (change) => {
-    if (change.type === 'added') {
-      const notification = change.doc.data();
-      
-      // Filter: Only chat or assignment notifications
-      if (notification.type !== 'chat' && notification.type !== 'assignment') {
-          return;
-      }
-
-      const userId = notification.userId;
-      
-      try {
-        const tokensSnapshot = await adminDb.collection(`users/${userId}/fcmTokens`).get();
-        const tokens = tokensSnapshot.docs.map(doc => doc.data().token);
-        
-        if (tokens.length > 0) {
-          const message = {
-            notification: {
-              title: notification.title,
-              body: notification.body
-            },
-            tokens: tokens
-          };
-          await adminMessaging.sendEachForMulticast(message);
-        }
-      } catch(err) {
-        console.error('Error sending push notification:', err);
-      }
-    }
-  });
-});
-
-const app = express();
-const PORT = 3000;
-// ... (rest of the file as before)
+// Handle paths for both ESM and CJS
+const _filename = typeof __filename !== 'undefined' ? __filename : fileURLToPath(import.meta.url);
+const _dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(_filename);
 
 async function startServer() {
+  // Initialize Admin SDK lazily
+  if (!getApps().length) {
+    initializeApp({
+      projectId: 'ai-studio-applet-webapp-ddf84'
+    });
+  }
+
+  const adminDb = getFirestore('aurrum-production');
+  const adminMessaging = getMessaging();
+
+  // Notification Listener
+  adminDb.collection('notifications').onSnapshot(async (snapshot) => {
+    snapshot.docChanges().forEach(async (change) => {
+      if (change.type === 'added') {
+        const notification = change.doc.data();
+        
+        // Filter: Only chat or assignment notifications
+        if (notification.type !== 'chat' && notification.type !== 'assignment') {
+            return;
+        }
+
+        const userId = notification.userId;
+        
+        try {
+          const tokensSnapshot = await adminDb.collection(`users/${userId}/fcmTokens`).get();
+          const tokens = tokensSnapshot.docs.map(doc => doc.data().token);
+          
+          if (tokens.length > 0) {
+            const message = {
+              notification: {
+                title: notification.title,
+                body: notification.body
+              },
+              tokens: tokens
+            };
+            await adminMessaging.sendEachForMulticast(message);
+          }
+        } catch(err) {
+          console.error('Error sending push notification:', err);
+        }
+      }
+    });
+  }, (err) => {
+    console.error('Firestore notification listener error:', err);
+  });
+
+  const app = express();
+  const PORT = 3000;
   // Use Middleware
   app.use(express.json());
 
@@ -79,6 +85,20 @@ async function startServer() {
   const upload = multer({ 
     storage: multer.memoryStorage(),
     limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
+  });
+
+  app.post('/api/cv/parse-advanced', upload.single('file'), async (req, res) => {
+    if (!req.file) {
+      return res.status(400).json({ error: 'No file uploaded' });
+    }
+    
+    try {
+      const result = await resumeParser.parseBuffer(req.file.buffer, req.file.mimetype);
+      res.json(result);
+    } catch (error) {
+      console.error('[Server] Advanced Parsing Error:', error);
+      res.status(500).json({ error: 'Failed to parse resume with advanced engine' });
+    }
   });
 
   app.post('/api/cv/upload', upload.single('file'), async (req, res) => {
@@ -161,7 +181,11 @@ async function startServer() {
     const distPath = path.join(process.cwd(), 'dist');
     app.use(express.static(distPath));
     app.get('*', (req, res) => {
-      res.sendFile(path.join(distPath, 'index.html'));
+      // In bundled production mode, we might be in dist/ or root
+      const indexPath = fs.existsSync(path.join(distPath, 'index.html')) 
+        ? path.join(distPath, 'index.html') 
+        : path.join(process.cwd(), 'index.html');
+      res.sendFile(indexPath);
     });
   }
 
@@ -173,5 +197,3 @@ async function startServer() {
 startServer().catch(err => {
   console.error('[Server] Startup Failure:', err);
 });
-
-export default app;

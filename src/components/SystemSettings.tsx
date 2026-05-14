@@ -1,22 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { auth } from '../lib/firebase';
 import { Save, Shield, Settings, Info, AlertTriangle } from 'lucide-react';
-
-const handleFirestoreError = (error: any, operationType: string, path: string | null) => {
-    const errInfo = {
-        error: error instanceof Error ? error.message : String(error),
-        authInfo: {
-            userId: auth.currentUser?.uid,
-            email: auth.currentUser?.email,
-        },
-        operationType,
-        path
-    };
-    console.error('Firestore Error: ', JSON.stringify(errInfo));
-    throw new Error(JSON.stringify(errInfo));
-};
 
 export default function SystemSettings() {
   const [limit, setLimit] = useState<number>(20);
@@ -32,7 +17,7 @@ export default function SystemSettings() {
           setLimit(docSnap.data().bulkUploadLimit || 20);
         }
       } catch (err) {
-        handleFirestoreError(err, 'get', 'settings/global');
+        console.error("Error fetching settings:", err);
       }
     };
     fetchSettings();
@@ -47,8 +32,8 @@ export default function SystemSettings() {
         updatedAt: new Date().toISOString()
       }, { merge: true });
       setMessage({ type: 'success', text: 'Settings updated successfully!' });
-    } catch (err: any) {
-      handleFirestoreError(err, 'write', 'settings/global');
+    } catch (err) {
+      console.error("Error saving settings:", err);
       setMessage({ type: 'error', text: 'Failed to update settings.' });
     } finally {
       setIsSaving(false);

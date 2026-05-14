@@ -98,7 +98,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           window.removeEventListener('beforeunload', handleOffline);
         }
       } catch (err: any) {
-        console.error("Auth initialization error:", err);
+        console.error("Auth initialization error detail:", {
+          code: err.code,
+          message: err.message,
+          stack: err.stack,
+          authenticatedUser: authenticatedUser?.uid
+        });
         if (err.code === 'resource-exhausted') setQuotaExceeded(true);
       } finally {
         setLoading(false);

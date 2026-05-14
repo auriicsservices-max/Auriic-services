@@ -8,6 +8,8 @@ const getLinkIcon = (label: string) => {
   if (l.includes('linkedin')) return <Linkedin size={16} />;
   if (l.includes('github')) return <Github size={16} />;
   if (l.includes('twitter')) return <Twitter size={16} />;
+  if (l.includes('portfolio') || l.includes('website')) return <Globe size={16} />;
+  if (l.includes('project')) return <Briefcase size={16} />;
   if (l.includes('cv') || l.includes('resume')) return <Download size={16} />;
   return <ExternalLink size={16} />;
 };
@@ -18,7 +20,6 @@ import { logActivity } from '../lib/logger';
 import { createNotification, formatNotificationMessage } from '../services/notificationService';
 import ConfirmModal from './ConfirmModal';
 import { fetchCvList } from '../services/cvApiService';
-import { enhancedParser } from '../services/enhancedParserService';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 

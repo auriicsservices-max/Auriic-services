@@ -24,18 +24,24 @@ service cloud.firestore {
       return isSignedIn() && (
         request.auth.token.email == 'darshanwala894@gmail.com' || 
         request.auth.token.email == 'auriicsservices@gmail.com' ||
-        getUserData().get('role', 'none') in ['admin', 'team_leader']
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['admin', 'team_leader'])
       );
     }
 
     function isTeamLeader() {
-      return isSignedIn() && getUserData().get('role', 'none') == 'team_leader';
+      return isSignedIn() && 
+             exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+             get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'team_leader';
     }
 
     function isTeamMember() {
-      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return isSignedIn() && (
-        isAdmin() || (user.role in ['team_leader', 'recruiter'] && user.get('isArchived', false) == false)
+        isAdmin() || (
+          exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role in ['team_leader', 'recruiter'] && 
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.get('isArchived', false) == false
+        )
       );
     }
 
@@ -140,11 +146,6 @@ service cloud.firestore {
     match /settings/global {
       allow read: if isSignedIn();
       allow write: if isAdmin();
-    }
-
-    // Test Connection Rule
-    match /test/connection {
-      allow read: if isSignedIn();
     }
   }
 }

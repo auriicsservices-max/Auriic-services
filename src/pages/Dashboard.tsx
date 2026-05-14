@@ -19,7 +19,7 @@ import SystemSettings from '../components/SystemSettings';
 import TimezoneWidget from '../components/TimezoneWidget';
 import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
-import { enhancedParser } from '../services/enhancedParserService';
+import { resumeParser } from '../services/resumeParserService';
 import { createNotification, formatNotificationMessage } from '../services/notificationService';
 import InternalChat from '../components/InternalChat';
 import NotificationBadge from '../components/NotificationBadge';
@@ -133,23 +133,23 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       }
       testConnection();
 
-    // Real-time Global Settings Listener
-    const unsubSettings = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        setBulkLimit(docSnap.data().bulkUploadLimit || 20);
+    // Fetch Global Settings
+    const fetchSettings = async () => {
+      try {
+        const docRef = doc(db, 'settings', 'global');
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          setBulkLimit(docSnap.data().bulkUploadLimit || 20);
+        }
+      } catch (err) {
+        console.warn("Could not fetch global settings, using default limit", err);
       }
-    }, (err) => {
-      handleFirestoreError(err, 'get', 'settings/global');
-      console.warn("Using default upload limit due to listener error");
-    });
+    };
+    fetchSettings();
 
     if (user?.uid) {
       setLastReadTimestamp(parseInt(localStorage.getItem(`lastReadChat_${user.uid}`) || '0'));
     }
-
-    return () => {
-      unsubSettings();
-    };
   }, [user?.uid]);
 
   const [showNotifications, setShowNotifications] = useState(false);
@@ -474,24 +474,24 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         setParsingStatus(prev => ({ ...prev, [file.name]: 'parsing' }));
         
         // Use Enhanced CV Parsing Service
-        const { parsed, text } = await enhancedParser.parse(file);
+        const { parsed, text } = await resumeParser.parse(file);
         
         // Ensure parsed object exists
         if (!parsed) throw new Error("Parser returned empty data");
         
-        parsed.candidate.name = parsed.candidate.name || file.name.split('.')[0];
-        parsed.candidate.email = (parsed.candidate.email || 'pending@aurrum.co').toLowerCase();
+        parsed.name = parsed.name || file.name.split('.')[0];
+        parsed.contact.email = (parsed.contact.email || 'pending@aurrum.co').toLowerCase();
 
         // CHECK FOR DUPLICATES
-        const isDuplicateInState = candidates.find(c => c.email === parsed.candidate.email);
-        const isDuplicateInBatch = addedEmailsInBatch.has(parsed.candidate.email);
+        const isDuplicateInState = candidates.find(c => c.email === parsed.contact.email);
+        const isDuplicateInBatch = addedEmailsInBatch.has(parsed.contact.email);
         
         if (isDuplicateInState || isDuplicateInBatch) {
           const workerId = isDuplicateInState ? (isDuplicateInState.assignedTo || isDuplicateInState.uploadedBy) : 'this batch';
           const workerName = isDuplicateInState ? (teamMembers[workerId] || 'Unknown Recruiter') : 'this batch';
           setDuplicateNotification({ 
             isOpen: true, 
-            message: `Candidate ${parsed.candidate.name} is already added and currently being handled by ${workerName}`
+            message: `Candidate ${parsed.name} is already added and currently being handled by ${workerName}`
           });
           setUploadStatus('duplicate');
           setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
@@ -499,7 +499,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         }
 
         // Add to batch tracking
-        addedEmailsInBatch.add(parsed.candidate.email);
+        addedEmailsInBatch.add(parsed.contact.email);
 
         // Compress text to store in Firebase (saving space)
         const compressedText = LZString.compressToUTF16(text);
@@ -510,13 +510,13 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         
         // Aurrum API requirements: file (Required), name (Required), email (Required)
         formData.append('file', file);
-        formData.append('name', parsed.candidate.name || file.name);
-        formData.append('email', parsed.candidate.email || 'pending@aurrum.co');
-        if (parsed.candidate.phone) {
-          formData.append('phone', parsed.candidate.phone);
+        formData.append('name', parsed.name || file.name);
+        formData.append('email', parsed.contact.email || 'pending@aurrum.co');
+        if (parsed.contact.phone) {
+          formData.append('phone', parsed.contact.phone);
         }
 
-        let result = { status: false, data: { id: null, url: null, name: parsed.candidate.name || file.name }, message: '' };
+        let result = { status: false, data: { id: null, url: null, name: parsed.name || file.name }, message: '' };
         try {
           const response = await fetch('/api/cv/upload', {
             method: 'POST',
@@ -535,40 +535,63 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         
         // 4. Store meta in Firebase
         const normalizedExperience = parsed.experience?.map(exp => ({
-          role: exp.job_title || '',
+          role: exp.title || '',
           company: exp.company || '',
-          duration: `${exp.start_date || ''} - ${exp.end_date || ''}`.trim(),
-          description: exp.responsibilities?.join(". ") || ""
+          duration: exp.duration || '',
+          description: exp.responsibilities?.join(". ") || "",
+          location: exp.location || ''
         })) || [];
 
         const normalizedEducation = parsed.education?.map(edu => ({
           degree: edu.degree || '',
           school: edu.institution || '',
-          year: edu.year || ''
+          year: edu.duration || '',
+          field: edu.field || '',
+          gpa: edu.gpa || '',
+          location: edu.location || ''
         })) || [];
 
+        // Flatten skills for UI compatibility
+        const allSkills = Array.from(new Set([
+          ...parsed.skills.languages,
+          ...parsed.skills.frameworks,
+          ...parsed.skills.databases,
+          ...parsed.skills.tools,
+          ...parsed.skills.libraries,
+          ...parsed.skills.other
+        ])).filter(s => s.length > 0);
+
+        const projectLinks = parsed.projects?.flatMap(p => p.links.map(l => ({ url: l, label: `Project: ${p.name}` }))) || [];
+
         const newCandidateRef = await addDoc(collection(db, 'candidates'), {
-          fullName: result.data?.name || parsed.candidate.name || file.name,
-          email: (parsed.candidate.email || 'pending@aurrum.co').toLowerCase(),
-          phone: parsed.candidate.phone || '',
-          location: parsed.candidate.location || '',
-          summary: parsed.summary || '',
-          skills: parsed.skills || [],
+          fullName: result.data?.name || parsed.name || file.name,
+          email: (parsed.contact.email || 'pending@aurrum.co').toLowerCase(),
+          phone: parsed.contact.phone || '',
+          location: parsed.contact.linkedin || '', // Use linkedin as a proxy if location missing in contact
+          summary: parsed.profile || '', 
+          skills: allSkills,
+          categorizedSkills: parsed.skills, // Full structured data
           experience: normalizedExperience,
           education: normalizedEducation,
-          projects: parsed.projects || [],
-          certifications: parsed.certifications || [],
+          projects: parsed.projects?.map(p => ({
+            title: p.name,
+            description: p.description.join(". "),
+            technologies: p.technologies,
+            duration: p.duration,
+            link: p.links[0] || null
+          })) || [],
+          certifications: parsed.achievements || [], // Map achievements to certifications for UI
           achievements: parsed.achievements || [],
+          languages: parsed.languages || [],
+          interests: parsed.interests || [],
           links: [
-            ...(parsed.candidate.linkedin ? [{ url: parsed.candidate.linkedin, label: 'LinkedIn' }] : []),
-            ...(parsed.candidate.links?.map(url => ({ 
-              url, 
-              label: url.includes('github') ? 'GitHub' : 
-                     url.includes('twitter') ? 'Twitter' : 
-                     url.includes('behance') ? 'Behance' : 
-                     url.includes('portfolio') ? 'Portfolio' : 'Link' 
-            })) || [])
+            ...(parsed.contact.linkedin ? [{ url: parsed.contact.linkedin, label: 'LinkedIn' }] : []),
+            ...(parsed.contact.github ? [{ url: parsed.contact.github, label: 'GitHub' }] : []),
+            ...(parsed.contact.portfolio ? [{ url: parsed.contact.portfolio, label: 'Portfolio' }] : []),
+            ...projectLinks
           ],
+          totalExperience: parsed.totalExperienceYears || 0,
+          rawResumeText: text,
           compressedText,
           isLargeFile,
           cid: result.data?.id || null,
@@ -586,7 +609,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         const message = formatNotificationMessage(
             user?.displayName || 'System',
             "uploaded CV for",
-            parsed.candidate.name || file.name,
+            parsed.name || file.name,
             "Resume parsing completed"
         );
         await createNotification(

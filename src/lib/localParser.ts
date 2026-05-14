@@ -6,40 +6,8 @@ import * as mammoth from 'mammoth';
 const PDFJS_VERSION = '4.10.38';
 pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${PDFJS_VERSION}/pdf.worker.min.mjs`;
 
-export interface ParsedResume {
-  file_name: string;
-  candidate: {
-    name: string;
-    email: string;
-    phone: string;
-    location: string;
-    linkedin: string | null;
-    links?: string[];
-  };
-  summary: string;
-  skills: string[];
-  experience: Array<{
-    company: string;
-    job_title: string;
-    location: string | null;
-    start_date: string;
-    end_date: string;
-    responsibilities: string[];
-  }>;
-  education: Array<{
-    institution: string;
-    location: string | null;
-    degree: string;
-    year: string;
-  }>;
-  projects?: Array<{
-    title: string;
-    description: string;
-    link?: string;
-  }>;
-  certifications: string[];
-  achievements: string[];
-}
+import { ResumeData } from '../types/resume';
+export type ParsedResume = ResumeData;
 
 export async function extractTextFromPDF(pdfBuffer: ArrayBuffer): Promise<string> {
   console.log('Starting PDF extraction...', pdfBuffer.byteLength);
@@ -98,31 +66,40 @@ export async function extractTextFromDocx(docxBuffer: ArrayBuffer): Promise<stri
 
 export async function parseResumeHeuristically(text: string): Promise<ParsedResume> {
   const resume: ParsedResume = {
-    file_name: '',
-    candidate: {
-      name: '',
+    name: '',
+    contact: {
       email: '',
       phone: '',
-      location: '',
-      linkedin: null,
-      links: []
+      linkedin: '',
+      github: '',
+      portfolio: ''
     },
-    summary: '',
-    skills: [],
-    experience: [],
+    profile: '',
+    totalExperienceYears: 0,
     education: [],
+    experience: [],
     projects: [],
-    certifications: [],
-    achievements: []
+    skills: {
+      languages: [],
+      frameworks: [],
+      databases: [],
+      tools: [],
+      libraries: [],
+      other: []
+    },
+    achievements: [],
+    languages: [],
+    interests: [],
+    rawText: text
   };
 
   // 1. Extract Email
   const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i);
-  if (emailMatch) resume.candidate.email = emailMatch[0];
+  if (emailMatch) resume.contact.email = emailMatch[0];
 
   // 2. Extract Phone (Improved)
   const phoneMatch = text.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{4}/);
-  if (phoneMatch) resume.candidate.phone = phoneMatch[0];
+  if (phoneMatch) resume.contact.phone = phoneMatch[0];
 
   // 3. Extract Name (Heuristic refined: check first few lines for capitalized names)
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
@@ -135,16 +112,16 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
 
         const words = line.split(/\s+/);
         if (words.length >= 2 && words.length <= 4 && words.every(w => /^[A-Z]/.test(w))) {
-            resume.candidate.name = line;
+            resume.name = line;
             break;
         }
     }
     
-    if (!resume.candidate.name) {
+    if (!resume.name) {
         for (let i = 0; i < Math.min(5, lines.length); i++) {
             const line = lines[i];
             if (line.length > 3 && line.length < 35 && !line.includes('@') && !line.includes(':')) {
-                resume.candidate.name = line;
+                resume.name = line;
                 break;
             }
         }
@@ -156,53 +133,20 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
   const allLinks = text.match(linkRegex) || [];
   const uniqueLinks = Array.from(new Set(allLinks));
   
-  resume.candidate.links = uniqueLinks.filter(link => {
-    if (link.toLowerCase().includes('linkedin.com')) {
-      resume.candidate.linkedin = link;
-      return false; // Already handled
-    }
-    // Filter out common unrelated links
-    const ignored = ['pdfjs', 'schema.org', 'w3.org', 'google.com/search'];
-    return !ignored.some(i => link.toLowerCase().includes(i));
-  });
-
-  // 5. Domain Extraction (Removed based on new structure)
-  
-  // 6. Skills Extraction (Broad Dictionary)
-  const commonSkills = [
-    'React', 'Javascript', 'Typescript', 'Python', 'Java', 'C++', 'C#', 'Node.js', 
-    'Express', 'React Native', 'Swift', 'Kotlin', 'AWS', 'Docker', 'Kubernetes',
-    'SQL', 'NoSQL', 'MongoDB', 'PostgreSQL', 'Redux', 'Tailwind', 'Git',
-    'Project Management', 'Agile', 'Scrum', 'Sales', 'Marketing', 'Customer Service',
-    'HTML', 'CSS', 'Vue', 'Angular', 'Next.js', 'Firebase', 'GraphQL', 'REST',
-    'Figma', 'UI Design', 'UX Design', 'Data Analysis', 'Tableau', 'Power BI',
-    'Machine Learning', 'AI', 'NLP', 'Computer Vision', 'Deep Learning',
-    'Financial Modeling', 'Budgeting', 'Account Management', 'CRM', 'Salesforce',
-    'Public Speaking', 'Leadership', 'Team Management', 'Strategy', 'Negotiation',
-    'SEO', 'SEM', 'Content Strategy', 'Social Media', 'Branding', 'Copywriting',
-    'Adobe Creative Suite', 'Photoshop', 'Illustrator', 'InDesign', 'Premiere Pro',
-    'AutoCAD', 'SolidWorks', 'MATLAB', 'R', 'Scala', 'Go', 'Rust', 'PHP', 'Laravel',
-    'Azure', 'GCP', 'Jenkins', 'Terraform', 'Ansible', 'Linux', 'Security', 'Cybersecurity',
-    'PMP', 'OSHA 10', 'OSHA 30', 'CCNA', 'CWNA', 'BGP', 'OSPF', 'EIGRP', '5G', 'RF', 'Fiber Optics',
-    'Microsoft Office', 'Excel', 'Word', 'PowerPoint', 'Google Analytics', 'WordPress',
-    'Interpreting', 'Translation', 'Event Planning', 'Public Relations', 'Quality Assurance'
-  ];
-  
-  const foundSkills = new Set<string>();
-  commonSkills.forEach(skill => {
-    const escapedSkill = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    const regex = new RegExp(`(^|[^a-zA-Z0-9#+.])${escapedSkill}([^a-zA-Z0-9#+.]|$)`, 'gi');
-    if (regex.test(text)) {
-      foundSkills.add(skill);
+  uniqueLinks.forEach(link => {
+    const l = link.toLowerCase();
+    if (l.includes('linkedin.com')) {
+      resume.contact.linkedin = link;
+    } else if (l.includes('github.com')) {
+      resume.contact.github = link;
+    } else if (l.includes('portfolio') || l.includes('personal-website')) {
+      resume.contact.portfolio = link;
     }
   });
-  
-  // Detect skills even if not in dictionary (capitalized words near "Skills" section)
-  resume.skills = Array.from(foundSkills);
 
-  // 7. Section detection and localized extraction
+  // 5. Section detection and localized extraction
   const sections: Record<string, RegExp[]> = {
-    summary: [/\bSummary\b/i, /\bProfile\b/i, /\bObjective\b/i, /\bAbout Me\b/i, /\bProfessional Summary\b/i, /\bCareer Objective\b/i, /\bProfessional Profile\b/i],
+    profile: [/\bSummary\b/i, /\bProfile\b/i, /\bObjective\b/i, /\bAbout Me\b/i, /\bProfessional Summary\b/i, /\bCareer Objective\b/i, /\bProfessional Profile\b/i],
     experience: [/\bExperience\b/i, /\bWork History\b/i, /\bEmployment\b/i, /\bProfessional Experience\b/i, /\bCareer History\b/i, /\bRelevant Experience\b/i, /\bWork Experience\b/i, /\bProfessional Background\b/i],
     education: [/\bEducation\b/i, /\bAcademic\b/i, /\bQualifications\b/i, /\bEducation Background\b/i, /\bEducational Qualifications\b/i, /\bAcademic Credentials\b/i],
     skills: [/\bSkills\b/i, /\bCompetencies\b/i, /\bTechnologies\b/i, /\bCore Skills\b/i, /\bTechnical Competencies\b/i, /\bExpertise\b/i, /\bTechnical Skills\b/i, /\bCore Competencies\b/i, /\bSkills & Tools\b/i]
@@ -211,13 +155,11 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
   const getSectionContent = (sectionKey: string): string => {
     const regexes = sections[sectionKey];
     let startIdx = -1;
-    let foundRegex: RegExp | null = null;
 
     for (const regex of regexes) {
       const match = text.match(regex);
       if (match && match.index !== undefined) {
         startIdx = match.index + match[0].length;
-        foundRegex = regex;
         break;
       }
     }
@@ -241,9 +183,9 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
     return text.substring(startIdx, endIdx).trim();
   };
 
-  // Extract Summary
-  const summaryContent = getSectionContent('summary');
-  resume.summary = summaryContent.split('\n').filter(s => s.length > 20).slice(0, 5).join(' ') || summaryContent.substring(0, 600);
+  // Extract Profile/Summary
+  const profileContent = getSectionContent('profile');
+  resume.profile = profileContent.split('\n').filter(s => s.length > 20).slice(0, 5).join(' ') || profileContent.substring(0, 600);
 
   // Extract Education
   const eduContent = getSectionContent('education');
@@ -257,8 +199,7 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
       return {
         degree: degreeMatch ? degreeMatch[0] : (lines[0] || 'Degree'),
         institution: lines.find(l => !l.match(/(?:Bachelor|Master|B\.S\.|M\.S\.|PhD|Associate|Degree|BSc|MSc|MBA|Engineering|Diploma|B\.A\.|M\.A\.)/i) && l.length > 5) || lines[1] || 'Institution',
-        location: 'N/A',
-        year: yearMatch ? yearMatch[0] : 'N/A'
+        duration: yearMatch ? yearMatch[0] : 'N/A'
       };
     });
   }
@@ -266,10 +207,7 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
   // Extract Experience
   const expContent = getSectionContent('experience');
   if (expContent) {
-    // Advanced Split: Look for dates or company-style lines
     const datePattern = /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|[0-1][0-9])?[\/\s-]*\d{2,4}\s*[-–—to]+\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|[0-1][0-9]|Present|Current)?(?:[\/\s-]*\d{2,4})?/i;
-    
-    // Split by blocks that clearly contain a date and start with a heading-like line
     const blocks = expContent.split(/\n(?=[A-Z])/).filter(b => b.trim().length > 30);
     
     resume.experience = blocks.slice(0, 10).map(block => {
@@ -277,10 +215,9 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
       const header = lines[0] || '';
       const subHeader = lines[1] || '';
       
-      let role = 'Professional';
+      let title = header;
       let company = 'Organization';
       
-      // Try to split header or subheader for role/company
       const seps = [/ at /i, / \| /, / - /, / – /, / — /, / , / ];
       let found = false;
       [header, subHeader].forEach(textLine => {
@@ -288,35 +225,30 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
         for (const sep of seps) {
           const parts = textLine.split(sep);
           if (parts.length >= 2) {
-            role = parts[0].trim();
+            title = parts[0].trim();
             company = parts[1].split(/[,(]/)[0].trim();
             found = true;
             break;
           }
         }
       });
-      
-      if (!found) role = header;
 
       const dateMatch = block.match(datePattern);
-      const dateParts = dateMatch ? dateMatch[0].split(/[-–—to]+/i) : ['N/A', 'N/A'];
       
       return {
         company,
-        job_title: role,
-        location: null,
-        start_date: dateParts[0].trim(),
-        end_date: dateParts[1] ? dateParts[1].trim() : 'Present',
+        title,
+        duration: dateMatch ? dateMatch[0] : 'N/A',
         responsibilities: lines.slice(found ? 1 : 1, 12)
       };
     });
   }
 
-  // Final Skill Sync
+  // Extract Skills
   const skillContent = getSectionContent('skills');
-  if (skillContent && resume.skills.length < 5) {
+  if (skillContent) {
      const manualSkills = skillContent.split(/[,\n•|]/).map(s => s.trim()).filter(s => s.length > 2 && s.length < 35);
-     resume.skills = Array.from(new Set([...resume.skills, ...manualSkills])).slice(0, 20);
+     resume.skills.other = Array.from(new Set(manualSkills)).slice(0, 20);
   }
 
   return resume;

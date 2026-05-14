@@ -7,7 +7,7 @@
       "properties": {
         "uid": { "type": "string" },
         "email": { "type": "string", "format": "email" },
-        "role": { "type": "string", "enum": ["admin", "recruiter"] },
+        "role": { "type": "string", "enum": ["admin", "team_leader", "recruiter"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "email", "role"]
@@ -106,6 +106,10 @@
     "/users/{userId}": {
       "schema": "User",
       "description": "User profiles and roles"
+    },
+    "/notifications/{notificationId}": {
+      "schema": "object",
+      "description": "System and user notifications"
     },
     "/messages/{messageId}": {
       "schema": "ChatMessage",
