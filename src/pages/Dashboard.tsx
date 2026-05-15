@@ -595,10 +595,21 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
         const projectLinks = parsed.projects?.flatMap(p => p.links.map(l => ({ url: l, label: `Project: ${p.name}` }))) || [];
 
+        // Convert to Base64 to ensure the file is stored even if storage fails
+        const fileToBase64 = (file: File): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = error => reject(error);
+          });
+        };
+
+        const cvBase64 = await fileToBase64(file);
+
         const newCandidateRef = await addDoc(collection(db, 'candidates'), {
           fullName: result.data?.name || parsed.name || file.name,
-          originalFileName: file.name,
-          url: result.data.url,
+          cvBase64: cvBase64,
           email: (parsed.contact.email || 'pending@aurrum.co').toLowerCase(),
           phone: parsed.contact.phone || '',
           location: parsed.contact.linkedin || '', // Use linkedin as a proxy if location missing in contact

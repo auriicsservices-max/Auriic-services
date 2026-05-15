@@ -170,14 +170,30 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   if (!isOpen || !candidate) return null;
 
   const handleDownload = async () => {
+    // Detect original extension from URL or stored filename
+    const originalName = candidate.originalFileName || 'Resume';
     const finalUrl = cvUrl || candidate.url;
+    const extension = (finalUrl || originalName || 'file.pdf').split('?')[0].split('.').pop()?.toLowerCase() || 'pdf';
+    const fileName = `${candidate.fullName?.replace(/\s+/g, '_') || 'Candidate'}_CV.${extension}`;
+
+    // Priority 1: Base64 (Most reliable, no CORS issues)
+    if (candidate.cvBase64) {
+      try {
+        const link = document.createElement('a');
+        link.href = candidate.cvBase64;
+        link.setAttribute('download', fileName);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        return;
+      } catch (err) {
+        console.error('Base64 download failed:', err);
+      }
+    }
+
+    // Priority 2: URL
     if (finalUrl) {
       try {
-        // Detect original extension from URL or stored filename
-        const originalName = candidate.originalFileName || 'Resume';
-        const extension = finalUrl.split('?')[0].split('.').pop()?.toLowerCase() || 'pdf';
-        const fileName = `${candidate.fullName?.replace(/\s+/g, '_') || 'Candidate'}_CV.${extension}`;
-        
         const link = document.createElement('a');
         link.href = finalUrl;
         link.setAttribute('download', fileName);
@@ -200,11 +216,20 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       URL.revokeObjectURL(url);
       document.body.removeChild(a);
     } else {
-      showAlert('Download Unavailable', "No valid CV link or text found for this candidate.");
+      showAlert('Download Unavailable', "No valid CV link, Base64, or text found for this candidate.");
     }
   };
 
   const handleView = () => {
+    // If we have base64, we can open it in a new window/tab
+    if (candidate.cvBase64) {
+        const win = window.open();
+        if (win) {
+            win.document.write(`<iframe src="${candidate.cvBase64}" frameborder="0" style="border:0; top:0px; left:0px; bottom:0px; right:0px; width:100%; height:100%;" allowfullscreen></iframe>`);
+            return;
+        }
+    }
+
     const finalUrl = cvUrl || candidate.url;
     if (finalUrl) {
       window.open(finalUrl, '_blank');
