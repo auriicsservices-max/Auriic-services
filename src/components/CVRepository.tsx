@@ -117,39 +117,20 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
             <div className="flex flex-col gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
               {(c.url || c.cid) && (
                   <div className="flex flex-col gap-2">
-                    <a 
-                      href={c.url || '#'}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      onClick={(e) => {
-                          if (!c.url) {
-                              e.preventDefault();
-                              onSelect?.(c);
-                          } else {
-                              e.stopPropagation();
-                          }
-                      }}
+                    <button 
+                      onClick={() => onSelect?.(c)}
                       className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 text-[10px] font-black uppercase tracking-wider hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
                     >
                         <ExternalLink size={12} />
                         View
-                    </a>
-                    <a 
-                      href={c.url || '#'}
-                      download
-                      onClick={(e) => {
-                          if (!c.url) {
-                              e.preventDefault();
-                              onSelect?.(c);
-                          } else {
-                              e.stopPropagation();
-                          }
-                      }}
+                    </button>
+                    <button 
+                      onClick={() => onSelect?.(c)}
                       className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-300 text-[10px] font-black uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
                     >
                         <Download size={12} />
                         Get
-                    </a>
+                    </button>
                   </div>
               )}
             </div>

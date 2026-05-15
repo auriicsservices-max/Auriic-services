@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAuth } from '../contexts/AuthContext';
-import { auth, db } from '../lib/firebase';
+import { auth, db, getFirebaseStorage } from '../lib/firebase';
 import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs, limit, getDocFromServer, getDoc, QuerySnapshot } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useDropzone } from 'react-dropzone';
 import { extractTextFromPDF, extractTextFromDocx, parseResumeHeuristically, ParsedResume } from '../lib/localParser';
 import { GoogleGenAI, Type } from "@google/genai";
@@ -518,7 +519,23 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           formData.append('phone', parsed.contact.phone);
         }
 
-        let result = { status: false, data: { id: null, url: null, name: parsed.name || file.name }, message: '' };
+        let result = { status: false, data: { id: null, url: null as string | null, name: parsed.name || file.name }, message: '' };
+        
+        // Attempt Firebase Storage Upload first for reliable file storage
+        try {
+          const storageInstance = getFirebaseStorage();
+          if (storageInstance) {
+            const storageRef = ref(storageInstance, `candidates/${user?.uid || 'guest'}/${Date.now()}_${file.name}`);
+            await uploadBytes(storageRef, file);
+            const downloadUrl = await getDownloadURL(storageRef);
+            result.data.url = downloadUrl;
+          } else {
+            console.warn('Firebase Storage is not initialized, skipping storage upload');
+          }
+        } catch (storageErr) {
+          console.warn('Firebase Storage upload failed:', storageErr);
+        }
+
         try {
           const response = await fetch('/api/cv/upload', {
             method: 'POST',
@@ -527,7 +544,12 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           
           if (response.ok) {
             const data = await response.json();
-            result = data;
+            // Merge results, keeping storage URL if Aurrum API doesn't provide one
+            if (data.data) {
+              result.data.id = data.data.id || result.data.id;
+              result.data.name = data.data.name || result.data.name;
+              if (data.data.url) result.data.url = data.data.url;
+            }
           } else {
             console.warn('API upload response not OK:', response.status);
           }
