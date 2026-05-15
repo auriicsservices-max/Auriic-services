@@ -526,7 +526,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           const storageInstance = getFirebaseStorage();
           if (storageInstance) {
             const storageRef = ref(storageInstance, `candidates/${user?.uid || 'guest'}/${Date.now()}_${file.name}`);
-            await uploadBytes(storageRef, file);
+            // Explicitly set content type to preserve file format
+            const metadata = {
+              contentType: file.type,
+              customMetadata: {
+                'originalName': file.name,
+                'uploadedBy': user?.uid || 'system'
+              }
+            };
+            await uploadBytes(storageRef, file, metadata);
             const downloadUrl = await getDownloadURL(storageRef);
             result.data.url = downloadUrl;
           } else {
@@ -589,6 +597,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
         const newCandidateRef = await addDoc(collection(db, 'candidates'), {
           fullName: result.data?.name || parsed.name || file.name,
+          originalFileName: file.name,
+          url: result.data.url,
           email: (parsed.contact.email || 'pending@aurrum.co').toLowerCase(),
           phone: parsed.contact.phone || '',
           location: parsed.contact.linkedin || '', // Use linkedin as a proxy if location missing in contact

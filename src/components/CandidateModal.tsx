@@ -173,10 +173,11 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     const finalUrl = cvUrl || candidate.url;
     if (finalUrl) {
       try {
-        // High-fidelity naming for download
-        const fileName = `${candidate.fullName?.replace(/\s+/g, '_') || 'Candidate'}_CV.pdf`;
+        // Detect original extension from URL or stored filename
+        const originalName = candidate.originalFileName || 'Resume';
+        const extension = finalUrl.split('?')[0].split('.').pop()?.toLowerCase() || 'pdf';
+        const fileName = `${candidate.fullName?.replace(/\s+/g, '_') || 'Candidate'}_CV.${extension}`;
         
-        // Use direct link approach with a temporary <a> tag for most reliability
         const link = document.createElement('a');
         link.href = finalUrl;
         link.setAttribute('download', fileName);
