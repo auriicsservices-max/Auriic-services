@@ -27,38 +27,44 @@ async function startServer() {
   const adminMessaging = getMessaging();
 
   // Notification Listener
-  adminDb.collection('notifications').onSnapshot(async (snapshot) => {
-    snapshot.docChanges().forEach(async (change) => {
-      if (change.type === 'added') {
-        const notification = change.doc.data();
-        
-        // Filter: Only chat or assignment notifications
-        if (notification.type !== 'chat' && notification.type !== 'assignment') {
-            return;
-        }
-
-        const userId = notification.userId;
-        
-        try {
-          const tokensSnapshot = await adminDb.collection(`users/${userId}/fcmTokens`).get();
-          const tokens = tokensSnapshot.docs.map(doc => doc.data().token);
+  try {
+    adminDb.collection('notifications').onSnapshot(async (snapshot) => {
+      snapshot.docChanges().forEach(async (change) => {
+        if (change.type === 'added') {
+          const notification = change.doc.data();
           
-          if (tokens.length > 0) {
-            const message = {
-              notification: {
-                title: notification.title,
-                body: notification.body
-              },
-              tokens: tokens
-            };
-            await adminMessaging.sendEachForMulticast(message);
+          // Filter: Only chat or assignment notifications
+          if (notification.type !== 'chat' && notification.type !== 'assignment') {
+              return;
           }
-        } catch(err) {
-          console.error('Error sending push notification:', err);
+
+          const userId = notification.userId;
+          
+          try {
+            const tokensSnapshot = await adminDb.collection(`users/${userId}/fcmTokens`).get();
+            const tokens = tokensSnapshot.docs.map(doc => doc.data().token);
+            
+            if (tokens.length > 0) {
+              const message = {
+                notification: {
+                  title: notification.title,
+                  body: notification.body
+                },
+                tokens: tokens
+              };
+              await adminMessaging.sendEachForMulticast(message);
+            }
+          } catch(err) {
+            console.error('Error sending push notification:', err);
+          }
         }
-      }
+      });
+    }, (err) => {
+      console.warn('[Server] Notification listener warning. Push notifications require Admin SDK credentials:', err.message);
     });
-  });
+  } catch(err) {
+    console.error('[Server] Failed to initialize notification listener:', err);
+  }
 
   const app = express();
   const PORT = 3000;
