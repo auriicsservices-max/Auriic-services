@@ -505,8 +505,27 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         addedEmailsInBatch.add(parsed.contact.email);
 
         // Compress text to store in Firebase (saving space)
+        // 1. Convert to Base64 to ensure the file is stored even if storage fails or is blocked by CORS
+        const fileToBase64 = (file: File): Promise<string> => {
+          return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => resolve(reader.result as string);
+            reader.onerror = error => reject(error);
+          });
+        };
+
+        const MAX_BASE64_SIZE = 1000000; // ~1MB Firestore limit
+        let cvBase64 = null;
+        if (file.size < MAX_BASE64_SIZE) {
+          cvBase64 = await fileToBase64(file);
+        } else {
+          console.warn(`[Dashboard] File ${file.name} is too large (${(file.size / 1024).toFixed(1)}KB) for Base64 storage in Firestore.`);
+        }
+
+        // 2. Compress text to store in Firebase (saving space)
         const compressedText = LZString.compressToUTF16(text);
-        const isLargeFile = file.size > 2 * 1024 * 1024; // 2MB+ is "large" for our context
+        const isLargeFile = file.size > MAX_BASE64_SIZE;
         
         // 3. Upload metadata to Aurrum API
         const formData = new FormData();
@@ -521,29 +540,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
         let result = { status: false, data: { id: null, url: null as string | null, name: parsed.name || file.name }, message: '' };
         
-        // Attempt Firebase Storage Upload first for reliable file storage
-        try {
-          const storageInstance = getFirebaseStorage();
-          if (storageInstance) {
-            const storageRef = ref(storageInstance, `candidates/${user?.uid || 'guest'}/${Date.now()}_${file.name}`);
-            // Explicitly set content type to preserve file format
-            const metadata = {
-              contentType: file.type,
-              customMetadata: {
-                'originalName': file.name,
-                'uploadedBy': user?.uid || 'system'
-              }
-            };
-            await uploadBytes(storageRef, file, metadata);
-            const downloadUrl = await getDownloadURL(storageRef);
-            result.data.url = downloadUrl;
-          } else {
-            console.warn('Firebase Storage is not initialized, skipping storage upload');
-          }
-        } catch (storageErr) {
-          console.warn('Firebase Storage upload failed:', storageErr);
-        }
-
+        // NOTE: Firebase Storage upload is skipped to avoid CORS errors reported by user.
+        // We rely on cvBase64 in Firestore and Aurrum API URL instead.
+        
         try {
           const response = await fetch('/api/cv/upload', {
             method: 'POST',
@@ -595,21 +594,10 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
         const projectLinks = parsed.projects?.flatMap(p => p.links.map(l => ({ url: l, label: `Project: ${p.name}` }))) || [];
 
-        // Convert to Base64 to ensure the file is stored even if storage fails
-        const fileToBase64 = (file: File): Promise<string> => {
-          return new Promise((resolve, reject) => {
-            const reader = new FileReader();
-            reader.readAsDataURL(file);
-            reader.onload = () => resolve(reader.result as string);
-            reader.onerror = error => reject(error);
-          });
-        };
-
-        const cvBase64 = await fileToBase64(file);
-
         const newCandidateRef = await addDoc(collection(db, 'candidates'), {
           fullName: result.data?.name || parsed.name || file.name,
           cvBase64: cvBase64,
+          originalFileName: file.name,
           email: (parsed.contact.email || 'pending@aurrum.co').toLowerCase(),
           phone: parsed.contact.phone || '',
           location: parsed.contact.linkedin || '', // Use linkedin as a proxy if location missing in contact
