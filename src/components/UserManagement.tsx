@@ -271,7 +271,7 @@ export default function UserManagement() {
               <UserIcon size={20} />
             </div>
             <div>
-              <h3 className="text-xl font-serif text-[var(--text-primary)]">Aurrum Team Directory</h3>
+              <h3 className="text-xl font-serif text-[var(--text-primary)]">Rectech Team Directory</h3>
               <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">Manage access and authority levels</p>
             </div>
           </div>

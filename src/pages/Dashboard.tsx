@@ -269,9 +269,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             /*
             if (Notification.permission === 'granted') {
               const senderName = teamMembers[newestUnreadMsg.senderId] || 'New Message';
-              new Notification(`Aurrum Chat: ${senderName}`, {
+              new Notification(`Rectech Chat: ${senderName}`, {
                 body: newestUnreadMsg.text || 'Shared an attachment',
-                icon: 'https://aurrum.co/wp-content/uploads/2026/04/Aurrum_Logo-2.png'
+                icon: 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg'
               });
             }
             */
@@ -961,8 +961,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         <div className="p-6 flex items-center justify-between border-b border-[var(--border-color)]">
           <div className="flex items-center gap-3">
             <img 
-              src={theme === 'dark' ? "https://aurrum.co/wp-content/uploads/2026/04/Aurrum-Logo-Golden-BG-1.png" : "https://aurrum.co/wp-content/uploads/2026/04/Aurrum_Logo-2.png"} 
-              alt="Aurrum Logo" 
+              src={theme === 'dark' ? "https://aurrum.co/wp-content/uploads/2026/05/Rectech-white-logo.svg" : "https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg"} 
+              alt="Rectech Logo" 
               className="h-10 w-auto object-contain"
             />
           </div>
@@ -1073,7 +1073,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             }`}
           >
             <MessageSquare className={`w-5 h-5 mr-3 ${activeTab === 'chat' ? 'text-white' : 'text-[var(--accent-teal)]'}`} />
-            Aurrum Chat
+            Rectech Chat
             {unreadChatCount > 0 && activeTab !== 'chat' && (
               <span className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-bounce shadow-lg">
                 {unreadChatCount > 9 ? '9+' : unreadChatCount}
@@ -1206,10 +1206,10 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <button className="lg:hidden p-2 text-[var(--text-secondary)]" onClick={() => setIsSidebarOpen(true)}>
               <Menu size={20} />
             </button>
-            <span className="hidden md:block cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" onClick={() => setActiveTab('candidates')}>Aurrum CV Parsing Software</span>
+            <span className="hidden md:block cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" onClick={() => setActiveTab('candidates')}>Rectech CV Parsing Software</span>
             <ChevronRight className="hidden md:block w-3 h-3 text-[var(--text-muted)]" />
             <span className="text-[var(--text-primary)] italic font-serif normal-case text-base tracking-normal">
-              {activeTab === 'candidates' ? 'Candidates Database' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'chat' ? 'Aurrum Chat' : activeTab === 'repository' ? 'CV Repository' : activeTab === 'upload' ? 'CV Parsing' : 'Dashboard Home'}
+              {activeTab === 'candidates' ? 'Candidates Database' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'chat' ? 'Rectech Chat' : activeTab === 'repository' ? 'CV Repository' : activeTab === 'upload' ? 'CV Parsing' : 'Dashboard Home'}
             </span>
           </div>
           <div className="flex items-center gap-4">

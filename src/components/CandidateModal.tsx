@@ -298,7 +298,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               
           new Notification(title, {
               body,
-              icon: 'https://aurrum.co/wp-content/uploads/2026/04/Aurrum_Logo-2.png'
+              icon: 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg'
           });
       }
       
@@ -573,7 +573,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                       disabled={isFetchingCV}
                       className="text-xs font-bold text-emerald-700 dark:text-emerald-300 hover:underline text-left truncate"
                     >
-                      {isFetchingCV ? 'Finding latest Aurrum CV...' : 'Download Original Attachment'}
+                      {isFetchingCV ? 'Finding latest Rectech CV...' : 'Download Original Attachment'}
                     </button>
                   </div>
                 )}

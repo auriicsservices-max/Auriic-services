@@ -60,14 +60,14 @@ export default function Login() {
       <div className="bg-white dark:bg-slate-900 p-10 rounded-[2rem] shadow-xl w-full max-w-sm border border-slate-100 dark:border-slate-800 transition-all duration-300">
         <div className="flex justify-center mb-8">
           <img 
-            src={theme === 'dark' ? "https://aurrum.co/wp-content/uploads/2026/04/Aurrum-Logo-Golden-BG-1.png" : "https://aurrum.co/wp-content/uploads/2026/04/Aurrum_Logo-2.png"} 
-            alt="Aurrum Logo" 
+            src={theme === 'dark' ? "https://aurrum.co/wp-content/uploads/2026/05/Rectech-white-logo.svg" : "https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg"} 
+            alt="Rectech Logo" 
             className="h-16 w-auto object-contain"
           />
         </div>
         
         <div className="text-center mb-8">
-          <h1 className="text-2xl font-serif italic text-slate-900 dark:text-white tracking-tight">Aurrum Portal</h1>
+          <h1 className="text-2xl font-serif italic text-slate-900 dark:text-white tracking-tight">Rectech Portal</h1>
           <p className="text-indigo-600 dark:text-indigo-400 font-bold uppercase tracking-widest text-[9px] mt-2">Precision Talent Acquisition</p>
         </div>
         

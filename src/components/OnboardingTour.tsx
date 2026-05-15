@@ -8,7 +8,7 @@ interface TourStep {
 }
 
 const steps: TourStep[] = [
-  { title: "Welcome to Aurrum 🚀", description: "Let's take a quick tour to help you understand how to use the platform.", targetId: "sidebar-nav" },
+  { title: "Welcome to Rectech 🚀", description: "Let's take a quick tour to help you understand how to use the platform.", targetId: "sidebar-nav" },
   { title: "Sidebar Navigation", description: "This is your main navigation menu. Access Dashboard, Candidates, Shortlist, Insights, Chat, and Profile.", targetId: "sidebar-nav" },
   { title: "Dashboard Overview", description: "Your dashboard gives a real-time overview of candidates, activity, and progress.", targetId: "dashboard-home-container" },
   { title: "Upload CV", description: "Upload CVs directly from the sidebar. Our system will automatically parse and extract candidate data.", targetId: "sidebar-upload-area" },

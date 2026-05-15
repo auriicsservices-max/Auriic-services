@@ -283,7 +283,7 @@ export default function InternalChat({ teamMembers, initialRecipientId }: Intern
       {/* Sidebar - Users List */}
       <aside className="w-80 border-r border-[var(--border-color)] flex flex-col bg-[var(--sidebar-bg)] font-sans">
         <div className="p-6 border-b border-[var(--border-color)]">
-          <h2 className="text-xl font-serif text-[var(--text-primary)] mb-4">Aurrum Message Hub</h2>
+          <h2 className="text-xl font-serif text-[var(--text-primary)] mb-4">Rectech Message Hub</h2>
           <div className="relative">
             <Search className="absolute left-3 top-2.5 text-[var(--text-muted)]" size={16} />
             <input 
@@ -339,7 +339,7 @@ export default function InternalChat({ teamMembers, initialRecipientId }: Intern
             <div className="w-24 h-24 bg-indigo-50 dark:bg-indigo-900/20 rounded-full flex items-center justify-center text-indigo-600 dark:text-indigo-400 mb-6 animate-pulse">
               <MessageSquare size={40} />
             </div>
-            <h3 className="text-2xl font-serif text-[var(--text-primary)] italic">Aurrum Secure Channel</h3>
+            <h3 className="text-2xl font-serif text-[var(--text-primary)] italic">Rectech Secure Channel</h3>
             <p className="text-sm text-[var(--text-muted)] mt-2 max-w-xs">Select a team member to begin a private intelligence transmission.</p>
           </div>
         ) : (
