@@ -57,6 +57,8 @@ import {
   Settings
 } from 'lucide-react';
 
+import MigrationTool from '../components/MigrationTool';
+
 export default function Dashboard() {
   const { user, role, quotaExceeded, setQuotaExceeded, isPrivileged } = useAuth();
   const { theme } = useTheme();
@@ -1737,7 +1739,10 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           ) : activeTab === 'logs' ? (
             <LogReview />
           ) : activeTab === 'settings' ? (
-            <SystemSettings />
+            <div className="space-y-6">
+               <MigrationTool />
+               <SystemSettings />
+            </div>
           ) : (
             <UserManagement />
           )}

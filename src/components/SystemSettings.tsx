@@ -16,8 +16,10 @@ export default function SystemSettings() {
         if (docSnap.exists()) {
           setLimit(docSnap.data().bulkUploadLimit || 20);
         }
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error fetching settings:", err);
+        const errMsg = err instanceof Error ? err.message : String(err);
+        setMessage({ type: 'error', text: `Failed to fetch settings: ${errMsg}` });
       }
     };
     fetchSettings();
@@ -32,9 +34,11 @@ export default function SystemSettings() {
         updatedAt: new Date().toISOString()
       }, { merge: true });
       setMessage({ type: 'success', text: 'Settings updated successfully!' });
-    } catch (err) {
+    } catch (err: any) {
       console.error("Error saving settings:", err);
-      setMessage({ type: 'error', text: 'Failed to update settings.' });
+      // Format error to show it in the UI if we get missing permissions
+      const errMsg = err instanceof Error ? err.message : String(err);
+      setMessage({ type: 'error', text: `Failed to update settings: ${errMsg}` });
     } finally {
       setIsSaving(false);
     }

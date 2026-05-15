@@ -44,7 +44,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const userDocRef = doc(db, 'users', authenticatedUser.uid);
           const userDoc = await getDoc(userDocRef);
           
-          const isAdminEmail = authenticatedUser.email === 'darshanwala894@gmail.com' || authenticatedUser.email === 'auriicsservices@gmail.com';
+          const isAdminEmail = authenticatedUser.email === 'darshanwala894@gmail.com' || authenticatedUser.email === 'auriicsservices@gmail.com' || authenticatedUser.email === 'mayur.jungi@aurrum.co';
           
           if (!userDoc.exists()) {
             const inviteDocRef = doc(db, 'invitations', authenticatedUser.email!);
@@ -98,12 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           window.removeEventListener('beforeunload', handleOffline);
         }
       } catch (err: any) {
-        console.error("Auth initialization error detail:", {
-          code: err.code,
-          message: err.message,
-          stack: err.stack,
-          authenticatedUser: authenticatedUser?.uid
-        });
+        console.error("Auth initialization error:", err);
         if (err.code === 'resource-exhausted') setQuotaExceeded(true);
       } finally {
         setLoading(false);

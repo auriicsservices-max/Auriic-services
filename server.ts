@@ -4,6 +4,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import fs from 'fs';
+import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
 import { initializeApp, getApps } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
@@ -22,7 +23,7 @@ async function startServer() {
     });
   }
 
-  const adminDb = getFirestore('aurrum-production');
+  const adminDb = getFirestore(firebaseConfig.firestoreDatabaseId);
   const adminMessaging = getMessaging();
 
   // Notification Listener
@@ -57,8 +58,6 @@ async function startServer() {
         }
       }
     });
-  }, (err) => {
-    console.error('Firestore notification listener error:', err);
   });
 
   const app = express();
