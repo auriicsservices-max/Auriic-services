@@ -100,6 +100,7 @@ export class ResumeParserService {
         const prompt = `
           Extract structured data from the following resume text. 
           Respond in JSON format.
+          Specifically identify the candidate's "domainFocus" (e.g., IT, Healthcare, Finance, Sales, Marketing, HR, Operations, Engineering, etc.).
         `;
 
         const response = await this.genAI!.models.generateContent({
@@ -122,6 +123,7 @@ export class ResumeParserService {
                         }
                     },
                     profile: { type: Type.STRING },
+                    domainFocus: { type: Type.STRING, description: "Main professional domain (IT, Healthcare, etc.)" },
                     totalExperienceYears: { type: Type.NUMBER },
                     education: {
                         type: Type.ARRAY,
@@ -181,8 +183,39 @@ export class ResumeParserService {
         const resultText = response.text;
         if (!resultText) throw new Error("Empty response from Gemini");
         
-        const parsed = JSON.parse(resultText);
+        let parsed = JSON.parse(resultText);
         parsed.rawText = text;
+
+        // Skill Normalization and Deduplication
+        const normalizeSkill = (s: string) => {
+          let normalized = s.trim();
+          const lower = normalized.toLowerCase();
+          
+          // Common normalization rules
+          if (lower === 'react.js' || lower === 'reactjs') return 'React';
+          if (lower === 'node.js' || lower === 'nodejs') return 'Node.js';
+          if (lower === 'vue.js' || lower === 'vuejs') return 'Vue.js';
+          if (lower === 'javascript' || lower === 'js') return 'JavaScript';
+          if (lower === 'typescript' || lower === 'ts') return 'TypeScript';
+          
+          // Title case for others if they are single words and not already capitalized
+          if (normalized.length > 0 && !normalized.includes(' ') && normalized === lower) {
+            return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+          }
+          
+          return normalized;
+        };
+
+        if (parsed.skills) {
+          Object.keys(parsed.skills).forEach(category => {
+            if (Array.isArray(parsed.skills[category])) {
+              const uniqueNormalized = Array.from(new Set(
+                (parsed.skills[category] as string[]).map(s => normalizeSkill(s))
+              ));
+              parsed.skills[category] = uniqueNormalized;
+            }
+          });
+        }
         
         return ResumeSchema.parse(parsed);
       } catch (error: any) {

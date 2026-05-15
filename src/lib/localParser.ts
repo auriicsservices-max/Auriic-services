@@ -90,8 +90,28 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
     achievements: [],
     languages: [],
     interests: [],
-    rawText: text
+    rawText: text,
+    domainFocus: 'Other'
   };
+
+  // 0. Domain Focus Heuristic
+  const domainKeywords: Record<string, RegExp[]> = {
+    'IT': [/software/i, /developer/i, /programmer/i, /engineer/i, /backend/i, /frontend/i, /fullstack/i, /cloud/i, /devops/i, /cybersecurity/i, /data science/i, /it consultant/i],
+    'Healthcare': [/doctor/i, /nurse/i, /medical/i, /healthcare/i, /clinician/i, /hospital/i, /pharmacy/i, /patient care/i],
+    'Finance': [/accounting/i, /finance/i, /audit/i, /banking/i, /investment/i, /ledger/i, /tax/i, /cpa/i, /fintech/i],
+    'Sales': [/sales/i, /account manager/i, /business development/i, /quota/i, /leads/i, /client acquisition/i],
+    'Marketing': [/marketing/i, /seo/i, /content strategy/i, /social media/i, /branding/i, /digital marketing/i, /advertising/i],
+    'HR': [/human resources/i, /talent acquisition/i, /recruitment/i, /payroll/i, /employee relations/i, /staffing/i],
+    'Operations': [/operations manager/i, /supply chain/i, /logistics/i, /operational/i, /process improvement/i],
+    'Engineering': [/mechanical/i, /civil/i, /electrical/i, /structural/i, /manufacturing/i, /industrial engineering/i]
+  };
+
+  for (const [domain, patterns] of Object.entries(domainKeywords)) {
+    if (patterns.some(p => p.test(text))) {
+        resume.domainFocus = domain;
+        break;
+    }
+  }
 
   // 1. Extract Email
   const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i);

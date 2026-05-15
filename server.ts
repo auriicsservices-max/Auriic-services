@@ -6,7 +6,7 @@ import multer from 'multer';
 import fs from 'fs';
 import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
 import { initializeApp, getApps } from 'firebase-admin/app';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { RobustResumeParser } from './src/services/resumeParser.server.ts';
 const resumeParser = new RobustResumeParser();
@@ -64,6 +64,52 @@ async function startServer() {
     });
   } catch(err) {
     console.error('[Server] Failed to initialize notification listener:', err);
+  }
+
+  // Follow-up Reminder Cron Logic
+  setInterval(async () => {
+    const now = new Date();
+    
+    // Query candidates with upcoming follow-ups
+    const candidatesSnapshot = await adminDb.collection('candidates')
+        .where('isArchived', '==', false)
+        .where('followUpDate', '>', now.toISOString())
+        .get();
+
+    candidatesSnapshot.forEach(async (doc) => {
+        const candidate = doc.data();
+        if (!candidate.followUpDate) return;
+        
+        const followUpTime = new Date(candidate.followUpDate);
+        const timeDiff = followUpTime.getTime() - now.getTime();
+        
+        // Reminder 1 Hour Before
+        if (timeDiff > 0 && timeDiff <= 65 * 60 * 1000 && timeDiff >= 55 * 60 * 1000 && !candidate.reminder1HourSent) {
+            await sendReminder(adminDb, candidate, '1 hour before', doc.id);
+            await doc.ref.update({ reminder1HourSent: true });
+        }
+        // Reminder 30 Minutes Before
+        else if (timeDiff > 0 && timeDiff <= 35 * 60 * 1000 && timeDiff >= 25 * 60 * 1000 && !candidate.reminder30MinSent) {
+            await sendReminder(adminDb, candidate, '30 minutes before', doc.id);
+            await doc.ref.update({ reminder30MinSent: true });
+        }
+    });
+
+  }, 5 * 60 * 1000); // Check every 5 mins
+
+  async function sendReminder(db: any, candidate: any, type: string, candidateId: string) {
+    const text = `Follow-up reminder: Candidate ${candidate.fullName} follow-up is scheduled in ${type.split(' ')[0]}`;
+    const purpose = `Detailed notification:\n- Candidate: ${candidate.fullName}\n- Follow Up Time: ${new Date(candidate.followUpDate).toLocaleString()}\n- Reminder Type: ${type}`;
+    
+    await db.collection('notifications').add({
+      text,
+      purpose,
+      type: 'assignment',
+      recipientId: candidate.assignedTo || 'all',
+      relatedCandidateId: candidateId,
+      read: false,
+      createdAt: FieldValue.serverTimestamp()
+    });
   }
 
   const app = express();

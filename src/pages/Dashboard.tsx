@@ -27,7 +27,7 @@ import NotificationBadge from '../components/NotificationBadge';
 import QuotaNotice from '../components/QuotaNotice';
 import LZString from 'lz-string';
 import { useTheme } from '../contexts/ThemeContext';
-import { useNotifications } from '../contexts/NotificationContext';
+import { useNotifications, AppNotification } from '../contexts/NotificationContext';
 import { useTimezone } from '../contexts/TimezoneContext';
 import { 
   Search, 
@@ -55,7 +55,8 @@ import {
   MessageSquare,
   StickyNote,
   Bell,
-  Settings
+  Settings,
+  Download
 } from 'lucide-react';
 
 import MigrationTool from '../components/MigrationTool';
@@ -84,6 +85,7 @@ export default function Dashboard() {
   const [fullTeamList, setFullTeamList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [parsedResults, setParsedResults] = useState<any[]>([]);
   const [uploadProgress, setUploadProgress] = useState({ total: 0, processed: 0, failed: 0 });
   const [parsingStatus, setParsingStatus] = useState<Record<string, string>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
@@ -465,6 +467,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
     setIsProcessing(true);
     setUploadStatus('idle');
+    setParsedResults([]); // Clear previous results
     setDuplicateNotification({ isOpen: false, message: '' });
     setUploadProgress({ total: acceptedFiles.length, processed: 0, failed: 0 });
     
@@ -594,15 +597,23 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
         const projectLinks = parsed.projects?.flatMap(p => p.links.map(l => ({ url: l, label: `Project: ${p.name}` }))) || [];
 
-        const newCandidateRef = await addDoc(collection(db, 'candidates'), {
+        const candidateData = {
           fullName: result.data?.name || parsed.name || file.name,
+          email: parsed.contact.email,
+          domainFocus: parsed.domainFocus || 'Other',
+          skills: allSkills,
+          followUpDate: (parsed as any).followUpDate || null
+        };
+        setParsedResults(prev => [...prev, candidateData]);
+
+        const newCandidateRef = await addDoc(collection(db, 'candidates'), {
+          ...candidateData,
           cvBase64: cvBase64,
           originalFileName: file.name,
           email: (parsed.contact.email || 'pending@aurrum.co').toLowerCase(),
           phone: parsed.contact.phone || '',
           location: parsed.contact.linkedin || '', // Use linkedin as a proxy if location missing in contact
           summary: parsed.profile || '', 
-          skills: allSkills,
           categorizedSkills: parsed.skills, // Full structured data
           experience: normalizedExperience,
           education: normalizedEducation,
@@ -935,7 +946,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     if (candidate.isArchived) return false;
     if (!searchQuery.trim()) return true;
     const terms = searchQuery.toLowerCase().split(/\s+/);
-    const searchableText = `${candidate.fullName} ${candidate.domain} ${candidate.summary} ${candidate.skills?.join(' ')} ${candidate.notes || ''} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''} ${teamMembers[candidate.followUpUpdatedBy] || ''}`.toLowerCase();
+    const searchableText = `${candidate.fullName} ${candidate.domainFocus || ''} ${candidate.domain || ''} ${candidate.summary} ${candidate.skills?.join(' ')} ${candidate.notes || ''} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''} ${teamMembers[candidate.followUpUpdatedBy] || ''}`.toLowerCase();
     return terms.every(term => searchableText.includes(term));
   });
 
@@ -1233,14 +1244,23 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   <p className="text-xs text-[var(--text-muted)]">No new notifications</p>
                 ) : (
                   <div className="space-y-3">
-                    {notifications.map((n: any) => (
+                    {notifications.map((n: AppNotification) => (
                       <div 
                         key={n.id} 
                         onClick={() => !n.read && markAsRead(n.id)}
-                        className={`text-xs p-2 rounded-xl transition-all cursor-pointer ${n.read ? 'text-[var(--text-secondary)] opacity-60' : 'text-[var(--text-primary)] bg-indigo-50/50 dark:bg-indigo-900/10 border-l-2 border-indigo-500'} flex flex-col gap-1`}
+                        className={`text-xs p-3 rounded-2xl transition-all cursor-pointer ${n.read ? 'bg-slate-50 dark:bg-slate-900/50' : 'bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-500'}`}
                       >
-                        <p>{n.text}</p>
-                        <span className="text-[10px] text-[var(--text-muted)]">{formatDate(n.createdAt?.toDate())}</span>
+                        <div className="flex items-center gap-2 mb-1.5">
+                            <span className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900 grid place-items-center text-[10px] font-bold text-indigo-700 dark:text-indigo-300">
+                                {n.senderName?.charAt(0) || '?'}
+                            </span>
+                            <div className="flex-1">
+                                <p className="font-bold text-[var(--text-primary)] leading-tight">{n.senderName} <span className="font-normal text-[var(--text-muted)] text-[10px]">({n.senderRole})</span></p>
+                                <p className="text-[9px] text-[var(--text-muted)] mt-0.5">{formatDate(n.createdAt?.toDate())}</p>
+                            </div>
+                        </div>
+                        <p className="font-medium text-[var(--text-secondary)]">{n.action} {n.candidateName} for {n.recipientName} ({n.recipientRole})</p>
+                        <p className="text-[10px] bg-white/50 dark:bg-black/20 p-1.5 rounded mt-2">{n.purpose}</p>
                       </div>
                     ))}
                   </div>
@@ -1306,7 +1326,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           ) : activeTab === 'repository' ? (
             <CVRepository candidates={activeCandidates} onSelect={setSelectedCandidate} />
           ) : activeTab === 'upload' ? (
-            <BulkUpload onUpload={onDrop} isProcessing={isProcessing} />
+            <BulkUpload onUpload={onDrop} isProcessing={isProcessing} parsedCandidates={parsedResults} />
           ) : activeTab === 'candidates' ? (
             <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
@@ -1323,7 +1343,36 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   </div>
                 </div>
                 {role === 'recruiter' && (
-                  <div className="flex p-1 bg-[var(--sidebar-bg)] rounded-xl transition-colors duration-300 border border-[var(--border-color)]">
+                  <div className="flex p-1 bg-[var(--sidebar-bg)] rounded-xl transition-colors duration-300 border border-[var(--border-color)] overflow-x-auto whitespace-nowrap">
+                    <button 
+                      onClick={() => {
+                        const headers = ['FullName', 'Email', 'Phone', 'Domain Focus', 'Skills', 'Shortlisted', 'Follow Up Date', 'Follow Up Note', 'Summary'];
+                        const csvData = activeCandidates.map(c => [
+                          `"${c.fullName || ''}"`,
+                          `"${c.email || ''}"`,
+                          `"${c.phone || ''}"`,
+                          `"${c.domainFocus || c.domain || ''}"`,
+                          `"${(c.skills || []).join(', ')}"`,
+                          `"${c.isShortlisted ? 'Yes' : 'No'}"`,
+                          `"${c.followUpDate || ''}"`,
+                          `"${(c.followUpNote || '').replace(/"/g, '""')}"`,
+                          `"${(c.summary || '').replace(/"/g, '""')}"`
+                        ].join(','));
+                        
+                        const csvContent = [headers.join(','), ...csvData].join('\n');
+                        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+                        const link = document.createElement('a');
+                        link.href = URL.createObjectURL(blob);
+                        link.setAttribute('download', `Rectech_Candidates_${new Date().toISOString().split('T')[0]}.csv`);
+                        document.body.appendChild(link);
+                        link.click();
+                        document.body.removeChild(link);
+                      }}
+                      className="px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all text-emerald-600 dark:text-emerald-300 hover:bg-emerald-50 dark:hover:bg-emerald-900/40 flex items-center gap-2"
+                    >
+                      <Download size={12} />
+                      Export CSV
+                    </button>
                     <button 
                       onClick={() => setViewScope('mine')}
                       className={`px-4 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all ${viewScope === 'mine' ? 'bg-[var(--card-bg)] text-indigo-600 dark:text-indigo-300 shadow-sm border border-[var(--border-color)]' : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'}`}
@@ -1369,7 +1418,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                     <Clock size={20} />
                   </div>
                   <div>
-                    <p className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-0.5">Follow-up Reminder</p>
+                    <p className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-0.5">Follow Up Reminder</p>
                     <h3 className={`text-2xl font-bold tracking-tight ${
                       activeCandidates.some(c => c.followUpDate && !c.notes && new Date(c.followUpDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0])
                         ? 'text-red-600 dark:text-red-400'
@@ -1439,7 +1488,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                         <th className="px-6 py-4">Domain Focus</th>
                         <th className="px-6 py-4">Competencies</th>
                         <th className="px-6 py-4">Uploaded By</th>
-                        <th className="px-6 py-4 text-right">Reference</th>
+                        <th className="px-6 py-4">Follow Up</th>
+                        <th className="px-6 py-4 text-right">Actions</th>
                       </tr>
                     </thead>
                     <tbody className="text-sm text-[var(--text-secondary)] divide-y divide-[var(--border-color)] transition-colors duration-300">
@@ -1483,7 +1533,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                             </td>
                             <td className="px-6 py-4">
                               <div className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">
-                                {candidate.domain || 'Unsorted'}
+                                {candidate.domainFocus || candidate.domain || 'Unsorted'}
                               </div>
                             </td>
                             <td className="px-6 py-4">
@@ -1510,46 +1560,33 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                                 </span>
                               </div>
                             </td>
-                            <td className="px-6 py-4 text-right">
-                              <div className="flex items-center justify-end gap-3">
+                            <td className="px-6 py-4">
+                              <div className="flex items-center gap-2">
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
-                                  className={`p-1.5 rounded-lg transition-all relative ${isFollowUpDue ? 'animate-blink-red bg-red-50 dark:bg-red-900/20' : candidate.followUpDate ? 'text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-800' : 'text-[var(--text-muted)] hover:text-indigo-500 dark:hover:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/20'}`}
-                                  title={candidate.followUpNote || 'Add Follow-up'}
+                                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider ${isFollowUpDue ? 'bg-red-500 text-white animate-pulse' : candidate.followUpDate ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' : 'bg-slate-50 text-slate-400 dark:bg-slate-800'}`}
                                 >
-                                  <Clock size={14} />
-                                  {candidate.followUpNote && (
-                                    <div className="absolute -top-12 right-0 w-48 p-2 bg-indigo-900 text-white text-[8px] rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity shadow-xl z-20 border border-indigo-700 italic">
-                                      Reminder: "{candidate.followUpNote.slice(0, 80)}..."
-                                    </div>
-                                  )}
-                                  {candidate.followUpUpdatedBy && (
-                                    <div className="absolute -top-7 right-0 bg-slate-800 dark:bg-slate-700 text-white text-[8px] px-1.5 py-0.5 rounded opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity whitespace-nowrap z-10 border border-slate-700 dark:border-slate-600">
-                                      By: {teamMembers[candidate.followUpUpdatedBy] || 'System'}
-                                    </div>
-                                  )}
+                                  <Clock size={12} />
+                                  {candidate.followUpDate ? formatDate(candidate.followUpDate) : 'No Date'}
                                 </button>
-                                {isPrivileged && (
-                                  <button 
-                                    onClick={(e) => handleArchiveCandidate(e, candidate.id)}
-                                    className="p-1.5 text-[var(--text-muted)] hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-lg transition-all opacity-0 group-hover:opacity-100"
-                                    title="Move to Trash"
-                                  >
-                                    <Trash2 size={14} />
-                                  </button>
-                                )}
-                                <button 
-                                  onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
-                                  className="text-[10px] font-black text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 uppercase tracking-widest transition-colors flex items-center gap-1 ml-1"
-                                >
-                                  Details <ChevronRight size={12} />
-                                </button>
-                                {candidate.notes && (
-                                  <div className="absolute -top-12 right-0 w-48 p-2 bg-slate-800 text-white text-[9px] rounded-lg opacity-0 group-hover:opacity-100 pointer-events-none transition-opacity shadow-xl z-20 border border-slate-700 italic">
-                                    "{candidate.notes.slice(0, 80)}..."
-                                  </div>
-                                )}
                               </div>
+                            </td>
+                            <td className="px-6 py-4 text-right space-x-2">
+                              {isPrivileged && (
+                                <button 
+                                  onClick={(e) => handleArchiveCandidate(e, candidate.id)}
+                                  className="p-1.5 text-[var(--text-muted)] hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-lg transition-all opacity-0 group-hover:opacity-100"
+                                  title="Move to Trash"
+                                >
+                                  <Trash2 size={14} />
+                                </button>
+                              )}
+                              <button 
+                                onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
+                                className="text-[10px] font-black text-indigo-400 hover:text-indigo-600 dark:hover:text-indigo-300 uppercase tracking-widest transition-colors inline-flex items-center gap-1"
+                              >
+                                Details <ChevronRight size={12} />
+                              </button>
                             </td>
                           </tr>
                         );

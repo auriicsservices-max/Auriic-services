@@ -348,9 +348,15 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                     {candidate.isShortlisted ? <Star fill="currentColor" size={20} /> : <StarOff size={20} />}
                   </button>
                 </div>
-                <p className="text-indigo-600 dark:text-indigo-400 font-bold text-sm uppercase tracking-widest mt-1">
-                  {candidate.domain || 'Uncategorized Domain'}
-                </p>
+                <div className="flex items-center gap-2 mt-1">
+                  <p className="text-indigo-600 dark:text-indigo-400 font-bold text-sm uppercase tracking-widest">
+                    {candidate.domainFocus || candidate.domain || 'Uncategorized Domain'}
+                  </p>
+                  <span className="text-[var(--text-muted)] text-[10px]">•</span>
+                  <p className="text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-widest">
+                    {candidate.domain || 'General Focus'}
+                  </p>
+                </div>
               </div>
             </div>
             <div className="flex gap-2">
@@ -536,16 +542,8 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               </h3>
               <div className="flex flex-wrap gap-2 mb-4">
                 {skills.map((skill: string) => (
-                  <span key={skill} className="group px-3 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 transition-all">
+                  <span key={skill} className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 transition-all">
                     {skill}
-                    {(isPrivileged || role === 'recruiter') && (
-                      <button 
-                        onClick={() => handleRemoveSkill(skill)}
-                        className="opacity-0 group-hover:opacity-100 hover:text-red-500 transition-all"
-                      >
-                        <X size={10} />
-                      </button>
-                    )}
                   </span>
                 ))}
               </div>
@@ -691,7 +689,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             <section className="bg-indigo-50 dark:bg-indigo-950 p-6 rounded-3xl text-slate-900 dark:text-indigo-100 border border-indigo-100 dark:border-indigo-900">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300 flex items-center gap-2">
-                  <Clock size={12} /> Follow-up Reminder
+                  <Clock size={12} /> Follow Up Reminder
                 </h3>
                 {candidate.followUpUpdatedBy && (
                   <span className="text-[9px] font-bold text-indigo-700 dark:text-indigo-400 uppercase tracking-tighter shrink-0">
@@ -701,11 +699,11 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               </div>
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold uppercase text-indigo-800 dark:text-indigo-200 ml-1 tracking-wider">Next Follow-up Date</label>
+                  <label className="text-[9px] font-bold uppercase text-indigo-800 dark:text-indigo-200 ml-1 tracking-wider">Next Follow Up Date</label>
                   <div className="relative">
                     <Calendar className="absolute left-3 top-2.5 text-indigo-600 dark:text-indigo-400" size={14} />
                     <input 
-                      type="date" 
+                      type="datetime-local" 
                       value={followUpDate}
                       onChange={(e) => setFollowUpDate(e.target.value)}
                       className="w-full bg-white dark:bg-indigo-900 border border-indigo-200 dark:border-indigo-700 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
@@ -713,7 +711,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-bold uppercase text-indigo-800 dark:text-indigo-200 ml-1 tracking-wider">Follow-up Note</label>
+                  <label className="text-[9px] font-bold uppercase text-indigo-800 dark:text-indigo-200 ml-1 tracking-wider">Follow Up Note</label>
                   <textarea 
                     value={followUpNote}
                     onChange={(e) => setFollowUpNote(e.target.value)}
@@ -727,7 +725,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   className="w-full py-2 bg-indigo-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isSaving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} 
-                  Update Reminder
+                  Update Follow Up
                 </button>
               </div>
             </section>

@@ -35,20 +35,23 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
   // keeping it for debugging as per requirements.
 }
 
-interface Notification {
+export interface AppNotification {
   id: string;
-  text: string;
   senderId: string;
   senderName: string;
-  senderRole: string;
+  senderRole: string; // admin, team_leader, recruiter
   recipientId: string;
-  relatedCandidateId?: string;
+  recipientName: string;
+  recipientRole: string;
+  candidateName: string;
+  action: string; // Created, Assigned, Shortlisted, Rejection, Note Added
+  purpose: string;
   createdAt: Timestamp;
   read: boolean;
 }
 
 interface NotificationContextType {
-  notifications: Notification[];
+  notifications: AppNotification[];
   unreadCount: number;
   markAsRead: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
@@ -63,7 +66,7 @@ const NotificationContext = createContext<NotificationContextType>({
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
   const { user, role } = useAuth();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   useEffect(() => {
@@ -85,10 +88,10 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     }
 
     const unsub = onSnapshot(q, (snapshot) => {
-      const allNotifs: Notification[] = snapshot.docs.map(doc => ({
+      const allNotifs: AppNotification[] = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      } as Notification));
+      } as AppNotification));
       
       setNotifications(allNotifs);
       const unread = allNotifs.filter(n => !n.read).length;

@@ -115,7 +115,7 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
             </div>
 
             <div className="flex flex-col gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-              {(c.url || c.cid) && (
+              {(c.url || c.cid || c.cvBase64) && (
                   <div className="flex flex-col gap-2">
                     <button 
                       onClick={() => onSelect?.(c)}
@@ -125,11 +125,34 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                         View
                     </button>
                     <button 
-                      onClick={() => onSelect?.(c)}
+                      onClick={() => {
+                        const fileName = `${c.fullName?.replace(/\s+/g, '_') || 'Candidate'}_CV`;
+                        if (c.cvBase64) {
+                          const link = document.createElement('a');
+                          link.href = c.cvBase64;
+                          link.setAttribute('download', `${fileName}.pdf`);
+                          document.body.appendChild(link);
+                          link.click();
+                          document.body.removeChild(link);
+                        } else {
+                          const finalUrl = c.url;
+                          if (finalUrl) {
+                            const link = document.createElement('a');
+                            link.href = finalUrl;
+                            link.setAttribute('download', fileName);
+                            link.setAttribute('target', '_blank');
+                            document.body.appendChild(link);
+                            link.click();
+                            document.body.removeChild(link);
+                          } else {
+                            onSelect?.(c);
+                          }
+                        }
+                      }}
                       className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-300 text-[10px] font-black uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
                     >
                         <Download size={12} />
-                        Get
+                        Download
                     </button>
                   </div>
               )}

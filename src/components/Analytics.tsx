@@ -63,12 +63,29 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
 
   // Process domain data
   const domainDataMap = candidates.reduce((acc: any, c) => {
-    const domain = c.domain || 'Uncategorized';
+    const domain = c.domainFocus || c.domain || 'Uncategorized';
     acc[domain] = (acc[domain] || 0) + 1;
     return acc;
   }, {});
 
   const domainChartData = Object.entries(domainDataMap).map(([name, value]) => ({ name, value }));
+
+  // Detailed Activity Flow data
+  const activityFlowData = last7Days.map(date => {
+    const dailyLogs = activityLogs.filter(log => {
+      const timestamp = log.timestamp?.toDate ? log.timestamp.toDate().toISOString() : (log.timestamp || '');
+      return typeof timestamp === 'string' && timestamp.startsWith(date);
+    });
+
+    return {
+      date: date.split('-').slice(1).join('/'),
+      uploads: dailyLogs.filter(l => l.action?.toLowerCase().includes('upload')).length,
+      parsing: dailyLogs.filter(l => l.action?.toLowerCase().includes('parse')).length,
+      assignments: dailyLogs.filter(l => l.action?.toLowerCase().includes('assign')).length,
+      shortlists: dailyLogs.filter(l => l.action?.toLowerCase().includes('shortlist')).length,
+      notes: dailyLogs.filter(l => l.action?.toLowerCase().includes('note')).length,
+    };
+  });
 
   // Shortlist conversion data
   const shortlistedCount = candidates.filter(c => c.isShortlisted).length;
@@ -179,18 +196,21 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
 
         {/* Workflow Dynamics */}
         <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm flex flex-col font-sans">
-          <h3 className="text-xl font-serif text-[var(--text-primary)] mb-6">Workflow Dynamics</h3>
+          <h3 className="text-xl font-serif text-[var(--text-primary)] mb-6">Activity Flow</h3>
           <div className="h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={actionChartData} cx="50%" cy="50%" innerRadius={70} outerRadius={100} paddingAngle={5} dataKey="value">
-                  {actionChartData.map((_, index) => (
-                    <Cell key={`cell-${index}`} fill={COLORS[(index + 2) % COLORS.length]} />
-                  ))}
-                </Pie>
+              <BarChart data={activityFlowData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
+                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
                 <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)' }} />
                 <Legend />
-              </PieChart>
+                <Bar dataKey="uploads" stackId="a" fill="#4F46E5" />
+                <Bar dataKey="parsing" stackId="a" fill="#10B981" />
+                <Bar dataKey="assignments" stackId="a" fill="#F59E0B" />
+                <Bar dataKey="shortlists" stackId="a" fill="#EF4444" />
+                <Bar dataKey="notes" stackId="a" fill="#8B5CF6" />
+              </BarChart>
             </ResponsiveContainer>
           </div>
         </section>
@@ -212,11 +232,11 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
                     ))}
                 </div>
             </div>
-            <div className="lg:col-span-2 h-[400px]">
+            <div className="lg:col-span-2 h-[600px]">
                  <ResponsiveContainer width="100%" height="100%">
-                    <BarChart data={allSkillsData.slice(0, 10)} layout="vertical">
+                    <BarChart data={allSkillsData} layout="vertical">
                       <XAxis type="number" hide />
-                      <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
+                      <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={{ backgroundColor: 'var(--card-bg)', borderRadius: '1rem' }} />
                       <Bar dataKey="count" fill="#4F46E5" radius={[0, 10, 10, 0]} barSize={20} />
                     </BarChart>

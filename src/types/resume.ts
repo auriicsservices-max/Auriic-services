@@ -10,6 +10,7 @@ export const ResumeSchema = z.object({
     portfolio: z.string().default(''),
   }),
   profile: z.string().default(''),
+  domainFocus: z.string().default(''),
   totalExperienceYears: z.number().default(0),
   education: z.array(z.object({
     institution: z.string().default(''),
