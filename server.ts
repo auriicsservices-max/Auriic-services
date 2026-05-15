@@ -17,13 +17,16 @@ const _dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(_fi
 
 async function startServer() {
   // Initialize Admin SDK lazily
+  let adminApp;
   if (!getApps().length) {
-    initializeApp({
+    adminApp = initializeApp({
       projectId: 'ai-studio-applet-webapp-ddf84'
     });
+  } else {
+    adminApp = getApps()[0];
   }
 
-  const adminDb = getFirestore(firebaseConfig.firestoreDatabaseId);
+  const adminDb = getFirestore(adminApp);
   const adminMessaging = getMessaging();
 
   // Notification Listener
