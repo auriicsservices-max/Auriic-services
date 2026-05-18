@@ -751,19 +751,28 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         const newCandidateRef = await addDoc(collection(db, 'candidates'), candidateData);
         
         // Notify
-        const recipientUser = fullTeamList.find(u => u.uid === 'all'); // Fallback
-        await createNotification({
-            senderId: user!.uid,
-            senderName: user?.displayName || user?.email?.split('@')[0] || 'System',
-            senderRole: role || 'Recruiter',
-            recipientId: 'all',
-            recipientName: 'Team',
-            recipientRole: 'Staff',
-            candidateName: candidateData.fullName,
-            action: 'Uploaded resume for',
-            purpose: 'New candidate profile created successfully',
-            relatedCandidateId: newCandidateRef.id
-        });
+          const getRoleDisplay = (r: string) => {
+            if (!r) return 'Staff';
+            const low = r.toLowerCase();
+            if (low === 'admin') return 'Admin';
+            if (low === 'team_leader') return 'Team Leader';
+            if (low === 'recruiter') return 'Recruiter';
+            if (low === 'system') return 'System';
+            return r;
+          };
+
+          await createNotification({
+              senderId: user!.uid,
+              senderName: user?.displayName || user?.email?.split('@')[0] || 'System',
+              senderRole: getRoleDisplay(role || 'Recruiter'),
+              recipientId: 'all',
+              recipientName: 'Team',
+              recipientRole: 'Staff',
+              candidateName: candidateData.fullName,
+              action: 'Uploaded resume for',
+              purpose: 'New candidate profile created successfully',
+              relatedCandidateId: newCandidateRef.id
+          });
       }
       
       setParsedResults([]);
@@ -801,10 +810,20 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           const action = !currentStatus ? "Shortlisted candidate" : "Removed from shortlist";
           const purpose = !currentStatus ? "Candidate added to shortlist" : "Candidate removed from shortlist";
           
+          const getRoleDisplay = (r: string) => {
+              if (!r) return 'Staff';
+              const low = r.toLowerCase();
+              if (low === 'admin') return 'Admin';
+              if (low === 'team_leader') return 'Team Leader';
+              if (low === 'recruiter') return 'Recruiter';
+              if (low === 'system') return 'System';
+              return r;
+          };
+
           await createNotification({
               senderId: user!.uid,
               senderName: user?.displayName || user?.email?.split('@')[0] || 'System',
-              senderRole: role || 'Recruiter',
+              senderRole: getRoleDisplay(role || 'Recruiter'),
               recipientId: 'all',
               recipientName: 'Team',
               recipientRole: 'Staff',
@@ -847,10 +866,20 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       
       // Notify
       if (candidate) {
+          const getRoleDisplay = (r: string) => {
+              if (!r) return 'Staff';
+              const low = r.toLowerCase();
+              if (low === 'admin') return 'Admin';
+              if (low === 'team_leader') return 'Team Leader';
+              if (low === 'recruiter') return 'Recruiter';
+              if (low === 'system') return 'System';
+              return r;
+          };
+
           await createNotification({
               senderId: user!.uid,
               senderName: user?.displayName || user?.email?.split('@')[0] || 'System',
-              senderRole: role || 'Recruiter',
+              senderRole: getRoleDisplay(role || 'Recruiter'),
               recipientId: 'all',
               recipientName: 'Team',
               recipientRole: 'Staff',
@@ -879,10 +908,20 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       
       // Notify
       if (candidate) {
+          const getRoleDisplay = (r: string) => {
+              if (!r) return 'Staff';
+              const low = r.toLowerCase();
+              if (low === 'admin') return 'Admin';
+              if (low === 'team_leader') return 'Team Leader';
+              if (low === 'recruiter') return 'Recruiter';
+              if (low === 'system') return 'System';
+              return r;
+          };
+
           await createNotification({
               senderId: user!.uid,
               senderName: user?.displayName || user?.email?.split('@')[0] || 'System',
-              senderRole: role || 'Recruiter',
+              senderRole: getRoleDisplay(role || 'Recruiter'),
               recipientId: 'all',
               recipientName: 'Team',
               recipientRole: 'Staff',
@@ -915,10 +954,20 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           const rName = recipient?.name || recipient?.email?.split('@')[0] || 'Recruiter';
           const rRole = recipient?.role === 'admin' ? 'Admin' : recipient?.role === 'team_leader' ? 'Team Leader' : 'Recruiter';
 
+          const getRoleDisplay = (r: string) => {
+              if (!r) return 'Staff';
+              const low = r.toLowerCase();
+              if (low === 'admin') return 'Admin';
+              if (low === 'team_leader') return 'Team Leader';
+              if (low === 'recruiter') return 'Recruiter';
+              if (low === 'system') return 'System';
+              return r;
+          };
+
           await createNotification({
               senderId: user!.uid,
               senderName: user?.displayName || user?.email?.split('@')[0] || 'System',
-              senderRole: role || 'Recruiter',
+              senderRole: getRoleDisplay(role || 'Recruiter'),
               recipientId: userId,
               recipientName: rName,
               recipientRole: rRole,
@@ -1390,8 +1439,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                             </div>
                             
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-center gap-1.5 mb-1">
-                                <span className="text-xs font-black text-[var(--text-primary)] truncate max-w-[150px]">
+                              <div className="flex flex-wrap items-center gap-1.5 mb-2">
+                                <span className="text-xs font-black text-[var(--text-primary)]">
                                   {n.senderName || 'Unknown User'}
                                 </span>
                                 <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-tighter ${
@@ -1402,31 +1451,39 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                                 }`}>
                                   {n.senderRole || 'Staff'}
                                 </span>
+                                
+                                <span className="text-[10px] text-[var(--text-muted)] font-bold px-1">→</span>
+                                
+                                <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">
+                                  {n.candidateName || 'Unnamed Candidate'}
+                                </span>
                               </div>
 
-                              <div className="flex items-center gap-2 mb-2">
+                              <div className="flex items-center gap-2 mb-3">
                                 <div className="p-1 px-2 bg-white dark:bg-slate-800 rounded-lg border border-[var(--border-color)] flex items-center gap-1.5 shadow-sm">
                                   <div className="text-indigo-500">
                                     {getIcon(n.action)}
                                   </div>
-                                  <span className="text-[10px] font-bold text-[var(--text-secondary)]">
+                                  <span className="text-[10px] font-medium text-[var(--text-secondary)]">
                                     {n.action}
                                   </span>
                                 </div>
                               </div>
 
-                              <p className="text-xs font-black text-indigo-600 dark:text-indigo-400 decoration-indigo-200 underline-offset-2 mb-2">
-                                {n.candidateName || 'Unnamed Candidate'}
-                              </p>
-
-                              <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-[var(--border-color)]">
-                                <div className="flex items-center gap-2 mb-1">
-                                  <span className="text-[9px] font-black uppercase text-[var(--text-muted)]">To:</span>
-                                  <span className="text-[9px] font-bold text-[var(--text-primary)]">{n.recipientName || 'Team'}</span>
+                              <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-[var(--border-color)] space-y-2">
+                                <div className="flex items-center gap-2">
+                                  <div className="w-1 h-1 bg-indigo-500 rounded-full" />
+                                  <span className="text-[9px] font-black uppercase text-[var(--text-muted)]">Target Recipient:</span>
+                                  <span className="text-[9px] font-bold text-[var(--text-primary)]">
+                                    {n.recipientName || 'Team'} <span className="font-normal text-[var(--text-muted)]">({n.recipientRole || 'Staff'})</span>
+                                  </span>
                                 </div>
-                                <p className="text-[10px] text-[var(--text-secondary)] leading-relaxed italic">
-                                  "{n.purpose || 'System activity update'}"
-                                </p>
+                                <div className="flex gap-2">
+                                  <div className="w-1 h-1 bg-indigo-500 rounded-full mt-1.5" />
+                                  <p className="text-[10px] text-[var(--text-secondary)] leading-relaxed italic">
+                                    "{n.purpose || 'System activity update'}"
+                                  </p>
+                                </div>
                               </div>
 
                               <div className="mt-2 flex items-center justify-between">
