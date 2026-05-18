@@ -6,7 +6,7 @@ import multer from 'multer';
 import fs from 'fs';
 import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
 import { initializeApp, getApps } from 'firebase-admin/app';
-import { getFirestore, FieldValue } from 'firebase-admin/firestore';
+import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { RobustResumeParser } from './src/services/resumeParser.server.ts';
 const resumeParser = new RobustResumeParser();
@@ -17,16 +17,13 @@ const _dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(_fi
 
 async function startServer() {
   // Initialize Admin SDK lazily
-  let adminApp;
   if (!getApps().length) {
-    adminApp = initializeApp({
+    initializeApp({
       projectId: 'ai-studio-applet-webapp-ddf84'
     });
-  } else {
-    adminApp = getApps()[0];
   }
 
-  const adminDb = getFirestore(adminApp, firebaseConfig.firestoreDatabaseId);
+  const adminDb = getFirestore(firebaseConfig.firestoreDatabaseId);
   const adminMessaging = getMessaging();
 
   // Notification Listener
@@ -69,121 +66,25 @@ async function startServer() {
     console.error('[Server] Failed to initialize notification listener:', err);
   }
 
-  // Follow-up Reminder Cron Logic
-  setInterval(async () => {
-    try {
-      const now = new Date();
-      const checkRange = new Date(now.getTime() + 70 * 60 * 1000); // Check up to 70 mins ahead
-      
-      // Simplify query to avoid composite index requirements
-      const candidatesSnapshot = await adminDb.collection('candidates')
-          .where('isArchived', '==', false)
-          .get();
-
-      // Get Admins and TLs for cross-notification
-      const staffSnapshot = await adminDb.collection('users').get();
-      const userNames: Record<string, string> = {};
-      const userRoles: Record<string, string> = {};
-      const staffIds: string[] = [];
-
-      staffSnapshot.docs.forEach((d: any) => {
-          const data = d.data();
-          const uid = d.id;
-          userNames[uid] = data.name || data.email?.split('@')[0] || 'Unknown';
-          const r = data.role?.toLowerCase();
-          userRoles[uid] = r === 'admin' ? 'Admin' : r === 'team_leader' ? 'Team Leader' : 'Recruiter';
-          
-          if (r === 'admin' || r === 'team_leader') {
-              staffIds.push(uid);
-          }
-      });
-
-      candidatesSnapshot.docs.forEach(async (doc) => {
-          const candidate = doc.data();
-          
-          // Filter statuses in memory
-          if (!['Pending', 'Due Soon'].includes(candidate.followUpStatus)) return;
-          
-          const followUpTimeStr = candidate.followUpAt || candidate.followUpDate;
-          if (!followUpTimeStr) return;
-          
-          const followUpTime = new Date(followUpTimeStr);
-          const timeDiff = followUpTime.getTime() - now.getTime();
-          
-          // Reminder 1 Hour Before (55-65 mins)
-          if (timeDiff > 0 && timeDiff <= 65 * 60 * 1000 && timeDiff >= 55 * 60 * 1000 && !candidate.reminder1HourSent) {
-              await sendMultiReminder(adminDb, candidate, '1 hour before', doc.id, staffIds, userNames, userRoles);
-              await doc.ref.update({ reminder1HourSent: true });
-          }
-          // Reminder 30 Minutes Before (25-35 mins)
-          else if (timeDiff > 0 && timeDiff <= 35 * 60 * 1000 && timeDiff >= 25 * 60 * 1000 && !candidate.reminder30MinSent) {
-              await sendMultiReminder(adminDb, candidate, '30 minutes before', doc.id, staffIds, userNames, userRoles);
-              await doc.ref.update({ reminder30MinSent: true });
-          }
-          // Mark as Missed if past time
-          else if (timeDiff < 0 && candidate.followUpStatus === 'Pending') {
-              await doc.ref.update({ followUpStatus: 'Missed' });
-          }
-      });
-    } catch (cronErr) {
-      console.error('[Cron] Reminder check failed:', cronErr);
-    }
-  }, 5 * 60 * 1000); // Check every 5 mins
-
-  async function sendMultiReminder(db: any, candidate: any, type: string, candidateId: string, staffIds: string[], userNames: Record<string, string>, userRoles: Record<string, string>) {
-    const action = `Follow-up scheduled in ${type.split(' ')[0]}`;
-    const purpose = `Follow-up reminder for ${candidate.fullName}`;
-    
-    // Notify assigned recruiter
-    const recipients = new Set(staffIds);
-    if (candidate.assignedTo) recipients.add(candidate.assignedTo);
-
-    for (const recipientId of Array.from(recipients)) {
-      const recipientName = userNames[recipientId] || 'Assigned User';
-      const recipientRole = userRoles[recipientId] || 'Recruiter';
-
-      await db.collection('notifications').add({
-        senderId: 'system',
-        senderName: 'Aurrum System',
-        senderRole: 'System',
-        recipientId,
-        recipientName,
-        recipientRole,
-        candidateName: candidate.fullName,
-        action,
-        purpose,
-        relatedCandidateId: candidateId,
-        read: false,
-        createdAt: FieldValue.serverTimestamp()
-      });
-    }
-  }
-
   const app = express();
   const PORT = 3000;
   // Use Middleware
   app.use(express.json());
 
-  // Logging and Request Tracking
-  app.use((req, res, next) => {
-    console.log(`[Server] ${req.method} ${req.url}`);
-    next();
-  });
-
   // Basic CORS
   app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, x-api-key, Authorization');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, x-api-key');
     if (req.method === 'OPTIONS') {
       return res.sendStatus(200);
     }
     next();
   });
 
-  // Health check - place before any other specific routes
-  app.all('/api/health', (req, res) => {
-    res.json({ status: 'ok', env: process.env.NODE_ENV, method: req.method });
+  // API routes
+  app.get('/api/health', (req, res) => {
+    res.json({ status: 'ok', env: process.env.NODE_ENV });
   });
 
   const upload = multer({ 
@@ -272,16 +173,6 @@ async function startServer() {
       console.error('[Server] List connection error:', (error as Error).message);
       res.status(500).json({ status: false, message: 'Local fallback: List service unreachable' });
     }
-  });
-
-  // Error handling middleware
-  app.use((err: any, req: any, res: any, next: any) => {
-    console.error('[Server] Unhandled Error:', err);
-    res.status(err.status || 500).json({
-      status: false,
-      message: 'Internal server error',
-      error: err.message
-    });
   });
 
   // Vite setup

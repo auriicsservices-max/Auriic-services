@@ -5,7 +5,7 @@ import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { Loader2, User as UserIcon, Mail, Save, AlertCircle } from 'lucide-react';
 
 export default function UserProfile() {
-  const { user, isPrivileged } = useAuth();
+  const { user } = useAuth();
   const [profile, setProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -112,71 +112,69 @@ export default function UserProfile() {
           />
         </div>
 
-        {isPrivileged && (
-          <div className="border-t border-[var(--border-color)] pt-6 space-y-4">
-            <h3 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-widest">Notification Settings</h3>
-            
-            <div className="flex items-center justify-between p-4 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-2xl">
-              <div className="space-y-0.5">
-                <p className="text-xs font-bold text-[var(--text-primary)]">Push Notifications</p>
-                <p className="text-[10px] text-[var(--text-muted)]">Receive alerts for new chat messages</p>
-              </div>
-              {Notification.permission !== 'granted' ? (
-                <button 
-                  type="button"
-                  onClick={requestNotificationPermission}
-                  className="text-[10px] bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition-all uppercase tracking-tighter"
-                >
-                  Enable in Browser
-                </button>
-              ) : (
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={notificationsEnabled}
-                    onChange={(e) => setNotificationsEnabled(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
-                </label>
-              )}
+        <div className="border-t border-[var(--border-color)] pt-6 space-y-4">
+          <h3 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-widest">Notification Settings</h3>
+          
+          <div className="flex items-center justify-between p-4 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-2xl">
+            <div className="space-y-0.5">
+              <p className="text-xs font-bold text-[var(--text-primary)]">Push Notifications</p>
+              <p className="text-[10px] text-[var(--text-muted)]">Receive alerts for new chat messages</p>
             </div>
+            {Notification.permission !== 'granted' ? (
+              <button 
+                type="button"
+                onClick={requestNotificationPermission}
+                className="text-[10px] bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition-all uppercase tracking-tighter"
+              >
+                Enable in Browser
+              </button>
+            ) : (
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={notificationsEnabled}
+                  onChange={(e) => setNotificationsEnabled(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+              </label>
+            )}
+          </div>
 
-            <div className="flex items-center justify-between p-4 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-2xl">
-              <div className="space-y-0.5">
-                <p className="text-xs font-bold text-[var(--text-primary)]">Notification Sound</p>
-                <p className="text-[10px] text-[var(--text-muted)]">Play a sound when a message arrives</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button 
-                  type="button"
-                  onClick={() => {
-                    const audio = new Audio(notificationAudioSrc);
-                    audio.play().catch(e => setError('Audio failed to play. Please click the lock/settings icon in your browser address bar and enable Sound.'));
-                  }}
-                  className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline px-2"
-                >
-                  Test
-                </button>
-                <label className="relative inline-flex items-center cursor-pointer">
-                  <input 
-                    type="checkbox" 
-                    checked={notificationSound}
-                    onChange={(e) => setNotificationSound(e.target.checked)}
-                    className="sr-only peer"
-                  />
-                  <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
-                </label>
-              </div>
+          <div className="flex items-center justify-between p-4 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-2xl">
+            <div className="space-y-0.5">
+              <p className="text-xs font-bold text-[var(--text-primary)]">Notification Sound</p>
+              <p className="text-[10px] text-[var(--text-muted)]">Play a sound when a message arrives</p>
             </div>
-            
-            <div className="p-4 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-2xl">
-              <p className="text-[10px] text-[var(--text-muted)]">
-                <strong>Troubleshooting:</strong> If notifications or sound are not working, click the <span className="font-bold">lock icon</span> or <span className="font-bold">settings icon</span> in your Chrome address bar. Ensure 'Sound' and 'Notifications' are set to 'Allow', then reload the page.
-              </p>
+            <div className="flex items-center gap-3">
+              <button 
+                type="button"
+                onClick={() => {
+                  const audio = new Audio(notificationAudioSrc);
+                  audio.play().catch(e => setError('Audio failed to play. Please click the lock/settings icon in your browser address bar and enable Sound.'));
+                }}
+                className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline px-2"
+              >
+                Test
+              </button>
+              <label className="relative inline-flex items-center cursor-pointer">
+                <input 
+                  type="checkbox" 
+                  checked={notificationSound}
+                  onChange={(e) => setNotificationSound(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+              </label>
             </div>
           </div>
-        )}
+          
+          <div className="p-4 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-2xl">
+            <p className="text-[10px] text-[var(--text-muted)]">
+              <strong>Troubleshooting:</strong> If notifications or sound are not working, click the <span className="font-bold">lock icon</span> or <span className="font-bold">settings icon</span> in your Chrome address bar. Ensure 'Sound' and 'Notifications' are set to 'Allow', then reload the page.
+            </p>
+          </div>
+        </div>
 
         <button 
           type="submit"

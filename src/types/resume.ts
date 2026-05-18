@@ -4,15 +4,10 @@ export const ResumeSchema = z.object({
   name: z.string().default(''),
   contact: z.object({
     email: z.string().default(''),
-    alternateEmails: z.array(z.string()).default([]),
     phone: z.string().default(''),
     linkedin: z.string().default(''),
     github: z.string().default(''),
     portfolio: z.string().default(''),
-    links: z.array(z.object({
-      label: z.string(),
-      url: z.string()
-    })).default([]),
   }),
   profile: z.string().default(''),
   domainFocus: z.string().default(''),

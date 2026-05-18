@@ -7,7 +7,7 @@
       "properties": {
         "uid": { "type": "string" },
         "email": { "type": "string", "format": "email" },
-        "role": { "type": "string", "enum": ["admin", "recruiter", "team_leader"] },
+        "role": { "type": "string", "enum": ["admin", "recruiter"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "email", "role"]
@@ -36,35 +36,11 @@
         "notesUpdatedBy": { "type": "string" },
         "followUpNote": { "type": "string" },
         "followUpDate": { "type": "string" },
-        "followUpAt": { "type": "string", "format": "date-time" },
-        "followUpStatus": { "type": "string", "enum": ["Pending", "Due Soon", "Completed", "Missed", "Cancelled"] },
-        "reminder1HourSent": { "type": "boolean" },
-        "reminder30MinSent": { "type": "boolean" },
         "followUpUpdatedBy": { "type": "string" },
         "createdAt": { "type": "string", "format": "date-time" },
         "updatedAt": { "type": "string", "format": "date-time" }
       },
       "required": ["fullName", "uploadedBy", "createdAt"]
-    },
-    "Notification": {
-      "title": "Notification",
-      "description": "System and user-generated alerts",
-      "type": "object",
-      "properties": {
-        "senderId": { "type": "string" },
-        "senderName": { "type": "string" },
-        "senderRole": { "type": "string" },
-        "recipientId": { "type": "string" },
-        "recipientName": { "type": "string" },
-        "recipientRole": { "type": "string" },
-        "candidateName": { "type": "string" },
-        "action": { "type": "string" },
-        "purpose": { "type": "string" },
-        "read": { "type": "boolean" },
-        "createdAt": { "type": "string", "format": "date-time" },
-        "relatedCandidateId": { "type": "string" }
-      },
-      "required": ["recipientId", "action", "createdAt"]
     },
     "ChatMessage": {
       "title": "ChatMessage",
@@ -146,10 +122,6 @@
     "/candidates/{candidateId}": {
       "schema": "Candidate",
       "description": "Processed resume documents"
-    },
-    "/notifications/{notificationId}": {
-      "schema": "Notification",
-      "description": "User and system notifications"
     }
   }
 }

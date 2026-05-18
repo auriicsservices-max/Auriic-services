@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { Send, User, Shield, MessageSquare, Clock, Search, FileText, Plus, Paperclip, X, Download, Check, CheckCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import QuotaNotice from './QuotaNotice';
-import { createNotification } from '../services/notificationService';
+import { createNotification } from '../lib/notifications';
 
 interface InternalChatProps {
   teamMembers: any[];
@@ -234,18 +234,13 @@ export default function InternalChat({ teamMembers, initialRecipientId }: Intern
       });
       
       // Send notification
-      await createNotification({
-          senderId: user.uid,
-          senderName: user.displayName || user.email?.split('@')[0] || 'Unknown',
-          senderRole: role || 'Staff',
-          recipientId: activePartnerId,
-          recipientName: activePartner?.name || 'Team Member',
-          recipientRole: activePartner?.role || 'Staff',
-          candidateName: 'Direct Message',
-          action: 'Signal Received',
-          purpose: newMessage.trim().slice(0, 50) || 'Attachment shared',
-          relatedCandidateId: convId // For chat, we use conversationId as relative ID
-      });
+      await createNotification(
+          activePartnerId,
+          "New Message",
+          `${user.displayName || 'Someone'} sent you a message`,
+          "chat",
+          { senderId: user.uid, conversationId: convId }
+      );
       
       setNewMessage('');
       setFileAttachment(null);
