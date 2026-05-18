@@ -75,19 +75,35 @@ async function startServer() {
       const now = new Date();
       const checkRange = new Date(now.getTime() + 70 * 60 * 1000); // Check up to 70 mins ahead
       
+      // Simplify query to avoid composite index requirements
       const candidatesSnapshot = await adminDb.collection('candidates')
           .where('isArchived', '==', false)
-          .where('followUpStatus', 'in', ['Pending', 'Due Soon'])
           .get();
 
-      // Get Admins and TLs for cross-notification if needed, or just notify all as requested
-      const staffSnapshot = await adminDb.collection('users')
-          .where('role', 'in', ['admin', 'team_leader'])
-          .get();
-      const staffIds = staffSnapshot.docs.map(d => d.id);
+      // Get Admins and TLs for cross-notification
+      const staffSnapshot = await adminDb.collection('users').get();
+      const userNames: Record<string, string> = {};
+      const userRoles: Record<string, string> = {};
+      const staffIds: string[] = [];
+
+      staffSnapshot.docs.forEach((d: any) => {
+          const data = d.data();
+          const uid = d.id;
+          userNames[uid] = data.name || data.email?.split('@')[0] || 'Unknown';
+          const r = data.role?.toLowerCase();
+          userRoles[uid] = r === 'admin' ? 'Admin' : r === 'team_leader' ? 'Team Leader' : 'Recruiter';
+          
+          if (r === 'admin' || r === 'team_leader') {
+              staffIds.push(uid);
+          }
+      });
 
       candidatesSnapshot.docs.forEach(async (doc) => {
           const candidate = doc.data();
+          
+          // Filter statuses in memory
+          if (!['Pending', 'Due Soon'].includes(candidate.followUpStatus)) return;
+          
           const followUpTimeStr = candidate.followUpAt || candidate.followUpDate;
           if (!followUpTimeStr) return;
           
@@ -96,12 +112,12 @@ async function startServer() {
           
           // Reminder 1 Hour Before (55-65 mins)
           if (timeDiff > 0 && timeDiff <= 65 * 60 * 1000 && timeDiff >= 55 * 60 * 1000 && !candidate.reminder1HourSent) {
-              await sendMultiReminder(adminDb, candidate, '1 hour before', doc.id, staffIds);
+              await sendMultiReminder(adminDb, candidate, '1 hour before', doc.id, staffIds, userNames, userRoles);
               await doc.ref.update({ reminder1HourSent: true });
           }
           // Reminder 30 Minutes Before (25-35 mins)
           else if (timeDiff > 0 && timeDiff <= 35 * 60 * 1000 && timeDiff >= 25 * 60 * 1000 && !candidate.reminder30MinSent) {
-              await sendMultiReminder(adminDb, candidate, '30 minutes before', doc.id, staffIds);
+              await sendMultiReminder(adminDb, candidate, '30 minutes before', doc.id, staffIds, userNames, userRoles);
               await doc.ref.update({ reminder30MinSent: true });
           }
           // Mark as Missed if past time
@@ -114,17 +130,7 @@ async function startServer() {
     }
   }, 5 * 60 * 1000); // Check every 5 mins
 
-  async function sendMultiReminder(db: any, candidate: any, type: string, candidateId: string, staffIds: string[]) {
-    // Fetch all staff names for notifications
-    const usersSnapshot = await db.collection('users').get();
-    const userNames: Record<string, string> = {};
-    const userRoles: Record<string, string> = {};
-    usersSnapshot.docs.forEach((d: any) => {
-      const data = d.data();
-      userNames[d.id] = data.name || data.email.split('@')[0];
-      userRoles[d.id] = data.role === 'admin' ? 'Admin' : data.role === 'team_leader' ? 'Team Leader' : 'Recruiter';
-    });
-
+  async function sendMultiReminder(db: any, candidate: any, type: string, candidateId: string, staffIds: string[], userNames: Record<string, string>, userRoles: Record<string, string>) {
     const action = `Follow-up scheduled in ${type.split(' ')[0]}`;
     const purpose = `Follow-up reminder for ${candidate.fullName}`;
     
