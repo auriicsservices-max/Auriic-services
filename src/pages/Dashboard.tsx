@@ -195,9 +195,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
   const playNotificationSound = useCallback(() => {
     try {
-      // Using a nicer, cleaner chat notification sound
-      const audio = new Audio('https://assets.mixkit.co/active_storage/sfx/2869/2869-preview.mp3');
-      audio.volume = 0.5;
+      // Using a more reliable notification sound URL
+      const audio = new Audio('https://orangefreesounds.com/wp-content/uploads/2014/10/Message-alert-sound.mp3');
+      audio.volume = 0.4;
       const playPromise = audio.play();
       
       if (playPromise !== undefined) {

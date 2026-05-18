@@ -164,20 +164,26 @@ async function startServer() {
   // Use Middleware
   app.use(express.json());
 
+  // Logging and Request Tracking
+  app.use((req, res, next) => {
+    console.log(`[Server] ${req.method} ${req.url}`);
+    next();
+  });
+
   // Basic CORS
   app.use((req, res, next) => {
     res.header('Access-Control-Allow-Origin', '*');
     res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, x-api-key');
+    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, x-api-key, Authorization');
     if (req.method === 'OPTIONS') {
       return res.sendStatus(200);
     }
     next();
   });
 
-  // API routes
-  app.get('/api/health', (req, res) => {
-    res.json({ status: 'ok', env: process.env.NODE_ENV });
+  // Health check - place before any other specific routes
+  app.all('/api/health', (req, res) => {
+    res.json({ status: 'ok', env: process.env.NODE_ENV, method: req.method });
   });
 
   const upload = multer({ 
@@ -266,6 +272,16 @@ async function startServer() {
       console.error('[Server] List connection error:', (error as Error).message);
       res.status(500).json({ status: false, message: 'Local fallback: List service unreachable' });
     }
+  });
+
+  // Error handling middleware
+  app.use((err: any, req: any, res: any, next: any) => {
+    console.error('[Server] Unhandled Error:', err);
+    res.status(err.status || 500).json({
+      status: false,
+      message: 'Internal server error',
+      error: err.message
+    });
   });
 
   // Vite setup
