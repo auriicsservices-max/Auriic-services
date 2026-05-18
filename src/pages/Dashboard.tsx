@@ -21,11 +21,12 @@ import TimezoneWidget from '../components/TimezoneWidget';
 import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
 import { resumeParser } from '../services/resumeParserService';
-import { createNotification, formatNotificationMessage } from '../services/notificationService';
+import { createNotification } from '../services/notificationService';
 import InternalChat from '../components/InternalChat';
 import NotificationBadge from '../components/NotificationBadge';
 import QuotaNotice from '../components/QuotaNotice';
 import LZString from 'lz-string';
+import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from '../contexts/ThemeContext';
 import { useNotifications, AppNotification } from '../contexts/NotificationContext';
 import { useTimezone } from '../contexts/TimezoneContext';
@@ -56,8 +57,49 @@ import {
   StickyNote,
   Bell,
   Settings,
-  Download
+  Download,
+  UserPlus,
+  Zap
 } from 'lucide-react';
+
+const StatsBar = ({ activeCandidates }: { activeCandidates: any[] }) => (
+  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+    <div className="bg-[var(--card-bg)] p-5 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex items-center gap-4 transition-colors duration-300">
+      <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/40 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-300">
+        <FileText size={20} />
+      </div>
+      <div>
+        <p className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-0.5">Total Records</p>
+        <h3 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight">{activeCandidates.length}</h3>
+      </div>
+    </div>
+    <div className="bg-[var(--card-bg)] p-5 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex items-center gap-4 transition-colors duration-300">
+      <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/40 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-300">
+        <Star size={20} />
+      </div>
+      <div>
+        <p className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-0.5">Shortlisted</p>
+        <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tracking-tight">{activeCandidates.filter(c => c.isShortlisted).length}</h3>
+      </div>
+    </div>
+    <div className="bg-[var(--card-bg)] p-5 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex items-center gap-4 transition-colors duration-300">
+      <div className="w-12 h-12 rounded-2xl flex items-center justify-center bg-slate-100">
+        <Clock size={20} />
+      </div>
+      <div>
+        <p className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-0.5">Follow Up Reminder</p>
+        <h3 className={`text-2xl font-bold tracking-tight ${
+          activeCandidates.some(c => (c.followUpAt || c.followUpDate) && c.followUpStatus !== 'Completed' && new Date(c.followUpAt || c.followUpDate) <= new Date())
+            ? 'text-red-600 dark:text-red-400'
+            : 'text-[var(--text-primary)]'
+        }`}>
+          {activeCandidates.filter(c => (c.followUpAt || c.followUpDate) && c.followUpStatus !== 'Completed' && c.followUpStatus !== 'Cancelled').length}
+        </h3>
+      </div>
+    </div>
+  </div>
+);
+
 
 import MigrationTool from '../components/MigrationTool';
 
@@ -83,7 +125,49 @@ export default function Dashboard() {
   const [recentChatMessages, setRecentChatMessages] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<Record<string, string>>({});
   const [fullTeamList, setFullTeamList] = useState<any[]>([]);
+  const [filterStatus, setFilterStatus] = useState('all');
+  const [filterDomain, setFilterDomain] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
+  const [filterRecruiter, setFilterRecruiter] = useState('all');
+  const [filterFollowUp, setFilterFollowUp] = useState('all');
+  const [dateRange, setDateRange] = useState({ start: '', end: '' });
+  const [filterSkills, setFilterSkills] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
+
+  const filteredCandidates = candidates.filter(candidate => {
+    if (candidate.isArchived) return false;
+    
+    // Boolean Search
+    let matchesBooleanSearch = true;
+    if (searchQuery.trim()) {
+      const terms = searchQuery.toLowerCase().split(/\s+/);
+      const searchableText = `${candidate.fullName} ${candidate.domainFocus || ''} ${candidate.domain || ''} ${candidate.summary} ${candidate.skills?.join(' ')} ${candidate.notes || ''} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''} ${teamMembers[candidate.followUpUpdatedBy] || ''}`.toLowerCase();
+      matchesBooleanSearch = terms.every(term => searchableText.includes(term));
+    }
+
+    // Status & Domain Filtering
+    const matchesStatus = filterStatus === 'all' || candidate.status === filterStatus;
+    const matchesDomain = filterDomain === 'all' || candidate.domainFocus === filterDomain;
+    
+    // New Filters
+    const matchesRecruiter = filterRecruiter === 'all' || candidate.uploadedBy === filterRecruiter;
+    const matchesFollowUp = filterFollowUp === 'all' || (filterFollowUp === 'yes' ? !!candidate.followUpDate : !candidate.followUpDate);
+    const matchesSkillsFilter = !filterSkills.trim() || (candidate.skills || []).some((s: string) => s?.toLowerCase()?.includes(filterSkills.toLowerCase()));
+    
+    let matchesDateRange = true;
+    if (dateRange.start || dateRange.end) {
+      const candidateDate = candidate.createdAt?.toMillis ? candidate.createdAt.toDate() : new Date(candidate.createdAt || 0);
+      if (dateRange.start && candidateDate < new Date(dateRange.start)) matchesDateRange = false;
+      if (dateRange.end) {
+         const endDateTime = new Date(dateRange.end);
+         endDateTime.setHours(23, 59, 59, 999);
+         if (candidateDate > endDateTime) matchesDateRange = false;
+      }
+    }
+
+    return matchesBooleanSearch && matchesStatus && matchesDomain && matchesRecruiter && matchesFollowUp && matchesSkillsFilter && matchesDateRange;
+  });
+
   const [isProcessing, setIsProcessing] = useState(false);
   const [parsedResults, setParsedResults] = useState<any[]>([]);
   const [uploadProgress, setUploadProgress] = useState({ total: 0, processed: 0, failed: 0 });
@@ -486,7 +570,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         if (!parsed) throw new Error("Parser returned empty data");
         
         parsed.name = parsed.name || file.name.split('.')[0];
-        parsed.contact.email = (parsed.contact.email || 'pending@aurrum.co').toLowerCase();
+        if (parsed.contact) {
+          parsed.contact.email = (parsed.contact.email || '').toLowerCase();
+        }
 
         // CHECK FOR DUPLICATES
         const isDuplicateInState = candidates.find(c => c.email === parsed.contact.email);
@@ -536,7 +622,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         // Aurrum API requirements: file (Required), name (Required), email (Required)
         formData.append('file', file);
         formData.append('name', parsed.name || file.name);
-        formData.append('email', parsed.contact.email || 'pending@aurrum.co');
+        formData.append('email', parsed.contact.email || '');
         if (parsed.contact.phone) {
           formData.append('phone', parsed.contact.phone);
         }
@@ -599,22 +685,16 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
         const candidateData = {
           fullName: result.data?.name || parsed.name || file.name,
-          email: parsed.contact.email,
+          email: (parsed?.contact?.email || '').toLowerCase(),
+          alternateEmails: (parsed?.contact?.alternateEmails || []).map(e => (e || '').toLowerCase()),
+          phone: parsed.contact.phone || '',
           domainFocus: parsed.domainFocus || 'Other',
           skills: allSkills,
-          followUpDate: (parsed as any).followUpDate || null
-        };
-        setParsedResults(prev => [...prev, candidateData]);
-
-        const newCandidateRef = await addDoc(collection(db, 'candidates'), {
-          ...candidateData,
           cvBase64: cvBase64,
           originalFileName: file.name,
-          email: (parsed.contact.email || 'pending@aurrum.co').toLowerCase(),
-          phone: parsed.contact.phone || '',
-          location: parsed.contact.linkedin || '', // Use linkedin as a proxy if location missing in contact
+          location: parsed.contact.linkedin || '', 
           summary: parsed.profile || '', 
-          categorizedSkills: parsed.skills, // Full structured data
+          categorizedSkills: parsed.skills,
           experience: normalizedExperience,
           education: normalizedEducation,
           projects: parsed.projects?.map(p => ({
@@ -624,16 +704,14 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             duration: p.duration,
             link: p.links[0] || null
           })) || [],
-          certifications: parsed.achievements || [], // Map achievements to certifications for UI
+          certifications: parsed.achievements || [],
           achievements: parsed.achievements || [],
           languages: parsed.languages || [],
           interests: parsed.interests || [],
           links: [
-            ...(parsed.contact.linkedin ? [{ url: parsed.contact.linkedin, label: 'LinkedIn' }] : []),
-            ...(parsed.contact.github ? [{ url: parsed.contact.github, label: 'GitHub' }] : []),
-            ...(parsed.contact.portfolio ? [{ url: parsed.contact.portfolio, label: 'Portfolio' }] : []),
+            ...(parsed.contact.links || []),
             ...projectLinks
-          ],
+          ].filter((v, i, a) => a.findIndex(t => t.url === v.url) === i),
           totalExperience: parsed.totalExperienceYears || 0,
           rawResumeText: text,
           compressedText,
@@ -647,24 +725,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           aiAnalyzed: true,
           uploadedBy: user?.uid,
           createdAt: new Date().toISOString()
-        });
+        };
         
-        // Notify
-        const message = formatNotificationMessage(
-            user?.displayName || 'System',
-            "uploaded CV for",
-            parsed.name || file.name,
-            "Resume parsing completed"
-        );
-        await createNotification(
-            message,
-            user!.uid,
-            user?.displayName || 'System',
-            role!,
-            'all',
-            newCandidateRef.id
-        );
-        
+        setParsedResults(prev => [...prev, candidateData]);
         setUploadStatus('success');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1 }));
       } catch (err: any) {
@@ -677,12 +740,44 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       }
     }
     
-    setTimeout(() => {
-      setIsProcessing(false);
-      setUploadProgress({ total: 0, processed: 0, failed: 0 });
-      setActiveTab('candidates');
-    }, 3000);
+    setIsProcessing(false);
+    setUploadProgress({ total: 0, processed: 0, failed: 0 });
   }, [user, candidates, teamMembers]); 
+
+  const handleFinalizeUpload = async (results: any[]) => {
+    setIsProcessing(true);
+    try {
+      for (const candidateData of results) {
+        const newCandidateRef = await addDoc(collection(db, 'candidates'), candidateData);
+        
+        // Notify
+        const recipientUser = fullTeamList.find(u => u.uid === 'all'); // Fallback
+        await createNotification({
+            senderId: user!.uid,
+            senderName: user?.displayName || user?.email?.split('@')[0] || 'System',
+            senderRole: role || 'Recruiter',
+            recipientId: 'all',
+            recipientName: 'Team',
+            recipientRole: 'Staff',
+            candidateName: candidateData.fullName,
+            action: 'Uploaded resume for',
+            purpose: 'New candidate profile created successfully',
+            relatedCandidateId: newCandidateRef.id
+        });
+      }
+      
+      setParsedResults([]);
+      showAlert('Success', 'Candidate details updated successfully');
+      setTimeout(() => {
+        setIsProcessing(false);
+        setActiveTab('candidates');
+      }, 1000);
+    } catch (err: any) {
+      console.error(err);
+      showAlert('Error', `Failed to save candidates: ${err.message}`);
+      setIsProcessing(false);
+    }
+  };
 
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({ 
@@ -703,57 +798,67 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       
       // Notify
       if (candidate) {
-          const action = !currentStatus ? "shortlisted candidate" : "removed from shortlist";
-          const purpose = !currentStatus ? "Candidate shortlisted" : "Candidate removed from shortlist";
-          const message = formatNotificationMessage(
-              user?.displayName || 'System',
+          const action = !currentStatus ? "Shortlisted candidate" : "Removed from shortlist";
+          const purpose = !currentStatus ? "Candidate added to shortlist" : "Candidate removed from shortlist";
+          
+          await createNotification({
+              senderId: user!.uid,
+              senderName: user?.displayName || user?.email?.split('@')[0] || 'System',
+              senderRole: role || 'Recruiter',
+              recipientId: 'all',
+              recipientName: 'Team',
+              recipientRole: 'Staff',
+              candidateName: candidate.fullName,
               action,
-              candidate.fullName,
-              purpose
-          );
-          await createNotification(
-              message,
-              user!.uid,
-              user?.displayName || 'System',
-              role!,
-              'all',
-              id
-          );
+              purpose,
+              relatedCandidateId: id
+          });
       }
     } catch (err) {
       console.error(err);
     }
   };
 
-  const handleUpdateFollowUp = async (id: string, note: string, date: string) => {
+  const handleUpdateFollowUp = async (id: string, note: string, date: string, status: string = 'Pending') => {
     try {
       await updateDoc(doc(db, 'candidates', id), { 
         followUpNote: note,
         followUpDate: date,
+        followUpAt: date, // Keep both for safety initially
+        followUpStatus: status,
+        reminder1HourSent: false,
+        reminder30MinSent: false,
         followUpUpdatedBy: user?.uid,
         updatedAt: new Date().toISOString()
       });
       const candidate = candidates.find(c => c.id === id);
       if (selectedCandidate?.id === id) {
-        setSelectedCandidate((prev: any) => ({ ...prev, followUpNote: note, followUpDate: date, followUpUpdatedBy: user?.uid }));
+        setSelectedCandidate((prev: any) => ({ 
+          ...prev, 
+          followUpNote: note, 
+          followUpDate: date, 
+          followUpAt: date,
+          followUpStatus: status,
+          reminder1HourSent: false,
+          reminder30MinSent: false,
+          followUpUpdatedBy: user?.uid 
+        }));
       }
       
       // Notify
       if (candidate) {
-          const message = formatNotificationMessage(
-              user?.displayName || 'System',
-              "updated status for candidate",
-              candidate.fullName,
-              "Interview progress"
-          );
-          await createNotification(
-              message,
-              user!.uid,
-              user?.displayName || 'System',
-              role!,
-              'all',
-              id
-          );
+          await createNotification({
+              senderId: user!.uid,
+              senderName: user?.displayName || user?.email?.split('@')[0] || 'System',
+              senderRole: role || 'Recruiter',
+              recipientId: 'all',
+              recipientName: 'Team',
+              recipientRole: 'Staff',
+              candidateName: candidate.fullName,
+              action: 'Updated follow-up for',
+              purpose: `Follow-up status: ${status}. Note: ${note || 'No note'}`,
+              relatedCandidateId: id
+          });
       }
     } catch (err) {
       console.error(err);
@@ -774,20 +879,18 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       
       // Notify
       if (candidate) {
-          const message = formatNotificationMessage(
-              user?.displayName || 'System',
-              "added feedback for candidate",
-              candidate.fullName,
-              "Interview feedback added"
-          );
-          await createNotification(
-              message,
-              user!.uid,
-              user?.displayName || 'System',
-              role!,
-              'all',
-              id
-          );
+          await createNotification({
+              senderId: user!.uid,
+              senderName: user?.displayName || user?.email?.split('@')[0] || 'System',
+              senderRole: role || 'Recruiter',
+              recipientId: 'all',
+              recipientName: 'Team',
+              recipientRole: 'Staff',
+              candidateName: candidate.fullName,
+              action: 'Added feedback for',
+              purpose: `Notes: ${notes.slice(0, 50)}${notes.length > 50 ? '...' : ''}`,
+              relatedCandidateId: id
+          });
       }
     } catch (err) {
       console.error(err);
@@ -808,20 +911,22 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       }
       // Notify
       if (candidate) {
-          const message = formatNotificationMessage(
-              user?.displayName || 'System',
-              "assigned candidate",
-              `${candidate.fullName} to ${teamMembers[userId] || 'Recruiter'}`,
-              "Profile assignment"
-          );
-          await createNotification(
-              message,
-              user!.uid,
-              user?.displayName || 'System',
-              role!,
-              userId,
-              id
-          );
+          const recipient = fullTeamList.find(u => u.uid === userId);
+          const rName = recipient?.name || recipient?.email?.split('@')[0] || 'Recruiter';
+          const rRole = recipient?.role === 'admin' ? 'Admin' : recipient?.role === 'team_leader' ? 'Team Leader' : 'Recruiter';
+
+          await createNotification({
+              senderId: user!.uid,
+              senderName: user?.displayName || user?.email?.split('@')[0] || 'System',
+              senderRole: role || 'Recruiter',
+              recipientId: userId,
+              recipientName: rName,
+              recipientRole: rRole,
+              candidateName: candidate.fullName,
+              action: 'Assigned candidate',
+              purpose: `New profile assigned for screening to ${rName}`,
+              relatedCandidateId: id
+          });
       }
     } catch (err) {
       console.error(err);
@@ -942,15 +1047,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
   };
 
   // Boolean Search logic
-  const filteredCandidates = candidates.filter(candidate => {
-    if (candidate.isArchived) return false;
-    if (!searchQuery.trim()) return true;
-    const terms = searchQuery.toLowerCase().split(/\s+/);
-    const searchableText = `${candidate.fullName} ${candidate.domainFocus || ''} ${candidate.domain || ''} ${candidate.summary} ${candidate.skills?.join(' ')} ${candidate.notes || ''} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''} ${teamMembers[candidate.followUpUpdatedBy] || ''}`.toLowerCase();
-    return terms.every(term => searchableText.includes(term));
-  });
 
-  const activeCandidates = candidates.filter(c => !c.isArchived);
+  const activeCandidates = filteredCandidates;
+
   const trashedCandidates = candidates.filter(c => c.isArchived);
   const trashedUsers = fullTeamList.filter(u => u.isArchived);
 
@@ -1229,48 +1328,130 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             {showNotifications && (
               <div 
                 ref={notificationRef}
-                className="absolute right-8 top-16 w-80 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl shadow-xl z-50 p-4 max-h-[60vh] overflow-y-auto"
+                className="absolute right-8 top-16 w-[360px] bg-[var(--card-bg)] border border-[var(--border-color)] rounded-[2rem] shadow-2xl z-50 overflow-hidden flex flex-col animate-in fade-in slide-in-from-top-4 duration-300"
               >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-sm font-bold">Notifications</h3>
-                  <button 
-                    onClick={() => markAllAsRead()}
-                    className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 uppercase tracking-wider"
-                  >
-                    Mark all read
-                  </button>
+                <div className="p-6 border-b border-[var(--border-color)] bg-slate-50/50 dark:bg-slate-800/30">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <h3 className="text-base font-black text-[var(--text-primary)] tracking-tight">Activity Feed</h3>
+                      <p className="text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest mt-0.5">Real-time team updates</p>
+                    </div>
+                    <button 
+                      onClick={() => markAllAsRead()}
+                      className="px-3 py-1.5 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-indigo-700 transition-all shadow-md active:scale-95"
+                    >
+                      Sweep All
+                    </button>
+                  </div>
                 </div>
-                {notifications.length === 0 ? (
-                  <p className="text-xs text-[var(--text-muted)]">No new notifications</p>
-                ) : (
-                  <div className="space-y-3">
-                    {notifications.map((n: AppNotification) => (
-                      <div 
-                        key={n.id} 
-                        onClick={() => !n.read && markAsRead(n.id)}
-                        className={`text-xs p-3 rounded-2xl transition-all cursor-pointer ${n.read ? 'bg-slate-50 dark:bg-slate-900/50' : 'bg-indigo-50 dark:bg-indigo-900/20 border-l-4 border-indigo-500'}`}
-                      >
-                        <div className="flex items-center gap-2 mb-1.5">
-                            <span className="w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-900 grid place-items-center text-[10px] font-bold text-indigo-700 dark:text-indigo-300">
-                                {n.senderName?.charAt(0) || '?'}
-                            </span>
-                            <div className="flex-1">
-                                <p className="font-bold text-[var(--text-primary)] leading-tight">{n.senderName} <span className="font-normal text-[var(--text-muted)] text-[10px]">({n.senderRole})</span></p>
-                                <p className="text-[9px] text-[var(--text-muted)] mt-0.5">{formatDate(n.createdAt?.toDate())}</p>
-                            </div>
-                        </div>
-                        <p className="font-medium text-[var(--text-secondary)]">{n.action} {n.candidateName} for {n.recipientName} ({n.recipientRole})</p>
-                        <p className="text-[10px] bg-white/50 dark:bg-black/20 p-1.5 rounded mt-2">{n.purpose}</p>
+
+                <div className="max-h-[70vh] overflow-y-auto p-4 space-y-3 custom-scrollbar">
+                  {notifications.length === 0 ? (
+                    <div className="py-12 text-center">
+                      <div className="w-16 h-16 bg-slate-100 dark:bg-slate-800 rounded-full flex items-center justify-center mx-auto mb-4 text-slate-400">
+                        <Bell size={24} />
                       </div>
-                    ))}
+                      <p className="text-xs font-bold text-[var(--text-muted)]">Crickets here... No news yet.</p>
+                    </div>
+                  ) : (
+                    notifications.map((n: AppNotification) => {
+                      const getIcon = (action: string) => {
+                        const a = (action || '').toLowerCase();
+                        if (a.includes('assigned')) return <UserPlus size={14} />;
+                        if (a.includes('shortlisted')) return <Star size={14} />;
+                        if (a.includes('parsed') || a.includes('created')) return <Zap size={14} />;
+                        if (a.includes('note')) return <StickyNote size={14} />;
+                        return <Bell size={14} />;
+                      };
+
+                      return (
+                        <div 
+                          key={n.id} 
+                          onClick={() => !n.read && markAsRead(n.id)}
+                          className={`group relative p-4 rounded-3xl transition-all duration-300 cursor-pointer border ${
+                            n.read 
+                              ? 'bg-white dark:bg-slate-900 border-transparent opacity-70 hover:opacity-100' 
+                              : 'bg-indigo-50/50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-800 shadow-sm'
+                          }`}
+                        >
+                          {!n.read && (
+                            <span className="absolute top-4 right-4 w-2 h-2 bg-indigo-500 rounded-full animate-pulse shadow-sm shadow-indigo-500/50" />
+                          )}
+                          
+                          <div className="flex gap-4">
+                            <div className="shrink-0">
+                                <div className={`w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-black shadow-sm ${
+                                  n.senderRole === 'System' || n.senderName === 'Aurrum System'
+                                    ? 'bg-amber-100 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300'
+                                    : 'bg-indigo-600 text-white'
+                                }`}>
+                                    {n.senderName === 'Aurrum System' ? 'AS' : n.senderName?.slice(0, 2).toUpperCase() || '??' }
+                                </div>
+                            </div>
+                            
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-1">
+                                <span className="text-xs font-black text-[var(--text-primary)] truncate max-w-[150px]">
+                                  {n.senderName || 'Unknown User'}
+                                </span>
+                                <span className={`text-[8px] font-black uppercase px-1.5 py-0.5 rounded tracking-tighter ${
+                                  n.senderRole === 'Admin' ? 'bg-red-50 text-red-600' :
+                                  n.senderRole === 'Team Leader' ? 'bg-emerald-50 text-emerald-600' :
+                                  n.senderRole === 'System' ? 'bg-amber-50 text-amber-600' :
+                                  'bg-indigo-50 text-indigo-600'
+                                }`}>
+                                  {n.senderRole || 'Staff'}
+                                </span>
+                              </div>
+
+                              <div className="flex items-center gap-2 mb-2">
+                                <div className="p-1 px-2 bg-white dark:bg-slate-800 rounded-lg border border-[var(--border-color)] flex items-center gap-1.5 shadow-sm">
+                                  <div className="text-indigo-500">
+                                    {getIcon(n.action)}
+                                  </div>
+                                  <span className="text-[10px] font-bold text-[var(--text-secondary)]">
+                                    {n.action}
+                                  </span>
+                                </div>
+                              </div>
+
+                              <p className="text-xs font-black text-indigo-600 dark:text-indigo-400 decoration-indigo-200 underline-offset-2 mb-2">
+                                {n.candidateName || 'Unnamed Candidate'}
+                              </p>
+
+                              <div className="p-2.5 bg-slate-50 dark:bg-slate-800/40 rounded-xl border border-[var(--border-color)]">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="text-[9px] font-black uppercase text-[var(--text-muted)]">To:</span>
+                                  <span className="text-[9px] font-bold text-[var(--text-primary)]">{n.recipientName || 'Team'}</span>
+                                </div>
+                                <p className="text-[10px] text-[var(--text-secondary)] leading-relaxed italic">
+                                  "{n.purpose || 'System activity update'}"
+                                </p>
+                              </div>
+
+                              <div className="mt-2 flex items-center justify-between">
+                                <p className="text-[9px] font-black text-[var(--text-muted)] uppercase tracking-tighter">
+                                  {new Date(n.createdAt?.toDate()).toLocaleString('en-GB', { 
+                                    hour: '2-digit', 
+                                    minute: '2-digit',
+                                    day: '2-digit',
+                                    month: 'short'
+                                  })} (UK Time)
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+                
+                {notifications.length > 0 && (
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/30 border-t border-[var(--border-color)] text-center">
+                    <p className="text-[9px] font-bold text-[var(--text-muted)] uppercase tracking-[0.2em]">End of Feed</p>
                   </div>
                 )}
-              </div>
-            )}
-            {uploadStatus === 'success' && (
-              <div className="flex items-center gap-2 text-emerald-600 text-xs font-bold animate-in fade-in zoom-in-95">
-                <CheckCircle2 size={14} />
-                Upload Complete
               </div>
             )}
             {uploadStatus === 'success' && (
@@ -1326,11 +1507,158 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           ) : activeTab === 'repository' ? (
             <CVRepository candidates={activeCandidates} onSelect={setSelectedCandidate} />
           ) : activeTab === 'upload' ? (
-            <BulkUpload onUpload={onDrop} isProcessing={isProcessing} parsedCandidates={parsedResults} />
+            <BulkUpload onUpload={onDrop} isProcessing={isProcessing} parsedCandidates={parsedResults} onFinalize={handleFinalizeUpload} onUpdateCandidate={(index, updated) => {
+                 const newResults = [...parsedResults];
+                 newResults[index] = updated;
+                 setParsedResults(newResults);
+             }} />
           ) : activeTab === 'candidates' ? (
             <div className="flex flex-col gap-6 animate-in fade-in slide-in-from-bottom-4 duration-500">
               <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-1">
+                    <div className="relative flex-1 group">
+                      <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-[var(--text-muted)] group-focus-within:text-indigo-500 transition-colors" />
+                      <input 
+                        placeholder="Search by name, summary..."
+                        value={searchQuery}
+                        onChange={(e) => setSearchQuery(e.target.value)}
+                        className="bg-[var(--sidebar-bg)] border border-[var(--border-color)] pl-11 pr-4 py-2.5 rounded-2xl text-xs w-full focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all shadow-sm"
+                      />
+                    </div>
+                    
+                    <button 
+                      onClick={() => setShowFilters(!showFilters)}
+                      className={`flex items-center gap-2 px-5 py-2.5 rounded-2xl text-xs font-bold transition-all border ${showFilters ? 'bg-indigo-600 border-indigo-600 text-white shadow-lg' : 'bg-[var(--sidebar-bg)] border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'}`}
+                    >
+                      <Activity size={16} />
+                      {showFilters ? 'Hide Filters' : 'Advanced Filters'}
+                      {(filterStatus !== 'all' || filterDomain !== 'all' || filterRecruiter !== 'all' || filterFollowUp !== 'all' || dateRange.start || dateRange.end || filterSkills) && (
+                        <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse ml-1" />
+                      )}
+                    </button>
+                </div>
+              </div>
+
+              {/* Advanced Filters Panel */}
+              <AnimatePresence>
+                {showFilters && (
+                  <motion.div 
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 p-6 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-[2rem] shadow-sm mb-6">
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest ml-2">Status</label>
+                        <select 
+                          value={filterStatus} 
+                          onChange={(e) => setFilterStatus(e.target.value)} 
+                          className="w-full bg-[var(--sidebar-bg)] border border-[var(--border-color)] px-4 py-2.5 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500/20"
+                        >
+                          <option value="all">All Statuses</option>
+                          <option value="screening">Screening</option>
+                          <option value="interview">Interview</option>
+                          <option value="shortlisted">Shortlisted</option>
+                          <option value="hired">Hired</option>
+                          <option value="rejected">Rejected</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest ml-2">Domain Focus</label>
+                        <select 
+                          value={filterDomain} 
+                          onChange={(e) => setFilterDomain(e.target.value)} 
+                          className="w-full bg-[var(--sidebar-bg)] border border-[var(--border-color)] px-4 py-2.5 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500/20"
+                        >
+                          <option value="all">All Domains</option>
+                          <option value="Development">Development</option>
+                          <option value="Design">Design</option>
+                          <option value="Marketing">Marketing</option>
+                          <option value="Sales">Sales</option>
+                          <option value="HR">HR</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest ml-2">Recruiter</label>
+                        <select 
+                          value={filterRecruiter} 
+                          onChange={(e) => setFilterRecruiter(e.target.value)} 
+                          className="w-full bg-[var(--sidebar-bg)] border border-[var(--border-color)] px-4 py-2.5 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500/20"
+                        >
+                          <option value="all">All Recruiters</option>
+                          {Object.entries(teamMembers).map(([id, name]) => (
+                            <option key={id} value={id}>{name}</option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest ml-2">Follow Up</label>
+                        <select 
+                          value={filterFollowUp} 
+                          onChange={(e) => setFilterFollowUp(e.target.value)} 
+                          className="w-full bg-[var(--sidebar-bg)] border border-[var(--border-color)] px-4 py-2.5 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500/20"
+                        >
+                          <option value="all">Any Follow Up</option>
+                          <option value="yes">Has Reminder</option>
+                          <option value="no">No Reminder</option>
+                        </select>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest ml-2">Skills Filter</label>
+                        <input 
+                          value={filterSkills} 
+                          onChange={(e) => setFilterSkills(e.target.value)} 
+                          placeholder="e.g. React, Python"
+                          className="w-full bg-[var(--sidebar-bg)] border border-[var(--border-color)] px-4 py-2.5 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500/20"
+                        />
+                      </div>
+
+                      <div className="md:col-span-2 grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest ml-2">From Date</label>
+                          <input 
+                            type="date"
+                            value={dateRange.start} 
+                            onChange={(e) => setDateRange(prev => ({ ...prev, start: e.target.value }))} 
+                            className="w-full bg-[var(--sidebar-bg)] border border-[var(--border-color)] px-4 py-2.5 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500/20 transition-colors"
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest ml-2">To Date</label>
+                          <input 
+                            type="date"
+                            value={dateRange.end} 
+                            onChange={(e) => setDateRange(prev => ({ ...prev, end: e.target.value }))} 
+                            className="w-full bg-[var(--sidebar-bg)] border border-[var(--border-color)] px-4 py-2.5 rounded-xl text-xs focus:ring-2 focus:ring-indigo-500/20 transition-colors"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex items-end mb-1">
+                        <button 
+                          onClick={() => {
+                            setFilterStatus('all');
+                            setFilterDomain('all');
+                            setFilterRecruiter('all');
+                            setFilterFollowUp('all');
+                            setDateRange({ start: '', end: '' });
+                            setFilterSkills('');
+                            setSearchQuery('');
+                          }}
+                          className="w-full py-2.5 border border-red-200 text-red-500 hover:bg-red-50 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all"
+                        >
+                          Clear Filters
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
                   <div className="flex -space-x-3">
                     {[0, 1, 2].map((i) => (
                       <div key={i} className="w-10 h-10 rounded-full border-2 border-[var(--sidebar-bg)] bg-[var(--sidebar-bg)] flex items-center justify-center text-[10px] font-bold text-[var(--text-muted)]">
@@ -1341,7 +1669,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   <div>
                     <p className="text-[var(--text-muted)] text-[10px] uppercase font-black tracking-[0.2em] mt-1 ml-1">Candidate Intelligence Matrix</p>
                   </div>
-                </div>
                 {role === 'recruiter' && (
                   <div className="flex p-1 bg-[var(--sidebar-bg)] rounded-xl transition-colors duration-300 border border-[var(--border-color)] overflow-x-auto whitespace-nowrap">
                     <button 
@@ -1387,48 +1714,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                     </button>
                   </div>
                 )}
-              </div>
               
-              {/* Stats Bar */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-[var(--card-bg)] p-5 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex items-center gap-4 transition-colors duration-300">
-                  <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/40 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-300">
-                    <FileText size={20} />
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-0.5">Total Records</p>
-                    <h3 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight">{activeCandidates.length}</h3>
-                  </div>
-                </div>
-                <div className="bg-[var(--card-bg)] p-5 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex items-center gap-4 transition-colors duration-300">
-                  <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/40 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-300">
-                    <Star size={20} />
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-0.5">Shortlisted</p>
-                    <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tracking-tight">{activeCandidates.filter(c => c.isShortlisted).length}</h3>
-                  </div>
-                </div>
-                <div className="bg-[var(--card-bg)] p-5 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex items-center gap-4 transition-colors duration-300">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
-                    activeCandidates.some(c => c.followUpDate && new Date(c.followUpDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0]) 
-                      ? 'bg-red-50 dark:bg-red-900/40 text-red-600 dark:text-red-300 animate-pulse' 
-                      : 'bg-amber-50 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300'
-                  }`}>
-                    <Clock size={20} />
-                  </div>
-                  <div>
-                    <p className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-0.5">Follow Up Reminder</p>
-                    <h3 className={`text-2xl font-bold tracking-tight ${
-                      activeCandidates.some(c => c.followUpDate && !c.notes && new Date(c.followUpDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0])
-                        ? 'text-red-600 dark:text-red-400'
-                        : 'text-[var(--text-primary)]'
-                    }`}>
-                      {activeCandidates.filter(c => c.followUpDate && !c.notes).length}
-                    </h3>
-                  </div>
-                </div>
-              </div>
+              <StatsBar activeCandidates={activeCandidates} />
 
               {/* Search Area */}
               <div className="bg-[var(--card-bg)] p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex flex-col gap-4 transition-colors duration-300">
@@ -1449,6 +1736,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                     <button className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/40 px-4 py-1.5 rounded-xl transition-all uppercase tracking-widest">Execute</button>
                   </div>
                 </div>
+              </div>
 
                 {isPrivileged && selectedIds.size > 0 && (
                   <div className="flex items-center justify-between px-4 py-3 bg-red-50 dark:bg-red-900/20 border border-red-100 dark:border-red-900 rounded-2xl animate-in fade-in slide-in-from-top-2">
@@ -1494,7 +1782,21 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                     </thead>
                     <tbody className="text-sm text-[var(--text-secondary)] divide-y divide-[var(--border-color)] transition-colors duration-300">
                       {filteredCandidates.map((candidate) => {
-                        const isFollowUpDue = candidate.followUpDate && new Date(candidate.followUpDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0];
+                        const followUpDate = candidate.followUpAt || candidate.followUpDate;
+                        const isFollowUpDue = followUpDate && 
+                                             new Date(followUpDate) <= new Date() && 
+                                             candidate.followUpStatus !== 'Completed' && 
+                                             candidate.followUpStatus !== 'Cancelled';
+
+                        const getStatusColor = (status: string) => {
+                          switch (status) {
+                            case 'Completed': return 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-300';
+                            case 'Missed': return 'bg-red-50 text-red-600 dark:bg-red-900/40 dark:text-red-300';
+                            case 'Due Soon': return 'bg-amber-50 text-amber-600 dark:bg-amber-900/40 dark:text-amber-300';
+                            case 'Cancelled': return 'bg-slate-100 text-slate-500 dark:bg-slate-800';
+                            default: return 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300';
+                          }
+                        };
                         
                         return (
                           <tr key={candidate.id} className={`hover:bg-indigo-50/20 dark:hover:bg-indigo-900/10 group transition-all cursor-pointer ${selectedIds.has(candidate.id) ? 'bg-indigo-50/30 dark:bg-indigo-900/20' : ''}`} onClick={() => setSelectedCandidate(candidate)}>
@@ -1561,14 +1863,19 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                               </div>
                             </td>
                             <td className="px-6 py-4">
-                              <div className="flex items-center gap-2">
+                              <div className="flex flex-col gap-1">
                                 <button 
                                   onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
-                                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider ${isFollowUpDue ? 'bg-red-500 text-white animate-pulse' : candidate.followUpDate ? 'bg-indigo-50 text-indigo-600 dark:bg-indigo-900/40 dark:text-indigo-300' : 'bg-slate-50 text-slate-400 dark:bg-slate-800'}`}
+                                  className={`flex items-center gap-2 px-3 py-1.5 rounded-lg transition-all text-[10px] font-bold uppercase tracking-wider ${isFollowUpDue ? 'bg-red-500 text-white animate-pulse' : followUpDate ? getStatusColor(candidate.followUpStatus || 'Pending') : 'bg-slate-50 text-slate-400 dark:bg-slate-800'}`}
                                 >
                                   <Clock size={12} />
-                                  {candidate.followUpDate ? formatDate(candidate.followUpDate) : 'No Date'}
+                                  {followUpDate ? formatDate(followUpDate) : 'No Date'}
                                 </button>
+                                {candidate.followUpStatus && (
+                                  <span className={`text-[8px] font-black uppercase tracking-tighter px-1.5 py-0.5 rounded ml-1 w-fit ${getStatusColor(candidate.followUpStatus)}`}>
+                                    {candidate.followUpStatus}
+                                  </span>
+                                )}
                               </div>
                             </td>
                             <td className="px-6 py-4 text-right space-x-2">
@@ -1603,7 +1910,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   </table>
                 </div>
               </div>
-            </div>
           ) : activeTab === 'analytics' ? (
             <Analytics 
               candidates={candidates} 

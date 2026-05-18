@@ -1,16 +1,25 @@
 import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
-import { Upload, FileText, CheckCircle2, AlertCircle, X, ChevronDown, ChevronUp } from 'lucide-react';
+import { Upload, FileText, CheckCircle2, AlertCircle, X, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
 interface BulkUploadProps {
   onUpload: (files: File[]) => void;
   isProcessing: boolean;
-  parsedCandidates: any[]; // Ideally use a proper type
+  parsedCandidates: any[];
+  onUpdateCandidate: (index: number, updatedCandidate: any) => void;
+  onFinalize: (results: any[]) => void;
 }
 
-export default function BulkUpload({ onUpload, isProcessing, parsedCandidates }: BulkUploadProps) {
+export default function BulkUpload({ onUpload, isProcessing, parsedCandidates, onUpdateCandidate, onFinalize }: BulkUploadProps) {
   const [expandedCandidates, setExpandedCandidates] = useState<Set<number>>(new Set());
+  const [isFinishing, setIsFinishing] = useState(false);
+
+  const handleFinalize = async () => {
+    setIsFinishing(true);
+    await onFinalize(parsedCandidates);
+    setIsFinishing(false);
+  };
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
     onUpload(acceptedFiles);
@@ -77,8 +86,18 @@ export default function BulkUpload({ onUpload, isProcessing, parsedCandidates }:
       )}
 
       {parsedCandidates.length > 0 && (
-        <div className="flex flex-col gap-4">
-            <h3 className="text-xl font-bold text-[var(--text-primary)]">Preview Results</h3>
+        <div className="flex flex-col gap-6">
+            <div className="flex items-center justify-between">
+                <h3 className="text-xl font-bold text-[var(--text-primary)]">Preview Results</h3>
+                <button 
+                    onClick={handleFinalize}
+                    disabled={isFinishing || isProcessing}
+                    className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl font-bold hover:bg-indigo-700 disabled:opacity-50 shadow-lg shadow-indigo-100 transition-all active:scale-95"
+                >
+                    {isFinishing ? <Loader2 size={20} className="animate-spin" /> : <CheckCircle2 size={20} />}
+                    {isFinishing ? 'Saving...' : 'Finalize & Save to Repository'}
+                </button>
+            </div>
             {parsedCandidates.map((c, i) => (
                 <div key={i} className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl p-6 shadow-sm">
                     <div className="flex justify-between items-center cursor-pointer" onClick={() => toggleExpand(i)}>
@@ -92,7 +111,22 @@ export default function BulkUpload({ onUpload, isProcessing, parsedCandidates }:
                         {expandedCandidates.has(i) && (
                             <motion.div initial={{ height: 0 }} animate={{ height: 'auto' }} exit={{ height: 0 }} className="overflow-hidden">
                                 <div className="mt-4 pt-4 border-t border-[var(--border-color)] grid grid-cols-2 gap-4 text-xs">
-                                    <div><p className="font-bold text-[var(--text-muted)] uppercase">Domain Focus</p><p>{c.domainFocus || 'N/A'}</p></div>
+                                    <div>
+                                        <p className="font-bold text-[var(--text-muted)] uppercase">Full Name</p>
+                                        <input 
+                                            value={c.fullName} 
+                                            onChange={(e) => onUpdateCandidate(i, { ...c, fullName: e.target.value })}
+                                            className="w-full bg-[var(--card-bg)] border border-[var(--border-color)] p-1 rounded mt-1 text-[var(--text-primary)]"
+                                        />
+                                    </div>
+                                    <div>
+                                        <p className="font-bold text-[var(--text-muted)] uppercase">Domain Focus</p>
+                                        <input 
+                                            value={c.domainFocus} 
+                                            onChange={(e) => onUpdateCandidate(i, { ...c, domainFocus: e.target.value })}
+                                            className="w-full bg-[var(--card-bg)] border border-[var(--border-color)] p-1 rounded mt-1 text-[var(--text-primary)]"
+                                        />
+                                    </div>
                                     <div><p className="font-bold text-[var(--text-muted)] uppercase">Follow Up</p><p>{c.followUpDate || 'None'}</p></div>
                                     <div className="col-span-2"><p className="font-bold text-[var(--text-muted)] uppercase">Skills</p><p>{c.skills?.join(', ') || 'None'}</p></div>
                                 </div>

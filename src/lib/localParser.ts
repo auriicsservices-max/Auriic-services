@@ -69,10 +69,12 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
     name: '',
     contact: {
       email: '',
+      alternateEmails: [],
       phone: '',
       linkedin: '',
       github: '',
-      portfolio: ''
+      portfolio: '',
+      links: []
     },
     profile: '',
     totalExperienceYears: 0,
@@ -113,9 +115,21 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
     }
   }
 
-  // 1. Extract Email
-  const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i);
-  if (emailMatch) resume.contact.email = emailMatch[0];
+  // 1. Extract Emails
+  // Heuristic: Clean potential broken emails from PDFs (spaces around @ and dots)
+  const cleanedText = text.replace(/([a-zA-Z0-9._%+-]+)\s*@\s*([a-zA-Z0-9.-]+)\s*\.\s*([a-zA-Z]{2,})/g, '$1@$2.$3');
+  
+  const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi;
+  const allFoundEmails = Array.from(new Set(
+    (cleanedText.match(emailRegex) || [])
+      .map(e => e.toLowerCase().replace(/[.,;:]$/, '')) // Normalize and trim trailing punctuation
+      .filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) // Final validation
+  ));
+
+  if (allFoundEmails.length > 0) {
+    resume.contact.email = allFoundEmails[0];
+    (resume.contact as any).alternateEmails = allFoundEmails.length > 1 ? allFoundEmails.slice(1) : [];
+  }
 
   // 2. Extract Phone (Improved)
   const phoneMatch = text.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{4}/);
@@ -150,18 +164,34 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
 
   // 4. Extract Links
   const linkRegex = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi;
-  const allLinks = text.match(linkRegex) || [];
-  const uniqueLinks = Array.from(new Set(allLinks));
+  const allLinksFound = text.match(linkRegex) || [];
+  const uniqueLinks = Array.from(new Set(allLinksFound));
   
   uniqueLinks.forEach(link => {
     const l = link.toLowerCase();
+    let label = 'Website';
     if (l.includes('linkedin.com')) {
       resume.contact.linkedin = link;
+      label = 'LinkedIn';
     } else if (l.includes('github.com')) {
       resume.contact.github = link;
+      label = 'GitHub';
+    } else if (l.includes('gitlab.com')) {
+      label = 'GitLab';
+    } else if (l.includes('bitbucket.org')) {
+      label = 'Bitbucket';
     } else if (l.includes('portfolio') || l.includes('personal-website')) {
       resume.contact.portfolio = link;
+      label = 'Portfolio';
+    } else if (l.includes('behance.net')) {
+      label = 'Behance';
+    } else if (l.includes('dribbble.com')) {
+      label = 'Dribbble';
+    } else if (l.includes('twitter.com') || l.includes('x.com')) {
+      label = 'Twitter';
     }
+
+    resume.contact.links.push({ label, url: link });
   });
 
   // 5. Section detection and localized extraction

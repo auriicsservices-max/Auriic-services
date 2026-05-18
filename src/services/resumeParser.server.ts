@@ -39,9 +39,19 @@ export class RobustResumeParser {
   async parseText(text: string): Promise<ResumeData> {
     const doc = nlp(text);
     
-    // 1. Extract Email
-    const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
-    const email = emailMatch ? emailMatch[0] : '';
+    // 1. Extract Emails
+    // Heuristic: Clean potential broken emails from PDFs (spaces around @ and dots)
+    const cleanedText = text.replace(/([a-zA-Z0-9._%+-]+)\s*@\s*([a-zA-Z0-9.-]+)\s*\.\s*([a-zA-Z]{2,})/g, '$1@$2.$3');
+    
+    const emailRegex = /[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/gi;
+    const allFoundEmails = Array.from(new Set(
+      (cleanedText.match(emailRegex) || [])
+        .map(e => e.toLowerCase().replace(/[.,;:]$/, '')) // Normalize and trim trailing punctuation
+        .filter(e => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e)) // Final validation
+    ));
+
+    const email = allFoundEmails.length > 0 ? allFoundEmails[0] : '';
+    const alternateEmails = allFoundEmails.length > 1 ? allFoundEmails.slice(1) : [];
 
     // 2. Extract Phone
     const phoneMatch = text.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{4}/);
@@ -65,15 +75,43 @@ export class RobustResumeParser {
     }
 
     // 4. Links
-    const links = text.match(/https?:\/\/[^\s]+/g) || [];
+    const links = Array.from(new Set(text.match(/https?:\/\/[^\s,)]+/g) || []));
     let linkedin = '';
     let github = '';
     let portfolio = '';
+    const allLinks: { label: string, url: string }[] = [];
+
     links.forEach(link => {
       const l = link.toLowerCase();
-      if (l.includes('linkedin.com')) linkedin = link;
-      else if (l.includes('github.com')) github = link;
-      else if (!l.includes('google') && !l.includes('pdf')) portfolio = link;
+      let label = 'Website';
+      
+      if (l.includes('linkedin.com')) {
+        linkedin = link;
+        label = 'LinkedIn';
+      } else if (l.includes('github.com')) {
+        github = link;
+        label = 'GitHub';
+      } else if (l.includes('gitlab.com')) {
+        label = 'GitLab';
+      } else if (l.includes('bitbucket.org')) {
+        label = 'Bitbucket';
+      } else if (l.includes('behance.net')) {
+        label = 'Behance';
+      } else if (l.includes('dribbble.com')) {
+        label = 'Dribbble';
+      } else if (l.includes('twitter.com') || l.includes('x.com')) {
+        label = 'Twitter';
+      } else if (l.includes('medium.com')) {
+        label = 'Medium';
+      } else if (l.includes('portfolio') || l.includes('personal-site')) {
+        portfolio = link;
+        label = 'Portfolio';
+      } else if (!l.includes('google') && !l.includes('pdf') && !l.includes('schema.org')) {
+        label = 'Portfolio';
+        if (!portfolio) portfolio = link;
+      }
+
+      allLinks.push({ label, url: link });
     });
 
     // 5. Sections
@@ -103,7 +141,7 @@ export class RobustResumeParser {
 
     const data: ResumeData = {
       name,
-      contact: { email, phone, linkedin, github, portfolio },
+      contact: { email, alternateEmails, phone, linkedin, github, portfolio, links: allLinks },
       profile: sections.profile,
       domainFocus,
       totalExperienceYears,
@@ -189,12 +227,13 @@ export class RobustResumeParser {
     const blocks = text.split(/\n(?=[A-Z0-9])/).filter(b => b.trim().length > 10);
     return blocks.map(block => {
       const lines = block.trim().split('\n');
+      const projectLinks = block.match(/https?:\/\/[^\s,)]+/g) || [];
       return {
         name: lines[0].trim(),
         technologies: [],
         duration: '',
         description: lines.slice(1).filter(l => l.length > 10),
-        links: [],
+        links: Array.from(new Set(projectLinks)),
       };
     }).slice(0, 5);
   }

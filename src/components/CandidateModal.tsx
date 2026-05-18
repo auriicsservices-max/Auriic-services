@@ -6,8 +6,11 @@ import LZString from 'lz-string';
 const getLinkIcon = (label: string) => {
   const l = label.toLowerCase();
   if (l.includes('linkedin')) return <Linkedin size={16} />;
-  if (l.includes('github')) return <Github size={16} />;
-  if (l.includes('twitter')) return <Twitter size={16} />;
+  if (l.includes('github') || l.includes('gitlab') || l.includes('bitbucket')) return <Github size={16} />;
+  if (l.includes('twitter') || l.includes(' x ')) return <Twitter size={16} />;
+  if (l.includes('behance')) return <Code size={16} />;
+  if (l.includes('dribbble')) return <Globe size={16} />;
+  if (l.includes('medium')) return <StickyNote size={16} />;
   if (l.includes('portfolio') || l.includes('website')) return <Globe size={16} />;
   if (l.includes('project')) return <Briefcase size={16} />;
   if (l.includes('cv') || l.includes('resume')) return <Download size={16} />;
@@ -17,7 +20,6 @@ import { formatUKDate } from '../lib/dateUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { useTimezone } from '../contexts/TimezoneContext';
 import { logActivity } from '../lib/logger';
-import { createNotification, formatNotificationMessage } from '../services/notificationService';
 import ConfirmModal from './ConfirmModal';
 import { fetchCvList } from '../services/cvApiService';
 import { doc, updateDoc } from 'firebase/firestore';
@@ -28,7 +30,7 @@ interface CandidateModalProps {
   isOpen: boolean;
   onClose: () => void;
   onShortlist: (id: string, currentStatus: boolean) => void;
-  onUpdateFollowUp: (id: string, note: string, date: string) => void;
+  onUpdateFollowUp: (id: string, note: string, date: string, status?: string) => void;
   onUpdateNotes: (id: string, notes: string) => void;
   onUpdateAssignee: (id: string, userId: string) => void;
   onContact: (userId: string) => void;
@@ -40,8 +42,11 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const { formatDate } = useTimezone();
   const [followUpNote, setFollowUpNote] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
+  const [followUpStatus, setFollowUpStatus] = useState('Pending');
   const [generalNotes, setGeneralNotes] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [domainFocus, setDomainFocus] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [isSavingAssignee, setIsSavingAssignee] = useState(false);
@@ -137,9 +142,12 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   useEffect(() => {
     if (candidate) {
       setFollowUpNote(candidate.followUpNote || '');
-      setFollowUpDate(candidate.followUpDate || '');
+      setFollowUpDate(candidate.followUpAt || candidate.followUpDate || '');
+      setFollowUpStatus(candidate.followUpStatus || 'Pending');
       setGeneralNotes(candidate.notes || '');
       setAssignedTo(candidate.assignedTo || '');
+      setFullName(candidate.fullName || '');
+      setDomainFocus(candidate.domainFocus || '');
       setSkills(candidate.skills || []);
       setSearchTerm(''); // Clear search on candidate change
       
@@ -260,8 +268,8 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       return;
     }
     setIsSaving(true);
-    await onUpdateFollowUp(candidate.id, followUpNote, followUpDate);
-    await logActivity('Follow-up Update', { candidateId: candidate.id }, user!.uid, role!);
+    await onUpdateFollowUp(candidate.id, followUpNote, followUpDate, followUpStatus);
+    await logActivity('Follow-up Update', { candidateId: candidate.id, status: followUpStatus }, user!.uid, role!);
     setIsSaving(false);
     showAlert('Success', 'Follow-up updated successfully.');
   };
@@ -272,6 +280,28 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     await logActivity('Notes Update', { candidateId: candidate.id }, user!.uid, role!);
     setIsSavingNotes(false);
     showAlert('Success', 'Notes updated successfully.');
+  };
+
+  const handleUpdateDetails = async () => {
+    if (!fullName.trim()) {
+      showAlert('Error', 'Full Name is required.');
+      return;
+    }
+    setIsSaving(true);
+    try {
+      await updateDoc(doc(db, 'candidates', candidate.id), {
+        fullName: fullName.trim(),
+        domainFocus: domainFocus.trim(),
+        updatedAt: new Date()
+      });
+      await logActivity('Candidate Details Update', { candidateId: candidate.id, fullName, domainFocus }, user!.uid, role!);
+      showAlert('Success', 'Candidate details updated successfully');
+    } catch (err) {
+      console.error(err);
+      showAlert('Error', 'Failed to update candidate details.');
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleUpdateAssignee = async () => {
@@ -333,32 +363,50 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
         {/* Header */}
         <header className="p-8 border-b border-[var(--border-color)] flex flex-col gap-6">
           <div className="flex justify-between items-start">
-            <div className="flex items-center gap-6">
-              <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-indigo-100 dark:shadow-none uppercase">
-                {(candidate.fullName || '??').slice(0, 2)}
-              </div>
-              <div>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-3xl font-serif text-[var(--text-primary)]">{candidate.fullName || 'Unnamed Candidate'}</h2>
-                  <button 
-                    onClick={handleShortlistClick}
-                    disabled={!isPrivileged && role !== 'recruiter'}
-                    className={`p-1.5 rounded-full transition-colors ${!isPrivileged && role !== 'recruiter' ? 'opacity-50 cursor-not-allowed' : ''} ${candidate.isShortlisted ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-300 dark:text-slate-700 hover:text-slate-400 dark:hover:text-slate-500'}`}
-                  >
-                    {candidate.isShortlisted ? <Star fill="currentColor" size={20} /> : <StarOff size={20} />}
-                  </button>
+              <div className="flex items-center gap-6">
+                <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-indigo-100 dark:shadow-none uppercase">
+                  {(fullName || candidate.fullName || '??').slice(0, 2)}
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <p className="text-indigo-600 dark:text-indigo-400 font-bold text-sm uppercase tracking-widest">
-                    {candidate.domainFocus || candidate.domain || 'Uncategorized Domain'}
-                  </p>
-                  <span className="text-[var(--text-muted)] text-[10px]">•</span>
-                  <p className="text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-widest">
-                    {candidate.domain || 'General Focus'}
-                  </p>
+                <div className="flex-1">
+                  <div className="flex items-center gap-3">
+                    <input 
+                      value={fullName}
+                      onChange={(e) => setFullName(e.target.value)}
+                      className="text-3xl font-serif bg-transparent border-b border-transparent focus:border-indigo-500 hover:border-[var(--border-color)] px-1 transition-all focus:outline-none w-full text-[var(--text-primary)]"
+                      placeholder="Candidate Name"
+                    />
+                    <button 
+                      onClick={handleShortlistClick}
+                      disabled={!isPrivileged && role !== 'recruiter'}
+                      className={`p-1.5 rounded-full transition-colors ${!isPrivileged && role !== 'recruiter' ? 'opacity-50 cursor-not-allowed' : ''} ${candidate.isShortlisted ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-300 dark:text-slate-700 hover:text-slate-400 dark:hover:text-slate-500'}`}
+                    >
+                      {candidate.isShortlisted ? <Star fill="currentColor" size={20} /> : <StarOff size={20} />}
+                    </button>
+                    {(fullName !== candidate.fullName || domainFocus !== (candidate.domainFocus || '')) && (
+                      <button 
+                        onClick={handleUpdateDetails}
+                        disabled={isSaving}
+                        className="p-2 text-emerald-500 hover:bg-emerald-50 rounded-full transition-all"
+                        title="Save Changes"
+                      >
+                        {isSaving ? <Loader2 className="animate-spin" size={20} /> : <Save size={20} />}
+                      </button>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2 mt-1">
+                    <input 
+                      value={domainFocus}
+                      onChange={(e) => setDomainFocus(e.target.value)}
+                      className="text-indigo-600 dark:text-indigo-400 font-bold text-sm uppercase tracking-widest bg-transparent border-b border-transparent focus:border-indigo-500 hover:border-[var(--border-color)] px-1 transition-all focus:outline-none"
+                      placeholder="Domain Focus"
+                    />
+                    <span className="text-[var(--text-muted)] text-[10px]">•</span>
+                    <p className="text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-widest">
+                      {candidate.domain || 'General Focus'}
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
             <div className="flex gap-2">
               {(role === 'admin' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid) && (
                 <button 
@@ -556,8 +604,18 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               <div className="space-y-3">
                 <div className="flex items-center gap-3 p-3 bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-xl transition-colors duration-300">
                   <Mail className="text-indigo-500 dark:text-indigo-400" size={16} />
-                  <p className="text-xs font-medium text-[var(--text-secondary)] truncate">{candidate.email}</p>
+                  <p className="text-xs font-medium text-[var(--text-secondary)] truncate">
+                    {candidate.email || <span className="text-red-500">Email not found</span>}
+                  </p>
                 </div>
+                
+                {candidate.alternateEmails && candidate.alternateEmails.length > 0 && candidate.alternateEmails.map((altEmail: string, idx: number) => (
+                  <div key={idx} className="flex items-center gap-3 p-3 bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-xl opacity-80">
+                    <Mail className="text-slate-400" size={16} />
+                    <p className="text-[10px] font-medium text-[var(--text-muted)] truncate">{altEmail}</p>
+                  </div>
+                ))}
+
                 <div className="flex items-center gap-3 p-3 bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-xl transition-colors duration-300">
                   <Phone className="text-indigo-500 dark:text-indigo-400" size={16} />
                   <p className="text-xs font-medium text-[var(--text-secondary)]">{candidate.phone || 'N/A'}</p>
@@ -573,6 +631,13 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                     >
                       {isFetchingCV ? 'Finding latest Rectech CV...' : 'Download Original Attachment'}
                     </button>
+                  </div>
+                )}
+                {(!candidate.links || candidate.links.length === 0) && (
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/40 border border-dashed border-[var(--border-color)] rounded-xl">
+                    <p className="text-[10px] text-[var(--text-muted)] font-medium text-center">
+                      No portfolio or profile links found
+                    </p>
                   </div>
                 )}
                 {candidate.links?.map((link: any, i: number) => (
@@ -708,6 +773,23 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                       onChange={(e) => setFollowUpDate(e.target.value)}
                       className="w-full bg-white dark:bg-indigo-900 border border-indigo-200 dark:border-indigo-700 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"
                     />
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <label className="text-[9px] font-bold uppercase text-indigo-800 dark:text-indigo-200 ml-1 tracking-wider">Follow Up Status</label>
+                  <div className="relative">
+                    <ChevronDown className="absolute right-3 top-2.5 text-indigo-600 dark:text-indigo-400 pointer-events-none" size={14} />
+                    <select 
+                      value={followUpStatus}
+                      onChange={(e) => setFollowUpStatus(e.target.value)}
+                      className="w-full bg-white dark:bg-indigo-900 border border-indigo-200 dark:border-indigo-700 rounded-xl px-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 appearance-none cursor-pointer"
+                    >
+                      <option value="Pending">Pending</option>
+                      <option value="Due Soon">Due Soon</option>
+                      <option value="Completed">Completed</option>
+                      <option value="Missed">Missed</option>
+                      <option value="Cancelled">Cancelled</option>
+                    </select>
                   </div>
                 </div>
                 <div className="space-y-1">

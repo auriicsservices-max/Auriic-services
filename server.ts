@@ -26,7 +26,7 @@ async function startServer() {
     adminApp = getApps()[0];
   }
 
-  const adminDb = getFirestore(adminApp);
+  const adminDb = getFirestore(adminApp, firebaseConfig.firestoreDatabaseId);
   const adminMessaging = getMessaging();
 
   // Notification Listener
@@ -71,48 +71,86 @@ async function startServer() {
 
   // Follow-up Reminder Cron Logic
   setInterval(async () => {
-    const now = new Date();
-    
-    // Query candidates with upcoming follow-ups
-    const candidatesSnapshot = await adminDb.collection('candidates')
-        .where('isArchived', '==', false)
-        .where('followUpDate', '>', now.toISOString())
-        .get();
+    try {
+      const now = new Date();
+      const checkRange = new Date(now.getTime() + 70 * 60 * 1000); // Check up to 70 mins ahead
+      
+      const candidatesSnapshot = await adminDb.collection('candidates')
+          .where('isArchived', '==', false)
+          .where('followUpStatus', 'in', ['Pending', 'Due Soon'])
+          .get();
 
-    candidatesSnapshot.forEach(async (doc) => {
-        const candidate = doc.data();
-        if (!candidate.followUpDate) return;
-        
-        const followUpTime = new Date(candidate.followUpDate);
-        const timeDiff = followUpTime.getTime() - now.getTime();
-        
-        // Reminder 1 Hour Before
-        if (timeDiff > 0 && timeDiff <= 65 * 60 * 1000 && timeDiff >= 55 * 60 * 1000 && !candidate.reminder1HourSent) {
-            await sendReminder(adminDb, candidate, '1 hour before', doc.id);
-            await doc.ref.update({ reminder1HourSent: true });
-        }
-        // Reminder 30 Minutes Before
-        else if (timeDiff > 0 && timeDiff <= 35 * 60 * 1000 && timeDiff >= 25 * 60 * 1000 && !candidate.reminder30MinSent) {
-            await sendReminder(adminDb, candidate, '30 minutes before', doc.id);
-            await doc.ref.update({ reminder30MinSent: true });
-        }
-    });
+      // Get Admins and TLs for cross-notification if needed, or just notify all as requested
+      const staffSnapshot = await adminDb.collection('users')
+          .where('role', 'in', ['admin', 'team_leader'])
+          .get();
+      const staffIds = staffSnapshot.docs.map(d => d.id);
 
+      candidatesSnapshot.docs.forEach(async (doc) => {
+          const candidate = doc.data();
+          const followUpTimeStr = candidate.followUpAt || candidate.followUpDate;
+          if (!followUpTimeStr) return;
+          
+          const followUpTime = new Date(followUpTimeStr);
+          const timeDiff = followUpTime.getTime() - now.getTime();
+          
+          // Reminder 1 Hour Before (55-65 mins)
+          if (timeDiff > 0 && timeDiff <= 65 * 60 * 1000 && timeDiff >= 55 * 60 * 1000 && !candidate.reminder1HourSent) {
+              await sendMultiReminder(adminDb, candidate, '1 hour before', doc.id, staffIds);
+              await doc.ref.update({ reminder1HourSent: true });
+          }
+          // Reminder 30 Minutes Before (25-35 mins)
+          else if (timeDiff > 0 && timeDiff <= 35 * 60 * 1000 && timeDiff >= 25 * 60 * 1000 && !candidate.reminder30MinSent) {
+              await sendMultiReminder(adminDb, candidate, '30 minutes before', doc.id, staffIds);
+              await doc.ref.update({ reminder30MinSent: true });
+          }
+          // Mark as Missed if past time
+          else if (timeDiff < 0 && candidate.followUpStatus === 'Pending') {
+              await doc.ref.update({ followUpStatus: 'Missed' });
+          }
+      });
+    } catch (cronErr) {
+      console.error('[Cron] Reminder check failed:', cronErr);
+    }
   }, 5 * 60 * 1000); // Check every 5 mins
 
-  async function sendReminder(db: any, candidate: any, type: string, candidateId: string) {
-    const text = `Follow-up reminder: Candidate ${candidate.fullName} follow-up is scheduled in ${type.split(' ')[0]}`;
-    const purpose = `Detailed notification:\n- Candidate: ${candidate.fullName}\n- Follow Up Time: ${new Date(candidate.followUpDate).toLocaleString()}\n- Reminder Type: ${type}`;
-    
-    await db.collection('notifications').add({
-      text,
-      purpose,
-      type: 'assignment',
-      recipientId: candidate.assignedTo || 'all',
-      relatedCandidateId: candidateId,
-      read: false,
-      createdAt: FieldValue.serverTimestamp()
+  async function sendMultiReminder(db: any, candidate: any, type: string, candidateId: string, staffIds: string[]) {
+    // Fetch all staff names for notifications
+    const usersSnapshot = await db.collection('users').get();
+    const userNames: Record<string, string> = {};
+    const userRoles: Record<string, string> = {};
+    usersSnapshot.docs.forEach((d: any) => {
+      const data = d.data();
+      userNames[d.id] = data.name || data.email.split('@')[0];
+      userRoles[d.id] = data.role === 'admin' ? 'Admin' : data.role === 'team_leader' ? 'Team Leader' : 'Recruiter';
     });
+
+    const action = `Follow-up scheduled in ${type.split(' ')[0]}`;
+    const purpose = `Follow-up reminder for ${candidate.fullName}`;
+    
+    // Notify assigned recruiter
+    const recipients = new Set(staffIds);
+    if (candidate.assignedTo) recipients.add(candidate.assignedTo);
+
+    for (const recipientId of Array.from(recipients)) {
+      const recipientName = userNames[recipientId] || 'Assigned User';
+      const recipientRole = userRoles[recipientId] || 'Recruiter';
+
+      await db.collection('notifications').add({
+        senderId: 'system',
+        senderName: 'Aurrum System',
+        senderRole: 'System',
+        recipientId,
+        recipientName,
+        recipientRole,
+        candidateName: candidate.fullName,
+        action,
+        purpose,
+        relatedCandidateId: candidateId,
+        read: false,
+        createdAt: FieldValue.serverTimestamp()
+      });
+    }
   }
 
   const app = express();

@@ -37,7 +37,7 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
     const lower = search.toLowerCase();
     return list.filter(c => 
       c.fullName?.toLowerCase().includes(lower) || 
-      c.skills?.some((s: string) => s.toLowerCase().includes(lower))
+      c.skills?.some((s: string) => s?.toLowerCase()?.includes(lower))
     );
   }, [candidates, search]);
 

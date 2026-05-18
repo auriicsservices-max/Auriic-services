@@ -39,15 +39,16 @@ export interface AppNotification {
   id: string;
   senderId: string;
   senderName: string;
-  senderRole: string; // admin, team_leader, recruiter
+  senderRole: string; // Admin, Team Leader, Recruiter, Aurrum System
   recipientId: string;
   recipientName: string;
   recipientRole: string;
   candidateName: string;
-  action: string; // Created, Assigned, Shortlisted, Rejection, Note Added
+  action: string; // Assigned candidate, Shortlisted candidate, Updated candidate, etc.
   purpose: string;
   createdAt: Timestamp;
   read: boolean;
+  relatedCandidateId?: string;
 }
 
 interface NotificationContextType {

@@ -187,7 +187,8 @@ export class ResumeParserService {
         parsed.rawText = text;
 
         // Skill Normalization and Deduplication
-        const normalizeSkill = (s: string) => {
+        const normalizeSkill = (s: any) => {
+          if (!s || typeof s !== 'string') return '';
           let normalized = s.trim();
           const lower = normalized.toLowerCase();
           
