@@ -1,4 +1,4 @@
-import { logActivity } from '../lib/logger';
+import { logActivity } from '../services/activityService';
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, onSnapshot, doc, setDoc, deleteDoc, updateDoc, getDocs, writeBatch } from 'firebase/firestore';
@@ -80,7 +80,15 @@ export default function UserManagement() {
         isArchived: false
       });
 
-      await logActivity('Create User', { email: newEmail, role: newRole }, user!.uid, role!);
+      await logActivity(
+        user!.displayName || user!.email || 'Admin',
+        role!,
+        'Create User',
+        newEmail,
+        null,
+        `New user created: ${newEmail}`,
+        'Team User Management'
+      );
 
       // Cleanup temp app
       await signOut(tempAuth);
@@ -107,7 +115,15 @@ export default function UserManagement() {
     
     try {
       await updateDoc(doc(db, 'users', userId), { role: nextRole });
-      await logActivity('Update Role', { userId, nextRole }, user!.uid, role!);
+      await logActivity(
+         user!.displayName || user!.email || 'Admin',
+         role!,
+         'Update Role',
+         userId,
+         null,
+         `Role updated from ${currentRole} to ${nextRole}`,
+         'Team User Management'
+      );
     } catch (err) {
       console.error(err);
     }

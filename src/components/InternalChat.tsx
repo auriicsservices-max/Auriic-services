@@ -195,7 +195,7 @@ export default function InternalChat({ teamMembers, initialRecipientId }: Intern
       msgs.sort((a, b) => {
         const t1 = a.createdAt?.toMillis() || 0;
         const t2 = b.createdAt?.toMillis() || 0;
-        return t1 - t2;
+        return t2 - t1;
       });
       setMessages(msgs);
       setIsLoading(false);

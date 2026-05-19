@@ -6,6 +6,7 @@ import multer from 'multer';
 import fs from 'fs';
 import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
 import { initializeApp, getApps } from 'firebase-admin/app';
+import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { RobustResumeParser } from './src/services/resumeParser.server.ts';
@@ -18,53 +19,82 @@ const _dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(_fi
 async function startServer() {
   // Initialize Admin SDK lazily
   if (!getApps().length) {
-    initializeApp({
-      projectId: 'ai-studio-applet-webapp-ddf84'
-    });
+    try {
+      const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
+      if (serviceAccountJson) {
+        const serviceAccount = JSON.parse(serviceAccountJson);
+        initializeApp({
+          credential: admin.credential.cert(serviceAccount),
+          projectId: firebaseConfig.projectId
+        });
+        console.log('[Server] Admin SDK initialized with Service Account');
+      } else {
+        initializeApp({
+          projectId: firebaseConfig.projectId
+        });
+        console.log('[Server] Admin SDK initialized with Project ID (ADC)');
+      }
+    } catch (initErr) {
+      console.error('[Server] Admin SDK Initialization Error:', initErr);
+      // Fallback to minimal init
+      initializeApp({ projectId: firebaseConfig.projectId });
+    }
   }
 
-  const adminDb = getFirestore(firebaseConfig.firestoreDatabaseId);
+  const dbId = firebaseConfig.firestoreDatabaseId || '(default)';
+  const adminDb = getFirestore(dbId);
   const adminMessaging = getMessaging();
 
   // Notification Listener
-  try {
-    adminDb.collection('notifications').onSnapshot(async (snapshot) => {
-      snapshot.docChanges().forEach(async (change) => {
-        if (change.type === 'added') {
-          const notification = change.doc.data();
-          
-          // Filter: Only chat or assignment notifications
-          if (notification.type !== 'chat' && notification.type !== 'assignment') {
-              return;
-          }
-
-          const userId = notification.userId;
-          
-          try {
-            const tokensSnapshot = await adminDb.collection(`users/${userId}/fcmTokens`).get();
-            const tokens = tokensSnapshot.docs.map(doc => doc.data().token);
+  let notificationListener: (() => void) | null = null;
+  
+  const startNotificationListener = () => {
+    try {
+      notificationListener = adminDb.collection('notifications').onSnapshot(async (snapshot) => {
+        snapshot.docChanges().forEach(async (change) => {
+          if (change.type === 'added') {
+            const notification = change.doc.data();
             
-            if (tokens.length > 0) {
-              const message = {
-                notification: {
-                  title: notification.title,
-                  body: notification.body
-                },
-                tokens: tokens
-              };
-              await adminMessaging.sendEachForMulticast(message);
+            // Filter: Only chat or assignment notifications
+            if (notification.type !== 'chat' && notification.type !== 'assignment') {
+                return;
             }
-          } catch(err) {
-            console.error('Error sending push notification:', err);
+
+            const userId = notification.userId || notification.recipientId;
+            if (!userId) return;
+            
+            try {
+              const tokensSnapshot = await adminDb.collection(`users/${userId}/fcmTokens`).get();
+              const tokens = tokensSnapshot.docs.map(doc => doc.data().token);
+              
+              if (tokens.length > 0) {
+                const message = {
+                  notification: {
+                    title: notification.title,
+                    body: notification.body
+                  },
+                  tokens: tokens
+                };
+                await adminMessaging.sendEachForMulticast(message);
+                console.log(`[Server] Notification sent to ${tokens.length} tokens for user ${userId}`);
+              }
+            } catch(err) {
+              console.error('Error sending push notification:', err);
+            }
           }
+        });
+      }, (err) => {
+        console.warn('[Server] Notification listener permission error:', err.message);
+        if (err.message.includes('permission')) {
+          console.warn('[Server] Tip: Ensure your Service Account has "Cloud Datastore User" or "Firebase Admin" role.');
         }
       });
-    }, (err) => {
-      console.warn('[Server] Notification listener warning. Push notifications require Admin SDK credentials:', err.message);
-    });
-  } catch(err) {
-    console.error('[Server] Failed to initialize notification listener:', err);
-  }
+    } catch(err) {
+      console.error('[Server] Failed to initialize notification listener:', err);
+    }
+  };
+
+  startNotificationListener();
 
   const app = express();
   const PORT = 3000;

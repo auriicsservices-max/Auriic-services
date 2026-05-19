@@ -11,6 +11,7 @@ interface StatsProps {
   activityLogs?: any[];
   onShortlist: (id: string, currentStatus: boolean) => Promise<void>;
   onUpdateFollowUp: (id: string, note: string, date: string) => Promise<void>;
+  onCompleteFollowUp: (id: string) => void;
   onUpdateNotes: (id: string, notes: string) => Promise<void>;
   onUpdateAssignee: (id: string, userId: string) => Promise<void>;
   onContact: (userId: string) => void;
@@ -18,7 +19,7 @@ interface StatsProps {
   role?: string | null;
 }
 
-export default function Analytics({ candidates, activityLogs = [], onShortlist, onUpdateFollowUp, onUpdateNotes, onUpdateAssignee, onContact, teamMembers, role }: StatsProps) {
+export default function Analytics({ candidates, activityLogs = [], onShortlist, onUpdateFollowUp, onCompleteFollowUp, onUpdateNotes, onUpdateAssignee, onContact, teamMembers, role }: StatsProps) {
   const { quotaExceeded } = useAuth();
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
@@ -107,8 +108,6 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
     .sort((a: any, b: any) => b[1] - a[1])
     .map(([name, count]) => ({ name, count }));
 
-  const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6', '#EC4899', '#06B6D4', '#64748B'];
-
   const filteredCandidates = selectedSkill 
     ? candidates.filter(c => c.skills?.map((s: string) => s.trim().toUpperCase()).includes(selectedSkill))
     : [];
@@ -146,6 +145,16 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
   };
 
   const filteredSkills = allSkillsData.filter(({ name }) => name.toLowerCase().includes(skillSearch.toLowerCase()));
+
+  const chartTooltipStyle = { 
+    borderRadius: '0.75rem', 
+    border: '1px solid var(--border-color)', 
+    backgroundColor: 'var(--card-bg)', 
+    color: 'var(--text-primary)',
+    fontSize: '0.875rem',
+    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+  };
+  const itemStyle = { color: 'var(--text-primary)', fontWeight: 'bold' };
 
   return quotaExceeded ? (
     <div className="flex-1 flex items-center justify-center p-8">
@@ -187,7 +196,7 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
                 <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)', fontWeight: 'bold' }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
-                <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)' }} />
+                <Tooltip contentStyle={chartTooltipStyle} itemStyle={itemStyle} />
                 <Line type="monotone" dataKey="count" stroke="#4F46E5" strokeWidth={4} dot={{ fill: '#4F46E5', strokeWidth: 2, r: 4, stroke: '#fff' }} />
               </LineChart>
             </ResponsiveContainer>
@@ -203,7 +212,7 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
                 <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
-                <Tooltip contentStyle={{ borderRadius: '1rem', border: 'none', backgroundColor: 'var(--card-bg)', color: 'var(--text-primary)' }} />
+                <Tooltip contentStyle={chartTooltipStyle} itemStyle={itemStyle} />
                 <Legend />
                 <Bar dataKey="uploads" stackId="a" fill="#4F46E5" />
                 <Bar dataKey="parsing" stackId="a" fill="#10B981" />
@@ -237,7 +246,7 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
                     <BarChart data={allSkillsData} layout="vertical">
                       <XAxis type="number" hide />
                       <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
-                      <Tooltip contentStyle={{ backgroundColor: 'var(--card-bg)', borderRadius: '1rem' }} />
+                      <Tooltip contentStyle={chartTooltipStyle} itemStyle={itemStyle} />
                       <Bar dataKey="count" fill="#4F46E5" radius={[0, 10, 10, 0]} barSize={20} />
                     </BarChart>
                  </ResponsiveContainer>
@@ -274,7 +283,8 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
           candidate={selectedCandidate} 
           onClose={() => setSelectedCandidate(null)} 
           onShortlist={onShortlist} 
-          onUpdateFollowUp={onUpdateFollowUp} 
+          onUpdateFollowUp={onUpdateFollowUp}
+          onCompleteFollowUp={onCompleteFollowUp}
           onUpdateNotes={onUpdateNotes}
           onUpdateAssignee={onUpdateAssignee}
           onContact={onContact}

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown, Linkedin, Github, Twitter, ExternalLink } from 'lucide-react';
+import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown, Linkedin, Github, Twitter, ExternalLink, CheckCircle2 } from 'lucide-react';
 import LZString from 'lz-string';
 
 // Helper to get icon for link
@@ -16,7 +16,7 @@ const getLinkIcon = (label: string) => {
 import { formatUKDate } from '../lib/dateUtils';
 import { useAuth } from '../contexts/AuthContext';
 import { useTimezone } from '../contexts/TimezoneContext';
-import { logActivity } from '../lib/logger';
+import { logActivity } from '../services/activityService';
 import { createNotification, formatNotificationMessage } from '../services/notificationService';
 import ConfirmModal from './ConfirmModal';
 import { fetchCvList } from '../services/cvApiService';
@@ -29,13 +29,14 @@ interface CandidateModalProps {
   onClose: () => void;
   onShortlist: (id: string, currentStatus: boolean) => void;
   onUpdateFollowUp: (id: string, note: string, date: string) => void;
+  onCompleteFollowUp: (id: string) => void;
   onUpdateNotes: (id: string, notes: string) => void;
   onUpdateAssignee: (id: string, userId: string) => void;
   onContact: (userId: string) => void;
   teamMembers: Record<string, string>;
 }
 
-export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp, onUpdateNotes, onUpdateAssignee, onContact, teamMembers }: CandidateModalProps) {
+export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp, onCompleteFollowUp, onUpdateNotes, onUpdateAssignee, onContact, teamMembers }: CandidateModalProps) {
   const { user, role, isPrivileged } = useAuth();
   const { formatDate } = useTimezone();
   const [followUpNote, setFollowUpNote] = useState('');
@@ -43,7 +44,17 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const [generalNotes, setGeneralNotes] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isCompleting, setIsCompleting] = useState(false);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+
+  const handleCompleteFollowUp = async () => {
+    setIsCompleting(true);
+    await onCompleteFollowUp(candidate.id);
+    setFollowUpNote('');
+    setFollowUpDate('');
+    setIsCompleting(false);
+    showAlert('Success', 'Follow-up marked as completed.');
+  };
   const [isSavingAssignee, setIsSavingAssignee] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
@@ -245,7 +256,15 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     if (!isPrivileged && role !== 'recruiter') return;
     const newStatus = !candidate.isShortlisted;
     await onShortlist(candidate.id, candidate.isShortlisted);
-    await logActivity('Shortlist Toggle', { candidateId: candidate.id, status: newStatus }, user!.uid, role);
+    await logActivity(
+      user!.displayName || user!.email || 'Admin',
+      role!,
+      'Shortlist Toggle',
+      candidate.fullName || 'Candidate',
+      null,
+      `Shortlist status changed to ${newStatus}`,
+      'Shortlist'
+    );
     
     if (newStatus) {
       showAlert('Shortlisted!', `Excellent choice! ${candidate.fullName} has been added to your shortlist.`);
@@ -261,7 +280,15 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     }
     setIsSaving(true);
     await onUpdateFollowUp(candidate.id, followUpNote, followUpDate);
-    await logActivity('Follow-up Update', { candidateId: candidate.id }, user!.uid, role!);
+    await logActivity(
+      user!.displayName || user!.email || 'Admin',
+      role!,
+      'Follow-up Update',
+      candidate.fullName || 'Candidate',
+      null,
+      `Follow-up updated for ${followUpDate}`,
+      'Follow-Up'
+    );
     setIsSaving(false);
     showAlert('Success', 'Follow-up updated successfully.');
   };
@@ -269,7 +296,15 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const handleSaveNotes = async () => {
     setIsSavingNotes(true);
     await onUpdateNotes(candidate.id, generalNotes);
-    await logActivity('Notes Update', { candidateId: candidate.id }, user!.uid, role!);
+    await logActivity(
+      user!.displayName || user!.email || 'Admin',
+      role!,
+      'Notes Update',
+      candidate.fullName || 'Candidate',
+      null,
+      `Notes updated`,
+      'Candidate'
+    );
     setIsSavingNotes(false);
     showAlert('Success', 'Notes updated successfully.');
   };
@@ -286,8 +321,16 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       
       await onUpdateAssignee(candidate.id, assignedTo);
       
-      const activityAction = isRemoval ? 'Assignment Removed' : 'Assignee Updated'; // Log message
-      await logActivity(activityAction, { candidateId: candidate.id, userId: assignedTo }, user!.uid, role!);
+      const activityAction = isRemoval ? 'Assignment Removed' : 'Assignee Updated'; 
+      await logActivity(
+        user!.displayName || user!.email || 'Admin',
+        role!,
+        activityAction,
+        candidate.fullName || 'Candidate',
+        assignedTo ? (teamMembers[assignedTo] || assignedTo) : null,
+        isRemoval ? 'Assignment removed' : `Assigned to ${teamMembers[assignedTo] || assignedTo}`,
+        'Candidate Assignment'
+      );
       
       // Show desktop notification if enabled
       if (Notification.permission === 'granted') {
@@ -318,7 +361,15 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       const { updateDoc, doc } = await import('firebase/firestore');
       const { db } = await import('../lib/firebase');
       await updateDoc(doc(db, 'candidates', candidate.id), { skills: updatedSkills });
-      await logActivity('Skill Removed', { candidateId: candidate.id, skill: skillToRemove }, user!.uid, role!);
+      await logActivity(
+        user!.displayName || user!.email || 'Admin',
+        role!,
+        'Skill Removed',
+        candidate.fullName || 'Candidate',
+        null,
+        `Skill '${skillToRemove}' removed`,
+        'Candidate'
+      );
     } catch (err) {
       console.error(err);
     }
@@ -466,12 +517,12 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
                 <GraduationCap size={12} /> Education
               </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-6">
                 {candidate.education?.map((edu: any, i: number) => (
-                  <div key={i} className="p-4 bg-[var(--sidebar-bg)] rounded-2xl border border-[var(--border-color)] transition-colors duration-300">
-                    <h4 className="font-bold text-[var(--text-primary)] text-xs">{edu.degree}</h4>
-                    <p className="text-[var(--text-secondary)] text-[10px] font-medium">{edu.school}</p>
-                    <p className="text-indigo-500 dark:text-indigo-400 text-[10px] font-black mt-1">{edu.year}</p>
+                  <div key={i} className="relative pl-6 border-l border-[var(--border-color)] transition-colors duration-300">
+                    <div className="absolute -left-1.5 top-1.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[var(--bg-primary)]" />
+                    <h4 className="font-bold text-[var(--text-primary)] text-sm">{edu.degree}</h4>
+                    <p className="text-emerald-600 dark:text-emerald-400 text-xs font-semibold">{edu.school} • {edu.year}</p>
                   </div>
                 ))}
               </div>
@@ -586,23 +637,18 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               </div>
             </section>
 
-            <section className="bg-[var(--sidebar-bg)] p-6 rounded-3xl border border-[var(--border-color)] transition-colors duration-300">
-              <div className="flex items-center justify-between mb-4">
+              <section className="bg-[var(--sidebar-bg)] p-6 rounded-3xl border border-[var(--border-color)] transition-colors duration-300">
+              <div className="flex items-center justify-between mb-6">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
-                  <StickyNote size={12} /> Internal Notes
+                  <StickyNote size={12} /> Communication Log
                 </h3>
-                {candidate.notesUpdatedBy && (
-                  <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 uppercase tracking-tighter shrink-0">
-                    Last: {teamMembers?.[candidate.notesUpdatedBy] || 'Team'}
-                  </span>
-                )}
               </div>
-              <div className="space-y-3">
+              <div className="space-y-4">
                 <textarea 
                   value={generalNotes}
                   onChange={(e) => setGeneralNotes(e.target.value)}
-                  placeholder="Record interview feedback, behavioral observations, or potential team fit..."
-                  className="w-full bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl p-4 text-xs h-32 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+                  placeholder="Add a new note..."
+                  className="w-full bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl p-4 text-xs h-24 focus:outline-none focus:ring-2 focus:ring-indigo-500 text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
                 />
                 <button 
                   onClick={handleSaveNotes}
@@ -610,8 +656,23 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   className="w-full py-2.5 bg-indigo-600 text-white rounded-xl text-[10px] font-bold uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                 >
                   {isSavingNotes ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} 
-                  Save Strategy Notes
+                  Post Note
                 </button>
+              </div>
+              <div className="mt-6 space-y-4 pt-6 border-t border-[var(--border-color)]">
+                {candidate.internalNotesLog && candidate.internalNotesLog.length > 0 ? (
+                  candidate.internalNotesLog.slice().reverse().map((log: any, i: number) => (
+                    <div key={i} className="text-[10px] text-[var(--text-secondary)] space-y-1 bg-[var(--card-bg)] p-3 rounded-xl border border-[var(--border-color)]">
+                      <div className="flex justify-between">
+                         <span className="font-bold text-indigo-500">{log.author}</span>
+                         <span className="text-[var(--text-muted)]">{new Date(log.timestamp).toLocaleString()}</span>
+                      </div>
+                      <p>{log.noteContent}</p>
+                    </div>
+                  ))
+                ) : (
+                  <p className="text-[10px] text-[var(--text-muted)] italic">No recent activity log.</p>
+                )}
               </div>
             </section>
 
@@ -726,6 +787,14 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                 >
                   {isSaving ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />} 
                   Update Follow Up
+                </button>
+                <button 
+                  onClick={handleCompleteFollowUp}
+                  disabled={isCompleting}
+                  className="w-full py-2 bg-emerald-600 text-white rounded-xl text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all flex items-center justify-center gap-2"
+                >
+                  {isCompleting ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />} 
+                  Complete Follow-Up
                 </button>
               </div>
             </section>

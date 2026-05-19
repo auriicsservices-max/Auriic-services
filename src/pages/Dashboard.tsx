@@ -9,11 +9,14 @@ import { GoogleGenAI, Type } from "@google/genai";
 import UserManagement from '../components/UserManagement';
 import DashboardHome from './DashboardHome';
 import CandidateModal from '../components/CandidateModal';
+import NotificationList from '../components/NotificationList';
+import ChatNotificationPopup from '../components/ChatNotificationPopup';
 import Analytics from '../components/Analytics';
 import ThemeToggle from '../components/ThemeToggle';
 import UserProfile from '../components/UserProfile';
 import Shortlist from '../components/Shortlist';
 import LogReview from '../components/LogReview';
+import ActivityLogList from '../components/ActivityLogList';
 import ConfirmModal from '../components/ConfirmModal';
 
 import SystemSettings from '../components/SystemSettings';
@@ -21,7 +24,7 @@ import TimezoneWidget from '../components/TimezoneWidget';
 import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
 import { resumeParser } from '../services/resumeParserService';
-import { createNotification, formatNotificationMessage } from '../services/notificationService';
+import { createNotification } from '../services/notificationService';
 import InternalChat from '../components/InternalChat';
 import NotificationBadge from '../components/NotificationBadge';
 import QuotaNotice from '../components/QuotaNotice';
@@ -89,10 +92,11 @@ export default function Dashboard() {
   const [parsingStatus, setParsingStatus] = useState<Record<string, string>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; }>({ isOpen: false, message: '' });
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'chat' | 'upload' | 'repository' | 'settings'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'chat' | 'upload' | 'repository' | 'settings'>('home');
   const [bulkLimit, setBulkLimit] = useState<number>(20);
   const [chatRecipientId, setChatRecipientId] = useState<string | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
+  const [notificationMessage, setNotificationMessage] = useState<any>(null);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
 
 const handleFirestoreError = (error: any, operationType: string, path: string | null) => {
@@ -266,16 +270,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             if (soundEnabled) {
               playNotificationSound();
             }
-
-            /*
-            if (Notification.permission === 'granted') {
-              const senderName = teamMembers[newestUnreadMsg.senderId] || 'New Message';
-              new Notification(`Rectech Chat: ${senderName}`, {
-                body: newestUnreadMsg.text || 'Shared an attachment',
-                icon: 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg'
-              });
-            }
-            */
+            setNotificationMessage(newestUnreadMsg);
           }
         }
       }, (err: any) => {
@@ -641,21 +636,19 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         });
         
         // Notify
-        const message = formatNotificationMessage(
-            user?.displayName || 'System',
-            "uploaded CV for",
-            parsed.name || file.name,
-            "Resume parsing completed"
-        );
         await createNotification(
-            message,
-            user!.uid,
             user?.displayName || 'System',
             role!,
+            'Upload',
+            parsed.name || file.name,
+            'All',
+            'Resume parsing completed',
+            'CV Parsing',
             'all',
             newCandidateRef.id
         );
         
+        setParsingStatus(prev => ({ ...prev, [file.name]: 'finished' }));
         setUploadStatus('success');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1 }));
       } catch (err: any) {
@@ -696,17 +689,14 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       if (candidate) {
           const action = !currentStatus ? "shortlisted candidate" : "removed from shortlist";
           const purpose = !currentStatus ? "Candidate shortlisted" : "Candidate removed from shortlist";
-          const message = formatNotificationMessage(
-              user?.displayName || 'System',
-              action,
-              candidate.fullName,
-              purpose
-          );
           await createNotification(
-              message,
-              user!.uid,
               user?.displayName || 'System',
               role!,
+              !currentStatus ? "shortlisted" : "removed from shortlist",
+              candidate.fullName,
+              'All',
+              !currentStatus ? "Candidate shortlisted" : "Candidate removed from shortlist",
+              'Shortlist',
               'all',
               id
           );
@@ -731,17 +721,14 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       
       // Notify
       if (candidate) {
-          const message = formatNotificationMessage(
-              user?.displayName || 'System',
-              "updated status for candidate",
-              candidate.fullName,
-              "Interview progress"
-          );
           await createNotification(
-              message,
-              user!.uid,
               user?.displayName || 'System',
               role!,
+              "updated status for candidate",
+              candidate.fullName,
+              'All',
+              "Interview progress",
+              'Follow-Up',
               'all',
               id
           );
@@ -751,31 +738,56 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     }
   };
 
-  const handleUpdateNotes = async (id: string, notes: string) => {
+  const handleCompleteFollowUp = async (id: string) => {
     try {
       await updateDoc(doc(db, 'candidates', id), { 
-        notes,
-        notesUpdatedBy: user?.uid,
+        followUpNote: '',
+        followUpDate: '',
+        followUpStatus: 'completed',
         updatedAt: new Date().toISOString()
       });
       const candidate = candidates.find(c => c.id === id);
       if (selectedCandidate?.id === id) {
-        setSelectedCandidate((prev: any) => ({ ...prev, notes, notesUpdatedBy: user?.uid }));
+        setSelectedCandidate((prev: any) => ({ ...prev, followUpNote: '', followUpDate: '', followUpStatus: 'completed' }));
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleUpdateNotes = async (id: string, notes: string) => {
+    try {
+      const candidate = candidates.find(c => c.id === id);
+      const newLogEntry = {
+        author: user?.displayName || user?.email || 'Unknown',
+        timestamp: new Date().toISOString(),
+        noteContent: notes,
+        candidateName: candidate?.fullName || 'Candidate'
+      };
+      
+      const existingLogs = candidate?.internalNotesLog || [];
+      const updatedLogs = [...existingLogs, newLogEntry];
+
+      await updateDoc(doc(db, 'candidates', id), { 
+        notes,
+        internalNotesLog: updatedLogs,
+        notesUpdatedBy: user?.uid,
+        updatedAt: new Date().toISOString()
+      });
+      if (selectedCandidate?.id === id) {
+        setSelectedCandidate((prev: any) => ({ ...prev, notes, internalNotesLog: updatedLogs, notesUpdatedBy: user?.uid }));
       }
       
       // Notify
       if (candidate) {
-          const message = formatNotificationMessage(
-              user?.displayName || 'System',
-              "added feedback for candidate",
-              candidate.fullName,
-              "Interview feedback added"
-          );
           await createNotification(
-              message,
-              user!.uid,
               user?.displayName || 'System',
               role!,
+              "added feedback for candidate",
+              candidate.fullName,
+              'All',
+              "Interview feedback added",
+              'Candidate',
               'all',
               id
           );
@@ -799,17 +811,14 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       }
       // Notify
       if (candidate) {
-          const message = formatNotificationMessage(
-              user?.displayName || 'System',
-              "assigned candidate",
-              `${candidate.fullName} to ${teamMembers[userId] || 'Recruiter'}`,
-              "Profile assignment"
-          );
           await createNotification(
-              message,
-              user!.uid,
               user?.displayName || 'System',
               role!,
+              "assigned candidate",
+              candidate.fullName,
+              teamMembers[userId] || 'Recruiter',
+              "Profile assignment",
+              'Candidate Assignment',
               userId,
               id
           );
@@ -950,7 +959,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       {/* Sidebar Overlay */}
       {isSidebarOpen && (
         <div 
-          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm z-30 lg:hidden"
           onClick={() => setIsSidebarOpen(false)}
         />
       )}
@@ -958,185 +967,85 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       {/* Sidebar */}
       <aside 
         id="sidebar-nav"
-        className={`w-64 bg-[var(--sidebar-bg)] text-[var(--text-primary)] flex flex-col transition-all duration-300 shadow-2xl fixed inset-y-0 left-0 z-40 lg:static lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`w-64 bg-[var(--sidebar-bg)] border-r border-[var(--border-color)] flex flex-col transition-all duration-300 fixed inset-y-0 left-0 z-40 lg:static lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        <div className="p-6 flex items-center justify-between border-b border-[var(--border-color)]">
+        <div className="px-6 py-5 flex items-center justify-between border-b border-[var(--border-color)]">
           <div className="flex items-center gap-3">
             <img 
               src={theme === 'dark' ? "https://aurrum.co/wp-content/uploads/2026/05/Rectech-white-logo.svg" : "https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg"} 
               alt="Rectech Logo" 
-              className="h-10 w-auto object-contain"
+              className="h-8 w-auto object-contain"
             />
           </div>
           <div className="flex items-center gap-2">
             <ThemeToggle />
-            <button className="lg:hidden p-2 text-[var(--text-primary)]" onClick={() => setIsSidebarOpen(false)}>
+            <button className="lg:hidden p-2 hover:bg-[var(--bg-secondary)] rounded-md transition-colors" onClick={() => setIsSidebarOpen(false)}>
               <X size={20} />
             </button>
           </div>
         </div>
 
-        <TimezoneWidget />
+        <div className="px-4 py-2">
+          <TimezoneWidget />
+        </div>
 
-        <nav className="flex-1 px-4 py-6 space-y-2 overflow-y-auto">
-          <button 
-            id="nav-home"
-            onClick={() => { setActiveTab('home'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
-            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'home' 
-                ? 'bg-[var(--accent-purple)] text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:shadow-sm'
-            }`}
-          >
-            <LayoutDashboard className={`w-5 h-5 mr-3 ${activeTab === 'home' ? 'text-white' : 'text-[var(--accent-teal)]'}`} />
-            Dashboard
-          </button>
-
-          <button 
-            id="nav-candidates"
-            onClick={() => { setActiveTab('candidates'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
-            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'candidates' 
-                ? 'bg-[var(--accent-purple)] text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:shadow-sm'
-            }`}
-          >
-            <Users className={`w-5 h-5 mr-3 ${activeTab === 'candidates' ? 'text-white' : 'text-[var(--accent-teal)]'}`} />
-            Candidates
-          </button>
+        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
+          {[
+            { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
+            { id: 'candidates', label: 'Candidates', icon: Users },
+            { id: 'activity_logs', label: 'Activity Logs', icon: Activity },
+            { id: 'upload', label: 'CV Parsing', icon: Upload },
+            { id: 'shortlist', label: 'Shortlist', icon: Star },
+            { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
+            { id: 'profile', label: 'My Profile', icon: UserCircle },
+            { id: 'chat', label: 'Rectech Chat', icon: MessageSquare },
+          ].map((item) => (
+            <button 
+              key={item.id}
+              id={`nav-${item.id}`}
+              onClick={() => { setActiveTab(item.id as any); setIsSidebarOpen(false); setSelectedIds(new Set()); if(item.id === 'chat') setUnreadChatCount(0); }}
+              className={`w-full flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
+                activeTab === item.id 
+                  ? 'bg-[var(--accent-purple)]/10 text-[var(--accent-purple)]' 
+                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
+              }`}
+            >
+              <item.icon className={`w-4 h-4 mr-3 ${activeTab === item.id ? 'text-[var(--accent-purple)]' : 'text-[var(--text-muted)]'}`} />
+              {item.label}
+              {item.id === 'chat' && unreadChatCount > 0 && activeTab !== 'chat' && (
+                <span className="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+              )}
+            </button>
+          ))}
           
-          <button 
-            id="nav-upload"
-            onClick={() => { setActiveTab('upload'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
-            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'upload' 
-                ? 'bg-[var(--accent-purple)] text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:shadow-sm'
-            }`}
-          >
-            <Upload className={`w-5 h-5 mr-3 ${activeTab === 'upload' ? 'text-white' : 'text-[var(--accent-teal)]'}`} />
-            CV Parsing
-          </button>
-
-          <button 
-            id="nav-shortlist"
-            onClick={() => { setActiveTab('shortlist'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
-            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'shortlist' 
-                ? 'bg-[var(--accent-purple)] text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:shadow-sm'
-            }`}
-          >
-            <Star className={`w-5 h-5 mr-3 ${activeTab === 'shortlist' ? 'text-white' : 'text-[var(--accent-teal)]'}`} />
-            Shortlist
-          </button>
-          
-          <button 
-            id="nav-analytics"
-            onClick={() => { setActiveTab('analytics'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
-            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'analytics' 
-                ? 'bg-[var(--accent-purple)] text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:shadow-sm'
-            }`}
-          >
-            <AnalyticsIcon className={`w-5 h-5 mr-3 ${activeTab === 'analytics' ? 'text-white' : 'text-[var(--accent-teal)]'}`} />
-            Talent Insights
-          </button>
-
-          <button 
-            id="nav-profile"
-            onClick={() => { setActiveTab('profile'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
-            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'profile' 
-                ? 'bg-[var(--accent-purple)] text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:shadow-sm'
-            }`}
-          >
-            <UserCircle className={`w-5 h-5 mr-3 ${activeTab === 'profile' ? 'text-white' : 'text-[var(--accent-teal)]'}`} />
-            My Profile
-          </button>
-
-          <button 
-            id="nav-chat"
-            onClick={() => { 
-                setActiveTab('chat'); 
-                setIsSidebarOpen(false); 
-                setSelectedIds(new Set()); 
-                setUnreadChatCount(0); 
-                if (Notification.permission === 'default') {
-                    Notification.requestPermission();
-                }
-            }}
-            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all relative ${
-              activeTab === 'chat' 
-                ? 'bg-[var(--accent-purple)] text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:shadow-sm'
-            }`}
-          >
-            <MessageSquare className={`w-5 h-5 mr-3 ${activeTab === 'chat' ? 'text-white' : 'text-[var(--accent-teal)]'}`} />
-            Rectech Chat
-            {unreadChatCount > 0 && activeTab !== 'chat' && (
-              <span className="absolute right-4 top-1/2 -translate-y-1/2 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center animate-bounce shadow-lg">
-                {unreadChatCount > 9 ? '9+' : unreadChatCount}
-              </span>
-            )}
-          </button>
-
-          {isPrivileged && (
-            <button 
-              onClick={() => { setActiveTab('trash'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
-              className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                activeTab === 'trash' 
-                  ? 'bg-red-600 text-white shadow-lg' 
-                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
-              }`}
-            >
-              <Trash2 className={`w-5 h-5 mr-3 ${activeTab === 'trash' ? 'text-white' : 'text-red-500'}`} />
-              Trash
-            </button>
-          )}
-
-          <button 
-            id="nav-repository"
-            onClick={() => { setActiveTab('repository'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
-            className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-              activeTab === 'repository' 
-                ? 'bg-indigo-600 text-white shadow-lg' 
-                : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
-            }`}
-          >
-            <FileText className={`w-5 h-5 mr-3 ${activeTab === 'repository' ? 'text-white' : 'text-indigo-600'}`} />
-            CV Repository
-          </button>
-
-          {isPrivileged && (
-            <button 
-              onClick={() => { setActiveTab('users'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
-              className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                activeTab === 'users' 
-                  ? 'bg-indigo-600 text-white shadow-lg' 
-                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
-              }`}
-            >
-              <Shield className={`w-5 h-5 mr-3 ${activeTab === 'users' ? 'text-white' : 'text-indigo-600'}`} />
-              Team Hub
-            </button>
-          )}
-
-          {role === 'admin' && (
-            <button 
-              onClick={() => { setActiveTab('settings'); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
-              className={`w-full flex items-center px-4 py-3 rounded-xl text-sm font-bold transition-all ${
-                activeTab === 'settings' 
-                  ? 'bg-indigo-600 text-white shadow-lg' 
-                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-primary)] hover:shadow-sm'
-              }`}
-            >
-              <Settings className={`w-5 h-5 mr-3 ${activeTab === 'settings' ? 'text-white' : 'text-indigo-600'}`} />
-              System Settings
-            </button>
-          )}
+          <div className="pt-4 mt-4 border-t border-[var(--border-color)]">
+              <span className="px-4 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">System</span>
+              {isPrivileged && (
+                <button 
+                  onClick={() => { setActiveTab('trash'); setIsSidebarOpen(false); }}
+                  className={`w-full flex items-center px-4 py-2.5 mt-2 rounded-lg text-sm font-medium transition-all ${
+                    activeTab === 'trash' 
+                      ? 'bg-red-50 text-red-600' 
+                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
+                  }`}
+                >
+                  <Trash2 className={`w-4 h-4 mr-3 ${activeTab === 'trash' ? 'text-red-500' : 'text-[var(--text-muted)]'}`} />
+                  Trash
+                </button>
+              )}
+              <button 
+                id="nav-repository"
+                onClick={() => { setActiveTab('repository'); setIsSidebarOpen(false); }}
+                className={`w-full flex items-center px-4 py-2.5 mt-1 rounded-lg text-sm font-medium transition-all ${
+                  activeTab === 'repository' 
+                    ? 'bg-indigo-50 text-indigo-600' 
+                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
+                }`}
+              >
+                <FileText className={`w-4 h-4 mr-3 ${activeTab === 'repository' ? 'text-indigo-600' : 'text-[var(--text-muted)]'}`} />
+                CV Repository
+              </button>
+          </div>
         </nav>
 
         <div className="p-4 border-t border-[var(--border-color)]">
@@ -1161,7 +1070,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         {/* Background Upload Progress Overlay */}
         {isProcessing && uploadProgress.total > 0 && (
           <div className="absolute bottom-6 right-6 z-50 animate-in slide-in-from-right-8 duration-500">
-            <div className="bg-slate-900 text-white p-5 rounded-[2rem] shadow-2xl border border-slate-700 w-80">
+            <div className="bg-slate-900 text-white p-5 rounded-[2rem] shadow-2xl border border-slate-700 w-80 max-h-[80vh] overflow-y-auto">
               <div className="flex items-center justify-between mb-4">
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-indigo-500/20 rounded-xl flex items-center justify-center text-indigo-400">
@@ -1172,24 +1081,16 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                     <p className="text-[10px] text-slate-400 font-medium">{uploadProgress.processed} of {uploadProgress.total} parsed</p>
                   </div>
                 </div>
-                <div className="text-right text-[10px] font-mono text-indigo-300">
-                  {Math.round((uploadProgress.processed / uploadProgress.total) * 100)}%
-                </div>
               </div>
               
-              <div className="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
-                <div 
-                  className="bg-indigo-50 h-full transition-all duration-500 ease-out fill-mode-forwards" 
-                  style={{ width: `${(uploadProgress.processed / uploadProgress.total) * 100}%` }}
-                />
+              <div className="space-y-2 mt-4">
+                {Object.entries(parsingStatus).map(([filename, status]) => (
+                    <div key={filename} className="text-[10px] flex justify-between">
+                        <span className="truncate max-w-[150px]">{filename}</span>
+                        <span className={status === 'finished' ? 'text-emerald-400' : 'text-indigo-400'}>{status}</span>
+                    </div>
+                ))}
               </div>
-
-              {uploadProgress.failed > 0 && (
-                <div className="mt-3 flex items-center gap-2 text-red-400">
-                  <AlertCircle size={10} />
-                  <span className="text-[9px] font-bold uppercase tracking-tighter">{uploadProgress.failed} Issues detected</span>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -1211,11 +1112,14 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <span className="hidden md:block cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" onClick={() => setActiveTab('candidates')}>Rectech CV Parsing Software</span>
             <ChevronRight className="hidden md:block w-3 h-3 text-[var(--text-muted)]" />
             <span className="text-[var(--text-primary)] italic font-serif normal-case text-base tracking-normal">
-              {activeTab === 'candidates' ? 'Candidates Database' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'chat' ? 'Rectech Chat' : activeTab === 'repository' ? 'CV Repository' : activeTab === 'upload' ? 'CV Parsing' : 'Dashboard Home'}
+              {activeTab === 'candidates' ? 'Candidates Database' : activeTab === 'activity_logs' ? 'Activity Log' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'chat' ? 'Rectech Chat' : activeTab === 'repository' ? 'CV Repository' : activeTab === 'upload' ? 'CV Parsing' : 'Dashboard Home'}
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <NotificationBadge onClick={() => setShowNotifications(!showNotifications)} />
+            <div className="relative">
+                <NotificationBadge onClick={() => setShowNotifications(!showNotifications)} />
+                {showNotifications && <NotificationList onClose={() => setShowNotifications(false)} />}
+            </div>
             
             {showNotifications && (
               <div 
@@ -1586,6 +1490,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 </div>
               </div>
             </div>
+          ) : activeTab === 'activity_logs' ? (
+            <ActivityLogList role={role} />
           ) : activeTab === 'analytics' ? (
             <Analytics 
               candidates={candidates} 
@@ -1806,6 +1712,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         onClose={() => setSelectedCandidate(null)}
         onShortlist={handleShortlist}
         onUpdateFollowUp={handleUpdateFollowUp}
+        onCompleteFollowUp={handleCompleteFollowUp}
         onUpdateNotes={handleUpdateNotes}
         onUpdateAssignee={handleUpdateAssignee}
         onContact={(id) => { setChatRecipientId(id); setActiveTab('chat'); setSelectedCandidate(null); }}

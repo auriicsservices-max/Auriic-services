@@ -1,5 +1,5 @@
-import { db } from './firebase';
-import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
+import { db } from '../lib/firebase';
 
 export async function logActivity(
   author: string,
@@ -21,7 +21,7 @@ export async function logActivity(
       module,
       timestamp: serverTimestamp()
     });
-  } catch (err) {
-    console.error('Failed to log activity:', err);
+  } catch (error) {
+    console.error('Error logging activity:', error);
   }
 }

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState } from 'react';
 
-type Timezone = 'Europe/London' | 'Asia/Kolkata';
+type Timezone = 'America/New_York' | 'Asia/Kolkata' | 'America/Los_Angeles' | 'GMT' | 'Europe/London';
 
 interface TimezoneContextType {
   timezone: Timezone;
@@ -9,13 +9,13 @@ interface TimezoneContextType {
 }
 
 const TimezoneContext = createContext<TimezoneContextType>({
-  timezone: 'Europe/London',
+  timezone: 'GMT',
   setTimezone: () => {},
   formatDate: (d) => new Date(d).toLocaleString(),
 });
 
 export function TimezoneProvider({ children }: { children: React.ReactNode }) {
-  const [timezone, setTimezone] = useState<Timezone>('Europe/London');
+  const [timezone, setTimezone] = useState<Timezone>('GMT');
 
   const formatDate = (date: Date | string | number) => {
     const d = new Date(date);
@@ -29,8 +29,15 @@ export function TimezoneProvider({ children }: { children: React.ReactNode }) {
       hour12: true,
     });
     
-    const tzLabel = timezone === 'Europe/London' ? 'BST' : 'IST';
-    return formatted.replace(/am/i, 'AM').replace(/pm/i, 'PM') + ` (${tzLabel})`;
+    const tzAbbr: Record<Timezone, string> = {
+      'America/New_York': 'EST',
+      'Asia/Kolkata': 'IST',
+      'America/Los_Angeles': 'PST',
+      'GMT': 'GMT',
+      'Europe/London': 'BST'
+    };
+    
+    return formatted.replace(/am/i, 'AM').replace(/pm/i, 'PM') + ` (${tzAbbr[timezone]})`;
   };
 
   return (
