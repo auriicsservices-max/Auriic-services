@@ -82,6 +82,7 @@ export default function UserManagement() {
 
       await logActivity(
         user!.displayName || user!.email || 'Admin',
+        user!.uid,
         role!,
         'Create User',
         newEmail,
@@ -117,6 +118,7 @@ export default function UserManagement() {
       await updateDoc(doc(db, 'users', userId), { role: nextRole });
       await logActivity(
          user!.displayName || user!.email || 'Admin',
+         user!.uid,
          role!,
          'Update Role',
          userId,

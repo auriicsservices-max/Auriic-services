@@ -9,6 +9,11 @@ export const ResumeSchema = z.object({
     github: z.string().default(''),
     portfolio: z.string().default(''),
   }),
+  location: z.object({
+    city: z.string().optional(),
+    state: z.string().optional(),
+    country: z.string().optional(),
+  }).optional(),
   profile: z.string().default(''),
   domainFocus: z.string().default(''),
   totalExperienceYears: z.number().default(0),

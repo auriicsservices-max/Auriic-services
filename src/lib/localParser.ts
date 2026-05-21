@@ -74,6 +74,11 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
       github: '',
       portfolio: ''
     },
+    location: {
+      city: '',
+      state: '',
+      country: ''
+    },
     profile: '',
     totalExperienceYears: 0,
     education: [],
@@ -123,6 +128,21 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
 
   // 3. Extract Name (Heuristic refined: check first few lines for capitalized names)
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
+  
+  // Improved location heuristic
+  for(let i=0; i<Math.min(20, lines.length); i++) {
+    const line = lines[i];
+    // Try to match "City, State, Country" or "City, State"
+    // Examples: "San Jose, CA", "Mumbai, Maharashtra", "London, UK"
+    const match = line.match(/([A-Za-z\s]+),\s*([A-Za-z\s]+)(?:,\s*([A-Za-z\s]+))?/);
+    if (match && match[1].length > 2 && match[2].length > 1) { // Basic validation
+        resume.location.city = match[1].trim();
+        resume.location.state = match[2].trim();
+        if (match[3]) resume.location.country = match[3].trim();
+        break;
+    }
+  }
+
   if (lines.length > 0) {
     const commonTitles = ['cv', 'resume', 'curriculum', 'profile', 'summary', 'address', 'page', 'email', 'phone'];
     for (let i = 0; i < Math.min(10, lines.length); i++) {

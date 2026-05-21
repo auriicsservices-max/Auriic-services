@@ -4,6 +4,7 @@ import { collection, query, orderBy, onSnapshot, addDoc, limit, serverTimestamp,
 import { useAuth } from '../contexts/AuthContext';
 import { Send, User, Shield, MessageSquare, Clock, Search, FileText, Plus, Paperclip, X, Download, Check, CheckCheck } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
+import { logActivity } from '../services/activityService';
 import QuotaNotice from './QuotaNotice';
 import { createNotification } from '../lib/notifications';
 
@@ -240,6 +241,17 @@ export default function InternalChat({ teamMembers, initialRecipientId }: Intern
           `${user.displayName || 'Someone'} sent you a message`,
           "chat",
           { senderId: user.uid, conversationId: convId }
+      );
+      
+      await logActivity(
+          user?.displayName || 'System',
+          user?.uid || 'System',
+          role || 'User',
+          "sent message",
+          activePartner?.name || 'Partner',
+          null,
+          "Direct message sent",
+          "Chats"
       );
       
       setNewMessage('');

@@ -149,10 +149,11 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
   const chartTooltipStyle = { 
     borderRadius: '0.75rem', 
     border: '1px solid var(--border-color)', 
-    backgroundColor: 'var(--card-bg)', 
+    backgroundColor: 'var(--bg-primary)', 
     color: 'var(--text-primary)',
     fontSize: '0.875rem',
-    boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1)'
+    padding: '0.75rem',
+    boxShadow: '0 10px 15px -3px rgb(0 0 0 / 0.2)'
   };
   const itemStyle = { color: 'var(--text-primary)', fontWeight: 'bold' };
 
@@ -234,9 +235,9 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
                 <input type="text" placeholder="Search skills overview..." value={skillSearch} onChange={(e) => setSkillSearch(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-3 text-xs font-bold text-[var(--text-primary)] shadow-sm" />
                 <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto">
                     {filteredSkills.map(({ name, count }: any) => (
-                        <button key={name} onClick={() => handleSkillClick(name)} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800 rounded-xl hover:bg-indigo-50 transition-all">
-                            <span className="font-bold text-[10px] truncate mr-2">{name}</span>
-                            <span className="px-2 py-1 bg-white rounded-md text-[9px] font-bold text-indigo-600 shadow-sm">{count}</span>
+                        <button key={name} title={`Skill: ${name} (${count} candidates)`} onClick={() => handleSkillClick(name)} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all border border-transparent hover:border-indigo-300 dark:hover:border-indigo-500">
+                            <span className="font-bold text-xs truncate mr-2 text-[var(--text-primary)]">{name}</span>
+                            <span className="px-2 py-1 bg-white dark:bg-slate-800 rounded-md text-[10px] font-bold text-indigo-600 shadow-sm">{count}</span>
                         </button>
                     ))}
                 </div>

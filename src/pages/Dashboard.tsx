@@ -9,7 +9,6 @@ import { GoogleGenAI, Type } from "@google/genai";
 import UserManagement from '../components/UserManagement';
 import DashboardHome from './DashboardHome';
 import CandidateModal from '../components/CandidateModal';
-import NotificationList from '../components/NotificationList';
 import ChatNotificationPopup from '../components/ChatNotificationPopup';
 import Analytics from '../components/Analytics';
 import ThemeToggle from '../components/ThemeToggle';
@@ -24,7 +23,8 @@ import TimezoneWidget from '../components/TimezoneWidget';
 import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
 import { resumeParser } from '../services/resumeParserService';
-import { createNotification } from '../services/notificationService';
+import { logActivity } from '../services/activityService';
+import { createNotification, formatNotificationMessage } from '../services/notificationService';
 import InternalChat from '../components/InternalChat';
 import NotificationBadge from '../components/NotificationBadge';
 import QuotaNotice from '../components/QuotaNotice';
@@ -596,7 +596,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           originalFileName: file.name,
           email: (parsed.contact.email || 'pending@aurrum.co').toLowerCase(),
           phone: parsed.contact.phone || '',
-          location: parsed.contact.linkedin || '', // Use linkedin as a proxy if location missing in contact
+          locationInfo: parsed.location || { city: '', state: '', country: '' },
           summary: parsed.profile || '', 
           domainFocus: parsed.domainFocus || 'Other',
           skills: allSkills,
@@ -636,16 +636,29 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         });
         
         // Notify
+        const message = formatNotificationMessage(
+            user?.displayName || 'System',
+            "uploaded CV for",
+            parsed.name || file.name,
+            "Resume parsing completed"
+        );
         await createNotification(
+            message,
+            user!.uid,
             user?.displayName || 'System',
             role!,
-            'Upload',
-            parsed.name || file.name,
-            'All',
-            'Resume parsing completed',
-            'CV Parsing',
             'all',
             newCandidateRef.id
+        );
+        await logActivity(
+            user?.displayName || 'System',
+            user?.uid || 'System',
+            role || 'User',
+            "uploaded CV",
+            parsed.name || file.name,
+            null,
+            "Resume parsing completed",
+            "CV Parsing"
         );
         
         setParsingStatus(prev => ({ ...prev, [file.name]: 'finished' }));
@@ -689,16 +702,29 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       if (candidate) {
           const action = !currentStatus ? "shortlisted candidate" : "removed from shortlist";
           const purpose = !currentStatus ? "Candidate shortlisted" : "Candidate removed from shortlist";
+          const message = formatNotificationMessage(
+              user?.displayName || 'System',
+              action,
+              candidate.fullName,
+              purpose
+          );
           await createNotification(
+              message,
+              user!.uid,
               user?.displayName || 'System',
               role!,
-              !currentStatus ? "shortlisted" : "removed from shortlist",
-              candidate.fullName,
-              'All',
-              !currentStatus ? "Candidate shortlisted" : "Candidate removed from shortlist",
-              'Shortlist',
               'all',
               id
+          );
+          await logActivity(
+              user?.displayName || 'System',
+              user?.uid || 'System',
+              role || 'User',
+              action,
+              candidate.fullName,
+              null,
+              purpose,
+              "Shortlist"
           );
       }
     } catch (err) {
@@ -721,16 +747,29 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       
       // Notify
       if (candidate) {
-          await createNotification(
+          const message = formatNotificationMessage(
               user?.displayName || 'System',
-              role!,
               "updated status for candidate",
               candidate.fullName,
-              'All',
-              "Interview progress",
-              'Follow-Up',
+              "Interview progress"
+          );
+          await createNotification(
+              message,
+              user!.uid,
+              user?.displayName || 'System',
+              role!,
               'all',
               id
+          );
+          await logActivity(
+              user?.displayName || 'System',
+              user?.uid || 'System',
+              role || 'User',
+              "updated interview follow-up",
+              candidate.fullName,
+              null,
+              "Interview progress updated",
+              "Follow-Up"
           );
       }
     } catch (err) {
@@ -780,16 +819,29 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       
       // Notify
       if (candidate) {
-          await createNotification(
+          const message = formatNotificationMessage(
               user?.displayName || 'System',
-              role!,
               "added feedback for candidate",
               candidate.fullName,
-              'All',
-              "Interview feedback added",
-              'Candidate',
+              "Interview feedback added"
+          );
+          await createNotification(
+              message,
+              user!.uid,
+              user?.displayName || 'System',
+              role!,
               'all',
               id
+          );
+          await logActivity(
+              user?.displayName || 'System',
+              user?.uid || 'System',
+              role || 'User',
+              "added feedback",
+              candidate.fullName,
+              null,
+              "Interview feedback added",
+              "Notes"
           );
       }
     } catch (err) {
@@ -811,16 +863,29 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       }
       // Notify
       if (candidate) {
+          const message = formatNotificationMessage(
+              user?.displayName || 'System',
+              "assigned candidate",
+              `${candidate.fullName} to ${teamMembers[userId] || 'Recruiter'}`,
+              "Profile assignment"
+          );
           await createNotification(
+              message,
+              user!.uid,
               user?.displayName || 'System',
               role!,
+              userId,
+              id
+          );
+          await logActivity(
+              user?.displayName || 'System',
+              user?.uid || 'System',
+              role || 'User',
               "assigned candidate",
               candidate.fullName,
               teamMembers[userId] || 'Recruiter',
               "Profile assignment",
-              'Candidate Assignment',
-              userId,
-              id
+              "Candidate Assignment"
           );
       }
     } catch (err) {
@@ -946,7 +1011,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     if (candidate.isArchived) return false;
     if (!searchQuery.trim()) return true;
     const terms = searchQuery.toLowerCase().split(/\s+/);
-    const searchableText = `${candidate.fullName} ${candidate.domainFocus || ''} ${candidate.domain || ''} ${candidate.summary} ${candidate.skills?.join(' ')} ${candidate.notes || ''} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''} ${teamMembers[candidate.followUpUpdatedBy] || ''}`.toLowerCase();
+    const loc = `${candidate.locationInfo?.city || ''} ${candidate.locationInfo?.state || ''}`.toLowerCase();
+    const searchableText = `${candidate.fullName} ${candidate.domainFocus || ''} ${candidate.domain || ''} ${loc} ${candidate.summary} ${candidate.skills?.join(' ')} ${candidate.notes || ''} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''} ${teamMembers[candidate.followUpUpdatedBy] || ''}`.toLowerCase();
     return terms.every(term => searchableText.includes(term));
   });
 
@@ -1116,10 +1182,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </span>
           </div>
           <div className="flex items-center gap-4">
-            <div className="relative">
-                <NotificationBadge onClick={() => setShowNotifications(!showNotifications)} />
-                {showNotifications && <NotificationList onClose={() => setShowNotifications(false)} />}
-            </div>
+            <NotificationBadge onClick={() => setShowNotifications(!showNotifications)} />
             
             {showNotifications && (
               <div 
@@ -1372,6 +1435,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                         )}
                         <th className="px-6 py-4">Candidate Identity</th>
                         <th className="px-6 py-4">Domain Focus</th>
+                        <th className="px-6 py-4">Location / State</th>
                         <th className="px-6 py-4">Competencies</th>
                         <th className="px-6 py-4">Uploaded By</th>
                         <th className="px-6 py-4">Follow Up</th>
@@ -1420,6 +1484,13 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                             <td className="px-6 py-4">
                               <div className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">
                                 {candidate.domainFocus || candidate.domain || 'Unsorted'}
+                              </div>
+                            </td>
+                            <td className="px-6 py-4">
+                              <div className="text-[10px] font-bold text-[var(--text-primary)]">
+                                { (candidate.locationInfo && (candidate.locationInfo.city || candidate.locationInfo.state)) ? 
+                                  `${candidate.locationInfo.city ? candidate.locationInfo.city + ', ' : ''}${candidate.locationInfo.state || ''}${candidate.locationInfo.country ? ', ' + candidate.locationInfo.country : ''}` 
+                                  : 'Location not found'}
                               </div>
                             </td>
                             <td className="px-6 py-4">
@@ -1498,6 +1569,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               activityLogs={activityLogs}
               onShortlist={handleShortlist} 
               onUpdateFollowUp={handleUpdateFollowUp} 
+              onCompleteFollowUp={handleCompleteFollowUp}
               onUpdateNotes={handleUpdateNotes} 
               onUpdateAssignee={handleUpdateAssignee}
               onContact={(id) => { setChatRecipientId(id); setActiveTab('chat'); setSelectedCandidate(null); }}

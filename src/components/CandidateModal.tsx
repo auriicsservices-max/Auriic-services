@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown, Linkedin, Github, Twitter, ExternalLink, CheckCircle2 } from 'lucide-react';
+import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown, Linkedin, Github, Twitter, ExternalLink, CheckCircle2, MapPin } from 'lucide-react';
 import LZString from 'lz-string';
 
 // Helper to get icon for link
@@ -258,6 +258,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     await onShortlist(candidate.id, candidate.isShortlisted);
     await logActivity(
       user!.displayName || user!.email || 'Admin',
+      user!.uid,
       role!,
       'Shortlist Toggle',
       candidate.fullName || 'Candidate',
@@ -282,6 +283,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     await onUpdateFollowUp(candidate.id, followUpNote, followUpDate);
     await logActivity(
       user!.displayName || user!.email || 'Admin',
+      user!.uid,
       role!,
       'Follow-up Update',
       candidate.fullName || 'Candidate',
@@ -298,6 +300,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     await onUpdateNotes(candidate.id, generalNotes);
     await logActivity(
       user!.displayName || user!.email || 'Admin',
+      user!.uid,
       role!,
       'Notes Update',
       candidate.fullName || 'Candidate',
@@ -324,6 +327,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       const activityAction = isRemoval ? 'Assignment Removed' : 'Assignee Updated'; 
       await logActivity(
         user!.displayName || user!.email || 'Admin',
+        user!.uid,
         role!,
         activityAction,
         candidate.fullName || 'Candidate',
@@ -363,6 +367,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       await updateDoc(doc(db, 'candidates', candidate.id), { skills: updatedSkills });
       await logActivity(
         user!.displayName || user!.email || 'Admin',
+        user!.uid,
         role!,
         'Skill Removed',
         candidate.fullName || 'Candidate',
@@ -612,6 +617,14 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                 <div className="flex items-center gap-3 p-3 bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-xl transition-colors duration-300">
                   <Phone className="text-indigo-500 dark:text-indigo-400" size={16} />
                   <p className="text-xs font-medium text-[var(--text-secondary)]">{candidate.phone || 'N/A'}</p>
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-xl transition-colors duration-300">
+                  <MapPin className="text-indigo-500 dark:text-indigo-400" size={16} />
+                  <p className="text-xs font-medium text-[var(--text-secondary)]">
+                      { (candidate.locationInfo && (candidate.locationInfo.city || candidate.locationInfo.state)) ? 
+                        `${candidate.locationInfo.city ? candidate.locationInfo.city + ', ' : ''}${candidate.locationInfo.state || ''}${candidate.locationInfo.country ? ', ' + candidate.locationInfo.country : ''}` 
+                        : 'Location not found'}
+                  </p>
                 </div>
                 {/* Secondary verification of CV presence */}
                 {(cvUrl || candidate.url || candidate.cid) && (

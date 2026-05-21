@@ -37,13 +37,10 @@ function handleFirestoreError(error: unknown, operationType: OperationType, path
 
 interface Notification {
   id: string;
+  text: string;
+  senderId: string;
   senderName: string;
   senderRole: string;
-  action: string;
-  candidateName: string;
-  receiverName: string; // Add receiver name
-  purpose: string;
-  module: string;
   recipientId: string;
   relatedCandidateId?: string;
   createdAt: Timestamp;

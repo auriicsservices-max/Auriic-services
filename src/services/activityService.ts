@@ -3,6 +3,7 @@ import { db } from '../lib/firebase';
 
 export async function logActivity(
   author: string,
+  authorUid: string,
   role: string,
   action: string,
   candidateName: string,
@@ -13,6 +14,7 @@ export async function logActivity(
   try {
     await addDoc(collection(db, 'activity_logs'), {
       author,
+      authorUid,
       role,
       action,
       candidateName,
