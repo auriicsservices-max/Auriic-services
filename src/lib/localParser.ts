@@ -9,7 +9,7 @@ pdfjs.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pd
 import { ResumeData } from '../types/resume';
 export type ParsedResume = ResumeData;
 
-export async function extractTextFromPDF(pdfBuffer: ArrayBuffer): Promise<string> {
+export async function extractTextFromPDF(pdfBuffer: ArrayBuffer, onProgress?: (progress: number) => void): Promise<string> {
   console.log('Starting PDF extraction...', pdfBuffer.byteLength);
   try {
     const loadingTask = pdfjs.getDocument({ 
@@ -46,6 +46,10 @@ export async function extractTextFromPDF(pdfBuffer: ArrayBuffer): Promise<string
         lastY = item.transform[5];
       }
       fullText += pageText + '\n';
+      
+      if (onProgress) {
+        onProgress(Math.round((i / pdf.numPages) * 100));
+      }
     }
 
     if (!fullText.trim()) {

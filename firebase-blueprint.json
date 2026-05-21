@@ -7,7 +7,7 @@
       "properties": {
         "uid": { "type": "string" },
         "email": { "type": "string", "format": "email" },
-        "role": { "type": "string", "enum": ["admin", "recruiter"] },
+        "role": { "type": "string", "enum": ["admin", "recruiter", "team_leader"] },
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["uid", "email", "role"]
@@ -100,6 +100,18 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["senderId", "recipientId", "conversationId", "createdAt"]
+    },
+    "HelpSection": {
+      "title": "HelpSection",
+      "description": "Content for the Help Center/User Guide",
+      "type": "object",
+      "properties": {
+        "title": { "type": "string" },
+        "content": { "type": "string" },
+        "order": { "type": "number" },
+        "roles": { "type": "array", "items": { "type": "string" } }
+      },
+      "required": ["title", "content", "order"]
     }
   },
   "firestore": {
@@ -122,6 +134,10 @@
     "/candidates/{candidateId}": {
       "schema": "Candidate",
       "description": "Processed resume documents"
+    },
+    "/help_sections/{sectionId}": {
+      "schema": "HelpSection",
+      "description": "Help center documentation sections"
     }
   }
 }

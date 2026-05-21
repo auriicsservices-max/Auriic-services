@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { Save, Shield, Settings, Info, AlertTriangle } from 'lucide-react';
+import { Save, Shield, Settings, Info, AlertTriangle, Lock } from 'lucide-react';
+import { useAuth } from '../contexts/AuthContext';
 
 export default function SystemSettings() {
+  const { role } = useAuth();
   const [limit, setLimit] = useState<number>(20);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+
+  const isAdmin = role === 'admin';
 
   useEffect(() => {
     const fetchSettings = async () => {
@@ -26,6 +30,8 @@ export default function SystemSettings() {
   }, []);
 
   const handleSave = async () => {
+    if (!isAdmin) return;
+    
     setIsSaving(true);
     setMessage(null);
     try {
@@ -57,7 +63,17 @@ export default function SystemSettings() {
           </div>
         </div>
 
-        <div className="space-y-8">
+        {!isAdmin && (
+          <div className="mb-8 bg-rose-50 dark:bg-rose-900/20 p-6 rounded-2xl border border-rose-100 dark:border-rose-900/50 flex gap-4">
+            <Lock className="text-rose-500 shrink-0" size={24} />
+            <div>
+              <h4 className="font-bold text-rose-900 dark:text-rose-200">Restricted Access</h4>
+              <p className="text-xs text-rose-700 dark:text-rose-300">You do not have administrative privileges to modify system settings. Please contact your system administrator.</p>
+            </div>
+          </div>
+        )}
+
+        <div className={`space-y-8 ${!isAdmin ? 'opacity-50 pointer-events-none' : ''}`}>
           {/* Upload Restriction Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
@@ -70,8 +86,8 @@ export default function SystemSettings() {
             </div>
             <div className="bg-slate-50 dark:bg-slate-900/30 p-6 rounded-2xl border border-dashed border-[var(--border-color)] flex flex-col justify-center">
               <div className="relative">
-                <input 
-                  type="number" 
+                <input
+                  type="number"
                   value={limit}
                   onChange={(e) => setLimit(Math.max(1, parseInt(e.target.value) || 1))}
                   className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl px-4 py-3 text-lg font-black text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-center"
@@ -94,21 +110,23 @@ export default function SystemSettings() {
           </div>
         </div>
 
-        <div className="mt-12 flex items-center justify-between pt-8 border-t border-[var(--border-color)]">
-          {message && (
-            <p className={`text-xs font-bold ${message.type === 'success' ? 'text-emerald-500' : 'text-rose-500'}`}>
-              {message.text}
-            </p>
-          )}
-          <button
-            onClick={handleSave}
-            disabled={isSaving}
-            className="ml-auto flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-sm font-black transition-all shadow-lg shadow-indigo-600/20 active:scale-95 disabled:opacity-50"
-          >
-            {isSaving ? 'Updating...' : 'Save Settings'}
-            <Save size={18} />
-          </button>
-        </div>
+        {isAdmin && (
+          <div className="mt-12 flex items-center justify-between pt-8 border-t border-[var(--border-color)]">
+            {message && (
+              <p className={`text-xs font-bold ${message.type === 'success' ? 'text-emerald-500' : 'text-rose-500'}`}>
+                {message.text}
+              </p>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={isSaving}
+              className="ml-auto flex items-center gap-2 px-8 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-2xl text-sm font-black transition-all shadow-lg shadow-indigo-600/20 active:scale-95 disabled:opacity-50"
+            >
+              {isSaving ? 'Updating...' : 'Save Settings'}
+              <Save size={18} />
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

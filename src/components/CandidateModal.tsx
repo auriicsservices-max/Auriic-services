@@ -777,7 +777,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   <div className="relative">
                     <Calendar className="absolute left-3 top-2.5 text-indigo-600 dark:text-indigo-400" size={14} />
                     <input 
-                      type="date" 
+                      type="datetime-local" 
                       value={followUpDate}
                       onChange={(e) => setFollowUpDate(e.target.value)}
                       className="w-full bg-white dark:bg-indigo-900 border border-indigo-200 dark:border-indigo-700 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-900 dark:text-slate-100"

@@ -6,6 +6,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useDropzone } from 'react-dropzone';
 import { extractTextFromPDF, extractTextFromDocx, parseResumeHeuristically, ParsedResume } from '../lib/localParser';
 import { GoogleGenAI, Type } from "@google/genai";
+import HelpCenter from '../components/HelpCenter';
 import UserManagement from '../components/UserManagement';
 import DashboardHome from './DashboardHome';
 import CandidateModal from '../components/CandidateModal';
@@ -45,6 +46,7 @@ import {
   Shield,
   LayoutDashboard,
   Star,
+  BookOpen,
   LineChart as AnalyticsIcon,
   Trash2,
   Clock,
@@ -89,10 +91,10 @@ export default function Dashboard() {
   const [searchQuery, setSearchQuery] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ total: 0, processed: 0, failed: 0 });
-  const [parsingStatus, setParsingStatus] = useState<Record<string, string>>({});
+  const [parsingStatus, setParsingStatus] = useState<Record<string, { status: string, progress: number }>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; }>({ isOpen: false, message: '' });
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'chat' | 'upload' | 'repository' | 'settings'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'chat' | 'upload' | 'repository' | 'settings' | 'help'>('home');
   const [bulkLimit, setBulkLimit] = useState<number>(20);
   const [chatRecipientId, setChatRecipientId] = useState<string | null>(null);
   const [unreadChatCount, setUnreadChatCount] = useState(0);
@@ -470,10 +472,12 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     let currentDone = 0;
     for (const file of acceptedFiles) {
       try {
-        setParsingStatus(prev => ({ ...prev, [file.name]: 'parsing' }));
+        setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'parsing', progress: 0 } }));
         
         // Use Enhanced CV Parsing Service
-        const { parsed, text } = await resumeParser.parse(file);
+        const { parsed, text } = await resumeParser.parse(file, (progress) => {
+            setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'parsing', progress } }));
+        });
         
         // Ensure parsed object exists
         if (!parsed) throw new Error("Parser returned empty data");
@@ -661,7 +665,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             "CV Parsing"
         );
         
-        setParsingStatus(prev => ({ ...prev, [file.name]: 'finished' }));
+        setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'finished', progress: 100 } }));
         setUploadStatus('success');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1 }));
       } catch (err: any) {
@@ -1063,7 +1067,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             { id: 'upload', label: 'CV Parsing', icon: Upload },
             { id: 'shortlist', label: 'Shortlist', icon: Star },
             { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
+            ...( (role === 'admin' || role === 'team_leader') ? [{ id: 'users', label: 'Team Hub', icon: Users }] : []),
             { id: 'profile', label: 'My Profile', icon: UserCircle },
+            { id: 'help', label: 'User Guide', icon: BookOpen },
             { id: 'chat', label: 'Rectech Chat', icon: MessageSquare },
           ].map((item) => (
             <button 
@@ -1079,7 +1085,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               <item.icon className={`w-4 h-4 mr-3 ${activeTab === item.id ? 'text-[var(--accent-purple)]' : 'text-[var(--text-muted)]'}`} />
               {item.label}
               {item.id === 'chat' && unreadChatCount > 0 && activeTab !== 'chat' && (
-                <span className="ml-auto w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
+                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 rounded-full min-w-[20px] text-center">{unreadChatCount}</span>
               )}
             </button>
           ))}
@@ -1150,10 +1156,10 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               </div>
               
               <div className="space-y-2 mt-4">
-                {Object.entries(parsingStatus).map(([filename, status]) => (
+                {Object.entries(parsingStatus).map(([filename, statusInfo]) => (
                     <div key={filename} className="text-[10px] flex justify-between">
                         <span className="truncate max-w-[150px]">{filename}</span>
-                        <span className={status === 'finished' ? 'text-emerald-400' : 'text-indigo-400'}>{status}</span>
+                        <span className={statusInfo.status === 'finished' ? 'text-emerald-400' : 'text-indigo-400'}>{statusInfo.status} {statusInfo.progress}%</span>
                     </div>
                 ))}
               </div>
@@ -1270,6 +1276,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <div className="h-full flex items-center justify-center p-4">
               <QuotaNotice onRetry={() => window.location.reload()} />
             </div>
+          ) : activeTab === 'help' ? (
+            <HelpCenter />
           ) : activeTab === 'home' ? (
             <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} />
           ) : activeTab === 'repository' ? (
@@ -1419,7 +1427,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 )}
 
                 {/* Candidates Table */}
-                <div className="overflow-hidden border border-[var(--border-color)] rounded-2xl transition-colors duration-300 bg-[var(--card-bg)]">
+                <div className="overflow-hidden border border-[var(--border-color)] rounded-2xl transition-colors duration-300 bg-[var(--card-bg)] overflow-x-auto">
                   <table className="w-full text-left border-collapse">
                     <thead className="bg-[var(--sidebar-bg)] text-[10px] uppercase font-bold text-[var(--text-muted)] border-b border-[var(--border-color)]">
                       <tr>
@@ -1771,8 +1779,10 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                <MigrationTool />
                <SystemSettings />
             </div>
-          ) : (
+          ) : activeTab === 'users' ? (
             <UserManagement />
+          ) : (
+            <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} />
           )}
         </div>
       </main>

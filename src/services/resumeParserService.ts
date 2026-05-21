@@ -21,11 +21,11 @@ export class ResumeParserService {
    * Main entry point for parsing a CV file.
    * Uses rule-based extraction in backend for high precision.
    */
-  async parse(file: File): Promise<{ parsed: ResumeData; text: string }> {
+  async parse(file: File, onProgress?: (progress: number) => void): Promise<{ parsed: ResumeData; text: string }> {
     let text = "";
     try {
       // 1. Extract raw text
-      text = await this.extractText(file);
+      text = await this.extractText(file, onProgress);
       
       let initialParsed: ResumeData;
 
@@ -81,10 +81,10 @@ export class ResumeParserService {
     }
   }
 
-  private async extractText(file: File): Promise<string> {
+  private async extractText(file: File, onProgress?: (progress: number) => void): Promise<string> {
     const buffer = await file.arrayBuffer();
     if (file.type === 'application/pdf') {
-      return await extractTextFromPDF(buffer);
+      return await extractTextFromPDF(buffer, onProgress);
     } else if (
       file.type === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document' ||
       file.type === 'application/msword'
@@ -99,8 +99,21 @@ export class ResumeParserService {
       try {
         const prompt = `
           Extract structured data from the following resume text. 
-          Respond in JSON format.
-          Specifically identify the candidate's "domainFocus" (e.g., IT, Healthcare, Finance, Sales, Marketing, HR, Operations, Engineering, etc.).
+          Respond in JSON format according to this structure:
+          {
+            "name": "Full Name",
+            "currentRole": "Current Title",
+            "experience": "Total years of experience",
+            "phone": "Phone number",
+            "email": "Email address",
+            "location": { "city": "City", "state": "State", "country": "Country", "display": "Formatted string" },
+            "domainFocus": ["Profession 1", "Profession 2"],
+            "currentCompany": "Company name",
+            "previousCompanies": ["Company 1", "Company 2"],
+            "skills": ["Skill 1", "Skill 2"],
+            "education": { "degree": "Degree", "university": "University", "location": "Location", "graduationYear": "Year" }
+          }
+          Also, ensure the fields required by the internal resume schema are fully populated based on the extracted data: Experience (array of objects with title, company, duration, responsibilities), Education (array), Projects (array), and Skills (categorized by language, framework, database, tools, etc.).
         `;
 
         const response = await this.genAI!.models.generateContent({

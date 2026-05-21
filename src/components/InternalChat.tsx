@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, orderBy, onSnapshot, addDoc, limit, serverTimestamp, where, doc, setDoc, getDoc, updateDoc, writeBatch, getDocs } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
@@ -28,6 +28,7 @@ export default function InternalChat({ teamMembers, initialRecipientId }: Intern
   const [searchQuery, setSearchQuery] = useState('');
   const [isSearching, setIsSearching] = useState(false);
   const [fileAttachment, setFileAttachment] = useState<{ name: string; data: string; type: string } | null>(null);
+  const [lastActivity, setLastActivity] = useState<Record<string, number>>({});
   const [unreadCounts, setUnreadCounts] = useState<Record<string, number>>({});
   const [isPartnerTyping, setIsPartnerTyping] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
@@ -35,11 +36,13 @@ export default function InternalChat({ teamMembers, initialRecipientId }: Intern
   const typingTimeoutRef = useRef<any>(null);
 
   // Filter team members based on search
-  const filteredUsers = teamMembers.filter(u => 
-    u.uid !== user?.uid && 
-    (u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
-     u.email?.toLowerCase().includes(searchQuery.toLowerCase()))
-  );
+  const filteredUsers = useMemo(() => {
+    return teamMembers.filter(u => 
+      u.uid !== user?.uid && 
+      (u.name?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+       u.email?.toLowerCase().includes(searchQuery.toLowerCase()))
+    ).sort((a, b) => (lastActivity[b.uid] || 0) - (lastActivity[a.uid] || 0));
+  }, [teamMembers, searchQuery, lastActivity, user?.uid]);
 
   // Sync unread counts
   useEffect(() => {
@@ -54,6 +57,7 @@ export default function InternalChat({ teamMembers, initialRecipientId }: Intern
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
       const counts: Record<string, number> = {};
+      const activity: Record<string, number> = {};
       
       // Get current user's read cursors
       const currentUserData = teamMembers.find(t => t.uid === user.uid);
@@ -63,9 +67,15 @@ export default function InternalChat({ teamMembers, initialRecipientId }: Intern
         const data = doc.data();
         const senderId = data.senderId;
         const recipientId = data.recipientId;
+        const createdAt = data.createdAt?.toMillis() || 0;
+        const otherId = senderId === user.uid ? recipientId : senderId;
+
+        // Update activity
+        if (createdAt > (activity[otherId] || 0)) {
+            activity[otherId] = createdAt;
+        }
         
         if (recipientId === user.uid && senderId !== activePartnerId) {
-          const createdAt = data.createdAt?.toMillis() || 0;
           const partnerReadCursor = readCursors[senderId];
           const lastRead = partnerReadCursor?.toMillis ? partnerReadCursor.toMillis() : 0;
 
@@ -76,13 +86,14 @@ export default function InternalChat({ teamMembers, initialRecipientId }: Intern
       });
       
       setUnreadCounts(counts);
+      setLastActivity(activity);
     }, (err: any) => {
       console.error("Unread counts listener error:", err);
       if (err.code === 'resource-exhausted') setQuotaExceeded(true);
     });
 
     return () => unsubscribe();
-  }, [user, activePartnerId]);
+  }, [user, activePartnerId, teamMembers]);
 
   // Update last read (Local cursors method for better permissions)
   useEffect(() => {

@@ -200,7 +200,7 @@ export default function UserManagement() {
   };
 
 
-  if (role !== 'admin') {
+  if (role !== 'admin' && role !== 'team_leader') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 bg-[var(--bg-primary)] rounded-[2rem] border border-[var(--border-color)] shadow-sm transition-colors duration-300">
         <Shield size={64} className="text-[var(--border-color)] mb-6 opacity-50" />

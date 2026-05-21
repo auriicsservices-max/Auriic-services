@@ -27,7 +27,8 @@ The main dashboard is your control center. Here’s what you can do:
 
 ## Candidates Management
 This is the core of your recruitment process.
-- **Adding Candidates:** Click on the "Add Candidate" button to open the form and manually enter candidate details (Name, Skills, Contact Info, Job Role, etc.).
+- **Adding Candidates:** Click on the "Add Candidate" button to open the form.
+- **AI-Powered Parsing:** When uploading or creating candidates, the system utilizes advanced AI to automatically analyze resume text into a structured, clean format for consistent data management.
 - **Editing / Updating:** Click on any candidate to open their details in the `CandidateModal`. You can log notes, update their pipeline stage (e.g., Screened, Interviewing, Offered), and keep information fresh.
 - **CV Repository / Trainer:** Keep candidate resumes stored logically and utilize the CV Trainer features to extract or format skills.
 
@@ -40,7 +41,7 @@ If you have a spreadsheet filled with sourced candidates, you do not need to add
 - Navigate to the **Bulk Upload** section.
 - Upload an Excel (`.xlsx`) or CSV file containing your candidates.
 - The system will process and import all candidates at once.
-- *Note:* The maximum number of records you can upload at once is configurable by Admins via System Settings.
+- *Note:* The maximum number of records you can upload at once is restricted to Admin users under **System Settings**.
 
 ## Internal Chat
 Collaboration is built-in so you do not have to switch windows to talk to your colleagues.
@@ -53,7 +54,7 @@ Collaboration is built-in so you do not have to switch windows to talk to your c
 ## System Settings & User Management
 *(Requires Admin or Team Leader permissions)*
 - **User Management:** Invite new team members, manage their roles (e.g., elevate a Recruiter to a Team Leader), or suspend access.
-- **System Settings:** Configure workspace settings, adjust bulk upload limits, and maintain system defaults.
+- **System Settings:** Configure workspace settings, manage bulk upload limits (Restricted to **Admins only**), and maintain system defaults.
 - **Log Review:** Use this to conduct an audit trail of system activities, useful for tracking edits and debugging.
 - **Migration Tool:** Provided for administrative scaling, allowing seamless data transition between environments.
 
