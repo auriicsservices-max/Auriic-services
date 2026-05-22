@@ -1085,7 +1085,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               <item.icon className={`w-4 h-4 mr-3 ${activeTab === item.id ? 'text-[var(--accent-purple)]' : 'text-[var(--text-muted)]'}`} />
               {item.label}
               {item.id === 'chat' && unreadChatCount > 0 && activeTab !== 'chat' && (
-                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 rounded-full min-w-[20px] text-center">{unreadChatCount}</span>
+                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 rounded-full min-w-[20px] text-center animate-pulse">{unreadChatCount}</span>
               )}
             </button>
           ))}
@@ -1799,6 +1799,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         onUpdateAssignee={handleUpdateAssignee}
         onContact={(id) => { setChatRecipientId(id); setActiveTab('chat'); setSelectedCandidate(null); }}
         teamMembers={teamMembers}
+      />
+
+      <ChatNotificationPopup 
+        message={notificationMessage} 
+        senderRole={notificationMessage?.senderRole || 'User'}
+        senderName={notificationMessage?.senderName || 'Unknown'}
+        senderInitials={(notificationMessage?.senderName || '??').slice(0, 2).toUpperCase()}
+        onClose={() => setNotificationMessage(null)} 
+        onClick={() => { setActiveTab('chat'); setNotificationMessage(null); }} 
       />
 
       <ConfirmModal 
