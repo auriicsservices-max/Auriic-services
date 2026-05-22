@@ -25,7 +25,7 @@ service cloud.firestore {
         request.auth.token.email == 'darshanwala894@gmail.com' || 
         request.auth.token.email == 'auriicsservices@gmail.com' ||
         request.auth.token.email == 'mayur.jungi@aurrum.co' ||
-        getUserData().get('role', 'none') in ['admin', 'team_leader']
+        getUserData().get('role', 'none') in ['admin', 'team_leader', 'developer']
       );
     }
 
@@ -56,7 +56,7 @@ service cloud.firestore {
       function isValidUser(data) {
         return data.uid is string && 
                data.email is string && 
-               data.role in ['admin', 'team_leader', 'recruiter'];
+               data.role in ['admin', 'team_leader', 'recruiter', 'developer'];
       }
 
       allow create: if isSignedIn() && (request.auth.uid == userId || isAdmin());
@@ -81,18 +81,7 @@ service cloud.firestore {
 
     // Notifications Collection Rules
     match /notifications/{notificationId} {
-      allow list: if isSignedIn() && (
-        getUserData().role in ['admin', 'team_leader'] || 
-        resource.data.recipientId == request.auth.uid ||
-        resource.data.recipientId == 'all'
-      );
-      allow read: if isSignedIn() && (
-        getUserData().role in ['admin', 'team_leader'] || 
-        resource.data.recipientId == request.auth.uid ||
-        resource.data.recipientId == 'all'
-      );
-      allow create: if isSignedIn();
-      allow update: if isSignedIn(); // Add ownership verification here later if needed
+      allow read, write: if true;
     }
 
     // Training CV Collection Rules

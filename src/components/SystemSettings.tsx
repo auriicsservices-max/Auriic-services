@@ -10,7 +10,7 @@ export default function SystemSettings() {
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  const isAdmin = role === 'admin';
+  const isAdmin = role === 'admin' || role === 'developer';
 
   useEffect(() => {
     const fetchSettings = async () => {

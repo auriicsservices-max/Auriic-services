@@ -47,7 +47,7 @@ export default function Shortlist({ candidates, onCandidateSelect, onArchive, ro
                                     <span className="text-[10px] font-bold text-indigo-500 uppercase tracking-widest">{candidate.domain || 'Unsorted'}</span>
                                 </td>
                                 <td className="px-6 py-4 text-right">
-                                    {role === 'admin' && (
+                                    {(role === 'admin' || role === 'developer') && (
                                         <button 
                                             onClick={(e) => onArchive(e, candidate.id)}
                                             className="text-[var(--text-muted)] hover:text-red-500 p-2 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors"

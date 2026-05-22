@@ -14,7 +14,7 @@ export default function UserManagement() {
   const [users, setUsers] = useState<any[]>([]);
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState<'admin' | 'team_leader' | 'recruiter'>('recruiter');
+  const [newRole, setNewRole] = useState<'developer' | 'admin' | 'team_leader' | 'recruiter'>('recruiter');
   const [isAdding, setIsAdding] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [error, setError] = useState('');
@@ -109,9 +109,10 @@ export default function UserManagement() {
   };
 
   const handleUpdateRole = async (userId: string, currentRole: string) => {
-    let nextRole: 'admin' | 'team_leader' | 'recruiter' = 'admin';
+    let nextRole: 'developer' | 'admin' | 'team_leader' | 'recruiter' = 'admin';
     if (currentRole === 'admin') nextRole = 'team_leader';
     else if (currentRole === 'team_leader') nextRole = 'recruiter';
+    else if (currentRole === 'recruiter') nextRole = 'developer';
     else nextRole = 'admin';
     
     try {
@@ -200,7 +201,7 @@ export default function UserManagement() {
   };
 
 
-  if (role !== 'admin' && role !== 'team_leader') {
+  if (role !== 'admin' && role !== 'team_leader' && role !== 'developer') {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-center p-8 bg-[var(--bg-primary)] rounded-[2rem] border border-[var(--border-color)] shadow-sm transition-colors duration-300">
         <Shield size={64} className="text-[var(--border-color)] mb-6 opacity-50" />
@@ -267,6 +268,7 @@ export default function UserManagement() {
               <option value="recruiter">Recruiter</option>
               <option value="team_leader">Team Leader</option>
               <option value="admin">Admin</option>
+              <option value="developer">Developer</option>
             </select>
           </div>
 
@@ -328,7 +330,7 @@ export default function UserManagement() {
                     {u.addedBy === 'admin' && (
                         <p className="text-[9px] text-[var(--text-muted)] font-medium italic opacity-60">Direct invite</p>
                     )}
-                    {(role === 'admin' || role === 'team_leader') && u.role === 'recruiter' && (
+                    {(role === 'admin' || role === 'team_leader' || role === 'developer') && u.role === 'recruiter' && (
                         <div className="flex items-center gap-1.5 mt-2">
                            <select 
                             value={u.teamLeaderId || ''}

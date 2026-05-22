@@ -71,7 +71,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
 
     // Admin/TL see all, Recruiter sees assigned or all_privileged (for broadcast)
     let q;
-    if (role === 'admin' || role === 'team_leader') {
+    if (role === 'admin' || role === 'team_leader' || role === 'developer') {
       q = query(
         collection(db, 'notifications'),
         orderBy('createdAt', 'desc')

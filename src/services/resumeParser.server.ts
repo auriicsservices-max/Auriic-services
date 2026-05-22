@@ -24,7 +24,7 @@ export class RobustResumeParser {
           throw new Error("PDF parsing library (pdf-parse) not available");
         }
       }
-      const data = await pdfLib(buffer);
+      const data = await (typeof pdfLib === 'function' ? pdfLib(buffer) : (pdfLib.default ? pdfLib.default(buffer) : pdfLib(buffer)));
       text = data.text;
     } else if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       const data = await mammoth.extractRawText({ buffer });

@@ -4,6 +4,8 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import multer from 'multer';
 import fs from 'fs';
+import AdmZip from 'adm-zip';
+import cron from 'node-cron';
 import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
 import { initializeApp, getApps } from 'firebase-admin/app';
 import * as admin from 'firebase-admin';
@@ -202,6 +204,50 @@ async function startServer() {
     } catch (error) {
       console.error('[Server] List connection error:', (error as Error).message);
       res.status(500).json({ status: false, message: 'Local fallback: List service unreachable' });
+    }
+  });
+
+  app.get('/api/backup/download/:type', async (req, res) => {
+    const { type } = req.params;
+    
+    // 1. Get Auth Token
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+       return res.status(401).json({ status: false, message: 'Unauthorized' });
+    }
+    const token = authHeader.split('Bearer ')[1];
+    
+    try {
+        // 2. Verify token
+        const decoded = await admin.auth().verifyIdToken(token);
+        const uid = decoded.uid;
+        
+        // 3. Check role
+        const userDoc = await adminDb.collection('users').doc(uid).get();
+        const userData = userDoc.data();
+        if (!userData || (userData.role !== 'developer' && userData.role !== 'admin')) {
+            return res.status(403).json({ status: false, message: 'Access Denied' });
+        }
+
+        if (type === 'full') {
+            const zip = new AdmZip();
+            // Assuming current directory is the project root
+            const projectDir = process.cwd();
+            zip.addLocalFolder(projectDir, undefined, (filename) => {
+                return !filename.includes('node_modules') && 
+                       !filename.includes('.git') && 
+                       !filename.includes('dist') &&
+                       !filename.includes('.firebase');
+            });
+            const buffer = zip.toBuffer();
+            res.setHeader('Content-Type', 'application/zip');
+            res.setHeader('Content-Disposition', `attachment; filename=aurrum-backup-${new Date().toISOString().split('T')[0]}.zip`);
+            return res.send(buffer);
+        }
+        res.status(400).json({ status: false, message: 'Type not supported' });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ status: false, message: 'Backup failed' });
     }
   });
 

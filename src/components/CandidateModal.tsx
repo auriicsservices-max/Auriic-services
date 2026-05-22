@@ -416,7 +416,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               </div>
             </div>
             <div className="flex gap-2">
-              {(role === 'admin' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid) && (
+              {(role === 'admin' || role === 'developer' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid) && (
                 <button 
                   onClick={handleView}
                   disabled={isFetchingCV}
@@ -426,7 +426,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   {isFetchingCV ? 'Syncing...' : 'View CV'}
                 </button>
               )}
-              {(role === 'admin' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid) && (
+              {(role === 'admin' || role === 'developer' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid) && (
                 <button 
                   onClick={handleDownload}
                   disabled={isFetchingCV}

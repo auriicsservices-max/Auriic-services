@@ -19,7 +19,7 @@ export default function ActivityLogList({ role }: { role: string | null }) {
     const activitiesRef = collection(db, 'activity_logs');
     
     // Sort by timestamp DESC to get latest first
-    if (role === 'admin') {
+    if (role === 'admin' || role === 'developer') {
       q = query(activitiesRef, orderBy('timestamp', 'desc'), limit(100));
     } else if (role === 'team_leader') {
       q = query(activitiesRef, orderBy('timestamp', 'desc'), limit(100));

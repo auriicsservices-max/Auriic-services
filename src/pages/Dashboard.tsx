@@ -11,7 +11,6 @@ import HelpCenter from '../components/HelpCenter';
 import UserManagement from '../components/UserManagement';
 import DashboardHome from './DashboardHome';
 import CandidateModal from '../components/CandidateModal';
-import ChatNotificationPopup from '../components/ChatNotificationPopup';
 import Analytics from '../components/Analytics';
 import ThemeToggle from '../components/ThemeToggle';
 import UserProfile from '../components/UserProfile';
@@ -27,7 +26,6 @@ import CVRepository from '../components/CVRepository';
 import { resumeParser } from '../services/resumeParserService';
 import { logActivity } from '../services/activityService';
 import { createNotification, formatNotificationMessage } from '../services/notificationService';
-import InternalChat from '../components/InternalChat';
 import NotificationBadge from '../components/NotificationBadge';
 import QuotaNotice from '../components/QuotaNotice';
 import LZString from 'lz-string';
@@ -66,6 +64,7 @@ import {
 } from 'lucide-react';
 
 import MigrationTool from '../components/MigrationTool';
+import BackupDashboard from '../components/BackupDashboard';
 
 export default function Dashboard() {
   const { user, role, quotaExceeded, setQuotaExceeded, isPrivileged } = useAuth();
@@ -86,7 +85,6 @@ export default function Dashboard() {
     setCandidates(sorted);
   }, []);
 
-  const [recentChatMessages, setRecentChatMessages] = useState<any[]>([]);
   const [teamMembers, setTeamMembers] = useState<Record<string, string>>({});
   const [fullTeamList, setFullTeamList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -95,10 +93,8 @@ export default function Dashboard() {
   const [parsingStatus, setParsingStatus] = useState<Record<string, { status: string, progress: number }>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; }>({ isOpen: false, message: '' });
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'chat' | 'upload' | 'repository' | 'settings' | 'help'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'help' | 'backup'>('home');
   const [bulkLimit, setBulkLimit] = useState<number>(20);
-  const [chatRecipientId, setChatRecipientId] = useState<string | null>(null);
-  const [unreadChatCount, setUnreadChatCount] = useState(0);
   const [notificationMessage, setNotificationMessage] = useState<any>(null);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
 
@@ -222,66 +218,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
   useEffect(() => {
     if (!user || !role) return;
 
-    // Chat notifications listener - always active but limited
-    const qChat = query(
-      collection(db, 'direct_messages'),
-      where('participants', 'array-contains', user.uid),
-      limit(50) 
-    );
-    
-    let unsubChat = () => {};
-    if (!quotaExceeded) {
-      unsubChat = onSnapshot(qChat, (snapshot) => {
-        const currentUserData = fullTeamList.find(u => u.id === user.uid);
-        const readCursors = currentUserData?.readCursors || {};
-        const notificationsEnabled = currentUserData?.notificationsEnabled !== false;
-        const soundEnabled = currentUserData?.notificationSound !== false;
-
-        let totalUnread = 0;
-        let newestUnreadMsg: any = null;
-
-        snapshot.docs.forEach(doc => {
-          const data = doc.data();
-          if (data.recipientId === user.uid) {
-            const senderId = data.senderId;
-            const createdAt = data.createdAt?.toMillis() || 0;
-            const userReadCursorForSender = readCursors[senderId];
-            const lastRead = userReadCursorForSender?.toMillis ? userReadCursorForSender.toMillis() : 0;
-
-            if (createdAt > lastRead) {
-              totalUnread++;
-              if (!newestUnreadMsg || createdAt > (newestUnreadMsg.createdAt?.toMillis() || 0)) {
-                newestUnreadMsg = { id: doc.id, ...data };
-              }
-            }
-          }
-        });
-        
-        setUnreadChatCount(totalUnread);
-        
-        setRecentChatMessages(snapshot.docs
-            .map(doc => ({ id: doc.id, ...doc.data() }))
-            .sort((a: any, b: any) => (b.createdAt?.toMillis() || 0) - (a.createdAt?.toMillis() || 0))
-            .slice(0, 10));
-
-        // Trigger Notification & Sound
-        if (newestUnreadMsg) {
-          
-          if (activeTab === 'chat' && document.visibilityState === 'visible') return;
-
-          if (notificationsEnabled) {
-            if (soundEnabled) {
-              playNotificationSound();
-            }
-            setNotificationMessage(newestUnreadMsg);
-          }
-        }
-      }, (err: any) => {
-        handleFirestoreError(err, 'get', 'chat');
-        if (err.code === 'resource-exhausted') setQuotaExceeded(true);
-      });
-    }
-
     // Unconditional listeners
     let unsubCandidates = () => {};
     let unsubAssigned = () => {};
@@ -293,7 +229,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       const q = query(
         collection(db, 'candidates'), 
         where('isArchived', '==', false),
-        ...(role !== 'admin' && role !== 'team_leader' ? [where('uploadedBy', '==', user?.uid)] : []),
+        ...(role !== 'admin' && role !== 'team_leader' && role !== 'developer' ? [where('uploadedBy', '==', user?.uid)] : []),
         orderBy('createdAt', 'desc'),
         limit(200)
       );
@@ -312,7 +248,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         if (err.code === 'resource-exhausted') setQuotaExceeded(true);
       });
       
-      if (role !== 'admin' && role !== 'team_leader') {
+      if (role !== 'admin' && role !== 'team_leader' && role !== 'developer') {
          const qAssigned = query(
             collection(db, 'candidates'), 
             where('isArchived', '==', false),
@@ -395,7 +331,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     }
 
     return () => {
-      unsubChat();
       unsubCandidates();
       unsubAssigned();
       unsubNotifications();
@@ -453,7 +388,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
     // Enforcement of Bulk Upload Limit (Admins bypass)
-    if (role !== 'admin' && acceptedFiles.length > bulkLimit) {
+    if (role !== 'admin' && role !== 'developer' && acceptedFiles.length > bulkLimit) {
       setDuplicateNotification({
         isOpen: true,
         message: `Batch rejected: You can only upload up to ${bulkLimit} CVs at once to ensure processing quality. Please reduce your batch size.`
@@ -875,7 +810,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
   };
 
   const handleUpdateAssignee = async (id: string, userId: string) => {
-    if (role !== 'admin' && role !== 'team_leader') return;
+    if (role !== 'admin' && role !== 'team_leader' && role !== 'developer') return;
     try {
       await updateDoc(doc(db, 'candidates', id), { 
         assignedTo: userId,
@@ -1088,15 +1023,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             { id: 'upload', label: 'CV Parsing', icon: Upload },
             { id: 'shortlist', label: 'Shortlist', icon: Star },
             { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
-            ...( (role === 'admin' || role === 'team_leader') ? [{ id: 'users', label: 'Team Hub', icon: Users }] : []),
+            ...( (role === 'admin' || role === 'team_leader' || role === 'developer') ? [{ id: 'users', label: 'Team Hub', icon: Users }] : []),
+            ...( (role === 'developer') ? [{ id: 'backup', label: 'Backup & Export', icon: Download }] : []),
             { id: 'profile', label: 'My Profile', icon: UserCircle },
             { id: 'help', label: 'User Guide', icon: BookOpen },
-            { id: 'chat', label: 'Rectech Chat', icon: MessageSquare },
           ].map((item) => (
             <button 
               key={item.id}
               id={`nav-${item.id}`}
-              onClick={() => { setActiveTab(item.id as any); setIsSidebarOpen(false); setSelectedIds(new Set()); if(item.id === 'chat') setUnreadChatCount(0); }}
+              onClick={() => { setActiveTab(item.id as any); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
               className={`w-full flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
                 activeTab === item.id 
                   ? 'bg-[var(--accent-purple)]/10 text-[var(--accent-purple)]' 
@@ -1105,10 +1040,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             >
               <item.icon className={`w-4 h-4 mr-3 ${activeTab === item.id ? 'text-[var(--accent-purple)]' : 'text-[var(--text-muted)]'}`} />
               {item.label}
-              {item.id === 'chat' && unreadChatCount > 0 && activeTab !== 'chat' && (
-                <span className="ml-auto bg-red-500 text-white text-[10px] font-bold px-1.5 rounded-full min-w-[20px] text-center animate-pulse">{unreadChatCount}</span>
-              )}
-            </button>
+              </button>
           ))}
           
           <div className="pt-4 mt-4 border-t border-[var(--border-color)]">
@@ -1205,7 +1137,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <span className="hidden md:block cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" onClick={() => setActiveTab('candidates')}>Rectech CV Parsing Software</span>
             <ChevronRight className="hidden md:block w-3 h-3 text-[var(--text-muted)]" />
             <span className="text-[var(--text-primary)] italic font-serif normal-case text-base tracking-normal">
-              {activeTab === 'candidates' ? 'Candidates Database' : activeTab === 'activity_logs' ? 'Activity Log' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'chat' ? 'Rectech Chat' : activeTab === 'repository' ? 'CV Repository' : activeTab === 'upload' ? 'CV Parsing' : 'Dashboard Home'}
+              {activeTab === 'candidates' ? 'Candidates Database' : activeTab === 'activity_logs' ? 'Activity Log' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'repository' ? 'CV Repository' : activeTab === 'upload' ? 'CV Parsing' : 'Dashboard Home'}
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -1299,6 +1231,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </div>
           ) : activeTab === 'help' ? (
             <HelpCenter />
+          ) : activeTab === 'backup' ? (
+             <BackupDashboard />
           ) : activeTab === 'home' ? (
             <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} />
           ) : activeTab === 'repository' ? (
@@ -1601,14 +1535,10 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               onCompleteFollowUp={handleCompleteFollowUp}
               onUpdateNotes={handleUpdateNotes} 
               onUpdateAssignee={handleUpdateAssignee}
-              onContact={(id) => { setChatRecipientId(id); setActiveTab('chat'); setSelectedCandidate(null); }}
+              onContact={() => {}}
               teamMembers={teamMembers}
               role={role}
             />
-          ) : activeTab === 'chat' ? (
-            <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-               <InternalChat teamMembers={fullTeamList} initialRecipientId={chatRecipientId} />
-            </div>
           ) : activeTab === 'trash' ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-12">
               {/* Candidate Trash */}
@@ -1818,17 +1748,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         onCompleteFollowUp={handleCompleteFollowUp}
         onUpdateNotes={handleUpdateNotes}
         onUpdateAssignee={handleUpdateAssignee}
-        onContact={(id) => { setChatRecipientId(id); setActiveTab('chat'); setSelectedCandidate(null); }}
+        onContact={() => {}}
         teamMembers={teamMembers}
-      />
-
-      <ChatNotificationPopup 
-        message={notificationMessage} 
-        senderRole={notificationMessage?.senderRole || 'User'}
-        senderName={notificationMessage?.senderName || 'Unknown'}
-        senderInitials={(notificationMessage?.senderName || '??').slice(0, 2).toUpperCase()}
-        onClose={() => setNotificationMessage(null)} 
-        onClick={() => { setActiveTab('chat'); setNotificationMessage(null); }} 
       />
 
       <ConfirmModal 
