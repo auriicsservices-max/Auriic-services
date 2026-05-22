@@ -7,7 +7,6 @@ import { useDropzone } from 'react-dropzone';
 import { extractTextFromPDF, extractTextFromDocx, parseResumeHeuristically, ParsedResume } from '../lib/localParser';
 import { formatUKDate } from '../lib/dateUtils';
 import { GoogleGenAI, Type } from "@google/genai";
-import HelpCenter from '../components/HelpCenter';
 import UserManagement from '../components/UserManagement';
 import DashboardHome from './DashboardHome';
 import CandidateModal from '../components/CandidateModal';
@@ -93,7 +92,7 @@ export default function Dashboard() {
   const [parsingStatus, setParsingStatus] = useState<Record<string, { status: string, progress: number }>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; }>({ isOpen: false, message: '' });
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'help' | 'backup'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup'>('home');
   const [bulkLimit, setBulkLimit] = useState<number>(20);
   const [notificationMessage, setNotificationMessage] = useState<any>(null);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
@@ -1026,7 +1025,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             ...( (role === 'admin' || role === 'team_leader' || role === 'developer') ? [{ id: 'users', label: 'Team Hub', icon: Users }] : []),
             ...( (role === 'developer') ? [{ id: 'backup', label: 'Backup & Export', icon: Download }] : []),
             { id: 'profile', label: 'My Profile', icon: UserCircle },
-            { id: 'help', label: 'User Guide', icon: BookOpen },
           ].map((item) => (
             <button 
               key={item.id}
@@ -1229,8 +1227,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <div className="h-full flex items-center justify-center p-4">
               <QuotaNotice onRetry={() => window.location.reload()} />
             </div>
-          ) : activeTab === 'help' ? (
-            <HelpCenter />
           ) : activeTab === 'backup' ? (
              <BackupDashboard />
           ) : activeTab === 'home' ? (
