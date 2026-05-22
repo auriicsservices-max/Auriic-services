@@ -472,6 +472,14 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     
     let currentDone = 0;
     for (const file of acceptedFiles) {
+      if (file.size > 1 * 1024 * 1024) {
+        setDuplicateNotification({
+          isOpen: true,
+          message: `File rejected: ${file.name} is larger than 1MB. Please upload a smaller file.`
+        });
+        setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
+        continue;
+      }
       try {
         setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'parsing', progress: 0 } }));
         
@@ -487,12 +495,14 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         const candidateFullName = (parsed.fullName || parsed.name || file.name.split('.')[0]).trim();
         parsed.name = candidateFullName;
         parsed.contact.email = (parsed.contact.email || 'pending@aurrum.co').toLowerCase();
+        parsed.contact.phone = (parsed.contact.phone || '').trim();
+        parsed.contact.linkedin = (parsed.contact.linkedin || '').trim();
 
         // CHECK FOR DUPLICATES
         const isDuplicateInState = candidates.find(c => 
           (c.email && c.email === parsed.contact.email) ||
           (c.phone && c.phone === parsed.contact.phone) ||
-          (c.linkedin && c.linkedin === parsed.linkedin) ||
+          (c.linkedin && c.linkedin === parsed.contact.linkedin) ||
           (c.fullName && c.fullName === candidateFullName && c.company === parsed.company)
         );
         const isDuplicateInBatch = addedEmailsInBatch.has(parsed.contact.email);

@@ -78,7 +78,9 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
       github: '',
       portfolio: ''
     },
-    location: {
+    links: [],
+    location: '',
+    locationDetails: {
       city: '',
       state: '',
       country: ''
@@ -136,13 +138,12 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
   // Improved location heuristic
   for(let i=0; i<Math.min(20, lines.length); i++) {
     const line = lines[i];
-    // Try to match "City, State, Country" or "City, State"
-    // Examples: "San Jose, CA", "Mumbai, Maharashtra", "London, UK"
-    const match = line.match(/([A-Za-z\s]+),\s*([A-Za-z\s]+)(?:,\s*([A-Za-z\s]+))?/);
-    if (match && match[1].length > 2 && match[2].length > 1) { // Basic validation
-        resume.location.city = match[1].trim();
-        resume.location.state = match[2].trim();
-        if (match[3]) resume.location.country = match[3].trim();
+    const match = line.match(/([A-Za-z\s]+),\s*([A-Za-z]{2,})(?:\s+\d{5})?/);
+    if (match) {
+        resume.location = line.trim();
+        resume.locationDetails.city = match[1].trim();
+        resume.locationDetails.state = match[2].trim();
+        resume.locationDetails.country = 'USA'; 
         break;
     }
   }
@@ -177,16 +178,31 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
   const allLinks = text.match(linkRegex) || [];
   const uniqueLinks = Array.from(new Set(allLinks));
   
+  const extractedLinks: { type: string, url: string }[] = [];
+  const excluded = ['aistudio', 'googleusercontent', 'firebase', 'blob:', 'localhost', '.pdf', '.docx', 'resume'];
+
   uniqueLinks.forEach(link => {
-    const l = link.toLowerCase();
-    if (l.includes('linkedin.com')) {
-      resume.contact.linkedin = link;
-    } else if (l.includes('github.com')) {
-      resume.contact.github = link;
-    } else if (l.includes('portfolio') || l.includes('personal-website')) {
-      resume.contact.portfolio = link;
+    if (excluded.some(ex => link.toLowerCase().includes(ex))) return;
+
+    let url = link.toLowerCase();
+    if (!url.startsWith('http')) url = 'https://' + url;
+
+    // Validation
+    const isLinkedIn = /^(https?:\/\/)?(www\.)?linkedin\.com\//i.test(url);
+    const isGitHub = /^(https?:\/\/)?(www\.)?github\.com\//i.test(url);
+
+    if (isLinkedIn) {
+      extractedLinks.push({ type: 'LinkedIn', url: url });
+      resume.contact.linkedin = url;
+    } else if (isGitHub) {
+      extractedLinks.push({ type: 'GitHub', url: url });
+      resume.contact.github = url;
+    } else {
+      extractedLinks.push({ type: 'Personal Website', url: url });
     }
   });
+
+  resume.links = extractedLinks;
 
   // 5. Section detection and localized extraction
   const sections: Record<string, RegExp[]> = {

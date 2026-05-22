@@ -43,6 +43,30 @@ export class RobustResumeParser {
     const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
     const email = emailMatch ? emailMatch[0] : '';
 
+    // 1a. Extract Location
+    let locationString = '';
+    const places = doc.places().out('array');
+    if (places.length > 0) {
+        locationString = places[0];
+    } else {
+        const locationMatch = text.match(/([A-Za-z\s]+),\s*([A-Za-z]{2,})/);
+        if (locationMatch) {
+            locationString = locationMatch[0];
+        }
+    }
+    
+    let city = '';
+    let state = '';
+    let country = '';
+    if (locationString) {
+        const parts = locationString.split(',').map(s => s.trim());
+        city = parts[0];
+        state = parts.length > 1 ? parts[1] : '';
+        country = parts.length > 2 ? parts[2] : 'USA'; 
+    } else {
+        locationString = 'Remote';
+    }
+
     // 2. Extract Phone
     const phoneMatch = text.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{4}/);
     let phone = '';
@@ -65,15 +89,30 @@ export class RobustResumeParser {
     }
 
     // 4. Links
-    const links = text.match(/https?:\/\/[^\s]+/g) || [];
+    const linksMatch = text.match(/https?:\/\/[^\s]+/g) || [];
+    const extractedLinks: { type: string, url: string }[] = [];
+    const excluded = ['aistudio', 'googleusercontent', 'firebase', 'blob:', 'localhost', '.pdf', '.docx', 'resume'];
+
     let linkedin = '';
     let github = '';
     let portfolio = '';
-    links.forEach(link => {
-      const l = link.toLowerCase();
-      if (l.includes('linkedin.com')) linkedin = link;
-      else if (l.includes('github.com')) github = link;
-      else if (!l.includes('google') && !l.includes('pdf')) portfolio = link;
+    linksMatch.forEach(link => {
+      if (excluded.some(ex => link.toLowerCase().includes(ex))) return;
+      
+      const url = link.toLowerCase();
+      const isLinkedIn = /^(https?:\/\/)?(www\.)?linkedin\.com\//i.test(url);
+      const isGitHub = /^(https?:\/\/)?(www\.)?github\.com\//i.test(url);
+
+      if (isLinkedIn) {
+        extractedLinks.push({ type: 'LinkedIn', url: link });
+        linkedin = link;
+      } else if (isGitHub) {
+        extractedLinks.push({ type: 'GitHub', url: link });
+        github = link;
+      } else {
+        extractedLinks.push({ type: 'Personal Website', url: link });
+        if (!portfolio) portfolio = link;
+      }
     });
 
     // 5. Sections
@@ -103,7 +142,12 @@ export class RobustResumeParser {
 
     const data: ResumeData = {
       name,
+      fullName: name,
+      company: '',
       contact: { email, phone, linkedin, github, portfolio },
+      links: extractedLinks,
+      location: locationString,
+      locationDetails: { city, state, country },
       profile: sections.profile,
       domainFocus,
       totalExperienceYears,
