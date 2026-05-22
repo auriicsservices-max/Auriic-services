@@ -5,6 +5,7 @@ import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteD
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useDropzone } from 'react-dropzone';
 import { extractTextFromPDF, extractTextFromDocx, parseResumeHeuristically, ParsedResume } from '../lib/localParser';
+import { formatUKDate } from '../lib/dateUtils';
 import { GoogleGenAI, Type } from "@google/genai";
 import HelpCenter from '../components/HelpCenter';
 import UserManagement from '../components/UserManagement';
@@ -482,19 +483,29 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         // Ensure parsed object exists
         if (!parsed) throw new Error("Parser returned empty data");
         
-        parsed.name = parsed.name || file.name.split('.')[0];
+        // Use extracted name, normalize it
+        const candidateFullName = (parsed.fullName || parsed.name || file.name.split('.')[0]).trim();
+        parsed.name = candidateFullName;
         parsed.contact.email = (parsed.contact.email || 'pending@aurrum.co').toLowerCase();
 
         // CHECK FOR DUPLICATES
-        const isDuplicateInState = candidates.find(c => c.email === parsed.contact.email);
+        const isDuplicateInState = candidates.find(c => 
+          (c.email && c.email === parsed.contact.email) ||
+          (c.phone && c.phone === parsed.contact.phone) ||
+          (c.linkedin && c.linkedin === parsed.linkedin) ||
+          (c.fullName && c.fullName === candidateFullName && c.company === parsed.company)
+        );
         const isDuplicateInBatch = addedEmailsInBatch.has(parsed.contact.email);
         
         if (isDuplicateInState || isDuplicateInBatch) {
           const workerId = isDuplicateInState ? (isDuplicateInState.assignedTo || isDuplicateInState.uploadedBy) : 'this batch';
           const workerName = isDuplicateInState ? (teamMembers[workerId] || 'Unknown Recruiter') : 'this batch';
+          const status = isDuplicateInState ? (isDuplicateInState.status || 'Screening') : 'New';
+          const lastUpdated = isDuplicateInState ? formatUKDate(isDuplicateInState.updatedAt || isDuplicateInState.createdAt) : 'N/A';
+          
           setDuplicateNotification({ 
             isOpen: true, 
-            message: `Candidate ${parsed.name} is already added and currently being handled by ${workerName}`
+            message: `Candidate: ${candidateFullName}\nStatus: Already exists in system\nCurrently Assigned To: ${workerName}\nCurrent Stage: ${status}\nLast Updated: ${lastUpdated}`
           });
           setUploadStatus('duplicate');
           setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
