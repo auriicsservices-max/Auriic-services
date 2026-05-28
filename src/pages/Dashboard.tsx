@@ -1899,6 +1899,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               onContact={() => {}}
               teamMembers={teamMembers}
               role={role}
+              fullTeamList={fullTeamList}
             />
           ) : activeTab === 'trash' ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-12">

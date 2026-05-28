@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line, CartesianGrid } from 'recharts';
 import { TrendingUp, Users, Target, Briefcase, X, User, Activity, Search } from 'lucide-react';
 import Select from 'react-select';
 import CandidateModal from './CandidateModal';
 import QuotaNotice from './QuotaNotice';
 import { useAuth } from '../contexts/AuthContext';
+import { useTimezone } from '../contexts/TimezoneContext';
 
 interface StatsProps {
   candidates: any[];
@@ -17,14 +18,138 @@ interface StatsProps {
   onContact: (userId: string) => void;
   teamMembers?: Record<string, string>;
   role?: string | null;
+  fullTeamList?: any[];
 }
 
-export default function Analytics({ candidates, activityLogs = [], onShortlist, onUpdateFollowUp, onCompleteFollowUp, onUpdateNotes, onUpdateAssignee, onContact, teamMembers, role }: StatsProps) {
-  const { quotaExceeded } = useAuth();
+export default function Analytics({ 
+  candidates, 
+  activityLogs = [], 
+  onShortlist, 
+  onUpdateFollowUp, 
+  onCompleteFollowUp, 
+  onUpdateNotes, 
+  onUpdateAssignee, 
+  onContact, 
+  teamMembers, 
+  role,
+  fullTeamList = []
+}: StatsProps) {
+  const { quotaExceeded, user } = useAuth();
+  const { timezone } = useTimezone();
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
   const [showModal, setShowModal] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const [skillSearch, setSkillSearch] = useState('');
+
+  // 1. Filter activityLogs based on user's role and team configuration (Role Visibility)
+  const visibleActivityLogs = useMemo(() => {
+    return activityLogs.filter(log => {
+      if (role === 'admin' || role === 'developer') {
+        return true;
+      }
+      if (role === 'team_leader') {
+        if (log.authorUid === user?.uid) return true;
+        const userObj = fullTeamList.find(u => u.uid === log.authorUid);
+        return userObj && userObj.teamLeaderId === user?.uid;
+      }
+      return log.authorUid === user?.uid;
+    });
+  }, [activityLogs, role, user?.uid, fullTeamList]);
+
+  // Helper to convert date to ISO YYYY-MM-DD string in specific timezone
+  const getDateStringInTimezone = (dateInput: Date | string | number, tz: string) => {
+    const d = new Date(dateInput);
+    try {
+      const formatter = new Intl.DateTimeFormat('en-US', {
+        timeZone: tz,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit'
+      });
+      const parts = formatter.formatToParts(d);
+      const month = parts.find(p => p.type === 'month')?.value || '01';
+      const day = parts.find(p => p.type === 'day')?.value || '01';
+      const year = parts.find(p => p.type === 'year')?.value || '1970';
+      return `${year}-${month}-${day}`;
+    } catch (error) {
+      return d.toISOString().split('T')[0];
+    }
+  };
+
+  const last7DaysInTimezone = useMemo(() => {
+    const dates: { dateStr: string; label: string }[] = [];
+    const today = new Date();
+    for (let i = 6; i >= 0; i--) {
+      const current = new Date();
+      current.setDate(today.getDate() - i);
+      const dateStr = getDateStringInTimezone(current, timezone);
+      const parsed = new Date(dateStr + 'T12:00:00');
+      const label = parsed.toLocaleDateString('en-US', { month: '2-digit', day: '2-digit', timeZone: timezone });
+      dates.push({ dateStr, label });
+    }
+    return dates;
+  }, [timezone]);
+
+  const activityTypeMap = (log: any): string => {
+    const action = (log.action || '').toLowerCase();
+    const module = (log.module || '').toLowerCase();
+    const purpose = (log.purpose || '').toLowerCase();
+
+    if (action === 'uploaded cv' || action.includes('upload') || module.includes('upload')) {
+       return 'uploads';
+    }
+    if (module.includes('parsing') || action.includes('parse') || purpose.includes('parsing')) {
+       return 'parsing';
+    }
+    if (action.includes('shortlist') || module.includes('shortlist')) {
+       return 'shortlists';
+    }
+    if (action.includes('follow-up') || action.includes('followup') || action.includes('reminder') || module.includes('follow-up')) {
+       return 'followUps';
+    }
+    if (action.includes('note') || action.includes('feedback') || purpose.includes('note') || purpose.includes('feedback')) {
+       return 'notesFeedback';
+    }
+    if (action.includes('assign') || module.includes('assignment')) {
+       return 'assignments';
+    }
+    if (action.includes('message') || action.includes('chat') || module.includes('chat')) {
+       return 'chatMessages';
+    }
+    return 'updates';
+  };
+
+  const activityFlowData = useMemo(() => {
+    return last7DaysInTimezone.map(({ dateStr, label }) => {
+      const dailyLogs = visibleActivityLogs.filter(log => {
+        const timestamp = log.timestamp?.toDate ? log.timestamp.toDate() : (log.timestamp || null);
+        if (!timestamp) return false;
+        return getDateStringInTimezone(timestamp, timezone) === dateStr;
+      });
+
+      const counts: Record<string, number> = {
+        uploads: 0,
+        parsing: 0,
+        assignments: 0,
+        shortlists: 0,
+        notesFeedback: 0,
+        followUps: 0,
+        chatMessages: 0,
+        updates: 0,
+      };
+
+      dailyLogs.forEach(log => {
+        const key = activityTypeMap(log);
+        counts[key] = (counts[key] || 0) + 1;
+      });
+
+      return {
+        date: label,
+        fullNameStr: dateStr,
+        ...counts
+      };
+    });
+  }, [visibleActivityLogs, last7DaysInTimezone, timezone]);
 
   // Process recruiter contribution data
   const recruiterData = candidates.reduce((acc: any, c) => {
@@ -39,28 +164,13 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
     .map(([name, count]) => ({ name, count }));
 
   // Process activity data
-  const actionDistribution = activityLogs.reduce((acc: any, log) => {
+  const actionDistribution = visibleActivityLogs.reduce((acc: any, log) => {
     const action = log.action || 'Unknown';
     acc[action] = (acc[action] || 0) + 1;
     return acc;
   }, {});
 
   const actionChartData = Object.entries(actionDistribution).map(([name, value]) => ({ name, value }));
-
-  // Activity over time (Last 7 days)
-  const last7Days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
-    d.setDate(d.getDate() - i);
-    return d.toISOString().split('T')[0];
-  }).reverse();
-
-  const activityTrends = last7Days.map(date => {
-    const count = activityLogs.filter(log => {
-      const timestamp = log.timestamp?.toDate ? log.timestamp.toDate().toISOString() : (log.timestamp || '');
-      return typeof timestamp === 'string' && timestamp.startsWith(date);
-    }).length;
-    return { date: date.split('-').slice(1).join('/'), count };
-  });
 
   // Process domain data
   const domainDataMap = candidates.reduce((acc: any, c) => {
@@ -73,23 +183,6 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
   const domainChartData = Object.entries(domainDataMap)
     .sort((a: any, b: any) => b[1] - a[1])
     .map(([name, value]) => ({ name, value }));
-
-  // Detailed Activity Flow data
-  const activityFlowData = last7Days.map(date => {
-    const dailyLogs = activityLogs.filter(log => {
-      const timestamp = log.timestamp?.toDate ? log.timestamp.toDate().toISOString() : (log.timestamp || '');
-      return typeof timestamp === 'string' && timestamp.startsWith(date);
-    });
-
-    return {
-      date: date.split('-').slice(1).join('/'),
-      uploads: dailyLogs.filter(l => l.action?.toLowerCase().includes('upload')).length,
-      parsing: dailyLogs.filter(l => l.action?.toLowerCase().includes('parse')).length,
-      assignments: dailyLogs.filter(l => l.action?.toLowerCase().includes('assign')).length,
-      shortlists: dailyLogs.filter(l => l.action?.toLowerCase().includes('shortlist')).length,
-      notes: dailyLogs.filter(l => l.action?.toLowerCase().includes('note')).length,
-    };
-  });
 
   // Shortlist conversion data
   const shortlistedCount = candidates.filter(c => c.isShortlisted).length;
@@ -190,39 +283,30 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
         ))}
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        {/* Platform Pulse */}
+      <div className="w-full">
+        {/* Workflow Dynamics / Activity Flow */}
         <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm flex flex-col font-sans">
-          <h3 className="text-xl font-serif text-[var(--text-primary)] italic mb-6">Platform Pulse</h3>
-          <div className="h-[300px]">
+          <h3 className="text-xl font-serif text-[var(--text-primary)] mb-6">Activity Flow (Last 7 Days)</h3>
+          <div className="h-[350px]">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={activityTrends}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
+              <BarChart data={activityFlowData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" opacity={0.3} />
                 <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)', fontWeight: 'bold' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} allowDecimals={false} />
                 <Tooltip contentStyle={chartTooltipStyle} itemStyle={itemStyle} />
-                <Line type="monotone" dataKey="count" stroke="#4F46E5" strokeWidth={4} dot={{ fill: '#4F46E5', strokeWidth: 2, r: 4, stroke: '#fff' }} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        </section>
-
-        {/* Workflow Dynamics */}
-        <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm flex flex-col font-sans">
-          <h3 className="text-xl font-serif text-[var(--text-primary)] mb-6">Activity Flow</h3>
-          <div className="h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={activityFlowData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
-                <XAxis dataKey="date" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
-                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
-                <Tooltip contentStyle={chartTooltipStyle} itemStyle={itemStyle} />
-                <Legend />
-                <Bar dataKey="uploads" stackId="a" fill="#4F46E5" />
-                <Bar dataKey="parsing" stackId="a" fill="#10B981" />
-                <Bar dataKey="assignments" stackId="a" fill="#F59E0B" />
-                <Bar dataKey="shortlists" stackId="a" fill="#EF4444" />
-                <Bar dataKey="notes" stackId="a" fill="#8B5CF6" />
+                <Legend 
+                  iconType="circle"
+                  iconSize={8}
+                  wrapperStyle={{ fontSize: 10, fontWeight: 'bold', paddingTop: 15 }}
+                />
+                <Bar name="CV Uploads" dataKey="uploads" stackId="a" fill="#10b981" />
+                <Bar name="Resume Parsing" dataKey="parsing" stackId="a" fill="#14b8a6" />
+                <Bar name="Candidate Updates" dataKey="updates" stackId="a" fill="#6366f1" />
+                <Bar name="Assignments" dataKey="assignments" stackId="a" fill="#d946ef" />
+                <Bar name="Follow-ups" dataKey="followUps" stackId="a" fill="#f43f5e" />
+                <Bar name="Shortlists" dataKey="shortlists" stackId="a" fill="#f59e0b" />
+                <Bar name="Notes/Feedback" dataKey="notesFeedback" stackId="a" fill="#3b82f6" />
+                <Bar name="Chat Messages" dataKey="chatMessages" stackId="a" fill="#8b5cf6" />
               </BarChart>
             </ResponsiveContainer>
           </div>
