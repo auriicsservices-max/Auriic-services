@@ -1,13 +1,32 @@
 import React, { useState, useMemo } from 'react';
 import { Search, FileText, Mail, Calendar, ExternalLink, Download } from 'lucide-react';
+import Select from 'react-select';
 
 interface CVRepositoryProps {
   candidates: any[];
   onSelect?: (candidate: any) => void;
 }
 
+const DOMAIN_OPTIONS = [
+  { value: 'IT / Software', label: 'IT / Software' },
+  { value: 'AI / Machine Learning', label: 'AI / Machine Learning' },
+  { value: 'Healthcare', label: 'Healthcare' },
+  { value: 'Finance', label: 'Finance' },
+  { value: 'Sales', label: 'Sales' },
+  { value: 'Marketing', label: 'Marketing' },
+  { value: 'HR', label: 'HR' },
+  { value: 'Operations', label: 'Operations' },
+  { value: 'Engineering', label: 'Engineering' },
+  { value: 'Design', label: 'Design' },
+  { value: 'Project Management', label: 'Project Management' },
+  { value: 'Others', label: 'Others' },
+  { value: 'Unknown Domain', label: 'Unknown Domain' }
+];
+
 export default function CVRepository({ candidates, onSelect }: CVRepositoryProps) {
   const [search, setSearch] = useState('');
+  const [selectedDomains, setSelectedDomains] = useState<any[]>([]);
+  const [isMultiDomain, setIsMultiDomain] = useState<boolean>(true);
 
   const stats = useMemo(() => {
     const total = candidates.length;
@@ -23,6 +42,52 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
     return { total, recent, uniqueEmails };
   }, [candidates]);
 
+  const customSelectStyles = {
+    control: (provided: any, state: any) => ({
+      ...provided,
+      backgroundColor: 'var(--bg-primary)',
+      borderColor: 'var(--border-color)',
+      borderRadius: '1rem',
+      padding: '0.15rem',
+      boxShadow: 'none',
+      cursor: 'pointer',
+      minHeight: '42px',
+      '&:hover': {
+        borderColor: 'var(--indigo-500)',
+      },
+    }),
+    option: (provided: any, state: any) => ({
+      ...provided,
+      backgroundColor: state.isSelected ? '#4F46E5' : state.isFocused ? 'var(--sidebar-bg)' : 'var(--bg-primary)',
+      color: state.isSelected ? 'white' : 'var(--text-primary)',
+      fontSize: '0.75rem',
+      cursor: 'pointer',
+    }),
+    menu: (provided: any) => ({ ...provided, backgroundColor: 'var(--bg-primary)', borderColor: 'var(--border-color)', borderRadius: '1rem', overflow: 'hidden', zIndex: 10 }),
+    input: (provided: any) => ({ ...provided, color: 'var(--text-primary)' }),
+    placeholder: (provided: any) => ({ ...provided, color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold' }),
+    singleValue: (provided: any) => ({ ...provided, color: 'var(--text-primary)', fontSize: '0.75rem', fontWeight: 'bold' }),
+    multiValue: (provided: any) => ({
+      ...provided,
+      backgroundColor: 'var(--sidebar-bg)',
+      borderRadius: '0.5rem',
+      border: '1px solid var(--border-color)',
+    }),
+    multiValueLabel: (provided: any) => ({
+      ...provided,
+      color: 'var(--text-primary)',
+      fontSize: '0.75rem',
+    }),
+    multiValueRemove: (provided: any) => ({
+      ...provided,
+      color: 'var(--text-muted)',
+      ':hover': {
+        backgroundColor: 'var(--bg-primary)',
+        color: '#EF4444',
+      },
+    }),
+  };
+
   const filteredCandidates = useMemo(() => {
     let list = [...candidates];
     
@@ -33,13 +98,21 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
       return dateB - dateA;
     });
 
+    if (selectedDomains.length > 0) {
+      list = list.filter(c => {
+        const d = (c.domainFocus || c.domain || '').trim();
+        const candDom = (!d) ? 'Unknown Domain' : (d === 'IT' ? 'IT / Software' : d === 'Other' ? 'Others' : d);
+        return selectedDomains.some(sel => sel.value === candDom);
+      });
+    }
+
     if (!search) return list;
     const lower = search.toLowerCase();
     return list.filter(c => 
       c.fullName?.toLowerCase().includes(lower) || 
       c.skills?.some((s: string) => s.toLowerCase().includes(lower))
     );
-  }, [candidates, search]);
+  }, [candidates, search, selectedDomains]);
 
   return (
     <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -75,90 +148,172 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
       </div>
 
       {/* Filter */}
-      <div className="bg-[var(--card-bg)] p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm">
-        <div className="relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={20} />
-          <input 
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Filter by Name or Skill..."
-            className="w-full bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-2xl py-4 pl-12 pr-4 text-sm font-bold text-[var(--text-primary)] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
-          />
+      <div className="bg-[var(--card-bg)] p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex flex-col gap-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div className="relative">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={20} />
+            <input 
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filter by Name or Skill..."
+              className="w-full bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold text-[var(--text-primary)] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
+            />
+          </div>
+
+          <div className="flex flex-col justify-center">
+            <Select 
+              options={DOMAIN_OPTIONS}
+              value={isMultiDomain ? selectedDomains : (selectedDomains[0] || null)}
+              onChange={(selected) => {
+                if (!selected) {
+                  setSelectedDomains([]);
+                } else if (Array.isArray(selected)) {
+                  setSelectedDomains(selected);
+                } else {
+                  setSelectedDomains([selected]);
+                }
+              }}
+              isMulti={isMultiDomain}
+              placeholder="Filter by Domain Focus..."
+              styles={customSelectStyles}
+              isSearchable
+            />
+          </div>
+        </div>
+
+        {/* Filter Badges and Single/Multi toggle */}
+        <div className="flex flex-wrap items-center justify-between gap-4 pt-2 border-t border-[var(--border-color)]/50">
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">Mode:</span>
+            <button
+              onClick={() => {
+                setIsMultiDomain(!isMultiDomain);
+                setSelectedDomains([]); // Clear selections on toggle to prevent array/object conflicts
+              }}
+              className="px-3 py-1.5 bg-[var(--sidebar-bg)] border border-[var(--border-color)] text-[var(--text-secondary)] rounded-xl text-xs font-bold hover:bg-[var(--bg-primary)] hover:text-indigo-600 dark:hover:text-indigo-400 transition-all cursor-pointer"
+            >
+              {isMultiDomain ? 'Switch to Single Select' : 'Switch to Multi Select'}
+            </button>
+          </div>
+
+          {selectedDomains.length > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)]">Active Domains:</span>
+              {selectedDomains.map((dom) => (
+                <span
+                  key={dom.value}
+                  className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900 text-[10px] font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
+                >
+                  {dom.label}
+                  <button
+                    onClick={() => setSelectedDomains(selectedDomains.filter(d => d.value !== dom.value))}
+                    className="text-indigo-400 hover:text-red-500 font-extrabold focus:outline-none"
+                  >
+                    ×
+                  </button>
+                </span>
+              ))}
+              <button
+                onClick={() => setSelectedDomains([])}
+                className="text-[10px] font-bold text-red-500 hover:underline cursor-pointer"
+              >
+                Clear All
+              </button>
+            </div>
+          )}
         </div>
       </div>
       
       {/* Grid of Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredCandidates.map(c => (
-          <div 
-            key={c.id} 
-            onClick={() => onSelect?.(c)}
-            className="bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-[2rem] p-6 flex items-start gap-4 shadow-sm hover:border-indigo-300 transition-all cursor-pointer group"
-          >
-            <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
-              <FileText size={32} />
-            </div>
-            
-            <div className="flex-1 min-w-0">
-              <h4 className="font-black text-[var(--text-primary)] truncate transition-colors group-hover:text-indigo-600 dark:group-hover:text-indigo-400">{c.fullName}</h4>
-              <p className="text-xs text-[var(--text-muted)] truncate mb-2">{c.fileName || 'document.pdf'}</p>
-              
-              <div className="flex items-center gap-2 text-xs text-[var(--text-secondary)] mb-1">
-                <Mail size={12} className="shrink-0" />
-                <span className="truncate">{c.email || 'Not Provided'}</span>
-              </div>
-              <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
-                <Calendar size={12} className="shrink-0" />
-                <span>{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'N/A'}</span>
-              </div>
-            </div>
+        {filteredCandidates.map(c => {
+          const d = (c.domainFocus || c.domain || '').trim();
+          const normalizedDom = (!d) ? 'Unknown Domain' : (d === 'IT' ? 'IT / Software' : d === 'Other' ? 'Others' : d);
 
-            <div className="flex flex-col gap-2 shrink-0" onClick={(e) => e.stopPropagation()}>
-              {(c.url || c.cid || c.cvBase64) && (
-                  <div className="flex flex-col gap-2">
-                    <button 
-                      onClick={() => onSelect?.(c)}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 text-[10px] font-black uppercase tracking-wider hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
-                    >
-                        <ExternalLink size={12} />
-                        View
-                    </button>
-                    <button 
-                      onClick={() => {
-                        const fileName = `${c.fullName?.replace(/\s+/g, '_') || 'Candidate'}_CV`;
-                        if (c.cvBase64) {
-                          const link = document.createElement('a');
-                          link.href = c.cvBase64;
-                          link.setAttribute('download', `${fileName}.pdf`);
-                          document.body.appendChild(link);
-                          link.click();
-                          document.body.removeChild(link);
-                        } else {
-                          const finalUrl = c.url;
-                          if (finalUrl) {
-                            const link = document.createElement('a');
-                            link.href = finalUrl;
-                            link.setAttribute('download', fileName);
-                            link.setAttribute('target', '_blank');
-                            document.body.appendChild(link);
-                            link.click();
-                            document.body.removeChild(link);
-                          } else {
-                            onSelect?.(c);
-                          }
-                        }
-                      }}
-                      className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-300 text-[10px] font-black uppercase tracking-wider hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
-                    >
-                        <Download size={12} />
-                        Download
-                    </button>
+          return (
+            <div 
+              key={c.id} 
+              onClick={() => onSelect?.(c)}
+              className="bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-[2rem] p-6 flex flex-col gap-4 shadow-sm hover:border-indigo-300 transition-all cursor-pointer group justify-between"
+            >
+              <div className="flex items-start gap-4">
+                <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                  <FileText size={32} />
+                </div>
+                
+                <div className="flex-1 min-w-0">
+                  <h4 className="font-black text-[var(--text-primary)] truncate transition-colors group-hover:text-indigo-600 dark:group-hover:text-indigo-400 leading-tight mb-1">{c.fullName}</h4>
+                  
+                  <div className="mb-2">
+                    <span className="inline-block px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-105/30 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-wider rounded-md">
+                      {normalizedDom}
+                    </span>
                   </div>
-              )}
+                  
+                  <p className="text-xs text-[var(--text-muted)] truncate mb-2">{c.fileName || 'document.pdf'}</p>
+                </div>
+              </div>
+
+              <div className="border-t border-[var(--border-color)]/50 pt-3 flex items-center justify-between mt-auto">
+                <div className="flex flex-col gap-1 flex-1 min-w-0">
+                  <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)] min-w-0">
+                    <Mail size={12} className="shrink-0 text-indigo-500" />
+                    <span className="truncate">{c.email || 'Not Provided'}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
+                    <Calendar size={12} className="shrink-0 text-indigo-500" />
+                    <span>{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'N/A'}</span>
+                  </div>
+                </div>
+
+                <div className="flex gap-1.5 shrink-0 pl-2" onClick={(e) => e.stopPropagation()}>
+                  {(c.url || c.cid || c.cvBase64) && (
+                      <div className="flex gap-1.5">
+                        <button 
+                          onClick={() => onSelect?.(c)}
+                          className="flex items-center justify-center p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                          title="View Candidate Detail"
+                        >
+                            <ExternalLink size={14} />
+                        </button>
+                        <button 
+                          onClick={() => {
+                            const fileName = `${c.fullName?.replace(/\s+/g, '_') || 'Candidate'}_CV`;
+                            if (c.cvBase64) {
+                              const link = document.createElement('a');
+                              link.href = c.cvBase64;
+                              link.setAttribute('download', `${fileName}.pdf`);
+                              document.body.appendChild(link);
+                              link.click();
+                              document.body.removeChild(link);
+                            } else {
+                              const finalUrl = c.url;
+                              if (finalUrl) {
+                                const link = document.createElement('a');
+                                link.href = finalUrl;
+                                link.setAttribute('download', fileName);
+                                link.setAttribute('target', '_blank');
+                                document.body.appendChild(link);
+                                link.click();
+                                document.body.removeChild(link);
+                              } else {
+                                onSelect?.(c);
+                              }
+                            }
+                          }}
+                          className="flex items-center justify-center p-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-300 hover:bg-emerald-600 hover:text-white transition-all shadow-sm"
+                          title="Download CV"
+                        >
+                            <Download size={14} />
+                        </button>
+                      </div>
+                  )}
+                </div>
+              </div>
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

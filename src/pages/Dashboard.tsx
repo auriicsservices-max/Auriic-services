@@ -28,6 +28,31 @@ import { createNotification, formatNotificationMessage } from '../services/notif
 import NotificationBadge from '../components/NotificationBadge';
 import QuotaNotice from '../components/QuotaNotice';
 import LZString from 'lz-string';
+import Select from 'react-select';
+
+export const DOMAIN_OPTIONS = [
+  { value: 'IT / Software', label: 'IT / Software' },
+  { value: 'AI / Machine Learning', label: 'AI / Machine Learning' },
+  { value: 'Healthcare', label: 'Healthcare' },
+  { value: 'Finance', label: 'Finance' },
+  { value: 'Sales', label: 'Sales' },
+  { value: 'Marketing', label: 'Marketing' },
+  { value: 'HR', label: 'HR' },
+  { value: 'Operations', label: 'Operations' },
+  { value: 'Engineering', label: 'Engineering' },
+  { value: 'Design', label: 'Design' },
+  { value: 'Project Management', label: 'Project Management' },
+  { value: 'Others', label: 'Others' },
+  { value: 'Unknown Domain', label: 'Unknown Domain' }
+];
+
+export function getNormalizedDomain(candidate: any): string {
+  const dom = (candidate.domainFocus || candidate.domain || '').trim();
+  if (!dom) return 'Unknown Domain';
+  if (dom === 'IT') return 'IT / Software';
+  if (dom === 'Other') return 'Others';
+  return dom;
+}
 import { useTheme } from '../contexts/ThemeContext';
 import { useNotifications } from '../contexts/NotificationContext';
 import { useTimezone } from '../contexts/TimezoneContext';
@@ -87,6 +112,11 @@ export default function Dashboard() {
   const [teamMembers, setTeamMembers] = useState<Record<string, string>>({});
   const [fullTeamList, setFullTeamList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'shortlisted' | 'follow_up'>('all');
+  const [selectedDomains, setSelectedDomains] = useState<any[]>([]);
+  const [isMultiDomain, setIsMultiDomain] = useState<boolean>(true);
+  const [sortField, setSortField] = useState<'createdAt' | 'domainFocus' | 'fullName'>('createdAt');
+  const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [isProcessing, setIsProcessing] = useState(false);
   const [uploadProgress, setUploadProgress] = useState({ total: 0, processed: 0, failed: 0 });
   const [parsingStatus, setParsingStatus] = useState<Record<string, { status: string, progress: number }>>({});
@@ -966,13 +996,44 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
   };
 
   // Boolean Search logic
-  const filteredCandidates = candidates.filter(candidate => {
+  let filteredCandidates = candidates.filter(candidate => {
     if (candidate.isArchived) return false;
+    
+    // Status Filter
+    if (statusFilter === 'shortlisted' && !candidate.isShortlisted) return false;
+    if (statusFilter === 'follow_up' && !candidate.followUpDate) return false;
+
+    // Domain Focus Filter
+    if (selectedDomains.length > 0) {
+      const candDomain = getNormalizedDomain(candidate);
+      const isMatched = selectedDomains.some(d => d.value === candDomain);
+      if (!isMatched) return false;
+    }
+
     if (!searchQuery.trim()) return true;
     const terms = searchQuery.toLowerCase().split(/\s+/);
     const loc = `${candidate.locationInfo?.city || ''} ${candidate.locationInfo?.state || ''}`.toLowerCase();
     const searchableText = `${candidate.fullName} ${candidate.domainFocus || ''} ${candidate.domain || ''} ${loc} ${candidate.summary} ${candidate.skills?.join(' ')} ${candidate.notes || ''} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''} ${teamMembers[candidate.followUpUpdatedBy] || ''}`.toLowerCase();
     return terms.every(term => searchableText.includes(term));
+  });
+
+  // Apply Candidate Sorting (Support sorting by domain, etc.)
+  filteredCandidates = [...filteredCandidates].sort((a: any, b: any) => {
+    let factor = sortDirection === 'asc' ? 1 : -1;
+    if (sortField === 'domainFocus') {
+      const domA = getNormalizedDomain(a);
+      const domB = getNormalizedDomain(b);
+      return domA.localeCompare(domB) * factor;
+    }
+    if (sortField === 'fullName') {
+      const nameA = (a.fullName || '').toLowerCase();
+      const nameB = (b.fullName || '').toLowerCase();
+      return nameA.localeCompare(nameB) * factor;
+    }
+    // Default to 'createdAt'
+    const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
+    const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
+    return (dateA - dateB) * factor;
   });
 
   const activeCandidates = candidates.filter(c => !c.isArchived);
@@ -1299,26 +1360,59 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               
               {/* Stats Bar */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="bg-[var(--card-bg)] p-5 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex items-center gap-4 transition-colors duration-300">
-                  <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/40 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-300">
+                <button 
+                  onClick={() => setStatusFilter('all')}
+                  className={`bg-[var(--card-bg)] p-5 rounded-[2rem] border text-left shadow-sm flex items-center gap-4 transition-all duration-300 w-full hover:scale-[1.01] active:scale-[0.99] ${
+                    statusFilter === 'all' 
+                      ? 'border-indigo-500 ring-2 ring-indigo-500/15 bg-indigo-50/5' 
+                      : 'border-[var(--border-color)] hover:border-indigo-400/50'
+                  }`}
+                >
+                  <div className="w-12 h-12 bg-indigo-50 dark:bg-indigo-900/40 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-300 shrink-0">
                     <FileText size={20} />
                   </div>
                   <div>
                     <p className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-0.5">Total Records</p>
-                    <h3 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight">{activeCandidates.length}</h3>
+                    <h3 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight">
+                      {activeCandidates.length}
+                    </h3>
                   </div>
-                </div>
-                <div className="bg-[var(--card-bg)] p-5 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex items-center gap-4 transition-colors duration-300">
-                  <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/40 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-300">
+                  {statusFilter === 'all' && (
+                    <span className="ml-auto w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+                  )}
+                </button>
+
+                <button 
+                  onClick={() => setStatusFilter('shortlisted')}
+                  className={`bg-[var(--card-bg)] p-5 rounded-[2rem] border text-left shadow-sm flex items-center gap-4 transition-all duration-300 w-full hover:scale-[1.01] active:scale-[0.99] ${
+                    statusFilter === 'shortlisted' 
+                      ? 'border-emerald-500 ring-2 ring-emerald-500/15 bg-emerald-50/5' 
+                      : 'border-[var(--border-color)] hover:border-emerald-400/50'
+                  }`}
+                >
+                  <div className="w-12 h-12 bg-emerald-50 dark:bg-emerald-900/40 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-300 shrink-0">
                     <Star size={20} />
                   </div>
                   <div>
                     <p className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-0.5">Shortlisted</p>
-                    <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tracking-tight">{activeCandidates.filter(c => c.isShortlisted).length}</h3>
+                    <h3 className="text-2xl font-bold text-emerald-600 dark:text-emerald-400 tracking-tight">
+                      {activeCandidates.filter(c => c.isShortlisted).length}
+                    </h3>
                   </div>
-                </div>
-                <div className="bg-[var(--card-bg)] p-5 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex items-center gap-4 transition-colors duration-300">
-                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center ${
+                  {statusFilter === 'shortlisted' && (
+                    <span className="ml-auto w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" />
+                  )}
+                </button>
+
+                <button 
+                  onClick={() => setStatusFilter('follow_up')}
+                  className={`bg-[var(--card-bg)] p-5 rounded-[2rem] border text-left shadow-sm flex items-center gap-4 transition-all duration-300 w-full hover:scale-[1.01] active:scale-[0.99] ${
+                    statusFilter === 'follow_up' 
+                      ? 'border-amber-500 ring-2 ring-amber-500/15 bg-amber-50/5' 
+                      : 'border-[var(--border-color)] hover:border-amber-400/50'
+                  }`}
+                >
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 ${
                     activeCandidates.some(c => c.followUpDate && new Date(c.followUpDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0]) 
                       ? 'bg-red-50 dark:bg-red-900/40 text-red-600 dark:text-red-300 animate-pulse' 
                       : 'bg-amber-50 dark:bg-amber-900/40 text-amber-600 dark:text-amber-300'
@@ -1332,10 +1426,13 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                         ? 'text-red-600 dark:text-red-400'
                         : 'text-[var(--text-primary)]'
                     }`}>
-                      {activeCandidates.filter(c => c.followUpDate && !c.notes).length}
+                      {activeCandidates.filter(c => c.followUpDate).length}
                     </h3>
                   </div>
-                </div>
+                  {statusFilter === 'follow_up' && (
+                    <span className="ml-auto w-2 h-2 rounded-full bg-amber-500 animate-pulse shrink-0" />
+                  )}
+                </button>
               </div>
 
               {/* Search Area */}
@@ -1356,6 +1453,150 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                     <div className="h-6 w-px bg-[var(--border-color)] mx-2" />
                     <button className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 hover:text-indigo-800 dark:hover:text-indigo-300 bg-indigo-50 dark:bg-indigo-900/40 px-4 py-1.5 rounded-xl transition-all uppercase tracking-widest">Execute</button>
                   </div>
+                </div>
+
+                {/* Explicit Status Filters */}
+                <div className="flex flex-wrap items-center gap-2 pb-2 px-2 border-b border-[var(--border-color)]/50">
+                  <span className="text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)] mr-1">Direct Filters:</span>
+                  <button 
+                    onClick={() => setStatusFilter('all')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+                      statusFilter === 'all' 
+                        ? 'bg-indigo-600 text-white shadow-sm' 
+                        : 'bg-[var(--sidebar-bg)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-primary)]'
+                    }`}
+                  >
+                    All ({activeCandidates.length})
+                  </button>
+                  <button 
+                    onClick={() => setStatusFilter('shortlisted')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      statusFilter === 'shortlisted' 
+                        ? 'bg-emerald-600 text-white shadow-sm' 
+                        : 'bg-[var(--sidebar-bg)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-primary)]'
+                    }`}
+                  >
+                    <Star size={12} className={statusFilter === 'shortlisted' ? 'text-white' : 'text-emerald-500'} />
+                    Shortlisted ({activeCandidates.filter(c => c.isShortlisted).length})
+                  </button>
+                  <button 
+                    onClick={() => setStatusFilter('follow_up')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      statusFilter === 'follow_up' 
+                        ? 'bg-amber-600 text-white shadow-sm' 
+                        : 'bg-[var(--sidebar-bg)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-primary)]'
+                    }`}
+                  >
+                    <Clock size={12} className={statusFilter === 'follow_up' ? 'text-white' : 'text-amber-500'} />
+                    Follow Up ({activeCandidates.filter(c => c.followUpDate).length})
+                  </button>
+                </div>
+
+                {/* Domain Focus Filtering Dropdown */}
+                <div className="flex flex-col gap-3 pb-2 px-2">
+                  <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest flex items-center gap-2">
+                      Domain Focus Filter
+                    </label>
+                    <button
+                      onClick={() => {
+                        setIsMultiDomain(!isMultiDomain);
+                        setSelectedDomains([]);
+                      }}
+                      className="px-3 py-1 bg-[var(--sidebar-bg)] border border-[var(--border-color)] text-[var(--text-secondary)] rounded-xl text-[10px] font-black uppercase tracking-wider hover:bg-[var(--bg-primary)] hover:text-indigo-600 dark:hover:text-indigo-400 transition-all cursor-pointer"
+                    >
+                      {isMultiDomain ? 'Switch to Single Select' : 'Switch to Multi Select'}
+                    </button>
+                  </div>
+                  <div>
+                    <Select 
+                      options={DOMAIN_OPTIONS}
+                      value={isMultiDomain ? selectedDomains : (selectedDomains[0] || null)}
+                      onChange={(selected) => {
+                        if (!selected) {
+                          setSelectedDomains([]);
+                        } else if (Array.isArray(selected)) {
+                          setSelectedDomains(selected);
+                        } else {
+                          setSelectedDomains([selected]);
+                        }
+                      }}
+                      isMulti={isMultiDomain}
+                      placeholder="Filter Candidates by Domain Focus..."
+                      styles={{
+                        control: (provided: any, state: any) => ({
+                          ...provided,
+                          backgroundColor: 'var(--sidebar-bg)',
+                          borderColor: 'var(--border-color)',
+                          borderRadius: '1rem',
+                          padding: '0.15rem',
+                          boxShadow: 'none',
+                          cursor: 'pointer',
+                          minHeight: '42px',
+                          '&:hover': {
+                            borderColor: 'var(--indigo-500)',
+                          },
+                        }),
+                        option: (provided: any, state: any) => ({
+                          ...provided,
+                          backgroundColor: state.isSelected ? '#4F46E5' : state.isFocused ? 'var(--bg-primary)' : 'var(--sidebar-bg)',
+                          color: state.isSelected ? 'white' : 'var(--text-primary)',
+                          fontSize: '0.75rem',
+                          cursor: 'pointer',
+                        }),
+                        menu: (provided: any) => ({ ...provided, backgroundColor: 'var(--sidebar-bg)', borderColor: 'var(--border-color)', borderRadius: '1rem', overflow: 'hidden', zIndex: 10 }),
+                        input: (provided: any) => ({ ...provided, color: 'var(--text-primary)' }),
+                        placeholder: (provided: any) => ({ ...provided, color: 'var(--text-muted)', fontSize: '0.75rem', fontWeight: 'bold' }),
+                        singleValue: (provided: any) => ({ ...provided, color: 'var(--text-primary)', fontSize: '0.75rem', fontWeight: 'bold' }),
+                        multiValue: (provided: any) => ({
+                          ...provided,
+                          backgroundColor: 'var(--bg-primary)',
+                          borderRadius: '0.5rem',
+                          border: '1px solid var(--border-color)',
+                        }),
+                        multiValueLabel: (provided: any) => ({
+                          ...provided,
+                          color: 'var(--text-primary)',
+                          fontSize: '0.75rem',
+                        }),
+                        multiValueRemove: (provided: any) => ({
+                          ...provided,
+                          color: 'var(--text-muted)',
+                          ':hover': {
+                            backgroundColor: 'var(--bg-primary)',
+                            color: '#EF4444',
+                          },
+                        }),
+                      }}
+                      isSearchable
+                    />
+                  </div>
+
+                  {selectedDomains.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)] mr-1">Active Filters:</span>
+                      {selectedDomains.map((dom) => (
+                        <span
+                          key={dom.value}
+                          className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 border border-indigo-100 dark:border-indigo-900 text-[10px] font-bold rounded-xl flex items-center gap-1.5 shadow-sm"
+                        >
+                          {dom.label}
+                          <button
+                            onClick={() => setSelectedDomains(selectedDomains.filter(d => d.value !== dom.value))}
+                            className="text-indigo-400 hover:text-red-500 font-extrabold focus:outline-none"
+                          >
+                            ×
+                          </button>
+                        </span>
+                      ))}
+                      <button
+                        onClick={() => setSelectedDomains([])}
+                        className="text-[10px] font-bold text-red-500 hover:underline cursor-pointer ml-1"
+                      >
+                        Clear All
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 {isPrivileged && selectedIds.size > 0 && (
@@ -1392,9 +1633,38 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                             />
                           </th>
                         )}
-                        <th className="px-6 py-4">Candidate Identity</th>
-                        <th className="px-6 py-4">Domain Focus</th>
-                        <th className="px-6 py-4">Location / State</th>
+                        <th 
+                          className="px-6 py-4 cursor-pointer select-none hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                          onClick={() => {
+                            if (sortField === 'fullName') {
+                              setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                            } else {
+                              setSortField('fullName');
+                              setSortDirection('asc');
+                            }
+                          }}
+                        >
+                          <div className="flex items-center gap-1">
+                            Candidate Identity
+                            {sortField === 'fullName' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}
+                          </div>
+                        </th>
+                        <th 
+                          className="px-6 py-4 cursor-pointer select-none hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors"
+                          onClick={() => {
+                            if (sortField === 'domainFocus') {
+                              setSortDirection(prev => prev === 'asc' ? 'desc' : 'asc');
+                            } else {
+                              setSortField('domainFocus');
+                              setSortDirection('asc');
+                            }
+                          }}
+                        >
+                          <div className="flex items-center gap-1">
+                            Domain Focus
+                            {sortField === 'domainFocus' && (sortDirection === 'asc' ? ' ▲' : ' ▼')}
+                          </div>
+                        </th>
                         <th className="px-6 py-4">Competencies</th>
                         <th className="px-6 py-4">Uploaded By</th>
                         <th className="px-6 py-4">Follow Up</th>
@@ -1442,14 +1712,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                             </td>
                             <td className="px-6 py-4">
                               <div className="text-[10px] font-bold text-indigo-500 dark:text-indigo-400 uppercase tracking-widest">
-                                {candidate.domainFocus || candidate.domain || 'Unsorted'}
-                              </div>
-                            </td>
-                            <td className="px-6 py-4">
-                              <div className="text-[10px] font-bold text-[var(--text-primary)]">
-                                { (candidate.locationInfo && (candidate.locationInfo.city || candidate.locationInfo.state)) ? 
-                                  `${candidate.locationInfo.city ? candidate.locationInfo.city + ', ' : ''}${candidate.locationInfo.state || ''}${candidate.locationInfo.country ? ', ' + candidate.locationInfo.country : ''}` 
-                                  : 'Location not found'}
+                                {getNormalizedDomain(candidate)}
                               </div>
                             </td>
                             <td className="px-6 py-4">

@@ -64,12 +64,15 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
 
   // Process domain data
   const domainDataMap = candidates.reduce((acc: any, c) => {
-    const domain = c.domainFocus || c.domain || 'Uncategorized';
+    let d = (c.domainFocus || c.domain || '').trim();
+    const domain = (!d) ? 'Unknown Domain' : (d === 'IT' ? 'IT / Software' : d === 'Other' ? 'Others' : d);
     acc[domain] = (acc[domain] || 0) + 1;
     return acc;
   }, {});
 
-  const domainChartData = Object.entries(domainDataMap).map(([name, value]) => ({ name, value }));
+  const domainChartData = Object.entries(domainDataMap)
+    .sort((a: any, b: any) => b[1] - a[1])
+    .map(([name, value]) => ({ name, value }));
 
   // Detailed Activity Flow data
   const activityFlowData = last7Days.map(date => {
@@ -225,6 +228,57 @@ export default function Analytics({ candidates, activityLogs = [], onShortlist, 
           </div>
         </section>
       </div>
+
+      {/* Domain Distribution Analysis */}
+      <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm flex flex-col font-sans">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
+          <div>
+            <h3 className="text-xl font-serif text-[var(--text-primary)]">Domain Distribution</h3>
+            <p className="text-xs text-[var(--text-muted)] mt-1">Candidate count and breakdown by industry focus</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="w-3 h-3 bg-indigo-600 rounded-full inline-block" />
+            <span className="text-xs font-bold text-[var(--text-secondary)]">Parsed Domains</span>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          <div className="lg:col-span-1 flex flex-col gap-3">
+            <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] mb-1">Domain Standings</p>
+            <div className="flex flex-col gap-2.5 max-h-[350px] overflow-y-auto pr-1">
+              {domainChartData.map(({ name, value }: any) => {
+                const percentage = ((value / (candidates.length || 1)) * 100).toFixed(1);
+                return (
+                  <div key={name} className="flex items-center justify-between p-4 bg-[var(--sidebar-bg)] border border-[var(--border-color)]/60 rounded-2xl shadow-xs hover:border-indigo-400/50 transition-all">
+                    <div className="flex flex-col min-w-0">
+                      <span className="font-extrabold text-xs text-[var(--text-primary)] truncate">{name}</span>
+                      <span className="text-[10px] font-medium text-[var(--text-muted)] mt-0.5">{percentage}% of candidates</span>
+                    </div>
+                    <div className="flex items-center gap-2 shrink-0">
+                      <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900 rounded-xl text-xs font-black text-indigo-600 dark:text-indigo-400 shadow-sm">{value}</span>
+                    </div>
+                  </div>
+                );
+              })}
+              {domainChartData.length === 0 && (
+                <div className="text-center py-8 text-xs text-[var(--text-muted)] italic">No domains recorded yet.</div>
+              )}
+            </div>
+          </div>
+
+          <div className="lg:col-span-2 h-[350px] bg-[var(--sidebar-bg)] border border-[var(--border-color)]/40 p-4 rounded-3xl">
+            <ResponsiveContainer width="100%" height="100%">
+              <BarChart data={domainChartData}>
+                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
+                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'var(--text-muted)', fontWeight: 'bold' }} />
+                <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
+                <Tooltip contentStyle={chartTooltipStyle} itemStyle={itemStyle} cursor={{ fill: 'var(--border-color)', opacity: 0.1 }} />
+                <Bar dataKey="value" name="Candidates" fill="#4f46e5" radius={[10, 10, 0, 0]} barSize={36} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
+      </section>
 
       {/* Skills Analysis */}
       <section className="bg-[var(--card-bg)] p-8 rounded-[2.5rem] border border-[var(--border-color)] shadow-sm flex flex-col font-sans">
