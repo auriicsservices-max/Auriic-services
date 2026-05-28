@@ -255,6 +255,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     let unsubNotifications = () => {};
     let unsubTrash = () => {};
     let unsubTeam = () => {};
+    let unsubActivityLogs = () => {};
 
     if (!quotaExceeded) {
       const q = query(
@@ -359,6 +360,19 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       }, (err: any) => {
         console.error("Team listener error:", err);
       });
+
+      // Real-time activity logs listener with role safety
+      const qLogs = (role === 'admin' || role === 'developer' || role === 'team_leader')
+        ? query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc'), limit(1000))
+        : query(collection(db, 'activity_logs'), where('authorUid', '==', user?.uid), orderBy('timestamp', 'desc'), limit(1000));
+      
+      unsubActivityLogs = onSnapshot(qLogs, (snapshot) => {
+        const logs = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
+        setActivityLogs(logs);
+      }, (err: any) => {
+        console.warn("Activity logs query error/index warning, falling back:", err);
+        // Fallback or handle offline
+      });
     }
 
     return () => {
@@ -367,6 +381,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       unsubNotifications();
       unsubTrash();
       unsubTeam();
+      unsubActivityLogs();
     };
   }, [role, user]); // Removed activeTab and viewScope
 
@@ -1330,7 +1345,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           ) : activeTab === 'backup' ? (
              <BackupDashboard />
           ) : activeTab === 'home' ? (
-            <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} />
+            <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} fullTeamList={fullTeamList} />
           ) : activeTab === 'repository' ? (
             <CVRepository candidates={activeCandidates} onSelect={setSelectedCandidate} />
           ) : activeTab === 'upload' ? (
@@ -2079,7 +2094,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           ) : activeTab === 'users' ? (
             <UserManagement />
           ) : (
-            <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} />
+            <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} fullTeamList={fullTeamList} />
           )}
         </div>
       </main>
