@@ -20,6 +20,7 @@ export const ResumeSchema = z.object({
     city: z.string().optional(),
     state: z.string().optional(),
     country: z.string().optional(),
+    postalCode: z.string().optional(),
   }).optional(),
   profile: z.string().default(''),
   domainFocus: z.string().default(''),

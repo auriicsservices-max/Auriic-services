@@ -46,6 +46,52 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const [isSaving, setIsSaving] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
+  
+  const [city, setCity] = useState('');
+  const [state, setState] = useState('');
+  const [country, setCountry] = useState('');
+  const [postalCode, setPostalCode] = useState('');
+  const [isSavingLoc, setIsSavingLoc] = useState(false);
+
+  const handleSaveLocation = async () => {
+    setIsSavingLoc(true);
+    try {
+      const updatedLocationInfo = {
+        city: city.trim(),
+        state: state.trim(),
+        country: country.trim(),
+        postalCode: postalCode.trim(),
+      };
+      
+      const { updateDoc, doc } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+      
+      await updateDoc(doc(db, 'candidates', candidate.id), {
+        locationInfo: updatedLocationInfo
+      });
+
+      // Update local candidate location fields manually
+      candidate.locationInfo = updatedLocationInfo;
+
+      await logActivity(
+        user!.displayName || user!.email || 'Admin',
+        user!.uid,
+        role!,
+        'Location Updated',
+        candidate.fullName || 'Candidate',
+        null,
+        `Updated location of ${candidate.fullName || 'Candidate'} to: ${city.trim() || ''}, ${state.trim() || ''}, ${country.trim() || ''} ${postalCode.trim() || ''}`,
+        'Candidate'
+      );
+
+      showAlert('Success', 'Candidate location updated successfully');
+    } catch (err: any) {
+      console.error(err);
+      showAlert('Error', 'Failed to update location details.');
+    } finally {
+      setIsSavingLoc(false);
+    }
+  };
 
   const handleCompleteFollowUp = async () => {
     setIsCompleting(true);
@@ -153,6 +199,11 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       setAssignedTo(candidate.assignedTo || '');
       setSkills(candidate.skills || []);
       setSearchTerm(''); // Clear search on candidate change
+
+      setCity(candidate.locationInfo?.city || '');
+      setState(candidate.locationInfo?.state || '');
+      setCountry(candidate.locationInfo?.country || '');
+      setPostalCode(candidate.locationInfo?.postalCode || '');
       
       // Initialize cvUrl with candidate.url (the most specific link)
       // and only fall back to other links if it's missing
@@ -383,64 +434,67 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   return (
     <div 
       onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 dark:bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 flex items-center justify-center p-2 sm:p-4 bg-slate-900/40 dark:bg-black/40 backdrop-blur-sm animate-in fade-in duration-200"
     >
-      <div className="bg-[var(--bg-primary)] text-[var(--text-primary)] w-full max-w-4xl max-h-[90vh] overflow-hidden rounded-[2.5rem] shadow-2xl flex flex-col animate-in zoom-in-95 duration-300 transition-colors duration-300">
+      <div className="bg-[var(--bg-primary)] text-[var(--text-primary)] w-full max-w-4xl h-[94vh] sm:h-auto max-h-[94vh] sm:max-h-[90vh] overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col animate-in zoom-in-95 duration-300 transition-colors duration-300">
         {/* Header */}
-        <header className="p-8 border-b border-[var(--border-color)] flex flex-col gap-6">
-          <div className="flex justify-between items-start">
-            <div className="flex items-center gap-6">
-              <div className="w-20 h-20 bg-indigo-600 rounded-3xl flex items-center justify-center text-white text-3xl font-bold shadow-lg shadow-indigo-100 dark:shadow-none uppercase">
+        <header className="p-4 sm:p-8 border-b border-[var(--border-color)] flex flex-col gap-4 sm:gap-6 shrink-0">
+          <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
+            <div className="flex items-center gap-4 sm:gap-6">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 bg-indigo-600 rounded-2xl sm:rounded-3xl flex items-center justify-center text-white text-xl sm:text-3xl font-bold shadow-lg shadow-indigo-100 dark:shadow-none uppercase shrink-0">
                 {(candidate.fullName || '??').slice(0, 2)}
               </div>
-              <div>
-                <div className="flex items-center gap-3">
-                  <h2 className="text-3xl font-serif text-[var(--text-primary)]">{candidate.fullName || 'Unnamed Candidate'}</h2>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 sm:gap-3 flex-wrap">
+                  <h2 className="text-xl sm:text-3xl font-serif text-[var(--text-primary)] leading-tight">{candidate.fullName || 'Unnamed Candidate'}</h2>
                   <button 
                     onClick={handleShortlistClick}
                     disabled={!isPrivileged && role !== 'recruiter'}
-                    className={`p-1.5 rounded-full transition-colors ${!isPrivileged && role !== 'recruiter' ? 'opacity-50 cursor-not-allowed' : ''} ${candidate.isShortlisted ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-300 dark:text-slate-700 hover:text-slate-400 dark:hover:text-slate-500'}`}
+                    className={`p-1.5 rounded-full transition-colors shrink-0 ${!isPrivileged && role !== 'recruiter' ? 'opacity-50 cursor-not-allowed' : ''} ${candidate.isShortlisted ? 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' : 'text-slate-300 dark:text-slate-700 hover:text-slate-400 dark:hover:text-slate-500'}`}
                   >
-                    {candidate.isShortlisted ? <Star fill="currentColor" size={20} /> : <StarOff size={20} />}
+                    {candidate.isShortlisted ? <Star fill="currentColor" size={18} /> : <StarOff size={18} />}
                   </button>
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <p className="text-indigo-600 dark:text-indigo-400 font-bold text-sm uppercase tracking-widest">
+                <div className="flex items-center gap-2 mt-1 flex-wrap">
+                  <p className="text-indigo-600 dark:text-indigo-400 font-bold text-xs uppercase tracking-widest leading-none">
                     {candidate.domainFocus || candidate.domain || 'Uncategorized Domain'}
                   </p>
-                  <span className="text-[var(--text-muted)] text-[10px]">•</span>
-                  <p className="text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-widest">
+                  <span className="text-[var(--text-muted)] text-[10px] leading-none">•</span>
+                  <p className="text-[var(--text-muted)] text-[10px] font-bold uppercase tracking-widest leading-none">
                     {candidate.domain || 'General Focus'}
                   </p>
                 </div>
               </div>
             </div>
-            <div className="flex gap-2">
+            
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
               {(role === 'admin' || role === 'developer' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid) && (
                 <button 
                   onClick={handleView}
                   disabled={isFetchingCV}
-                  className={`px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all border border-indigo-100 dark:border-indigo-800 ${isFetchingCV ? 'opacity-70 cursor-wait' : ''}`}
+                  className={`px-3 py-1.5 sm:px-4 sm:py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 transition-all border border-indigo-100 dark:border-indigo-800 ${isFetchingCV ? 'opacity-70 cursor-wait' : ''}`}
                 >
-                  {isFetchingCV ? <Loader2 size={18} className="animate-spin" /> : <Globe size={18} />}
-                  {isFetchingCV ? 'Syncing...' : 'View CV'}
+                  {isFetchingCV ? <Loader2 size={14} className="animate-spin" /> : <Globe size={14} />}
+                  <span className="hidden xs:inline">{isFetchingCV ? 'Syncing...' : 'View CV'}</span>
+                  <span className="xs:hidden">{isFetchingCV ? 'Sync...' : 'View'}</span>
                 </button>
               )}
               {(role === 'admin' || role === 'developer' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid) && (
                 <button 
                   onClick={handleDownload}
                   disabled={isFetchingCV}
-                  className={`px-4 py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-sm font-bold flex items-center gap-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 ${isFetchingCV ? 'opacity-70 cursor-wait' : ''}`}
+                  className={`px-3 py-1.5 sm:px-4 sm:py-2 bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 rounded-xl text-xs sm:text-sm font-bold flex items-center gap-1.5 sm:gap-2 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all border border-slate-200 dark:border-slate-700 ${isFetchingCV ? 'opacity-70 cursor-wait' : ''}`}
                 >
-                  {isFetchingCV ? <Loader2 size={18} className="animate-spin" /> : <Download size={18} />}
-                  {isFetchingCV ? 'Syncing...' : 'Download CV'}
+                  {isFetchingCV ? <Loader2 size={14} className="animate-spin" /> : <Download size={14} />}
+                  <span className="hidden xs:inline">{isFetchingCV ? 'Syncing...' : 'Download CV'}</span>
+                  <span className="xs:hidden">{isFetchingCV ? 'Sync...' : 'Download'}</span>
                 </button>
               )}
               <button 
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full transition-all"
+                className="p-1.5 sm:p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-full transition-all"
               >
-                <X size={24} />
+                <X size={20} className="sm:w-6 sm:h-6" />
               </button>
             </div>
           </div>
@@ -469,7 +523,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
 
         {/* Banner for Large Files */}
         {candidate.isLargeFile && !(cvUrl || candidate.url) && (
-          <div className="mx-8 mt-4 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl flex items-center gap-3">
+          <div className="mx-4 sm:mx-8 mt-4 p-3 bg-amber-50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30 rounded-xl flex items-center gap-3 shrink-0">
             <span className="flex-shrink-0 w-8 h-8 bg-amber-100 dark:bg-amber-900/30 rounded-lg flex items-center justify-center text-amber-600 dark:text-amber-400">
               <Loader2 className="animate-spin" size={16} />
             </span>
@@ -480,33 +534,35 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
         )}
 
         {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-8 grid grid-cols-1 md:grid-cols-3 gap-6 sm:gap-8 scroll-smooth">
           {/* Main Column */}
-          <div className="md:col-span-2 space-y-8">
-            <section>
+          <div className="md:col-span-2 space-y-6 sm:space-y-8">
+            <section className="bg-[var(--sidebar-bg)]/40 dark:bg-[var(--sidebar-bg)]/10 p-5 sm:p-6 rounded-3xl border border-[var(--border-color)] shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
-                  <Globe size={12} /> Professional Summary
+                  <Globe size={12} className="text-indigo-500" /> Professional Summary
                 </h3>
                 {(cvUrl || candidate.url || candidate.compressedText) && (
                   <button 
                     onClick={handleView}
-                    className="text-[9px] font-bold text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 uppercase tracking-widest"
+                    className="text-[9px] font-bold text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 uppercase tracking-widest transition-colors"
                   >
                     View Original CV
                   </button>
                 )}
               </div>
-              <p className="text-[var(--text-secondary)] leading-relaxed text-sm italic border-l-2 border-indigo-100 dark:border-indigo-900/50 pl-4">
-                "{renderHighlightedText(candidate.summary || 'No summary extracted.')}"
-              </p>
+              <div className="max-h-[140px] overflow-y-auto custom-scrollbar pr-1">
+                <p className="text-[var(--text-secondary)] leading-relaxed text-sm italic border-l-2 border-indigo-500 pl-4">
+                  "{renderHighlightedText(candidate.summary || 'No summary extracted.')}"
+                </p>
+              </div>
             </section>
 
-            <section>
+            <section className="bg-[var(--sidebar-bg)]/40 dark:bg-[var(--sidebar-bg)]/10 p-5 sm:p-6 rounded-3xl border border-[var(--border-color)] shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                <Briefcase size={12} /> Work Experience
+                <Briefcase size={12} className="text-indigo-500" /> Work Experience
               </h3>
-              <div className="space-y-6">
+              <div className="space-y-6 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
                 {candidate.experience?.map((exp: any, i: number) => (
                   <div key={i} className="relative pl-6 border-l border-[var(--border-color)] transition-colors duration-300">
                     <div className="absolute -left-1.5 top-1.5 w-3 h-3 rounded-full bg-indigo-500 border-2 border-[var(--bg-primary)]" />
@@ -518,11 +574,11 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               </div>
             </section>
 
-            <section>
+            <section className="bg-[var(--sidebar-bg)]/40 dark:bg-[var(--sidebar-bg)]/10 p-5 sm:p-6 rounded-3xl border border-[var(--border-color)] shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                <GraduationCap size={12} /> Education
+                <GraduationCap size={12} className="text-indigo-500" /> Education
               </h3>
-              <div className="space-y-6">
+              <div className="space-y-6 max-h-[180px] overflow-y-auto custom-scrollbar pr-2">
                 {candidate.education?.map((edu: any, i: number) => (
                   <div key={i} className="relative pl-6 border-l border-[var(--border-color)] transition-colors duration-300">
                     <div className="absolute -left-1.5 top-1.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[var(--bg-primary)]" />
@@ -534,11 +590,11 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             </section>
 
             {candidate.projects?.length > 0 && (
-              <section>
+              <section className="bg-[var(--sidebar-bg)]/40 dark:bg-[var(--sidebar-bg)]/10 p-5 sm:p-6 rounded-3xl border border-[var(--border-color)] shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
                   <Star size={12} className="text-indigo-500" /> Key Projects
                 </h3>
-                <div className="space-y-4">
+                <div className="space-y-4 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
                   {candidate.projects.map((project: any, i: number) => (
                     <div key={i} className="p-4 bg-indigo-50/20 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800/50 rounded-2xl">
                       <div className="flex items-center justify-between mb-2">
@@ -559,11 +615,11 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             )}
 
             {candidate.certifications?.length > 0 && (
-              <section>
+              <section className="bg-[var(--sidebar-bg)]/40 dark:bg-[var(--sidebar-bg)]/10 p-5 sm:p-6 rounded-3xl border border-[var(--border-color)] shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
                   <Star size={12} className="text-amber-500" /> Certifications & Licenses
                 </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[180px] overflow-y-auto custom-scrollbar pr-2">
                   {candidate.certifications.map((cert: string, i: number) => (
                     <div key={i} className="p-3 bg-amber-50/30 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-800/50 rounded-xl text-[11px] font-medium text-amber-900 dark:text-amber-200">
                       {cert}
@@ -574,11 +630,11 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             )}
 
             {candidate.achievements?.length > 0 && (
-              <section>
+              <section className="bg-[var(--sidebar-bg)]/40 dark:bg-[var(--sidebar-bg)]/10 p-5 sm:p-6 rounded-3xl border border-[var(--border-color)] shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                  <Globe size={12} className="text-emerald-500" /> Key Achievements
+                   <Globe size={12} className="text-emerald-500" /> Key Achievements
                 </h3>
-                <ul className="space-y-2">
+                <ul className="space-y-2 max-h-[160px] overflow-y-auto custom-scrollbar pr-2">
                   {candidate.achievements.map((ach: string, i: number) => (
                     <li key={i} className="text-xs text-[var(--text-secondary)] flex items-start gap-2">
                       <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-1.5 shrink-0" />
@@ -591,12 +647,12 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
           </div>
 
           {/* Sidebar Column */}
-          <div className="space-y-8">
-            <section>
+          <div className="space-y-6 sm:space-y-8">
+            <section className="bg-[var(--sidebar-bg)]/40 dark:bg-[var(--sidebar-bg)]/10 p-5 sm:p-6 rounded-3xl border border-[var(--border-color)] shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                <Code size={12} /> Skills & Core Competencies
+                <Code size={12} className="text-indigo-500" /> Skills & Core Competencies
               </h3>
-              <div className="flex flex-wrap gap-2 mb-4">
+              <div className="flex flex-wrap gap-2 max-h-[130px] overflow-y-auto custom-scrollbar pr-2">
                 {skills.map((skill: string) => (
                   <span key={skill} className="px-3 py-1 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-700 dark:text-indigo-400 rounded-full text-[10px] font-bold uppercase tracking-wider flex items-center gap-2 transition-all">
                     {skill}
@@ -605,9 +661,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               </div>
             </section>
 
-            <section>
+            <section className="bg-[var(--sidebar-bg)]/40 dark:bg-[var(--sidebar-bg)]/10 p-5 sm:p-6 rounded-3xl border border-[var(--border-color)] shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                <Mail size={12} /> Contact Information
+                <Mail size={12} className="text-indigo-500" /> Contact Information
               </h3>
               <div className="space-y-3">
                 <div className="flex items-center gap-3 p-3 bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-xl transition-colors duration-300">
@@ -650,6 +706,62 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               </div>
             </section>
 
+            <section className="bg-[var(--sidebar-bg)]/40 dark:bg-[var(--sidebar-bg)]/10 p-5 sm:p-6 rounded-3xl border border-[var(--border-color)] shadow-sm hover:shadow-[0_8px_30px_rgb(0,0,0,0.02)] transition-all duration-300">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
+                <MapPin size={12} className="text-indigo-500" /> Location Details
+              </h3>
+              <div className="space-y-4">
+                <div>
+                  <label className="block text-[9px] font-bold uppercase text-[var(--text-muted)] mb-1 tracking-wider font-sans">Location / City</label>
+                  <input
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="e.g. San Francisco"
+                    className="w-full bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold uppercase text-[var(--text-muted)] mb-1 tracking-wider font-sans">State</label>
+                  <input
+                    type="text"
+                    value={state}
+                    onChange={(e) => setState(e.target.value)}
+                    placeholder="e.g. CA"
+                    className="w-full bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold uppercase text-[var(--text-muted)] mb-1 tracking-wider font-sans">Country</label>
+                  <input
+                    type="text"
+                    value={country}
+                    onChange={(e) => setCountry(e.target.value)}
+                    placeholder="e.g. United States"
+                    className="w-full bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)]"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[9px] font-bold uppercase text-[var(--text-muted)] mb-1 tracking-wider font-sans">Postal Code</label>
+                  <input
+                    type="text"
+                    value={postalCode}
+                    onChange={(e) => setPostalCode(e.target.value)}
+                    placeholder="e.g. 94105"
+                    className="w-full bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)]"
+                  />
+                </div>
+                <button
+                  onClick={handleSaveLocation}
+                  disabled={isSavingLoc}
+                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-2"
+                >
+                  {isSavingLoc ? <Loader2 className="animate-spin" size={14} /> : <Save size={14} />}
+                  Update Location
+                </button>
+              </div>
+            </section>
+
               <section className="bg-[var(--sidebar-bg)] p-6 rounded-3xl border border-[var(--border-color)] transition-colors duration-300">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
@@ -672,19 +784,27 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   Post Note
                 </button>
               </div>
-              <div className="mt-6 space-y-4 pt-6 border-t border-[var(--border-color)]">
-                {candidate.internalNotesLog && candidate.internalNotesLog.length > 0 ? (
-                  candidate.internalNotesLog.slice().reverse().map((log: any, i: number) => (
-                    <div key={i} className="text-[10px] text-[var(--text-secondary)] space-y-1 bg-[var(--card-bg)] p-3 rounded-xl border border-[var(--border-color)]">
-                      <div className="flex justify-between">
-                         <span className="font-bold text-indigo-500">{log.author}</span>
-                         <span className="text-[var(--text-muted)]">{new Date(log.timestamp).toLocaleString()}</span>
-                      </div>
-                      <p>{log.noteContent}</p>
-                    </div>
-                  ))
+              <div className="mt-6 space-y-4 pt-6 border-t border-[var(--border-color)] max-h-[260px] overflow-y-auto custom-scrollbar pr-1">
+                {candidate.internalNotesLog && candidate.internalNotesLog.filter((log: any) => !(log.type === 'follow_up' || log.type === 'follow_up_completed' || log.noteContent?.includes('⏰') || log.noteContent?.includes('✅'))).length > 0 ? (
+                  candidate.internalNotesLog
+                    .filter((log: any) => !(log.type === 'follow_up' || log.type === 'follow_up_completed' || log.noteContent?.includes('⏰') || log.noteContent?.includes('✅')))
+                    .slice()
+                    .reverse()
+                    .map((log: any, i: number) => {
+                      return (
+                        <div key={i} className="text-[10px] text-[var(--text-secondary)] space-y-1 p-3 rounded-xl border bg-[var(--card-bg)] border-[var(--border-color)]">
+                          <div className="flex justify-between items-center">
+                             <span className="font-bold text-indigo-500">
+                               {log.author}
+                             </span>
+                             <span className="text-[var(--text-muted)] font-mono">{new Date(log.timestamp).toLocaleString()}</span>
+                          </div>
+                          <p className="leading-relaxed select-text">{log.noteContent}</p>
+                        </div>
+                      );
+                    })
                 ) : (
-                  <p className="text-[10px] text-[var(--text-muted)] italic">No recent activity log.</p>
+                  <p className="text-[10px] text-[var(--text-muted)] italic">No recent notes posted.</p>
                 )}
               </div>
             </section>
@@ -787,10 +907,10 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                 <div className="space-y-1">
                   <label className="text-[9px] font-bold uppercase text-indigo-800 dark:text-indigo-200 ml-1 tracking-wider">Follow Up Note</label>
                   <textarea 
-                    value={followUpNote}
-                    onChange={(e) => setFollowUpNote(e.target.value)}
-                    placeholder="Candidate mentioned expected notice..."
-                    className="w-full bg-white dark:bg-indigo-900 border border-indigo-200 dark:border-indigo-700 rounded-xl px-4 py-2 text-xs h-24 focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-indigo-400/50 text-slate-900 dark:text-slate-100"
+                     value={followUpNote}
+                     onChange={(e) => setFollowUpNote(e.target.value)}
+                     placeholder="Candidate mentioned expected notice..."
+                     className="w-full bg-white dark:bg-indigo-900 border border-indigo-200 dark:border-indigo-700 rounded-xl px-4 py-2 text-xs h-24 focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-indigo-400/50 text-slate-900 dark:text-slate-100"
                   />
                 </div>
                 <button 
@@ -809,6 +929,35 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   {isCompleting ? <Loader2 className="animate-spin" size={14} /> : <CheckCircle2 size={14} />} 
                   Complete Follow-Up
                 </button>
+              </div>
+
+              {/* Communication Logs specific to Follow Up */}
+              <div className="mt-6 pt-5 border-t border-indigo-200/50 dark:border-indigo-900/50">
+                <h4 className="text-[9px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-300 mb-3 flex items-center gap-1.5 font-sans">
+                  <StickyNote size={10} /> Communication Logs (Follow-Ups)
+                </h4>
+                {candidate.internalNotesLog && candidate.internalNotesLog.filter((log: any) => log.type === 'follow_up' || log.type === 'follow_up_completed' || log.noteContent?.includes('⏰') || log.noteContent?.includes('✅')).length > 0 ? (
+                  <div className="space-y-2.5 max-h-56 overflow-y-auto pr-1">
+                    {candidate.internalNotesLog
+                      .filter((log: any) => log.type === 'follow_up' || log.type === 'follow_up_completed' || log.noteContent?.includes('⏰') || log.noteContent?.includes('✅'))
+                      .slice()
+                      .reverse()
+                      .map((log: any, i: number) => {
+                        const isCompleted = log.type === 'follow_up_completed' || log.noteContent?.startsWith('✅');
+                        return (
+                          <div key={i} className="text-[10px] text-slate-700 dark:text-indigo-200 space-y-1 bg-white/50 dark:bg-indigo-900/30 p-2.5 rounded-xl border border-indigo-200/35 dark:border-indigo-900/25">
+                            <div className="flex justify-between items-center text-[8px]">
+                              <span className="font-bold text-indigo-600 dark:text-indigo-400">{log.author}</span>
+                              <span className="text-slate-400 dark:text-indigo-500/60 font-mono">{new Date(log.timestamp).toLocaleString()}</span>
+                            </div>
+                            <p className="text-[10px] leading-relaxed select-text">{log.noteContent}</p>
+                          </div>
+                        );
+                      })}
+                  </div>
+                ) : (
+                  <p className="text-[9px] text-indigo-400/50 italic font-sans">No communication logs recorded for this follow-up.</p>
+                )}
               </div>
             </section>
           </div>

@@ -106,7 +106,7 @@ export class ResumeParserService {
             "experience": "Total years of experience",
             "phone": "Phone number",
             "email": "Email address",
-            "location": { "city": "City", "state": "State", "country": "Country", "display": "Formatted string" },
+            "location": { "city": "City", "state": "State", "country": "Country", "postalCode": "Postal Code", "display": "Formatted string" },
             "domainFocus": ["Profession 1", "Profession 2"],
             "currentCompany": "Company name",
             "previousCompanies": ["Company 1", "Company 2"],
@@ -135,6 +135,16 @@ export class ResumeParserService {
                             portfolio: { type: Type.STRING }
                         }
                     },
+                    location: {
+                        type: Type.OBJECT,
+                        properties: {
+                            city: { type: Type.STRING },
+                            state: { type: Type.STRING },
+                            country: { type: Type.STRING },
+                            postalCode: { type: Type.STRING, description: "ZIP or postal code if available on resume" },
+                            display: { type: Type.STRING, description: "Full formatted location string" }
+                        }
+                     },
                     profile: { type: Type.STRING },
                     domainFocus: { type: Type.STRING, description: "Main professional domain (IT, Healthcare, etc.)" },
                     totalExperienceYears: { type: Type.NUMBER },
@@ -198,6 +208,15 @@ export class ResumeParserService {
         
         let parsed = JSON.parse(resultText);
         parsed.rawText = text;
+
+        const geminiLocation = parsed.location || {};
+        parsed.locationDetails = {
+          city: geminiLocation.city || '',
+          state: geminiLocation.state || '',
+          country: geminiLocation.country || '',
+          postalCode: geminiLocation.postalCode || ''
+        };
+        parsed.location = geminiLocation.display || (geminiLocation.city ? `${geminiLocation.city}, ${geminiLocation.state || ''}` : '');
 
         // Skill Normalization and Deduplication
         const normalizeSkill = (s: string) => {

@@ -83,7 +83,8 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
     locationDetails: {
       city: '',
       state: '',
-      country: ''
+      country: '',
+      postalCode: ''
     },
     profile: '',
     totalExperienceYears: 0,
@@ -141,13 +142,27 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
   // Improved location heuristic
   for(let i=0; i<Math.min(20, lines.length); i++) {
     const line = lines[i];
-    const match = line.match(/([A-Za-z\s]+),\s*([A-Za-z]{2,})(?:\s+\d{5})?/);
-    if (match) {
+    const match = line.match(/([A-Za-z\s]+),\s*([A-Za-z\s]{2,})(?:\s+([\d\w-]+))?/);
+    if (match && match[1].length < 40 && match[2].length < 30) {
         resume.location = line.trim();
         resume.locationDetails.city = match[1].trim();
         resume.locationDetails.state = match[2].trim();
         resume.locationDetails.country = 'USA'; 
+        if (match[3]) {
+            resume.locationDetails.postalCode = match[3].trim();
+        }
         break;
+    }
+  }
+
+  // Fallback postal code search in first 30 lines if not found
+  if (!resume.locationDetails.postalCode) {
+    for (let i = 0; i < Math.min(30, lines.length); i++) {
+      const pcMatch = lines[i].match(/\b\d{5}(?:-\d{4})?\b/);
+      if (pcMatch) {
+         resume.locationDetails.postalCode = pcMatch[0];
+         break;
+      }
     }
   }
 

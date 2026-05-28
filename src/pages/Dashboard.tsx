@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, db, getFirebaseStorage } from '../lib/firebase';
 import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs, limit, getDocFromServer, getDoc, QuerySnapshot } from 'firebase/firestore';
@@ -84,7 +84,9 @@ import {
   StickyNote,
   Bell,
   Settings,
-  Download
+  Download,
+  Target,
+  MapPin
 } from 'lucide-react';
 
 import MigrationTool from '../components/MigrationTool';
@@ -112,7 +114,7 @@ export default function Dashboard() {
   const [teamMembers, setTeamMembers] = useState<Record<string, string>>({});
   const [fullTeamList, setFullTeamList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'shortlisted' | 'follow_up'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'processed' | 'shortlisted' | 'follow_up'>('all');
   const [selectedDomains, setSelectedDomains] = useState<any[]>([]);
   const [isMultiDomain, setIsMultiDomain] = useState<boolean>(true);
   const [sortField, setSortField] = useState<'createdAt' | 'domainFocus' | 'fullName'>('createdAt');
@@ -585,7 +587,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           originalFileName: file.name,
           email: (parsed.contact.email || 'pending@aurrum.co').toLowerCase(),
           phone: parsed.contact.phone || '',
-          locationInfo: parsed.location || { city: '', state: '', country: '' },
+          locationInfo: parsed.locationDetails || { city: '', state: '', country: '', postalCode: '' },
           summary: parsed.profile || '', 
           domainFocus: parsed.domainFocus || 'Other',
           skills: allSkills,
@@ -723,15 +725,27 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
   const handleUpdateFollowUp = async (id: string, note: string, date: string) => {
     try {
+      const candidate = candidates.find(c => c.id === id);
+      const existingLogs = candidate?.internalNotesLog || [];
+      const dateStr = date ? formatDate(date) : 'No Date';
+      const logEntry = {
+        author: user?.displayName || user?.email || 'Unknown',
+        timestamp: new Date().toISOString(),
+        noteContent: `⏰ Follow-up reminder set for ${dateStr}. Details: ${note || '(No additional notes)'}`,
+        candidateName: candidate?.fullName || 'Candidate',
+        type: 'follow_up'
+      };
+      const updatedLogs = [...existingLogs, logEntry];
+
       await updateDoc(doc(db, 'candidates', id), { 
         followUpNote: note,
         followUpDate: date,
         followUpUpdatedBy: user?.uid,
+        internalNotesLog: updatedLogs,
         updatedAt: new Date().toISOString()
       });
-      const candidate = candidates.find(c => c.id === id);
       if (selectedCandidate?.id === id) {
-        setSelectedCandidate((prev: any) => ({ ...prev, followUpNote: note, followUpDate: date, followUpUpdatedBy: user?.uid }));
+        setSelectedCandidate((prev: any) => ({ ...prev, followUpNote: note, followUpDate: date, followUpUpdatedBy: user?.uid, internalNotesLog: updatedLogs }));
       }
       
       // Notify
@@ -768,15 +782,26 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
   const handleCompleteFollowUp = async (id: string) => {
     try {
+      const candidate = candidates.find(c => c.id === id);
+      const existingLogs = candidate?.internalNotesLog || [];
+      const logEntry = {
+        author: user?.displayName || user?.email || 'Unknown',
+        timestamp: new Date().toISOString(),
+        noteContent: `✅ Completed follow-up. Previous note: ${candidate?.followUpNote || '(None)'}`,
+        candidateName: candidate?.fullName || 'Candidate',
+        type: 'follow_up_completed'
+      };
+      const updatedLogs = [...existingLogs, logEntry];
+
       await updateDoc(doc(db, 'candidates', id), { 
         followUpNote: '',
         followUpDate: '',
         followUpStatus: 'completed',
+        internalNotesLog: updatedLogs,
         updatedAt: new Date().toISOString()
       });
-      const candidate = candidates.find(c => c.id === id);
       if (selectedCandidate?.id === id) {
-        setSelectedCandidate((prev: any) => ({ ...prev, followUpNote: '', followUpDate: '', followUpStatus: 'completed' }));
+        setSelectedCandidate((prev: any) => ({ ...prev, followUpNote: '', followUpDate: '', followUpStatus: 'completed', internalNotesLog: updatedLogs }));
       }
     } catch (err) {
       console.error(err);
@@ -1000,6 +1025,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     if (candidate.isArchived) return false;
     
     // Status Filter
+    if (statusFilter === 'processed' && !candidate.notes && !candidate.isShortlisted) return false;
     if (statusFilter === 'shortlisted' && !candidate.isShortlisted) return false;
     if (statusFilter === 'follow_up' && !candidate.followUpDate) return false;
 
@@ -1012,7 +1038,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
     if (!searchQuery.trim()) return true;
     const terms = searchQuery.toLowerCase().split(/\s+/);
-    const loc = `${candidate.locationInfo?.city || ''} ${candidate.locationInfo?.state || ''}`.toLowerCase();
+    const loc = `${candidate.locationInfo?.city || ''} ${candidate.locationInfo?.state || ''} ${candidate.locationInfo?.country || ''} ${candidate.locationInfo?.postalCode || ''}`.toLowerCase();
     const searchableText = `${candidate.fullName} ${candidate.domainFocus || ''} ${candidate.domain || ''} ${loc} ${candidate.summary} ${candidate.skills?.join(' ')} ${candidate.notes || ''} ${JSON.stringify(candidate.experience)} ${teamMembers[candidate.uploadedBy] || ''} ${teamMembers[candidate.followUpUpdatedBy] || ''}`.toLowerCase();
     return terms.every(term => searchableText.includes(term));
   });
@@ -1037,6 +1063,19 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
   });
 
   const activeCandidates = candidates.filter(c => !c.isArchived);
+  const domainOptionsWithCount = useMemo(() => {
+    const counts: Record<string, number> = {};
+    activeCandidates.forEach(c => {
+      const norm = getNormalizedDomain(c);
+      counts[norm] = (counts[norm] || 0) + 1;
+    });
+
+    return DOMAIN_OPTIONS.map(opt => ({
+      value: opt.value,
+      label: `${opt.label} (${counts[opt.value] || 0})`
+    }));
+  }, [activeCandidates]);
+
   const trashedCandidates = candidates.filter(c => c.isArchived);
   const trashedUsers = fullTeamList.filter(u => u.isArchived);
 
@@ -1359,7 +1398,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               </div>
               
               {/* Stats Bar */}
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <button 
                   onClick={() => setStatusFilter('all')}
                   className={`bg-[var(--card-bg)] p-5 rounded-[2rem] border text-left shadow-sm flex items-center gap-4 transition-all duration-300 w-full hover:scale-[1.01] active:scale-[0.99] ${
@@ -1379,6 +1418,28 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   </div>
                   {statusFilter === 'all' && (
                     <span className="ml-auto w-2 h-2 rounded-full bg-indigo-500 animate-pulse shrink-0" />
+                  )}
+                </button>
+
+                <button 
+                  onClick={() => setStatusFilter('processed')}
+                  className={`bg-[var(--card-bg)] p-5 rounded-[2rem] border text-left shadow-sm flex items-center gap-4 transition-all duration-300 w-full hover:scale-[1.01] active:scale-[0.99] ${
+                    statusFilter === 'processed' 
+                      ? 'border-violet-500 ring-2 ring-violet-500/15 bg-violet-50/5' 
+                      : 'border-[var(--border-color)] hover:border-violet-400/50'
+                  }`}
+                >
+                  <div className="w-12 h-12 bg-violet-50 dark:bg-violet-900/40 rounded-2xl flex items-center justify-center text-violet-600 dark:text-violet-300 shrink-0">
+                    <Target size={20} />
+                  </div>
+                  <div>
+                    <p className="text-[9px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-0.5">Processed</p>
+                    <h3 className="text-2xl font-bold text-violet-600 dark:text-violet-400 tracking-tight">
+                      {activeCandidates.filter(c => c.notes || c.isShortlisted).length}
+                    </h3>
+                  </div>
+                  {statusFilter === 'processed' && (
+                    <span className="ml-auto w-2 h-2 rounded-full bg-violet-500 animate-pulse shrink-0" />
                   )}
                 </button>
 
@@ -1469,6 +1530,17 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                     All ({activeCandidates.length})
                   </button>
                   <button 
+                    onClick={() => setStatusFilter('processed')}
+                    className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
+                      statusFilter === 'processed' 
+                        ? 'bg-violet-600 text-white shadow-sm' 
+                        : 'bg-[var(--sidebar-bg)] border border-[var(--border-color)] text-[var(--text-secondary)] hover:bg-[var(--bg-primary)]'
+                    }`}
+                  >
+                    <Target size={12} className={statusFilter === 'processed' ? 'text-white' : 'text-violet-500'} />
+                    Processed ({activeCandidates.filter(c => c.notes || c.isShortlisted).length})
+                  </button>
+                  <button 
                     onClick={() => setStatusFilter('shortlisted')}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 ${
                       statusFilter === 'shortlisted' 
@@ -1510,15 +1582,19 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   </div>
                   <div>
                     <Select 
-                      options={DOMAIN_OPTIONS}
-                      value={isMultiDomain ? selectedDomains : (selectedDomains[0] || null)}
+                      options={domainOptionsWithCount}
+                      value={isMultiDomain 
+                        ? selectedDomains.map(sd => domainOptionsWithCount.find(o => o.value === sd.value) || sd)
+                        : (domainOptionsWithCount.find(o => o.value === selectedDomains[0]?.value) || null)
+                      }
                       onChange={(selected) => {
                         if (!selected) {
                           setSelectedDomains([]);
                         } else if (Array.isArray(selected)) {
-                          setSelectedDomains(selected);
+                          setSelectedDomains(selected.map((s: any) => ({ value: s.value, label: DOMAIN_OPTIONS.find(o => o.value === s.value)?.label || s.value })));
                         } else {
-                          setSelectedDomains([selected]);
+                          const singleVal = selected as any;
+                          setSelectedDomains([{ value: singleVal.value, label: DOMAIN_OPTIONS.find(o => o.value === singleVal.value)?.label || singleVal.value }]);
                         }
                       }}
                       isMulti={isMultiDomain}
@@ -1699,6 +1775,17 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                               </div>
                               <div className="text-[10px] text-[var(--text-muted)] font-medium">
                                 {candidate.email || 'No contact mail'}
+                                {candidate.locationInfo && (candidate.locationInfo.city || candidate.locationInfo.state || candidate.locationInfo.country || candidate.locationInfo.postalCode) && (
+                                  <div className="flex items-center gap-1 mt-0.5 text-[9px] text-indigo-500/80 dark:text-indigo-400 font-semibold uppercase tracking-wider font-sans">
+                                    <MapPin size={10} className="shrink-0" />
+                                    <span>
+                                      {candidate.locationInfo.city || ''}
+                                      {candidate.locationInfo.state ? `${candidate.locationInfo.city ? ', ' : ''}${candidate.locationInfo.state}` : ''}
+                                      {candidate.locationInfo.country ? ` (${candidate.locationInfo.country})` : ''}
+                                      {candidate.locationInfo.postalCode ? ` - ${candidate.locationInfo.postalCode}` : ''}
+                                    </span>
+                                  </div>
+                                )}
                                 {candidate.assignedTo && (
                                   <span className="block italic text-[9px] text-indigo-300">
                                     {isPrivileged ? (

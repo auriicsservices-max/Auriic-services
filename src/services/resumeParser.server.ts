@@ -60,11 +60,22 @@ export class RobustResumeParser {
     let country = '';
     if (locationString) {
         const parts = locationString.split(',').map(s => s.trim());
-        city = parts[0];
+        city = text.includes("Remote") && !parts[0] ? '' : parts[0];
         state = parts.length > 1 ? parts[1] : '';
         country = parts.length > 2 ? parts[2] : 'USA'; 
     } else {
         locationString = 'Remote';
+    }
+
+    let postalCode = '';
+    const postalCodeMatch = text.match(/\b\d{5}(?:-\d{4})?\b/);
+    if (postalCodeMatch) {
+        postalCode = postalCodeMatch[0];
+    } else {
+        const ukCaMatch = text.match(/\b[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d\b|\b[A-Za-z]{1,2}\d[A-Za-z0-9]?\s?\d[A-Za-z]{2}\b/);
+        if (ukCaMatch) {
+            postalCode = ukCaMatch[0];
+        }
     }
 
     // 2. Extract Phone
@@ -150,7 +161,7 @@ export class RobustResumeParser {
       contact: { email, phone, linkedin, github, portfolio },
       links: extractedLinks,
       location: locationString,
-      locationDetails: { city, state, country },
+      locationDetails: { city, state, country, postalCode },
       profile: sections.profile,
       domainFocus,
       totalExperienceYears,
