@@ -11,7 +11,7 @@ export default function BulkUpload({ onUpload, isProcessing }: BulkUploadProps) 
   const [largeFilesWarn, setLargeFilesWarn] = useState<string[]>([]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    const tooLarge = acceptedFiles.filter(f => f.size > 3 * 1024 * 1024);
+    const tooLarge = acceptedFiles.filter(f => f.size > 1 * 1024 * 1024);
     if (tooLarge.length > 0) {
       setLargeFilesWarn(tooLarge.map(f => f.name));
     } else {
@@ -42,7 +42,7 @@ export default function BulkUpload({ onUpload, isProcessing }: BulkUploadProps) 
         <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 p-6 rounded-3xl flex items-start gap-3.5 text-amber-800 dark:text-amber-200 animate-in fade-in zoom-in-95 duration-200">
           <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-500" />
           <div className="text-xs space-y-1 flex-1">
-            <p className="font-black">The following resumes exceed the 3MB limit and will be skipped:</p>
+            <p className="font-black">The following resumes exceed the 1MB limit and will be skipped:</p>
             <ul className="list-disc pl-4 space-y-0.5 mt-1 font-medium">
               {largeFilesWarn.map(name => (
                 <li key={name} className="font-mono text-[11px] truncate max-w-lg">{name}</li>
@@ -69,7 +69,7 @@ export default function BulkUpload({ onUpload, isProcessing }: BulkUploadProps) 
         </div>
         <div className="text-center">
             <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">Click or drag files here</h3>
-            <p className="text-xs text-[var(--text-muted)]">Support for PDF, DOCX, TXT • Max size 3MB per file</p>
+            <p className="text-xs text-[var(--text-muted)]">Support for PDF, DOCX, TXT • Max size 1MB per file</p>
         </div>
       </div>
 

@@ -107,14 +107,14 @@ export default function SystemSettings() {
                 <Settings size={18} className="text-indigo-500" /> Resume File Size Cap
               </h3>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                Applies strict size verification. If a recruiter drops/uploads a candidate's CV file larger than this limit (3 MB), an explicit alert message will be displayed instantly.
+                Applies strict size verification. If a recruiter drops/uploads a candidate's CV file larger than this limit (1MB), an explicit alert message will be displayed instantly.
               </p>
             </div>
             <div className="bg-slate-50 dark:bg-slate-900/30 p-6 rounded-2xl border border-dashed border-[var(--border-color)] flex flex-col justify-center">
               <div className="relative">
                 <input
                   type="text"
-                  value="3 MB"
+                  value="1 MB"
                   disabled
                   className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] opacity-75 rounded-xl px-4 py-3 text-lg font-black text-indigo-600 focus:outline-none transition-all text-center cursor-not-allowed"
                 />
@@ -132,7 +132,7 @@ export default function SystemSettings() {
             <div className="text-[11px] text-indigo-800 dark:text-indigo-200 font-medium space-y-1">
               <p>When a recruiter exceeds the batch limit, they will see a customized toast message:</p>
               <p className="italic font-bold">"Batch rejected: You can only upload up to {limit} CVs at once to ensure processing quality."</p>
-              <p className="mt-1">When any individual file is larger than 3MB, they will see an instant error block detailing rejected files.</p>
+              <p className="mt-1">When any individual file is larger than 1MB, they will see an instant error block detailing rejected files.</p>
             </div>
           </div>
         </div>

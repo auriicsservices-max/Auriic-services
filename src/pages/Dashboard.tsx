@@ -22,7 +22,6 @@ import SystemSettings from '../components/SystemSettings';
 import TimezoneWidget from '../components/TimezoneWidget';
 import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
-import DuplicateCandidates from '../components/DuplicateCandidates';
 import { resumeParser } from '../services/resumeParserService';
 import { logActivity } from '../services/activityService';
 import { createNotification, formatNotificationMessage } from '../services/notificationService';
@@ -125,7 +124,7 @@ export default function Dashboard() {
   const [parsingStatus, setParsingStatus] = useState<Record<string, { status: string, progress: number }>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; }>({ isOpen: false, message: '' });
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'duplicates'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup'>('home');
   const [bulkLimit, setBulkLimit] = useState<number>(20);
   const [notificationMessage, setNotificationMessage] = useState<any>(null);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
@@ -475,10 +474,10 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     
     let currentDone = 0;
     for (const file of acceptedFiles) {
-      if (file.size > 3 * 1024 * 1024) {
+      if (file.size > 1 * 1024 * 1024) {
         setDuplicateNotification({
           isOpen: true,
-          message: `File rejected: ${file.name} is larger than 3MB. Maximum CV upload size is 3 MB. Please upload a smaller file.`
+          message: `File rejected: ${file.name} is larger than 1MB. Please upload a smaller file.`
         });
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
         continue;
@@ -1161,7 +1160,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
             ...( (role === 'admin' || role === 'team_leader' || role === 'developer') ? [{ id: 'users', label: 'Team Hub', icon: Users }] : []),
             ...( (role === 'developer') ? [{ id: 'backup', label: 'Backup & Export', icon: Download }] : []),
-            ...( (role === 'developer') ? [{ id: 'duplicates', label: 'Duplicates', icon: AlertTriangle }] : []),
             { id: 'profile', label: 'My Profile', icon: UserCircle },
             { id: 'settings', label: 'System Settings', icon: Settings },
           ].map((item) => (
@@ -1281,7 +1279,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <span className="hidden md:block cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" onClick={() => setActiveTab('candidates')}>Rectech CV Parsing Software</span>
             <ChevronRight className="hidden md:block w-3 h-3 text-[var(--text-muted)]" />
             <span className="text-[var(--text-primary)] italic font-serif normal-case text-base tracking-normal">
-              {activeTab === 'candidates' ? 'Candidates Database' : activeTab === 'activity_logs' ? 'Activity Log' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'repository' ? 'CV Repository' : activeTab === 'upload' ? 'CV Parsing' : activeTab === 'duplicates' ? 'Candidate Duplicates' : 'Dashboard Home'}
+              {activeTab === 'candidates' ? 'Candidates Database' : activeTab === 'activity_logs' ? 'Activity Log' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'repository' ? 'CV Repository' : activeTab === 'upload' ? 'CV Parsing' : 'Dashboard Home'}
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -1375,8 +1373,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </div>
           ) : activeTab === 'backup' ? (
              <BackupDashboard />
-          ) : activeTab === 'duplicates' ? (
-             <DuplicateCandidates candidates={candidates} onPermanentDelete={handlePermanentDeleteCandidate} formatDate={formatDate} teamMembers={teamMembers} />
           ) : activeTab === 'home' ? (
             <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} fullTeamList={fullTeamList} />
           ) : activeTab === 'repository' ? (
