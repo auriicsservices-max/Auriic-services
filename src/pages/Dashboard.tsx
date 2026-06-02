@@ -22,6 +22,7 @@ import SystemSettings from '../components/SystemSettings';
 import TimezoneWidget from '../components/TimezoneWidget';
 import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
+import DuplicateCandidates from '../components/DuplicateCandidates';
 import { resumeParser } from '../services/resumeParserService';
 import { logActivity } from '../services/activityService';
 import { createNotification, formatNotificationMessage } from '../services/notificationService';
@@ -124,14 +125,15 @@ export default function Dashboard() {
   const [parsingStatus, setParsingStatus] = useState<Record<string, { status: string, progress: number }>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; }>({ isOpen: false, message: '' });
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'duplicates'>('home');
   const [bulkLimit, setBulkLimit] = useState<number>(20);
   const [notificationMessage, setNotificationMessage] = useState<any>(null);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
 
 const handleFirestoreError = (error: any, operationType: string, path: string | null) => {
+    const errorStr = error instanceof Error ? error.message : String(error);
     const errInfo = {
-        error: error instanceof Error ? error.message : String(error),
+        error: errorStr,
         authInfo: {
             userId: auth.currentUser?.uid,
             email: auth.currentUser?.email,
@@ -140,6 +142,17 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         path
     };
     console.error('Firestore Error: ', JSON.stringify(errInfo));
+    
+    // Check for resource exhaustion or quota limits
+    if (
+        error?.code === 'resource-exhausted' || 
+        errorStr.includes('resource-exhausted') || 
+        errorStr.includes('Quota exceeded') ||
+        errorStr.includes('Write stream exhausted') ||
+        error?.code === 'failed-precondition'
+    ) {
+        setQuotaExceeded(true);
+    }
 };
 
   const playNotificationSound = useCallback(() => {
@@ -245,6 +258,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       return () => clearTimeout(timer);
     }
   }, [uploadStatus]);
+
+  useEffect(() => {
+    if (duplicateNotification.isOpen) {
+      const timer = setTimeout(() => {
+        setDuplicateNotification({ isOpen: false, message: '' });
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [duplicateNotification.isOpen]);
 
   useEffect(() => {
     if (!user || !role) return;
@@ -453,10 +475,10 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     
     let currentDone = 0;
     for (const file of acceptedFiles) {
-      if (file.size > 1 * 1024 * 1024) {
+      if (file.size > 3 * 1024 * 1024) {
         setDuplicateNotification({
           isOpen: true,
-          message: `File rejected: ${file.name} is larger than 1MB. Please upload a smaller file.`
+          message: `File rejected: ${file.name} is larger than 3MB. Maximum CV upload size is 3 MB. Please upload a smaller file.`
         });
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
         continue;
@@ -1139,7 +1161,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
             ...( (role === 'admin' || role === 'team_leader' || role === 'developer') ? [{ id: 'users', label: 'Team Hub', icon: Users }] : []),
             ...( (role === 'developer') ? [{ id: 'backup', label: 'Backup & Export', icon: Download }] : []),
+            ...( (role === 'developer') ? [{ id: 'duplicates', label: 'Duplicates', icon: AlertTriangle }] : []),
             { id: 'profile', label: 'My Profile', icon: UserCircle },
+            { id: 'settings', label: 'System Settings', icon: Settings },
           ].map((item) => (
             <button 
               key={item.id}
@@ -1235,9 +1259,16 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
         {duplicateNotification.isOpen && (
             <div className="fixed bottom-4 left-0 right-0 flex justify-center z-50 animate-in slide-in-from-bottom-4">
-                <div className="bg-amber-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
+                <div className="bg-amber-600 text-white px-6 py-3 rounded-[2rem] shadow-2xl flex items-center gap-3 border border-amber-500/20">
                     <AlertCircle size={18} />
                     <span className="text-sm font-bold">{duplicateNotification.message}</span>
+                    <button 
+                      onClick={() => setDuplicateNotification({ isOpen: false, message: '' })}
+                      className="p-1 hover:bg-amber-700/50 rounded-full transition-all text-white/80 hover:text-white"
+                      title="Dismiss"
+                    >
+                      <X size={14} className="stroke-[3px]" />
+                    </button>
                 </div>
             </div>
         )}
@@ -1250,7 +1281,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <span className="hidden md:block cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" onClick={() => setActiveTab('candidates')}>Rectech CV Parsing Software</span>
             <ChevronRight className="hidden md:block w-3 h-3 text-[var(--text-muted)]" />
             <span className="text-[var(--text-primary)] italic font-serif normal-case text-base tracking-normal">
-              {activeTab === 'candidates' ? 'Candidates Database' : activeTab === 'activity_logs' ? 'Activity Log' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'repository' ? 'CV Repository' : activeTab === 'upload' ? 'CV Parsing' : 'Dashboard Home'}
+              {activeTab === 'candidates' ? 'Candidates Database' : activeTab === 'activity_logs' ? 'Activity Log' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'repository' ? 'CV Repository' : activeTab === 'upload' ? 'CV Parsing' : activeTab === 'duplicates' ? 'Candidate Duplicates' : 'Dashboard Home'}
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -1344,6 +1375,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </div>
           ) : activeTab === 'backup' ? (
              <BackupDashboard />
+          ) : activeTab === 'duplicates' ? (
+             <DuplicateCandidates candidates={candidates} onPermanentDelete={handlePermanentDeleteCandidate} formatDate={formatDate} teamMembers={teamMembers} />
           ) : activeTab === 'home' ? (
             <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} fullTeamList={fullTeamList} />
           ) : activeTab === 'repository' ? (

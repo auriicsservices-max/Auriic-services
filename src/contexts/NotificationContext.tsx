@@ -62,9 +62,23 @@ const NotificationContext = createContext<NotificationContextType>({
 });
 
 export function NotificationProvider({ children }: { children: React.ReactNode }) {
-  const { user, role } = useAuth();
+  const { user, role, setQuotaExceeded } = useAuth();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
+
+  const handleProviderError = (error: unknown, op: OperationType, path: string | null) => {
+    handleFirestoreError(error, op, path);
+    const errorStr = error instanceof Error ? error.message : String(error);
+    const errorCode = (error as any)?.code;
+    if (
+      errorCode === 'resource-exhausted' ||
+      errorStr.includes('resource-exhausted') ||
+      errorStr.includes('Quota exceeded') ||
+      errorStr.includes('Write stream exhausted')
+    ) {
+      setQuotaExceeded(true);
+    }
+  };
 
   useEffect(() => {
     if (!user || !role) return;
@@ -94,7 +108,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const unread = allNotifs.filter(n => !n.read).length;
       setUnreadCount(unread);
     }, (error) => {
-      handleFirestoreError(error, OperationType.GET, 'notifications');
+      handleProviderError(error, OperationType.GET, 'notifications');
     });
 
     return () => unsub();
@@ -104,7 +118,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     try {
       await updateDoc(doc(db, 'notifications', id), { read: true });
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, `notifications/${id}`);
+      handleProviderError(error, OperationType.UPDATE, `notifications/${id}`);
     }
   };
 
@@ -120,7 +134,7 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       });
       await batch.commit();
     } catch (error) {
-      handleFirestoreError(error, OperationType.UPDATE, 'notifications (batch)');
+      handleProviderError(error, OperationType.UPDATE, 'notifications (batch)');
     }
   };
 

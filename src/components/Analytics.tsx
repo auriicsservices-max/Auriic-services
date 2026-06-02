@@ -40,6 +40,9 @@ export default function Analytics({
   const [showModal, setShowModal] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const [skillSearch, setSkillSearch] = useState('');
+  const [selectedDomain, setSelectedDomain] = useState<string | null>(null);
+  const [showDomainModal, setShowDomainModal] = useState(false);
+  const [domainSearch, setDomainSearch] = useState('');
 
   // 1. Filter activityLogs based on user's role and team configuration (Role Visibility)
   const visibleActivityLogs = useMemo(() => {
@@ -184,6 +187,29 @@ export default function Analytics({
     .sort((a: any, b: any) => b[1] - a[1])
     .map(([name, value]) => ({ name, value }));
 
+  const getCandidateDomainNormalized = (c: any) => {
+    let d = (c.domainFocus || c.domain || '').trim();
+    return (!d) ? 'Unknown Domain' : (d === 'IT' ? 'IT / Software' : d === 'Other' ? 'Others' : d);
+  };
+
+  const domainCandidates = useMemo(() => {
+    if (!selectedDomain) return [];
+    return candidates.filter(c => getCandidateDomainNormalized(c) === selectedDomain);
+  }, [candidates, selectedDomain]);
+
+  const domainOptions = useMemo(() => {
+    return domainChartData.map((d: any) => ({ value: d.name, label: d.name }));
+  }, [domainChartData]);
+
+  const handleDomainClick = (domain: string) => {
+    setSelectedDomain(domain);
+    setShowDomainModal(true);
+  };
+
+  const filteredDomainStandings = useMemo(() => {
+    return domainChartData.filter(({ name }) => name.toLowerCase().includes(domainSearch.toLowerCase()));
+  }, [domainChartData, domainSearch]);
+
   // Shortlist conversion data
   const shortlistedCount = candidates.filter(c => c.isShortlisted).length;
   const shortlistChartData = [
@@ -327,13 +353,35 @@ export default function Analytics({
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          <div className="lg:col-span-1 flex flex-col gap-3">
+          <div className="lg:col-span-1 flex flex-col gap-4">
+            <div className="flex flex-col gap-2">
+              <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] mb-1">Search & Filterwise</p>
+              <Select 
+                options={domainOptions} 
+                onChange={(opt) => opt && handleDomainClick(opt.value)} 
+                styles={customSelectStyles} 
+                placeholder="Search and view domain..." 
+                isClearable 
+              />
+              <input 
+                type="text" 
+                placeholder="Filter standings roster..." 
+                value={domainSearch} 
+                onChange={(e) => setDomainSearch(e.target.value)} 
+                className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-xs font-bold text-[var(--text-primary)] shadow-sm" 
+              />
+            </div>
+            
             <p className="text-[10px] font-black uppercase tracking-wider text-[var(--text-muted)] mb-1">Domain Standings</p>
-            <div className="flex flex-col gap-2.5 max-h-[350px] overflow-y-auto pr-1">
-              {domainChartData.map(({ name, value }: any) => {
+            <div className="flex flex-col gap-2.5 max-h-[290px] overflow-y-auto pr-1">
+              {filteredDomainStandings.map(({ name, value }: any) => {
                 const percentage = ((value / (candidates.length || 1)) * 100).toFixed(1);
                 return (
-                  <div key={name} className="flex items-center justify-between p-4 bg-[var(--sidebar-bg)] border border-[var(--border-color)]/60 rounded-2xl shadow-xs hover:border-indigo-400/50 transition-all">
+                  <button 
+                    key={name} 
+                    onClick={() => handleDomainClick(name)} 
+                    className="flex items-center justify-between p-4 bg-[var(--sidebar-bg)] border border-[var(--border-color)]/60 rounded-2xl shadow-xs hover:border-indigo-400/50 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-all text-left w-full"
+                  >
                     <div className="flex flex-col min-w-0">
                       <span className="font-extrabold text-xs text-[var(--text-primary)] truncate">{name}</span>
                       <span className="text-[10px] font-medium text-[var(--text-muted)] mt-0.5">{percentage}% of candidates</span>
@@ -341,16 +389,16 @@ export default function Analytics({
                     <div className="flex items-center gap-2 shrink-0">
                       <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900 rounded-xl text-xs font-black text-indigo-600 dark:text-indigo-400 shadow-sm">{value}</span>
                     </div>
-                  </div>
+                  </button>
                 );
               })}
-              {domainChartData.length === 0 && (
-                <div className="text-center py-8 text-xs text-[var(--text-muted)] italic">No domains recorded yet.</div>
+              {filteredDomainStandings.length === 0 && (
+                <div className="text-center py-8 text-xs text-[var(--text-muted)] italic">No matching domains found.</div>
               )}
             </div>
           </div>
 
-          <div className="lg:col-span-2 h-[350px] bg-[var(--sidebar-bg)] border border-[var(--border-color)]/40 p-4 rounded-3xl">
+          <div className="lg:col-span-2 h-[380px] bg-[var(--sidebar-bg)] border border-[var(--border-color)]/40 p-4 rounded-3xl">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={domainChartData}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-color)" />
@@ -411,6 +459,46 @@ export default function Analytics({
                   </div>
                 </button>
               ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Domain Candidates Modal */}
+      {showDomainModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
+          <div className="bg-[var(--bg-primary)] text-[var(--text-primary)] w-full max-w-2xl max-h-[80vh] rounded-[2rem] shadow-2xl flex flex-col p-8">
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-serif text-[var(--text-primary)]">Candidates in <span className="text-indigo-600">{selectedDomain}</span> ({domainCandidates.length})</h2>
+              <button 
+                onClick={() => setShowDomainModal(false)} 
+                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full font-sans transition-colors duration-300"
+              >
+                <X size={20} />
+              </button>
+            </div>
+            <div className="overflow-y-auto space-y-4 font-sans">
+              {domainCandidates.map(c => (
+                <button 
+                  key={c.id} 
+                  onClick={() => {
+                    setSelectedCandidate(c);
+                    setShowDomainModal(false);
+                  }} 
+                  className="w-full p-4 border border-[var(--border-color)] rounded-xl flex items-center gap-4 hover:bg-[var(--sidebar-bg)] transition-all"
+                >
+                  <div className="w-10 h-10 bg-[var(--sidebar-bg)] rounded-full flex items-center justify-center font-bold text-sm text-slate-500">
+                    {c.fullName.slice(0, 2).toUpperCase()}
+                  </div>
+                  <div className="flex-1 text-left">
+                    <p className="font-bold text-sm">{c.fullName}</p>
+                    <p className="text-xs text-slate-500">{c.domainFocus || c.domain || 'N/A'}</p>
+                  </div>
+                </button>
+              ))}
+              {domainCandidates.length === 0 && (
+                <div className="text-center py-12 text-sm text-[var(--text-muted)] italic">No candidates matched.</div>
+              )}
             </div>
           </div>
         </div>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
-import { Save, Shield, Settings, Info, AlertTriangle, Lock } from 'lucide-react';
+import { Save, Shield, Settings, Info, AlertTriangle, Lock, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function SystemSettings() {
@@ -100,13 +100,40 @@ export default function SystemSettings() {
             </div>
           </div>
 
+          {/* File Size Limit Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-[var(--border-color)]">
+            <div className="space-y-2">
+              <h3 className="font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <Settings size={18} className="text-indigo-500" /> Resume File Size Cap
+              </h3>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                Applies strict size verification. If a recruiter drops/uploads a candidate's CV file larger than this limit (3 MB), an explicit alert message will be displayed instantly.
+              </p>
+            </div>
+            <div className="bg-slate-50 dark:bg-slate-900/30 p-6 rounded-2xl border border-dashed border-[var(--border-color)] flex flex-col justify-center">
+              <div className="relative">
+                <input
+                  type="text"
+                  value="3 MB"
+                  disabled
+                  className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] opacity-75 rounded-xl px-4 py-3 text-lg font-black text-indigo-600 focus:outline-none transition-all text-center cursor-not-allowed"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase text-[var(--text-muted)]">Max</span>
+              </div>
+              <p className="mt-4 text-[10px] text-center font-bold text-emerald-500 uppercase tracking-widest flex items-center justify-center gap-1">
+                <CheckCircle2 size={10} /> Protection Active
+              </p>
+            </div>
+          </div>
+
           {/* Info Banner */}
           <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl flex gap-3 border border-indigo-100 dark:border-indigo-800/50">
             <Info size={18} className="text-indigo-600 shrink-0" />
-            <p className="text-[11px] text-indigo-800 dark:text-indigo-200 font-medium">
-              When a recruiter exceeds this limit, they will see a customized message: <br/>
-              <span className="italic block mt-1">"Batch rejected: You can only upload up to {limit} CVs at once to ensure processing quality."</span>
-            </p>
+            <div className="text-[11px] text-indigo-800 dark:text-indigo-200 font-medium space-y-1">
+              <p>When a recruiter exceeds the batch limit, they will see a customized toast message:</p>
+              <p className="italic font-bold">"Batch rejected: You can only upload up to {limit} CVs at once to ensure processing quality."</p>
+              <p className="mt-1">When any individual file is larger than 3MB, they will see an instant error block detailing rejected files.</p>
+            </div>
           </div>
         </div>
 
