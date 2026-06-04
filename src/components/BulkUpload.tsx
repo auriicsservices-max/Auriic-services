@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react';
 
@@ -8,15 +8,7 @@ interface BulkUploadProps {
 }
 
 export default function BulkUpload({ onUpload, isProcessing }: BulkUploadProps) {
-  const [largeFilesWarn, setLargeFilesWarn] = useState<string[]>([]);
-
   const onDrop = useCallback((acceptedFiles: File[]) => {
-    const tooLarge = acceptedFiles.filter(f => f.size > 1 * 1024 * 1024);
-    if (tooLarge.length > 0) {
-      setLargeFilesWarn(tooLarge.map(f => f.name));
-    } else {
-      setLargeFilesWarn([]);
-    }
     onUpload(acceptedFiles);
   }, [onUpload]);
 
@@ -38,23 +30,6 @@ export default function BulkUpload({ onUpload, isProcessing }: BulkUploadProps) 
         <p className="text-[var(--text-muted)] text-sm">Drag and drop multiple CVs to parse and add them to your pipeline.</p>
       </div>
 
-      {largeFilesWarn.length > 0 && (
-        <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 p-6 rounded-3xl flex items-start gap-3.5 text-amber-800 dark:text-amber-200 animate-in fade-in zoom-in-95 duration-200">
-          <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-500" />
-          <div className="text-xs space-y-1 flex-1">
-            <p className="font-black">The following resumes exceed the 1MB limit and will be skipped:</p>
-            <ul className="list-disc pl-4 space-y-0.5 mt-1 font-medium">
-              {largeFilesWarn.map(name => (
-                <li key={name} className="font-mono text-[11px] truncate max-w-lg">{name}</li>
-              ))}
-            </ul>
-          </div>
-          <button onClick={() => setLargeFilesWarn([])} className="p-1 text-amber-500 hover:text-amber-700 dark:hover:text-amber-300">
-            <X size={14} />
-          </button>
-        </div>
-      )}
-
       <div
         {...getRootProps()}
         className={`relative group border-2 border-dashed rounded-[2rem] p-12 flex flex-col items-center justify-center gap-4 transition-all cursor-pointer ${
@@ -69,7 +44,7 @@ export default function BulkUpload({ onUpload, isProcessing }: BulkUploadProps) 
         </div>
         <div className="text-center">
             <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">Click or drag files here</h3>
-            <p className="text-xs text-[var(--text-muted)]">Support for PDF, DOCX, TXT • Max size 1MB per file</p>
+            <p className="text-xs text-[var(--text-muted)]">Support for PDF, DOCX, TXT</p>
         </div>
       </div>
 
