@@ -102,62 +102,6 @@ export class RobustResumeParser {
       }
     }
 
-    // 1a. Extract Location
-    let locationString = '';
-    const places = doc.places().out('array');
-    if (places.length > 0) {
-        locationString = places[0];
-    } else {
-        const locationMatch = text.match(/([A-Za-z\s]+),\s*([A-Za-z]{2,})/);
-        if (locationMatch) {
-            locationString = locationMatch[0];
-        }
-    }
-    
-    let city = '';
-    let state = '';
-    let country = '';
-    if (locationString) {
-        const parts = locationString.split(',').map(s => s.trim());
-        city = text.includes("Remote") && !parts[0] ? '' : parts[0];
-        state = parts.length > 1 ? parts[1] : '';
-        country = parts.length > 2 ? parts[2] : 'USA'; 
-    } else {
-        locationString = 'Remote';
-    }
-
-    let postalCode = '';
-    const postalCodeMatch = text.match(/\b\d{5}(?:-\d{4})?\b/);
-    if (postalCodeMatch) {
-        postalCode = postalCodeMatch[0];
-    } else {
-        const ukCaMatch = text.match(/\b[A-Za-z]\d[A-Za-z]\s?\d[A-Za-z]\d\b|\b[A-Za-z]{1,2}\d[A-Za-z0-9]?\s?\d[A-Za-z]{2}\b/);
-        if (ukCaMatch) {
-            postalCode = ukCaMatch[0];
-        }
-    }
-
-    // 2. Extract Phone
-    const phoneMatch = text.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{4}/);
-    let phone = '';
-    if (phoneMatch) {
-      const parsedPhone = parsePhoneNumberFromString(phoneMatch[0], 'IN') || parsePhoneNumberFromString(phoneMatch[0], 'US');
-      phone = parsedPhone ? parsedPhone.formatInternational() : phoneMatch[0];
-    }
-
-    // 3. Extract Name
-    // Heuristic: Use compromise to find people, or take the first few words if they look like a name
-    let name = doc.people().first().text();
-    if (!name) {
-      const lines = text.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-      for (const line of lines.slice(0, 5)) {
-        if (line.split(' ').length <= 4 && /^[A-Z]/.test(line)) {
-          name = line;
-          break;
-        }
-      }
-    }
-
     // 4. Links
     const linksMatch = text.match(/https?:\/\/[^\s]+/g) || [];
     const extractedLinks: { type: string, url: string }[] = [];
