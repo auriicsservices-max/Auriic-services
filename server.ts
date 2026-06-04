@@ -12,6 +12,7 @@ import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { RobustResumeParser } from './src/services/resumeParser.server.ts';
+import { parseWithGemini } from './src/services/geminiResumeExtractor.server.ts';
 const resumeParser = new RobustResumeParser();
 
 // Handle paths for both ESM and CJS
@@ -131,7 +132,16 @@ async function startServer() {
     
     try {
       const result = await resumeParser.parseBuffer(req.file.buffer, req.file.mimetype);
-      res.json(result);
+      
+      // Enhance with Gemini
+      try {
+        const enhancedData = await parseWithGemini(result.rawText);
+        const mergedResult = { ...result, ...enhancedData };
+        res.json(mergedResult);
+      } catch (geminiError) {
+        console.error('[Server] Gemini enhancement failed, returning heuristic result:', geminiError);
+        res.json(result);
+      }
     } catch (error) {
       console.error('[Server] Advanced Parsing Error:', error);
       res.status(500).json({ error: 'Failed to parse resume with advanced engine' });
