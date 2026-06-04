@@ -60,4 +60,5 @@ export const ResumeSchema = z.object({
   interests: z.array(z.string()).default([]),
   rawText: z.string().default(''),
 });
+
 export type ResumeData = z.infer<typeof ResumeSchema>;
