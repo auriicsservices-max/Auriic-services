@@ -247,6 +247,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
   }, [uploadStatus]);
 
   useEffect(() => {
+    if (duplicateNotification.isOpen) {
+      const timer = setTimeout(() => {
+        setDuplicateNotification({ isOpen: false, message: '' });
+      }, 8000);
+      return () => clearTimeout(timer);
+    }
+  }, [duplicateNotification.isOpen]);
+
+  useEffect(() => {
     if (!user || !role) return;
 
     // Unconditional listeners
@@ -1140,6 +1149,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             ...( (role === 'admin' || role === 'team_leader' || role === 'developer') ? [{ id: 'users', label: 'Team Hub', icon: Users }] : []),
             ...( (role === 'developer') ? [{ id: 'backup', label: 'Backup & Export', icon: Download }] : []),
             { id: 'profile', label: 'My Profile', icon: UserCircle },
+            { id: 'settings', label: 'System Settings', icon: Settings },
           ].map((item) => (
             <button 
               key={item.id}
@@ -1235,9 +1245,16 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
         {duplicateNotification.isOpen && (
             <div className="fixed bottom-4 left-0 right-0 flex justify-center z-50 animate-in slide-in-from-bottom-4">
-                <div className="bg-amber-600 text-white px-6 py-3 rounded-full shadow-2xl flex items-center gap-3">
+                <div className="bg-amber-600 text-white px-6 py-3 rounded-[2rem] shadow-2xl flex items-center gap-3 border border-amber-500/20">
                     <AlertCircle size={18} />
                     <span className="text-sm font-bold">{duplicateNotification.message}</span>
+                    <button 
+                      onClick={() => setDuplicateNotification({ isOpen: false, message: '' })}
+                      className="p-1 hover:bg-amber-700/50 rounded-full transition-all text-white/80 hover:text-white"
+                      title="Dismiss"
+                    >
+                      <X size={14} className="stroke-[3px]" />
+                    </button>
                 </div>
             </div>
         )}

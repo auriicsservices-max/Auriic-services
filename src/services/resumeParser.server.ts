@@ -3,20 +3,28 @@ import nlp from 'compromise';
 import * as chrono from 'chrono-node';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { ResumeData, ResumeSchema } from '../types/resume';
-import { ai } from './gemini.server.ts';
-import { Type } from '@google/genai';
-import pdfParse from 'pdf-parse';
 
 // pdf-parse doesn't have good type definitions or ESM support
 // We'll use a dynamic require that works after bundling to CJS
 // @ts-ignore
+const pdf = typeof require !== 'undefined' ? require('pdf-parse') : undefined;
 
 export class RobustResumeParser {
   async parseBuffer(buffer: Buffer, mimetype: string): Promise<ResumeData> {
     let text = '';
 
     if (mimetype === 'application/pdf') {
-      const data = await pdfParse(buffer);
+      let pdfLib = pdf;
+      if (!pdfLib) {
+        try {
+          const { createRequire } = await import('module');
+          const requireBridge = createRequire(import.meta.url);
+          pdfLib = requireBridge('pdf-parse');
+        } catch (e) {
+          throw new Error("PDF parsing library (pdf-parse) not available");
+        }
+      }
+      const data = await (typeof pdfLib === 'function' ? pdfLib(buffer) : (pdfLib.default ? pdfLib.default(buffer) : pdfLib(buffer)));
       text = data.text;
     } else if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       const data = await mammoth.extractRawText({ buffer });
@@ -29,17 +37,6 @@ export class RobustResumeParser {
   }
 
   async parseText(text: string): Promise<ResumeData> {
-    // Attempt AI-driven structured extraction
-    try {
-      const aiParsed = await this.parseWithAI(text);
-      if (aiParsed) {
-        return ResumeSchema.parse(aiParsed);
-      }
-    } catch (error) {
-      console.error("[Parser] AI parsing failed, falling back to heuristic:", error);
-    }
-
-    // Heuristics fallback
     const doc = nlp(text);
     
     // 1. Extract Email
@@ -309,26 +306,5 @@ export class RobustResumeParser {
     });
 
     return Math.round((totalMonths / 12) * 10) / 10;
-  }
-
-  private async parseWithAI(text: string): Promise<any> {
-    try {
-      const response = await ai.models.generateContent({
-        model: "gemini-3.1-flash-lite",
-        contents: `Extract the resume data from the following text into a JSON object matching the strict schema: ${text}`,
-        config: {
-          responseMimeType: "application/json",
-          systemInstruction: "You are an expert resume parser. Extract information from the provided resume text into a strict JSON format adhering to the following structure: { fullName: string, contact: { email: string, phone: string, linkedin: string, github: string, portfolio: string }, location: string, profile: string, domainFocus: string, totalExperienceYears: number, education: Array<{institution: string, degree: string, duration: string}>, experience: Array<{title: string, company: string, duration: string, responsibilities: string[]}>, projects: Array<{name: string, technologies: string[], duration: string, description: string[], links: string[]}>, skills: { languages: string[], frameworks: string[], databases: string[], tools: string[], libraries: string[], other: string[] }, achievements: string[], languages: string[], interests: string[] }. Use empty strings or empty arrays for missing values. Be precise and accurate.",
-        },
-      });
-
-      if (!response.text) return null;
-      
-      const parsedData = JSON.parse(response.text);
-      return parsedData;
-    } catch (e) {
-      console.error("[Parser] Error in parseWithAI", e);
-      return null;
-    }
   }
 }
