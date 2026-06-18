@@ -85,11 +85,13 @@ import {
   Bell,
   Settings,
   Download,
+  Database,
   Target,
   MapPin
 } from 'lucide-react';
 
 import MigrationTool from '../components/MigrationTool';
+import DatabaseDetails from '../components/DatabaseDetails';
 import BackupDashboard from '../components/BackupDashboard';
 
 export default function Dashboard() {
@@ -124,7 +126,7 @@ export default function Dashboard() {
   const [parsingStatus, setParsingStatus] = useState<Record<string, { status: string, progress: number }>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; }>({ isOpen: false, message: '' });
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database'>('home');
   const [bulkLimit, setBulkLimit] = useState<number>(20);
   const [notificationMessage, setNotificationMessage] = useState<any>(null);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
@@ -1148,6 +1150,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
             ...( (role === 'admin' || role === 'team_leader' || role === 'developer') ? [{ id: 'users', label: 'Team Hub', icon: Users }] : []),
             ...( (role === 'developer') ? [{ id: 'backup', label: 'Backup & Export', icon: Download }] : []),
+            ...( (role === 'developer') ? [{ id: 'database', label: 'Database Details', icon: Database }] : []),
             { id: 'profile', label: 'My Profile', icon: UserCircle },
             { id: 'settings', label: 'System Settings', icon: Settings },
           ].map((item) => (
@@ -1361,6 +1364,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </div>
           ) : activeTab === 'backup' ? (
              <BackupDashboard />
+          ) : activeTab === 'database' ? (
+             <DatabaseDetails />
           ) : activeTab === 'home' ? (
             <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} fullTeamList={fullTeamList} />
           ) : activeTab === 'repository' ? (

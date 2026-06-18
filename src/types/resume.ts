@@ -1,5 +1,19 @@
 import { z } from 'zod';
 
+export type ProcessingStatus = 'uploading' | 'extracting' | 'analyzing' | 'saving' | 'completed' | 'failed';
+
+export interface ResumeProcessingJob {
+  id: string;
+  filename: string;
+  size: number;
+  pages: number;
+  status: ProcessingStatus;
+  progress: number;
+  currentStep: string;
+  estimatedTimeRemaining: number;
+  startTime: number;
+}
+
 export const ResumeSchema = z.object({
   name: z.string().default(''),
   fullName: z.string().optional(),

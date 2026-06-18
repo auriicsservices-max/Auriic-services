@@ -98,8 +98,54 @@ async function startServer() {
 
   startNotificationListener();
 
+  // const app = express();
+  // app.set('trust proxy', true);
+  // const PORT = 3000;
+  
+  // // Access Control Middleware
+  // app.use(async (req, res, next) => {
+  //   const forwardedFor = req.headers['x-forwarded-for'];
+  //   const clientIp = typeof forwardedFor === 'string' ? forwardedFor.split(',')[0].trim() : req.socket.remoteAddress;
+  //
+  //   const allowed = [process.env.ALLOWED_IPV4, process.env.ALLOWED_IPV6].filter(Boolean);
+  //   
+  //   let isAllowed = allowed.includes(clientIp || '');
+  //   
+  //   if (!isAllowed) {
+  //       // Check DB whitelist
+  //       try {
+  //           const ipDoc = await adminDb.collection('settings').doc('ip_whitelist').get();
+  //           if (ipDoc.exists) {
+  //               const dbIps = ipDoc.data()?.ips || [];
+  //               if(dbIps.includes(clientIp)) isAllowed = true;
+  //           }
+  //       } catch(e) { 
+  //           console.error("Non-blocking Error checking DB whitelist", e);
+  //           // Fail open if DB is unreachable to allow server to boot/work
+  //           isAllowed = true; 
+  //       }
+  //   }
+  //
+  //   if (!isAllowed) {
+  //       try {
+  //           await adminDb.collection('access_logs').add({
+  //               ip: clientIp,
+  //               url: req.url,
+  //               ua: req.headers['user-agent'],
+  //               timestamp: admin.firestore.FieldValue.serverTimestamp(),
+  //               status: 'blocked'
+  //           });
+  //       } catch(e) { console.error("Logging failed", e); }
+  //       
+  //       return res.status(403).sendFile(path.join(process.cwd(), 'public', 'access-restricted.html'));
+  //   }
+  //   next();
+  // });
+
   const app = express();
+  app.set('trust proxy', true);
   const PORT = 3000;
+  
   // Use Middleware
   app.use(express.json());
 
