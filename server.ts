@@ -113,34 +113,6 @@ const startNotificationListener = () => {
   }
 };
 
-// Helper function to verify incoming client IP addresses
-const verifyClientIp = (req: express.Request): { allowed: boolean; ip: string; isBypassed: boolean } => {
-  const forwardedFor = req.headers['x-forwarded-for'];
-  const clientIp = typeof forwardedFor === 'string'
-    ? forwardedFor.split(',')[0].trim()
-    : (req.headers['x-real-ip'] as string) || req.socket.remoteAddress || '';
-
-  let cleanedIp = clientIp.trim();
-  if (cleanedIp === '::1') {
-    cleanedIp = '127.0.0.1';
-  } else if (cleanedIp.startsWith('::ffff:')) {
-    cleanedIp = cleanedIp.replace('::ffff:', '');
-  }
-
-  const envAllowedIps = process.env.ALLOWED_IPS
-    ? process.env.ALLOWED_IPS.split(',').map(ip => ip.trim()).filter(Boolean)
-    : ['223.236.122.154', '103.240.204.183'];
-
-  const devIps = ['127.0.0.1', 'localhost'];
-
-  // Smart Development Bypass (active in development environment so coding remains uninterrupted)
-  const isDevBypass = process.env.NODE_ENV !== 'production' || !process.env.VERCEL;
-
-  const isAllowed = envAllowedIps.includes(cleanedIp) || devIps.includes(cleanedIp) || isDevBypass;
-
-  return { allowed: isAllowed, ip: cleanedIp, isBypassed: isDevBypass && !envAllowedIps.includes(cleanedIp) && !devIps.includes(cleanedIp) };
-};
-
 // Create Express instance at top-level
 const app = express();
 app.set('trust proxy', true);
@@ -150,25 +122,6 @@ const PORT = 3000;
 app.use(express.json());
 app.use(cors());
 
-// Two-Layer Enforcement Middleware: Block any other API path unless IP is allowed
-app.use('/api', (req, res, next) => {
-  // Allow health check and checking IP itself
-  if (req.path === '/health' || req.path === '/verify-ip' || req.path === '/check-ip') {
-    return next();
-  }
-
-  const { allowed, ip } = verifyClientIp(req);
-  if (!allowed) {
-    console.warn(`[IP Gatekeeper Blocked Request] Path "${req.path}" blocked from IP: "${ip}"`);
-    return res.status(403).json({
-      allowed: false,
-      ip,
-      error: 'Access Denied: Network address restricted by security policies.'
-    });
-  }
-  next();
-});
-
 // Configure synchronous API route handlers (instantly resolvable inside Vercel Serverless environment)
 app.get('/api/health', (req, res) => {
   res.json({ 
@@ -176,26 +129,6 @@ app.get('/api/health', (req, res) => {
     env: process.env.NODE_ENV, 
     vercel: !!process.env.VERCEL,
     allowedIpsConfigured: !!process.env.ALLOWED_IPS
-  });
-});
-
-app.get('/api/verify-ip', (req, res) => {
-  const { allowed, ip, isBypassed } = verifyClientIp(req);
-  console.log(`[IP Gatekeeper] Verify IP request: "${ip}" | Authorized: ${allowed} | DevBypass: ${isBypassed}`);
-  
-  return res.status(allowed ? 200 : 403).json({
-    allowed,
-    ip,
-    bypassed: isBypassed
-  });
-});
-
-app.get('/api/check-ip', (req, res) => {
-  const { allowed, ip, isBypassed } = verifyClientIp(req);
-  return res.status(allowed ? 200 : 403).json({
-    allowed,
-    ip,
-    bypassed: isBypassed
   });
 });
 
