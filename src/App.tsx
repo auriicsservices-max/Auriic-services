@@ -37,27 +37,41 @@ export default function App() {
     ipAddress: '',
   });
 
-  const checkIpAccess = async () => {
+  const checkIpAccess = async (retryCount = 0): Promise<void> => {
     try {
-      const response = await fetch('/api/check-ip');
-      const data = await response.json();
+      const response = await fetch('/api/verify-ip');
       
-      if (response.ok && data.allowed) {
-        setIpState({
-          isLoading: false,
-          isAllowed: true,
-          ipAddress: data.ip || '',
-        });
-      } else {
-        setIpState({
-          isLoading: false,
-          isAllowed: false,
-          ipAddress: data.ip || 'Access Blocked',
-        });
+      const contentType = response.headers.get('content-type');
+      if (contentType && contentType.includes('application/json')) {
+        const data = await response.json();
+        
+        if (response.ok && data.allowed) {
+          setIpState({
+            isLoading: false,
+            isAllowed: true,
+            ipAddress: data.ip || '',
+          });
+          return;
+        } else {
+          setIpState({
+            isLoading: false,
+            isAllowed: false,
+            ipAddress: data.ip || 'Access Blocked',
+          });
+          return;
+        }
       }
+      
+      throw new Error(`Unexpected content type: ${contentType || 'none'}`);
     } catch (error) {
-      console.error('[App] IP Check Connection Error:', error);
-      // Fail closed for maximum security on any integration error
+      console.warn(`[App] IP check attempt ${retryCount + 1} failed:`, error);
+      if (retryCount < 3) {
+        // Wait 1200ms and try again
+        await new Promise((resolve) => setTimeout(resolve, 1200));
+        return checkIpAccess(retryCount + 1);
+      }
+      
+      // Fail closed for maximum security on consecutive integration errors
       setIpState({
         isLoading: false,
         isAllowed: false,
@@ -85,7 +99,7 @@ export default function App() {
           </h2>
           <div className="flex items-center justify-center gap-2 text-xs font-mono text-slate-400 dark:text-slate-500">
             <span className="h-1.5 w-1.5 rounded-full bg-indigo-600 animate-ping"></span>
-            <span>Verifying Network Credentials...</span>
+            <span>Running security verification...</span>
           </div>
         </div>
       </div>
