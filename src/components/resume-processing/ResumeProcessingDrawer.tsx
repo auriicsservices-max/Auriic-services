@@ -1,7 +1,7 @@
 import React from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { X, Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
-import { useResumeProcessing } from '../contexts/ResumeProcessingContext';
+import { useResumeProcessing } from '../../contexts/ResumeProcessingContext';
 
 interface Props {
   isOpen: boolean;

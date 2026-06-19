@@ -6,6 +6,7 @@ import multer from 'multer';
 import fs from 'fs';
 import AdmZip from 'adm-zip';
 import cron from 'node-cron';
+import cors from 'cors';
 import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
 import { initializeApp, getApps } from 'firebase-admin/app';
 import * as admin from 'firebase-admin';
@@ -102,45 +103,6 @@ async function startServer() {
   // app.set('trust proxy', true);
   // const PORT = 3000;
   
-  // // Access Control Middleware
-  // app.use(async (req, res, next) => {
-  //   const forwardedFor = req.headers['x-forwarded-for'];
-  //   const clientIp = typeof forwardedFor === 'string' ? forwardedFor.split(',')[0].trim() : req.socket.remoteAddress;
-  //
-  //   const allowed = [process.env.ALLOWED_IPV4, process.env.ALLOWED_IPV6].filter(Boolean);
-  //   
-  //   let isAllowed = allowed.includes(clientIp || '');
-  //   
-  //   if (!isAllowed) {
-  //       // Check DB whitelist
-  //       try {
-  //           const ipDoc = await adminDb.collection('settings').doc('ip_whitelist').get();
-  //           if (ipDoc.exists) {
-  //               const dbIps = ipDoc.data()?.ips || [];
-  //               if(dbIps.includes(clientIp)) isAllowed = true;
-  //           }
-  //       } catch(e) { 
-  //           console.error("Non-blocking Error checking DB whitelist", e);
-  //           // Fail open if DB is unreachable to allow server to boot/work
-  //           isAllowed = true; 
-  //       }
-  //   }
-  //
-  //   if (!isAllowed) {
-  //       try {
-  //           await adminDb.collection('access_logs').add({
-  //               ip: clientIp,
-  //               url: req.url,
-  //               ua: req.headers['user-agent'],
-  //               timestamp: admin.firestore.FieldValue.serverTimestamp(),
-  //               status: 'blocked'
-  //           });
-  //       } catch(e) { console.error("Logging failed", e); }
-  //       
-  //       return res.status(403).sendFile(path.join(process.cwd(), 'public', 'access-restricted.html'));
-  //   }
-  //   next();
-  // });
 
   const app = express();
   app.set('trust proxy', true);
@@ -148,21 +110,45 @@ async function startServer() {
   
   // Use Middleware
   app.use(express.json());
-
-  // Basic CORS
-  app.use((req, res, next) => {
-    res.header('Access-Control-Allow-Origin', '*');
-    res.header('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.header('Access-Control-Allow-Headers', 'Origin, X-Requested-With, Content-Type, Accept, x-api-key');
-    if (req.method === 'OPTIONS') {
-      return res.sendStatus(200);
-    }
-    next();
-  });
+  app.use(cors());
 
   // API routes
   app.get('/api/health', (req, res) => {
     res.json({ status: 'ok', env: process.env.NODE_ENV });
+  });
+
+  app.get('/api/check-ip', (req, res) => {
+    // 1. Get client IP - support Vercel proxies, cloud load balancers and fallback to local socket remoteAddress
+    const forwardedFor = req.headers['x-forwarded-for'];
+    const clientIp = typeof forwardedFor === 'string'
+      ? forwardedFor.split(',')[0].trim()
+      : (req.headers['x-real-ip'] as string) || req.socket.remoteAddress || '';
+
+    // Clean IP for IPv6 local interface mapping or loopback
+    let cleanedIp = clientIp;
+    if (cleanedIp === '::1') {
+      cleanedIp = '127.0.0.1';
+    } else if (cleanedIp.startsWith('::ffff:')) {
+      cleanedIp = cleanedIp.replace('::ffff:', '');
+    }
+
+    // 2. Load allowed IPs from env. If not configured, fall back to user's desired IPs
+    const envAllowedIps = process.env.ALLOWED_IPS
+      ? process.env.ALLOWED_IPS.split(',').map(ip => ip.trim())
+      : ['223.236.122.154', '103.240.204.183'];
+
+    // Localhost IP address exceptions for stable local development & testing
+    const devIps = ['127.0.0.1', 'localhost'];
+
+    const isAllowed = envAllowedIps.includes(cleanedIp) || devIps.includes(cleanedIp);
+
+    console.log(`[IP Service] Detected client IP: "${clientIp}" (Cleaned: "${cleanedIp}") | Authorized: ${isAllowed}`);
+
+    if (isAllowed) {
+      return res.status(200).json({ allowed: true, ip: cleanedIp });
+    } else {
+      return res.status(403).json({ allowed: false, ip: cleanedIp, error: 'Access Denied: IP address not allowed.' });
+    }
   });
 
   const upload = multer({ 
@@ -171,7 +157,9 @@ async function startServer() {
   });
 
   app.post('/api/cv/parse-advanced', upload.single('file'), async (req, res) => {
+    console.log('[Server] POST /api/cv/parse-advanced received');
     if (!req.file) {
+      console.log('[Server] parse-advanced: No file uploaded');
       return res.status(400).json({ error: 'No file uploaded' });
     }
     
@@ -185,11 +173,12 @@ async function startServer() {
   });
 
   app.post('/api/cv/upload', upload.single('file'), async (req, res) => {
-    console.log('[Server] Upload Request:', req.file?.originalname);
+    console.log('[Server] POST /api/cv/upload received. File:', req.file?.originalname);
     try {
       const { name, email, phone } = req.body;
       
       if (!req.file) {
+        console.log('[Server] upload: No file uploaded');
         return res.status(400).json({ status: false, message: 'No file uploaded' });
       }
 
@@ -316,8 +305,14 @@ async function startServer() {
     });
   }
 
-  app.listen(PORT, '0.0.0.0', () => {
+  const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`[Server] AURRUM Ready at http://localhost:${PORT}`);
+  });
+
+  process.on('SIGTERM', () => {
+    server.close(() => {
+        console.log('Process terminated');
+    });
   });
 }
 

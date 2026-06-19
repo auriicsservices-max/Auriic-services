@@ -2,7 +2,7 @@ import React, { useCallback } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, FileText, CheckCircle2, AlertCircle } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
-import { useResumeProcessing } from '../contexts/ResumeProcessingContext';
+import { useResumeProcessing } from '../../contexts/ResumeProcessingContext';
 
 export const ResumeUpload = () => {
     const { addJob } = useResumeProcessing();
