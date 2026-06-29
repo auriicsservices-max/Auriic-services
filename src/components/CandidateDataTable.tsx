@@ -11,14 +11,14 @@ interface Props {
 export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
   const [candidates, setCandidates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [lastVisible, setLastVisible] = useState<QueryDocumentSnapshot<DocumentData> | null>(null);
+  const [snapshots, setSnapshots] = useState<QueryDocumentSnapshot<DocumentData>[]>([]); // Store snapshots for pagination
   const [page, setPage] = useState(1);
-  const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
 
   const unsubRef = React.useRef<() => void>();
   
-  const fetchCandidates = async (isNext: boolean = false) => {
+  const fetchCandidates = async (direction: 'next' | 'prev' | 'first' = 'first') => {
     if (unsubRef.current) unsubRef.current();
     
     setLoading(true);
@@ -31,25 +31,44 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
       const countSnapshot = await getCountFromServer(countQuery);
       setTotalCount(countSnapshot.data().count);
 
-      const q = query(
+      let q = query(
         collection(db, 'candidates'), 
         where('isArchived', '==', false),
         ...filterQuery,
         orderBy('createdAt', 'desc'),
-        limit(rowsPerPage),
-        ...(isNext && lastVisible ? [startAfter(lastVisible)] : [])
+        limit(rowsPerPage)
       );
+
+      if (direction === 'next' && snapshots.length > 0) {
+        q = query(q, startAfter(snapshots[snapshots.length - 1]));
+      } else if (direction === 'prev' && snapshots.length > 1) {
+        // To go back, we need to fetch the page BEFORE the previous one, and then limit to rowsPerPage.
+        // This is complex. For now, let's pop the last snapshot and fetch again from the one before that.
+        const newSnapshots = [...snapshots];
+        newSnapshots.pop(); // Remove current page's snapshot
+        newSnapshots.pop(); // Remove previous page's snapshot (we want to start *before* this one)
+        
+        if (newSnapshots.length > 0) {
+          q = query(q, startAfter(newSnapshots[newSnapshots.length - 1]));
+        }
+        setSnapshots(newSnapshots);
+      }
       
       unsubRef.current = onSnapshot(q, async (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setCandidates(data);
-        setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+        if (direction === 'first') {
+            setSnapshots([snapshot.docs[snapshot.docs.length - 1]]);
+        } else if (direction === 'next') {
+            setSnapshots(prev => [...prev, snapshot.docs[snapshot.docs.length - 1]]);
+        } else if (direction === 'prev') {
+            setSnapshots(prev => {
+                const newSnaps = [...prev];
+                newSnaps.pop();
+                return [...newSnaps, snapshot.docs[snapshot.docs.length - 1]];
+            });
+        }
         setLoading(false);
-        
-        // Fetch total count for all users reactively
-        const countQuery = query(collection(db, 'candidates'), where('isArchived', '==', false), ...filterQuery);
-        const countSnapshot = await getCountFromServer(countQuery);
-        setTotalCount(countSnapshot.data().count);
       });
     } catch (err) {
       console.error("Error fetching candidates:", err);
@@ -58,10 +77,8 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
   };
 
   useEffect(() => {
-    fetchCandidates();
-    return () => {
-        if (unsubRef.current) unsubRef.current();
-    };
+    setPage(1);
+    fetchCandidates('first');
   }, [rowsPerPage]);
 
   return (
@@ -95,10 +112,18 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
       )}
       
       <div className="p-4 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center text-sm text-slate-600 dark:text-slate-400">
-        <span>Showing {candidates.length} of {totalCount} candidates (Page {page})</span>
-        <div className="flex gap-2">
-            <button className="p-2 border rounded hover:bg-slate-100 disabled:opacity-50" onClick={() => { setPage(p => Math.max(1, p - 1)); fetchCandidates(); }} disabled={page === 1}>Previous</button>
-            <button className="p-2 border rounded hover:bg-slate-100" onClick={() => { setPage(p => p + 1); fetchCandidates(true); }}>Next</button>
+        <div>
+          Showing {Math.min((page - 1) * rowsPerPage + 1, totalCount)}–{Math.min(page * rowsPerPage, totalCount)} of {totalCount} candidates
+        </div>
+        <div className="flex items-center gap-4">
+            <select value={rowsPerPage} onChange={(e) => setRowsPerPage(Number(e.target.value))} className="border rounded p-1 dark:bg-slate-800">
+                {[20, 50, 100, 200].map(v => <option key={v} value={v}>{v} rows</option>)}
+            </select>
+            <div className="flex gap-2">
+                <button className="p-2 border rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50" onClick={() => { setPage(1); fetchCandidates('first'); }} disabled={page === 1}>First</button>
+                <button className="p-2 border rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50" onClick={() => { setPage(p => Math.max(1, p - 1)); fetchCandidates('prev'); }} disabled={page === 1}>Previous</button>
+                <button className="p-2 border rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50" onClick={() => { setPage(p => p + 1); fetchCandidates('next'); }} disabled={page * rowsPerPage >= totalCount}>Next</button>
+            </div>
         </div>
       </div>
     </div>

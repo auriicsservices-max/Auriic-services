@@ -129,6 +129,8 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'security'>('home');
   const [bulkLimit, setBulkLimit] = useState<number>(20);
   const [fileSizeLimit, setFileSizeLimit] = useState<number>(5);
+  const [searchPage, setSearchPage] = useState(1);
+  const [searchRowsPerPage, setSearchRowsPerPage] = useState(20);
   const [notificationMessage, setNotificationMessage] = useState<any>(null);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
 
@@ -1816,7 +1818,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                       </tr>
                     </thead>
                     <tbody className="text-sm text-[var(--text-secondary)] divide-y divide-[var(--border-color)] transition-colors duration-300">
-                      {filteredCandidates.map((candidate) => {
+                      {filteredCandidates.slice((searchPage - 1) * searchRowsPerPage, searchPage * searchRowsPerPage).map((candidate) => {
                         const isFollowUpDue = candidate.followUpDate && new Date(candidate.followUpDate).toISOString().split('T')[0] <= new Date().toISOString().split('T')[0];
                         
                         return (
@@ -1935,6 +1937,21 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                       )}
                     </tbody>
                   </table>
+                </div>
+                <div className="p-4 border-t border-[var(--border-color)] flex justify-between items-center text-sm text-[var(--text-secondary)]">
+                  <div>
+                    Showing {Math.min((searchPage - 1) * searchRowsPerPage + 1, filteredCandidates.length)}–{Math.min(searchPage * searchRowsPerPage, filteredCandidates.length)} of {filteredCandidates.length} candidates
+                  </div>
+                  <div className="flex items-center gap-4">
+                    <select value={searchRowsPerPage} onChange={(e) => { setSearchRowsPerPage(Number(e.target.value)); setSearchPage(1); }} className="border rounded p-1 bg-[var(--sidebar-bg)] border-[var(--border-color)]">
+                      {[20, 50, 100, 200].map(v => <option key={v} value={v}>{v} rows</option>)}
+                    </select>
+                    <div className="flex gap-2">
+                      <button className="p-2 border rounded hover:bg-[var(--sidebar-bg)] disabled:opacity-50" onClick={() => setSearchPage(1)} disabled={searchPage === 1}>First</button>
+                      <button className="p-2 border rounded hover:bg-[var(--sidebar-bg)] disabled:opacity-50" onClick={() => setSearchPage(p => Math.max(1, p - 1))} disabled={searchPage === 1}>Previous</button>
+                      <button className="p-2 border rounded hover:bg-[var(--sidebar-bg)] disabled:opacity-50" onClick={() => setSearchPage(p => p + 1)} disabled={searchPage * searchRowsPerPage >= filteredCandidates.length}>Next</button>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
