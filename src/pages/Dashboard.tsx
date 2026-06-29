@@ -10,6 +10,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import UserManagement from '../components/UserManagement';
 import DashboardHome from './DashboardHome';
 import CandidateModal from '../components/CandidateModal';
+import ProcessingWidget from '../components/resume-processing/ProcessingWidget';
 import Analytics from '../components/Analytics';
 import ThemeToggle from '../components/ThemeToggle';
 import UserProfile from '../components/UserProfile';
@@ -19,7 +20,6 @@ import ActivityLogList from '../components/ActivityLogList';
 import ConfirmModal from '../components/ConfirmModal';
 
 import SystemSettings from '../components/SystemSettings';
-import TimezoneWidget from '../components/TimezoneWidget';
 import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
 import { resumeParser } from '../services/resumeParserService';
@@ -237,6 +237,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     });
   };
 
+  const processingJobs = useMemo(() => {
+    return Object.entries(parsingStatus).map(([filename, data]) => ({
+        id: filename,
+        filename,
+        progress: data.progress,
+        currentStep: data.status,
+    }));
+  }, [parsingStatus]);
+
   useEffect(() => {
     if (uploadStatus !== 'idle') {
       const timer = setTimeout(() => {
@@ -273,18 +282,12 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         collection(db, 'candidates'), 
         where('isArchived', '==', false),
         ...(role !== 'admin' && role !== 'team_leader' && role !== 'developer' ? [where('uploadedBy', '==', user?.uid)] : []),
-        orderBy('createdAt', 'desc'),
-        limit(200)
+        orderBy('createdAt', 'desc')
       );
       unsubCandidates = onSnapshot(q, (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-            if (change.type === 'removed') {
-                candidateMapRef.current.delete(change.doc.id);
-            } else {
-                candidateMapRef.current.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
-            }
-        });
-        syncCandidates();
+        const candidatesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        console.log("[Dashboard] Snapshot updated, candidates count:", candidatesData.length);
+        setCandidates(candidatesData);
 
       }, (err: any) => {
         handleFirestoreError(err, 'get', 'candidates');
@@ -296,18 +299,20 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             collection(db, 'candidates'), 
             where('isArchived', '==', false),
             where('assignedTo', '==', user?.uid),
-            orderBy('createdAt', 'desc'),
-            limit(200)
+            orderBy('createdAt', 'desc')
         );
         unsubAssigned = onSnapshot(qAssigned, (snapshot) => {
-          snapshot.docChanges().forEach((change) => {
-             if (change.type === 'removed') {
-                candidateMapRef.current.delete(change.doc.id);
-             } else {
-                candidateMapRef.current.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
-             }
+          const assignedCandidates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+          // Merge with main candidates to ensure full view
+          setCandidates(prev => {
+             const map = new Map(prev.map(c => [c.id, c]));
+             assignedCandidates.forEach(c => map.set(c.id, c));
+             return Array.from(map.values()).sort((a, b) => {
+                 const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
+                 const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
+                 return dateB - dateA;
+             });
           });
-          syncCandidates();
         });
       }
 
@@ -315,18 +320,21 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       const qTrash = query(
         collection(db, 'candidates'), 
         where('isArchived', '==', true),
-        orderBy('createdAt', 'desc'),
-        limit(100)
+        orderBy('createdAt', 'desc')
       );
       unsubTrash = onSnapshot(qTrash, (snapshot) => {
-        snapshot.docChanges().forEach((change) => {
-            if (change.type === 'removed') {
-                candidateMapRef.current.delete(change.doc.id);
-            } else {
-                candidateMapRef.current.set(change.doc.id, { id: change.doc.id, ...change.doc.data() });
-            }
+        const trashedCandidates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        // Note: For simplicity and since trashed candidates don't affect total count in DashboardHome, 
+        // we might not need to merge them into 'candidates' state if they are kept separate.
+        // Assuming current logic wants them in 'candidates' state:
+        setCandidates(prev => {
+            const activeOnly = prev.filter(c => !c.isArchived);
+            return [...activeOnly, ...trashedCandidates].sort((a, b) => {
+                const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
+                const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
+                return dateB - dateA;
+            });
         });
-        syncCandidates();
       }, (err: any) => {
         console.error("Trash listener error:", err);
       });
@@ -462,23 +470,31 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     // Track emails in this batch to prevent duplicates if Firebase hasn't updated yet
     const addedEmailsInBatch = new Set<string>();
     
-    let currentDone = 0;
-    for (const file of acceptedFiles) {
+    // Process files in parallel to improve performance
+    await Promise.all(acceptedFiles.map(async (file) => {
       if (file.size > 1 * 1024 * 1024) {
         setDuplicateNotification({
           isOpen: true,
           message: `File rejected: ${file.name} is larger than 1MB. Please upload a smaller file.`
         });
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
-        continue;
+        return;
       }
       try {
-        setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'parsing', progress: 0 } }));
+        // Progress: 0-10% -> Uploading File
+        setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'Uploading File', progress: 10 } }));
         
         // Use Enhanced CV Parsing Service
+        // Progress: 20-40% -> Extracting PDF Text (handled by service)
         const { parsed, text } = await resumeParser.parse(file, (progress) => {
-            setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'parsing', progress } }));
+            setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'Extracting PDF Text', progress: 20 + (progress * 0.2) } }));
         });
+        
+                // Progress: 40-60% -> Detecting candidate information
+        setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'Detecting Candidate Information', progress: 50 } }));
+        
+        // Progress: 60-80% -> AI Analysis Running (post-extraction)
+        setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'AI Analysis Running', progress: 70 } }));
         
         // Ensure parsed object exists
         if (!parsed) throw new Error("Parser returned empty data");
@@ -491,12 +507,16 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         parsed.contact.linkedin = (parsed.contact.linkedin || '').trim();
 
         // CHECK FOR DUPLICATES
+        // Note: This check uses the latest candidates state, but might have race conditions
+        // if multiple uploads are processed in parallel.
         const isDuplicateInState = candidates.find(c => 
           (c.email && c.email === parsed.contact.email) ||
           (c.phone && c.phone === parsed.contact.phone) ||
           (c.linkedin && c.linkedin === parsed.contact.linkedin) ||
           (c.fullName && c.fullName === candidateFullName && c.company === parsed.company)
         );
+        
+        // Check duplicate within the batch
         const isDuplicateInBatch = addedEmailsInBatch.has(parsed.contact.email);
         
         if (isDuplicateInState || isDuplicateInBatch) {
@@ -511,7 +531,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           });
           setUploadStatus('duplicate');
           setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
-          continue;
+          return;
         }
 
         // Add to batch tracking
@@ -577,7 +597,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           console.warn('API upload failed, sticking to local storage:', apiErr);
         }
         
-        // 4. Store meta in Firebase
+        // Progress: 80-95% -> Saving Candidate Data
+        setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'Saving Candidate Data', progress: 80 } }));
+        
         const normalizedExperience = parsed.experience?.map(exp => ({
           role: exp.title || '',
           company: exp.company || '',
@@ -595,18 +617,17 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           location: edu.location || ''
         })) || [];
 
-        // Flatten skills for UI compatibility
         const allSkills = Array.from(new Set([
-          ...parsed.skills.languages,
-          ...parsed.skills.frameworks,
-          ...parsed.skills.databases,
-          ...parsed.skills.tools,
-          ...parsed.skills.libraries,
-          ...parsed.skills.other
-        ])).filter(s => s.length > 0);
+          ...(parsed.skills.languages || []),
+          ...(parsed.skills.frameworks || []),
+          ...(parsed.skills.databases || []),
+          ...(parsed.skills.tools || []),
+          ...(parsed.skills.libraries || []),
+          ...(parsed.skills.other || [])
+        ])).filter(s => s && s.length > 0);
 
         const projectLinks = parsed.projects?.flatMap(p => p.links.map(l => ({ url: l, label: `Project: ${p.name}` }))) || [];
-
+        
         const newCandidateRef = await addDoc(collection(db, 'candidates'), {
           fullName: result.data?.name || parsed.name || file.name,
           cvBase64: cvBase64,
@@ -651,6 +672,18 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           uploadedBy: user?.uid,
           createdAt: new Date().toISOString()
         });
+
+        // Progress: 95-100% -> Background Indexing / Completed
+        setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'Completed', progress: 100 } }));
+        
+        // Cleanup status after delay
+        setTimeout(() => {
+          setParsingStatus(prev => {
+              const next = { ...prev };
+              delete next[file.name];
+              return next;
+          });
+        }, 3000);
         
         // Notify
         const message = formatNotificationMessage(
@@ -686,10 +719,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         showAlert('Upload Error', `Unable to process ${file.name}: ${err.message}`);
         setUploadStatus('error');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
-      } finally {
-        currentDone++;
       }
-    }
+    }));
+
     
     setTimeout(() => {
       setIsProcessing(false);
@@ -1136,10 +1168,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           </div>
         </div>
 
-        <div className="px-4 py-2">
-          <TimezoneWidget />
-        </div>
-
         <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
           {[
             { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
@@ -1275,6 +1303,12 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </span>
           </div>
           <div className="flex items-center gap-4">
+            {Object.keys(parsingStatus).length > 0 && (
+                <div className="flex items-center gap-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
+                  <Loader2 size={14} className="animate-spin" />
+                  Processing ({Object.keys(parsingStatus).length})
+                </div>
+            )}
             <NotificationBadge onClick={() => setShowNotifications(!showNotifications)} />
             
             {showNotifications && (
@@ -1315,12 +1349,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 Upload Complete
               </div>
             )}
-            {uploadStatus === 'success' && (
-              <div className="flex items-center gap-2 text-emerald-600 text-xs font-bold animate-in fade-in zoom-in-95">
-                <CheckCircle2 size={14} />
-                Upload Complete
-              </div>
-            )}
             {uploadStatus === 'duplicate' && (
               <div className="flex items-center gap-2 text-amber-600 text-xs font-bold animate-in fade-in zoom-in-95 bg-amber-50 px-3 py-1 rounded-full border border-amber-100">
                 <AlertCircle size={14} />
@@ -1339,12 +1367,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 Upload Failed
               </div>
             )}
-            {isProcessing && (
-              <div className="flex items-center gap-2 text-indigo-600 text-xs font-semibold animate-pulse">
-                <Loader2 className="animate-spin" size={14} />
-                Parsing Resumes...
-              </div>
-            )}
             
             
             <button 
@@ -1358,6 +1380,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           </div>
         </header>
 
+        {Object.keys(parsingStatus).length > 0 && <ProcessingWidget jobs={processingJobs} />}
+
         <div className="p-8 flex-1 overflow-y-auto">
           {quotaExceeded ? (
             <div className="h-full flex items-center justify-center p-4">
@@ -1370,7 +1394,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           ) : activeTab === 'security' ? (
              <SecurityManagement />
           ) : activeTab === 'home' ? (
-            <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} fullTeamList={fullTeamList} />
+            <div className="flex flex-col gap-6">
+              <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} fullTeamList={fullTeamList} />
+            </div>
           ) : activeTab === 'repository' ? (
             <CVRepository candidates={activeCandidates} onSelect={setSelectedCandidate} />
           ) : activeTab === 'upload' ? (
