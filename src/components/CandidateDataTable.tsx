@@ -16,7 +16,11 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [totalCount, setTotalCount] = useState(0);
 
+  const unsubRef = React.useRef<() => void>();
+  
   const fetchCandidates = async (isNext: boolean = false) => {
+    if (unsubRef.current) unsubRef.current();
+    
     setLoading(true);
     try {
       // Fetch total count for all users
@@ -24,7 +28,7 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
       const countSnapshot = await getCountFromServer(countQuery);
       setTotalCount(countSnapshot.data().count);
 
-      let q = query(
+      const q = query(
         collection(db, 'candidates'), 
         where('isArchived', '==', false),
         orderBy('createdAt', 'desc'),
@@ -32,19 +36,23 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
         ...(isNext && lastVisible ? [startAfter(lastVisible)] : [])
       );
       
-      const snapshot = await getDocs(q);
-      const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCandidates(data);
-      setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+      unsubRef.current = onSnapshot(q, (snapshot) => {
+        const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+        setCandidates(data);
+        setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
+        setLoading(false);
+      });
     } catch (err) {
       console.error("Error fetching candidates:", err);
-    } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchCandidates();
+    return () => {
+        if (unsubRef.current) unsubRef.current();
+    };
   }, [rowsPerPage]);
 
   return (
