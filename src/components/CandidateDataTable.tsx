@@ -36,11 +36,16 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
         ...(isNext && lastVisible ? [startAfter(lastVisible)] : [])
       );
       
-      unsubRef.current = onSnapshot(q, (snapshot) => {
+      unsubRef.current = onSnapshot(q, async (snapshot) => {
         const data = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         setCandidates(data);
         setLastVisible(snapshot.docs[snapshot.docs.length - 1]);
         setLoading(false);
+        
+        // Fetch total count for all users reactively
+        const countQuery = query(collection(db, 'candidates'), where('isArchived', '==', false));
+        const countSnapshot = await getCountFromServer(countQuery);
+        setTotalCount(countSnapshot.data().count);
       });
     } catch (err) {
       console.error("Error fetching candidates:", err);
