@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { collection, query, orderBy, limit, startAfter, getDocs, where, QueryDocumentSnapshot, DocumentData, getCountFromServer } from 'firebase/firestore';
+import { collection, query, orderBy, limit, startAfter, getDocs, where, QueryDocumentSnapshot, DocumentData, getCountFromServer, onSnapshot } from 'firebase/firestore';
 import { ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react';
 
 interface Props {
@@ -22,15 +22,19 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
     if (unsubRef.current) unsubRef.current();
     
     setLoading(true);
+    const isPrivileged = ['admin', 'team_leader', 'developer'].includes(role);
+    const filterQuery = isPrivileged ? [] : [where('uploadedBy', '==', user?.uid)];
+
     try {
       // Fetch total count for all users
-      const countQuery = query(collection(db, 'candidates'), where('isArchived', '==', false));
+      const countQuery = query(collection(db, 'candidates'), where('isArchived', '==', false), ...filterQuery);
       const countSnapshot = await getCountFromServer(countQuery);
       setTotalCount(countSnapshot.data().count);
 
       const q = query(
         collection(db, 'candidates'), 
         where('isArchived', '==', false),
+        ...filterQuery,
         orderBy('createdAt', 'desc'),
         limit(rowsPerPage),
         ...(isNext && lastVisible ? [startAfter(lastVisible)] : [])
@@ -43,7 +47,7 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
         setLoading(false);
         
         // Fetch total count for all users reactively
-        const countQuery = query(collection(db, 'candidates'), where('isArchived', '==', false));
+        const countQuery = query(collection(db, 'candidates'), where('isArchived', '==', false), ...filterQuery);
         const countSnapshot = await getCountFromServer(countQuery);
         setTotalCount(countSnapshot.data().count);
       });

@@ -128,6 +128,7 @@ export default function Dashboard() {
   const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; }>({ isOpen: false, message: '' });
   const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'security'>('home');
   const [bulkLimit, setBulkLimit] = useState<number>(20);
+  const [fileSizeLimit, setFileSizeLimit] = useState<number>(5);
   const [notificationMessage, setNotificationMessage] = useState<any>(null);
   const [lastReadTimestamp, setLastReadTimestamp] = useState<number>(0);
 
@@ -180,6 +181,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setBulkLimit(docSnap.data().bulkUploadLimit || 20);
+          setFileSizeLimit(docSnap.data().fileSizeLimit || 5);
         }
       } catch (err) {
         console.warn("Could not fetch global settings, using default limit", err);
@@ -472,10 +474,10 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     
     // Process files in parallel to improve performance
     await Promise.all(acceptedFiles.map(async (file) => {
-      if (file.size > 1 * 1024 * 1024) {
+      if (file.size > fileSizeLimit * 1024 * 1024) {
         setDuplicateNotification({
           isOpen: true,
-          message: `File rejected: ${file.name} is larger than 1MB. Please upload a smaller file.`
+          message: `File rejected: ${file.name} is larger than ${fileSizeLimit}MB. Please upload a smaller file.`
         });
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
         return;

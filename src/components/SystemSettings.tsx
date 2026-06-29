@@ -1,12 +1,14 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { doc, getDoc, setDoc } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getCountFromServer } from 'firebase/firestore';
 import { Save, Shield, Settings, Info, AlertTriangle, Lock, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function SystemSettings() {
   const { role } = useAuth();
   const [limit, setLimit] = useState<number>(20);
+  const [fileSizeLimit, setFileSizeLimit] = useState<number>(5);
+  const [totalCvCount, setTotalCvCount] = useState<number>(0);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
@@ -19,7 +21,12 @@ export default function SystemSettings() {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setLimit(docSnap.data().bulkUploadLimit || 20);
+          setFileSizeLimit(docSnap.data().fileSizeLimit || 5);
         }
+
+        const countQuery = query(collection(db, 'candidates'), where('isArchived', '==', false));
+        const countSnapshot = await getCountFromServer(countQuery);
+        setTotalCvCount(countSnapshot.data().count);
       } catch (err: any) {
         console.error("Error fetching settings:", err);
         const errMsg = err instanceof Error ? err.message : String(err);
@@ -37,12 +44,12 @@ export default function SystemSettings() {
     try {
       await setDoc(doc(db, 'settings', 'global'), {
         bulkUploadLimit: limit,
+        fileSizeLimit: fileSizeLimit,
         updatedAt: new Date().toISOString()
       }, { merge: true });
       setMessage({ type: 'success', text: 'Settings updated successfully!' });
     } catch (err: any) {
       console.error("Error saving settings:", err);
-      // Format error to show it in the UI if we get missing permissions
       const errMsg = err instanceof Error ? err.message : String(err);
       setMessage({ type: 'error', text: `Failed to update settings: ${errMsg}` });
     } finally {
@@ -74,6 +81,15 @@ export default function SystemSettings() {
         )}
 
         <div className={`space-y-8 ${!isAdmin ? 'opacity-50 pointer-events-none' : ''}`}>
+          {/* Total CV Count */}
+          <div className="bg-indigo-50 dark:bg-indigo-900/20 p-6 rounded-2xl border border-indigo-100 dark:border-indigo-800/50 flex items-center justify-between">
+            <div>
+                <h4 className="font-bold text-indigo-900 dark:text-indigo-200">Total CVs Uploaded</h4>
+                <p className="text-xs text-indigo-700 dark:text-indigo-300">Total number of candidates currently in the system.</p>
+            </div>
+            <div className="text-3xl font-black text-indigo-600 dark:text-indigo-400">{totalCvCount}</div>
+          </div>
+
           {/* Upload Restriction Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
             <div className="space-y-2">
@@ -81,7 +97,7 @@ export default function SystemSettings() {
                 <Settings size={18} className="text-indigo-500" /> Bulk Upload Limit
               </h3>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                Set the maximum number of CVs a recruiter can upload in a single batch. This helps prevent system strain and maintains data quality.
+                Set the maximum number of CVs a recruiter can upload in a single batch.
               </p>
             </div>
             <div className="bg-slate-50 dark:bg-slate-900/30 p-6 rounded-2xl border border-dashed border-[var(--border-color)] flex flex-col justify-center">
@@ -94,9 +110,6 @@ export default function SystemSettings() {
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase text-[var(--text-muted)]">Files</span>
               </div>
-              <p className="mt-4 text-[10px] text-center font-bold text-amber-500 uppercase tracking-widest flex items-center justify-center gap-1">
-                <AlertTriangle size={10} /> Recruiter restriction active
-              </p>
             </div>
           </div>
 
@@ -107,22 +120,19 @@ export default function SystemSettings() {
                 <Settings size={18} className="text-indigo-500" /> Resume File Size Cap
               </h3>
               <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
-                Applies strict size verification. If a recruiter drops/uploads a candidate's CV file larger than this limit (1MB), an explicit alert message will be displayed instantly.
+                Applies strict size verification. If a recruiter drops/uploads a candidate's CV file larger than this limit (MB).
               </p>
             </div>
             <div className="bg-slate-50 dark:bg-slate-900/30 p-6 rounded-2xl border border-dashed border-[var(--border-color)] flex flex-col justify-center">
               <div className="relative">
                 <input
-                  type="text"
-                  value="1 MB"
-                  disabled
-                  className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] opacity-75 rounded-xl px-4 py-3 text-lg font-black text-indigo-600 focus:outline-none transition-all text-center cursor-not-allowed"
+                  type="number"
+                  value={fileSizeLimit}
+                  onChange={(e) => setFileSizeLimit(Math.max(1, parseInt(e.target.value) || 1))}
+                  className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl px-4 py-3 text-lg font-black text-indigo-600 focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all text-center"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase text-[var(--text-muted)]">Max</span>
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase text-[var(--text-muted)]">MB</span>
               </div>
-              <p className="mt-4 text-[10px] text-center font-bold text-emerald-500 uppercase tracking-widest flex items-center justify-center gap-1">
-                <CheckCircle2 size={10} /> Protection Active
-              </p>
             </div>
           </div>
 
