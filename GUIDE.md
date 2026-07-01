@@ -1,6 +1,10 @@
 # Talent Insights: CV Analytics & Talent Management Dashboard
 
-## 🚀 Latest Updates (June 2026)
+## 🚀 Latest Updates (June/July 2026)
+- **Advanced Header & Footer Table Pagination:** Upgraded the candidate database table to feature a streamlined, dual-section (header & footer) pagination interface. Users can dynamically select rows-per-page (20, 50, 100, 200), jump directly to the first page, and transition forward or backward through candidate lists smoothly.
+- **Detailed Upload Timestamps:** Upgraded the "Uploaded" candidate column to show exact local dates and times of resume parsing and upload.
+- **Personalized Action Notifications:** Rebuilt the notification engine to replace standard "System" messages with rich action metadata attributed directly to the initiating user's name and role (e.g., `Hina Thakkar (Recruiter)`).
+- **Comprehensive Timeline Activity Logs:** Built an exhaustive activity log tracking module complete with filter search (Users, Modules, Actions) and standard details. Logs comprehensively capture triggering user details, status metrics (Success, Failed, Warning), purpose parameters, IP addresses, browser/device information, and before/after value states for edits.
 - **IP Whitelisting & Access Restriction:** Implemented robust IP-based restriction to ensure the platform is accessible only from specified network locations. Added an `Access Restricted` page for unauthorized requests.
 - **Server Stability Improvements:** Enhanced server lifecycle management in Cloud Run by implementing graceful `SIGTERM` handling, ensuring stable service shutdowns during container redeployments.
 

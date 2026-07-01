@@ -10,7 +10,7 @@ import { UserPlus, Shield, User as UserIcon, Trash2, Mail, Lock, Loader2, Rotate
 import ConfirmModal from './ConfirmModal';
 
 export default function UserManagement() {
-  const { user, role } = useAuth();
+  const { user, role, getUserDisplayName, getUserRole } = useAuth();
   const [users, setUsers] = useState<any[]>([]);
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -81,9 +81,9 @@ export default function UserManagement() {
       });
 
       await logActivity(
-        user!.displayName || user!.email || 'Admin',
+        getUserDisplayName(),
         user!.uid,
-        role!,
+        getUserRole(),
         'Create User',
         newEmail,
         null,
@@ -118,9 +118,9 @@ export default function UserManagement() {
     try {
       await updateDoc(doc(db, 'users', userId), { role: nextRole });
       await logActivity(
-         user!.displayName || user!.email || 'Admin',
+         getUserDisplayName(),
          user!.uid,
-         role!,
+         getUserRole(),
          'Update Role',
          userId,
          null,

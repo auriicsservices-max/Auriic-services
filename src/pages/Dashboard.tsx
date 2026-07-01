@@ -213,7 +213,23 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     };
   }, [notificationRef]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setActiveTab('candidates');
+        setTimeout(() => {
+          const input = document.getElementById('search-input');
+          if (input) input.focus();
+        }, 150);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
+  const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [viewScope, setViewScope] = useState<'mine' | 'all'>('all');
   const [confirmConfig, setConfirmConfig] = useState<{
@@ -768,9 +784,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               id
           );
           await logActivity(
-              user?.displayName || 'System',
+              getUserDisplayName(),
               user?.uid || 'System',
-              role || 'User',
+              getUserRole(),
               action,
               candidate.fullName,
               null,
@@ -824,9 +840,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               id
           );
           await logActivity(
-              user?.displayName || 'System',
+              getUserDisplayName(),
               user?.uid || 'System',
-              role || 'User',
+              getUserRole(),
               "updated interview follow-up",
               candidate.fullName,
               null,
@@ -906,9 +922,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               id
           );
           await logActivity(
-              user?.displayName || 'System',
+              getUserDisplayName(),
               user?.uid || 'System',
-              role || 'User',
+              getUserRole(),
               "added feedback",
               candidate.fullName,
               null,
@@ -949,9 +965,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               id
           );
           await logActivity(
-              user?.displayName || 'System',
+              getUserDisplayName(),
               user?.uid || 'System',
-              role || 'User',
+              getUserRole(),
               "assigned candidate",
               candidate.fullName,
               teamMembers[userId] || 'Recruiter',
@@ -1149,97 +1165,160 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       {/* Sidebar */}
       <aside 
         id="sidebar-nav"
-        className={`w-64 bg-[var(--sidebar-bg)] border-r border-[var(--border-color)] flex flex-col transition-all duration-300 fixed inset-y-0 left-0 z-40 lg:static lg:translate-x-0 ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
+        className={`bg-[var(--sidebar-bg)] border-r border-[var(--border-color)] flex flex-col transition-all duration-300 fixed inset-y-0 left-0 z-40 lg:static lg:translate-x-0 ${isSidebarCollapsed ? 'lg:w-20 w-64' : 'w-64'} ${isSidebarOpen ? 'translate-x-0' : '-translate-x-full'}`}
       >
-        <div className="px-6 py-5 flex items-center justify-between border-b border-[var(--border-color)]">
+        <div className={`px-4 py-5 flex items-center justify-between border-b border-[var(--border-color)] ${isSidebarCollapsed ? 'lg:justify-center lg:px-2' : ''}`}>
           <div className="flex items-center gap-3">
-            <img 
-              src={theme === 'dark' ? "https://aurrum.co/wp-content/uploads/2026/05/Rectech-white-logo.svg" : "https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg"} 
-              alt="Rectech Logo" 
-              className="h-8 w-auto object-contain"
-            />
+            {!isSidebarCollapsed ? (
+              <img 
+                src={theme === 'dark' ? "https://aurrum.co/wp-content/uploads/2026/05/Rectech-white-logo.svg" : "https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg"} 
+                alt="Rectech Logo" 
+                className="h-8 w-auto object-contain transition-all"
+              />
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-indigo-600 flex items-center justify-center text-white font-black text-sm shadow-md">
+                R
+              </div>
+            )}
           </div>
-          <div className="flex items-center gap-2">
-            <ThemeToggle />
+          <div className="flex items-center gap-1">
+            {!isSidebarCollapsed && <ThemeToggle />}
             <button className="lg:hidden p-2 hover:bg-[var(--bg-secondary)] rounded-md transition-colors" onClick={() => setIsSidebarOpen(false)}>
               <X size={20} />
+            </button>
+            <button 
+              className="hidden lg:block p-1.5 hover:bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-md transition-colors" 
+              onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
+              title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
+            >
+              <ChevronRight className={`w-4 h-4 transform transition-transform ${isSidebarCollapsed ? '' : 'rotate-180'}`} />
             </button>
           </div>
         </div>
 
-        <nav className="flex-1 px-4 py-4 space-y-1 overflow-y-auto">
-          {[
-            { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
-            { id: 'candidates', label: 'Candidates', icon: Users },
-            { id: 'upload', label: 'CV Parsing', icon: Upload },
-            { id: 'shortlist', label: 'Shortlist', icon: Star },
-            { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
-            ...( (role === 'admin' || role === 'team_leader' || role === 'developer') ? [{ id: 'users', label: 'Team Hub', icon: Users }] : []),
-            ...( (role === 'developer') ? [{ id: 'backup', label: 'Backup & Export', icon: Download }] : []),
-            ...( (role === 'developer') ? [{ id: 'database', label: 'Database Details', icon: Database }] : []),
-            ...( (role === 'developer') ? [{ id: 'security', label: 'Security', icon: Shield }] : []),
-            { id: 'profile', label: 'My Profile', icon: UserCircle },
-            { id: 'settings', label: 'System Settings', icon: Settings },
-          ].map((item) => (
-            <button 
-              key={item.id}
-              id={`nav-${item.id}`}
-              onClick={() => { setActiveTab(item.id as any); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
-              className={`w-full flex items-center px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                activeTab === item.id 
-                  ? 'bg-[var(--accent-purple)]/10 text-[var(--accent-purple)]' 
-                  : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
-              }`}
-            >
-              <item.icon className={`w-4 h-4 mr-3 ${activeTab === item.id ? 'text-[var(--accent-purple)]' : 'text-[var(--text-muted)]'}`} />
-              {item.label}
-              </button>
-          ))}
-          
-          <div className="pt-4 mt-4 border-t border-[var(--border-color)]">
-              <span className="px-4 text-xs font-semibold text-[var(--text-muted)] uppercase tracking-wider">System</span>
-              {isPrivileged && (
+        <nav className="flex-1 px-3 py-4 space-y-6 overflow-y-auto custom-scrollbar">
+          {/* Workspace Group */}
+          <div>
+            {!isSidebarCollapsed && (
+              <p className="px-3 text-[10px] font-black uppercase text-[var(--text-muted)] tracking-[0.15em] mb-2">Workspace</p>
+            )}
+            <div className="space-y-0.5">
+              {[
+                { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
+                { id: 'candidates', label: 'Candidates', icon: Users },
+                { id: 'upload', label: 'CV Parsing', icon: Upload },
+                { id: 'shortlist', label: 'Shortlist', icon: Star },
+                { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
+                { id: 'repository', label: 'CV Repository', icon: FileText },
+              ].map((item) => (
                 <button 
-                  onClick={() => { setActiveTab('trash'); setIsSidebarOpen(false); }}
-                  className={`w-full flex items-center px-4 py-2.5 mt-2 rounded-lg text-sm font-medium transition-all ${
-                    activeTab === 'trash' 
-                      ? 'bg-red-50 text-red-600' 
-                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
+                  key={item.id}
+                  id={`nav-${item.id}`}
+                  onClick={() => { setActiveTab(item.id as any); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
+                  title={isSidebarCollapsed ? item.label : undefined}
+                  className={`w-full flex items-center ${isSidebarCollapsed ? 'lg:justify-center px-3' : 'px-3'} py-2 rounded-xl text-xs font-semibold transition-all ${
+                    activeTab === item.id 
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/10 dark:shadow-none' 
+                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]'
                   }`}
                 >
-                  <Trash2 className={`w-4 h-4 mr-3 ${activeTab === 'trash' ? 'text-red-500' : 'text-[var(--text-muted)]'}`} />
-                  Trash
+                  <item.icon className={`w-4 h-4 ${isSidebarCollapsed ? 'lg:mr-0' : 'mr-2.5'} shrink-0 ${activeTab === item.id ? 'text-white' : 'text-[var(--text-muted)]'}`} />
+                  {(!isSidebarCollapsed || (isSidebarCollapsed && window.innerWidth < 1024)) && <span>{item.label}</span>}
                 </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Administration Group */}
+          {((role === 'admin' || role === 'team_leader' || role === 'developer') || isPrivileged) && (
+            <div>
+              {!isSidebarCollapsed && (
+                <p className="px-3 text-[10px] font-black uppercase text-[var(--text-muted)] tracking-[0.15em] mb-2">Management</p>
               )}
-              <button 
-                id="nav-repository"
-                onClick={() => { setActiveTab('repository'); setIsSidebarOpen(false); }}
-                className={`w-full flex items-center px-4 py-2.5 mt-1 rounded-lg text-sm font-medium transition-all ${
-                  activeTab === 'repository' 
-                    ? 'bg-indigo-50 text-indigo-600' 
-                    : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)]'
-                }`}
-              >
-                <FileText className={`w-4 h-4 mr-3 ${activeTab === 'repository' ? 'text-indigo-600' : 'text-[var(--text-muted)]'}`} />
-                CV Repository
-              </button>
+              <div className="space-y-0.5">
+                {[
+                  ...((role === 'admin' || role === 'team_leader' || role === 'developer') ? [{ id: 'users', label: 'Team Hub', icon: Users }] : []),
+                  ...((role === 'developer') ? [{ id: 'backup', label: 'Backup & Export', icon: Download }] : []),
+                  ...((role === 'developer') ? [{ id: 'database', label: 'Database Details', icon: Database }] : []),
+                  ...((role === 'developer') ? [{ id: 'security', label: 'Security', icon: Shield }] : []),
+                  ...(isPrivileged ? [{ id: 'trash', label: 'Archive Trash', icon: Trash2 }] : []),
+                ].map((item) => (
+                  <button 
+                    key={item.id}
+                    id={`nav-${item.id}`}
+                    onClick={() => { setActiveTab(item.id as any); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
+                    title={isSidebarCollapsed ? item.label : undefined}
+                    className={`w-full flex items-center ${isSidebarCollapsed ? 'lg:justify-center px-3' : 'px-3'} py-2 rounded-xl text-xs font-semibold transition-all ${
+                      activeTab === item.id 
+                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/10 dark:shadow-none' 
+                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]'
+                    }`}
+                  >
+                    <item.icon className={`w-4 h-4 ${isSidebarCollapsed ? 'lg:mr-0' : 'mr-2.5'} shrink-0 ${activeTab === item.id ? 'text-white' : 'text-[var(--text-muted)]'}`} />
+                    {(!isSidebarCollapsed || (isSidebarCollapsed && window.innerWidth < 1024)) && <span>{item.label}</span>}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Preferences Group */}
+          <div>
+            {!isSidebarCollapsed && (
+              <p className="px-3 text-[10px] font-black uppercase text-[var(--text-muted)] tracking-[0.15em] mb-2">Preferences</p>
+            )}
+            <div className="space-y-0.5">
+              {[
+                { id: 'profile', label: 'My Profile', icon: UserCircle },
+                { id: 'settings', label: 'System Settings', icon: Settings },
+              ].map((item) => (
+                <button 
+                  key={item.id}
+                  id={`nav-${item.id}`}
+                  onClick={() => { setActiveTab(item.id as any); setIsSidebarOpen(false); setSelectedIds(new Set()); }}
+                  title={isSidebarCollapsed ? item.label : undefined}
+                  className={`w-full flex items-center ${isSidebarCollapsed ? 'lg:justify-center px-3' : 'px-3'} py-2 rounded-xl text-xs font-semibold transition-all ${
+                    activeTab === item.id 
+                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-500/10 dark:shadow-none' 
+                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)]'
+                  }`}
+                >
+                  <item.icon className={`w-4 h-4 ${isSidebarCollapsed ? 'lg:mr-0' : 'mr-2.5'} shrink-0 ${activeTab === item.id ? 'text-white' : 'text-[var(--text-muted)]'}`} />
+                  {(!isSidebarCollapsed || (isSidebarCollapsed && window.innerWidth < 1024)) && <span>{item.label}</span>}
+                </button>
+              ))}
+            </div>
           </div>
         </nav>
 
-        <div className="p-4 border-t border-[var(--border-color)]">
-          <div className="flex items-center gap-3 p-3 bg-[var(--bg-primary)] rounded-xl group transition-all shadow-sm border border-[var(--border-color)]">
-            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-xs uppercase shadow-sm relative">
+        <div className={`p-3 border-t border-[var(--border-color)] ${isSidebarCollapsed ? 'lg:flex lg:flex-col lg:items-center' : ''}`}>
+          <div className={`flex items-center gap-3 p-2.5 bg-[var(--bg-primary)] rounded-2xl group transition-all shadow-sm border border-[var(--border-color)] ${isSidebarCollapsed ? 'lg:justify-center lg:p-1 lg:border-none lg:bg-transparent lg:shadow-none' : ''}`}>
+            <div className="w-8 h-8 rounded-full bg-indigo-600 flex items-center justify-center text-white font-bold text-xs uppercase shadow-sm relative shrink-0">
               {user?.displayName?.slice(0, 2) || user?.email?.slice(0, 2)}
-              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-[var(--bg-primary)] rounded-full shadow-sm" />
+              <span className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 bg-emerald-500 border-2 border-[var(--bg-primary)] rounded-full shadow-sm animate-pulse" />
             </div>
-            <div className="overflow-hidden flex-1">
-              <p className="text-xs font-bold text-[var(--text-primary)] truncate">{user?.email}</p>
-              <p className="text-[10px] text-[var(--text-muted)] uppercase tracking-wider font-bold">{role || 'Recruiter'}</p>
-            </div>
-            <button onClick={handleLogout} className="text-[var(--text-muted)] hover:text-red-400 transition-colors">
-              <LogOut size={16} />
-            </button>
+            {!isSidebarCollapsed && (
+              <div className="overflow-hidden flex-1">
+                <p className="text-xs font-black text-[var(--text-primary)] truncate">{user?.displayName || user?.email?.split('@')[0]}</p>
+                <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-wider font-extrabold">{role || 'Recruiter'}</p>
+              </div>
+            )}
+            {!isSidebarCollapsed ? (
+              <button onClick={handleLogout} className="text-[var(--text-muted)] hover:text-red-500 transition-colors p-1 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-lg" title="Sign out">
+                <LogOut size={14} />
+              </button>
+            ) : (
+              <button onClick={handleLogout} className="hidden" />
+            )}
           </div>
+          {isSidebarCollapsed && (
+            <div className="hidden lg:flex lg:flex-col lg:items-center lg:gap-3 lg:mt-3">
+              <ThemeToggle />
+              <button onClick={handleLogout} className="text-[var(--text-muted)] hover:text-red-500 transition-colors p-2 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-full border border-[var(--border-color)]" title="Sign out">
+                <LogOut size={14} />
+              </button>
+            </div>
+          )}
         </div>
       </aside>
 
@@ -1290,17 +1369,40 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         )}
 
         <header className="h-16 bg-[var(--card-bg)] border-b border-[var(--border-color)] px-4 md:px-8 flex items-center justify-between shadow-sm z-10 shrink-0 transition-colors duration-300">
-          <div className="flex items-center gap-4 text-xs font-bold text-[var(--text-muted)] font-sans uppercase tracking-[0.2em]">
+          <div className="flex items-center gap-3 text-xs font-bold text-[var(--text-muted)] font-sans uppercase tracking-[0.2em]">
             <button className="lg:hidden p-2 text-[var(--text-secondary)]" onClick={() => setIsSidebarOpen(true)}>
               <Menu size={20} />
             </button>
-            <span className="hidden md:block cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" onClick={() => setActiveTab('candidates')}>Rectech CV Parsing Software</span>
+            <span className="hidden md:block cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" onClick={() => setActiveTab('candidates')}>Aurrum CRM</span>
             <ChevronRight className="hidden md:block w-3 h-3 text-[var(--text-muted)]" />
             <span className="text-[var(--text-primary)] italic font-serif normal-case text-base tracking-normal">
               {activeTab === 'candidates' ? 'Candidates Database' : activeTab === 'activity_logs' ? 'Activity Log' : activeTab === 'analytics' ? 'Talent Insights' : activeTab === 'trash' ? 'Archive' : activeTab === 'users' ? 'Team Hub' : activeTab === 'repository' ? 'CV Repository' : activeTab === 'upload' ? 'CV Parsing' : 'Dashboard Home'}
             </span>
           </div>
           <div className="flex items-center gap-4">
+            {/* Quick search input indicator */}
+            <div 
+              onClick={() => {
+                setActiveTab('candidates');
+                setTimeout(() => {
+                  const searchEl = document.getElementById('search-input');
+                  if (searchEl) searchEl.focus();
+                }, 150);
+              }}
+              className="hidden md:flex items-center gap-2 bg-[var(--bg-secondary)] border border-[var(--border-color)] px-3 py-1.5 rounded-xl text-[10px] font-bold text-[var(--text-muted)] cursor-pointer hover:bg-[var(--border-color)]/20 transition-all uppercase tracking-wider"
+              title="Press ⌘K to search anywhere"
+            >
+              <Search size={12} className="text-indigo-500" />
+              <span>Search index...</span>
+              <kbd className="bg-[var(--card-bg)] border border-[var(--border-color)] px-1.5 py-0.5 rounded text-[9px] font-mono shadow-sm normal-case">⌘K</kbd>
+            </div>
+
+            {/* Timezone Indicator */}
+            <div className="hidden lg:flex items-center gap-1.5 text-[10px] text-[var(--text-muted)] font-bold uppercase tracking-widest bg-[var(--bg-secondary)] px-3 py-1.5 rounded-xl border border-[var(--border-color)]">
+              <Clock size={12} className="text-indigo-500 shrink-0" />
+              <span>{timezone}</span>
+            </div>
+
             {Object.keys(parsingStatus).length > 0 && (
                 <div className="flex items-center gap-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 px-3 py-1 rounded-full text-xs font-bold uppercase tracking-wider">
                   <Loader2 size={14} className="animate-spin" />

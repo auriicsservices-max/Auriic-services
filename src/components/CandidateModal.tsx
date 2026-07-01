@@ -37,7 +37,7 @@ interface CandidateModalProps {
 }
 
 export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp, onCompleteFollowUp, onUpdateNotes, onUpdateAssignee, onContact, teamMembers }: CandidateModalProps) {
-  const { user, role, isPrivileged } = useAuth();
+  const { user, role, isPrivileged, getUserDisplayName, getUserRole } = useAuth();
   const { formatDate } = useTimezone();
   const [followUpNote, setFollowUpNote] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
@@ -74,9 +74,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       candidate.locationInfo = updatedLocationInfo;
 
       await logActivity(
-        user!.displayName || user!.email || 'Admin',
+        getUserDisplayName(),
         user!.uid,
-        role!,
+        getUserRole(),
         'Location Updated',
         candidate.fullName || 'Candidate',
         null,
@@ -308,9 +308,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     const newStatus = !candidate.isShortlisted;
     await onShortlist(candidate.id, candidate.isShortlisted);
     await logActivity(
-      user!.displayName || user!.email || 'Admin',
+      getUserDisplayName(),
       user!.uid,
-      role!,
+      getUserRole(),
       'Shortlist Toggle',
       candidate.fullName || 'Candidate',
       null,
@@ -333,9 +333,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     setIsSaving(true);
     await onUpdateFollowUp(candidate.id, followUpNote, followUpDate);
     await logActivity(
-      user!.displayName || user!.email || 'Admin',
+      getUserDisplayName(),
       user!.uid,
-      role!,
+      getUserRole(),
       'Follow-up Update',
       candidate.fullName || 'Candidate',
       null,
@@ -350,9 +350,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     setIsSavingNotes(true);
     await onUpdateNotes(candidate.id, generalNotes);
     await logActivity(
-      user!.displayName || user!.email || 'Admin',
+      getUserDisplayName(),
       user!.uid,
-      role!,
+      getUserRole(),
       'Notes Update',
       candidate.fullName || 'Candidate',
       null,
@@ -377,9 +377,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       
       const activityAction = isRemoval ? 'Assignment Removed' : 'Assignee Updated'; 
       await logActivity(
-        user!.displayName || user!.email || 'Admin',
+        getUserDisplayName(),
         user!.uid,
-        role!,
+        getUserRole(),
         activityAction,
         candidate.fullName || 'Candidate',
         assignedTo ? (teamMembers[assignedTo] || assignedTo) : null,
@@ -417,9 +417,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       const { db } = await import('../lib/firebase');
       await updateDoc(doc(db, 'candidates', candidate.id), { skills: updatedSkills });
       await logActivity(
-        user!.displayName || user!.email || 'Admin',
+        getUserDisplayName(),
         user!.uid,
-        role!,
+        getUserRole(),
         'Skill Removed',
         candidate.fullName || 'Candidate',
         null,
