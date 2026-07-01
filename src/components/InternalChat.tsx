@@ -14,7 +14,7 @@ interface InternalChatProps {
 }
 
 export default function InternalChat({ teamMembers, initialRecipientId }: InternalChatProps) {
-  const { user, role, quotaExceeded, setQuotaExceeded } = useAuth();
+  const { user, role, quotaExceeded, setQuotaExceeded, getUserDisplayName, getUserRole, getUserName } = useAuth();
   const [activePartnerId, setActivePartnerId] = useState<string | null>(initialRecipientId || null);
 
   useEffect(() => {
@@ -255,9 +255,9 @@ export default function InternalChat({ teamMembers, initialRecipientId }: Intern
       );
       
       await logActivity(
-          user?.displayName || 'System',
+          getUserDisplayName(),
           user?.uid || 'System',
-          role || 'User',
+          getUserRole(),
           "sent message",
           activePartner?.name || 'Partner',
           null,

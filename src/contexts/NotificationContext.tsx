@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { collection, query, onSnapshot, orderBy, Timestamp, where, updateDoc, doc, writeBatch } from 'firebase/firestore';
+import { collection, query, onSnapshot, orderBy, Timestamp, where, updateDoc, doc, writeBatch, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { useAuth } from './AuthContext';
 import { auth } from '../lib/firebase';
@@ -74,13 +74,15 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
     if (role === 'admin' || role === 'team_leader' || role === 'developer') {
       q = query(
         collection(db, 'notifications'),
-        orderBy('createdAt', 'desc')
+        orderBy('createdAt', 'desc'),
+        limit(50)
       );
     } else {
       q = query(
         collection(db, 'notifications'),
         where('recipientId', 'in', [user.uid, 'all']),
-        orderBy('createdAt', 'desc')
+        orderBy('createdAt', 'desc'),
+        limit(50)
       );
     }
 

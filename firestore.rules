@@ -1,11 +1,6 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // TEMPORARY FULL OPEN FOR MIGRATION
-    match /{document=**} {
-      allow read, write: if true;
-    }
-
     // Auth Helpers
     function isSignedIn() {
       return request.auth != null;
@@ -81,7 +76,22 @@ service cloud.firestore {
 
     // Notifications Collection Rules
     match /notifications/{notificationId} {
-      allow read, write: if true;
+      allow read: if isSignedIn() && (
+        isAdmin() ||
+        (
+          'recipientId' in resource.data &&
+          (resource.data.recipientId == request.auth.uid || resource.data.recipientId == 'all')
+        )
+      );
+      allow update: if isSignedIn() && (
+        isAdmin() ||
+        (
+          'recipientId' in resource.data &&
+          (resource.data.recipientId == request.auth.uid || resource.data.recipientId == 'all')
+        )
+      );
+      allow create: if isAdmin();
+      allow delete: if isAdmin();
     }
 
     // Training CV Collection Rules

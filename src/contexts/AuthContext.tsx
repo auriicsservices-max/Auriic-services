@@ -10,6 +10,9 @@ interface AuthContextType {
   quotaExceeded: boolean;
   setQuotaExceeded: (value: boolean) => void;
   isPrivileged: boolean;
+  getUserDisplayName: () => string;
+  getUserRole: () => string;
+  getUserName: () => string;
 }
 
 const AuthContext = createContext<AuthContextType>({ 
@@ -18,7 +21,10 @@ const AuthContext = createContext<AuthContextType>({
   loading: true,
   quotaExceeded: false,
   setQuotaExceeded: () => {},
-  isPrivileged: false
+  isPrivileged: false,
+  getUserDisplayName: () => 'System',
+  getUserRole: () => 'System',
+  getUserName: () => 'System'
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
@@ -27,6 +33,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const isPrivileged = role === 'admin' || role === 'team_leader' || role === 'developer';
+
+  const getUserDisplayName = () => {
+    if (!user) return 'System';
+    return `${user.displayName || user.email?.split('@')[0] || 'User'} (${role || 'No Role'})`;
+  };
+  
+  const getUserRole = () => role || 'No Role';
+  const getUserName = () => user?.displayName || user?.email?.split('@')[0] || 'User';
 
   useEffect(() => {
     let statusInterval: any;
@@ -113,7 +127,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user?.uid]);
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, quotaExceeded, setQuotaExceeded, isPrivileged }}>
+    <AuthContext.Provider value={{ user, role, loading, quotaExceeded, setQuotaExceeded, isPrivileged, getUserDisplayName, getUserRole, getUserName }}>
       {children}
     </AuthContext.Provider>
   );

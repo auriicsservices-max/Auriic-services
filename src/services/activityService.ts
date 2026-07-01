@@ -1,4 +1,4 @@
-import { collection, addDoc, serverTimestamp, query, orderBy, limit, getDocs, where } from 'firebase/firestore';
+import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
 export async function logActivity(
@@ -9,7 +9,12 @@ export async function logActivity(
   candidateName: string,
   affectedUser: string | null,
   purpose: string,
-  module: string
+  module: string,
+  status: string = 'Success',
+  ip: string | null = null,
+  device: string | null = null,
+  oldValue: string | null = null,
+  newValue: string | null = null
 ) {
   try {
     await addDoc(collection(db, 'activity_logs'), {
@@ -21,6 +26,11 @@ export async function logActivity(
       affectedUser,
       purpose,
       module,
+      status,
+      ip,
+      device,
+      oldValue,
+      newValue,
       timestamp: serverTimestamp()
     });
   } catch (error) {

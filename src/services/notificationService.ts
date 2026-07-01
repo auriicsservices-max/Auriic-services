@@ -3,11 +3,10 @@ import { db } from '../lib/firebase';
 
 export const formatNotificationMessage = (
   userName: string,
-  action: string,
-  candidateName: string,
-  purpose: string
+  userRole: string,
+  message: string
 ) => {
-  return `${userName} ${action} ${candidateName} — ${purpose}`;
+  return `${userName} (${userRole})\n${message}`;
 };
 
 export async function createNotification(

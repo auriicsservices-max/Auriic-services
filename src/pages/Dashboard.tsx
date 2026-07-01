@@ -95,7 +95,7 @@ import DatabaseDetails from '../components/DatabaseDetails';
 import BackupDashboard from '../components/BackupDashboard';
 
 export default function Dashboard() {
-  const { user, role, quotaExceeded, setQuotaExceeded, isPrivileged } = useAuth();
+  const { user, role, quotaExceeded, setQuotaExceeded, isPrivileged, getUserDisplayName, getUserRole, getUserName } = useAuth();
   const { theme } = useTheme();
   const { notifications, markAsRead, markAllAsRead } = useNotifications();
   const { timezone, setTimezone, formatDate } = useTimezone();
@@ -691,23 +691,22 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         
         // Notify
         const message = formatNotificationMessage(
-            user?.displayName || 'System',
-            "uploaded CV for",
-            parsed.name || file.name,
-            "Resume parsing completed"
+            getUserName(),
+            getUserRole(),
+            `Uploaded CV for ${parsed.name || file.name} — Resume parsing completed`
         );
         await createNotification(
             message,
             user!.uid,
-            user?.displayName || 'System',
-            role!,
+            getUserName(),
+            getUserRole(),
             'all',
             newCandidateRef.id
         );
         await logActivity(
-            user?.displayName || 'System',
+            getUserDisplayName(),
             user?.uid || 'System',
-            role || 'User',
+            getUserRole(),
             "uploaded CV",
             parsed.name || file.name,
             null,
@@ -756,16 +755,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           const action = !currentStatus ? "shortlisted candidate" : "removed from shortlist";
           const purpose = !currentStatus ? "Candidate shortlisted" : "Candidate removed from shortlist";
           const message = formatNotificationMessage(
-              user?.displayName || 'System',
-              action,
-              candidate.fullName,
-              purpose
+              getUserName(),
+              getUserRole(),
+              `${action} candidate ${candidate.fullName} — ${purpose}`
           );
           await createNotification(
               message,
               user!.uid,
-              user?.displayName || 'System',
-              role!,
+              getUserName(),
+              getUserRole(),
               'all',
               id
           );
@@ -813,16 +811,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       // Notify
       if (candidate) {
           const message = formatNotificationMessage(
-              user?.displayName || 'System',
-              "updated status for candidate",
-              candidate.fullName,
-              "Interview progress"
+              getUserName(),
+              getUserRole(),
+              `Updated status for candidate ${candidate.fullName} — Interview progress`
           );
           await createNotification(
               message,
               user!.uid,
-              user?.displayName || 'System',
-              role!,
+              getUserName(),
+              getUserRole(),
               'all',
               id
           );
@@ -896,16 +893,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       // Notify
       if (candidate) {
           const message = formatNotificationMessage(
-              user?.displayName || 'System',
-              "added feedback for candidate",
-              candidate.fullName,
-              "Interview feedback added"
+              getUserName(),
+              getUserRole(),
+              `Added feedback for candidate ${candidate.fullName} — Interview feedback added`
           );
           await createNotification(
               message,
               user!.uid,
-              user?.displayName || 'System',
-              role!,
+              getUserName(),
+              getUserRole(),
               'all',
               id
           );
@@ -940,16 +936,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       // Notify
       if (candidate) {
           const message = formatNotificationMessage(
-              user?.displayName || 'System',
-              "assigned candidate",
-              `${candidate.fullName} to ${teamMembers[userId] || 'Recruiter'}`,
-              "Profile assignment"
+              getUserName(),
+              getUserRole(),
+              `Assigned candidate ${candidate.fullName} to ${teamMembers[userId] || 'Recruiter'} — Profile assignment`
           );
           await createNotification(
               message,
               user!.uid,
-              user?.displayName || 'System',
-              role!,
+              getUserName(),
+              getUserRole(),
               userId,
               id
           );
@@ -1176,7 +1171,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           {[
             { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
             { id: 'candidates', label: 'Candidates', icon: Users },
-            { id: 'activity_logs', label: 'Activity Logs', icon: Activity },
             { id: 'upload', label: 'CV Parsing', icon: Upload },
             { id: 'shortlist', label: 'Shortlist', icon: Star },
             { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
