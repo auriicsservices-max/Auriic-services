@@ -18,6 +18,11 @@ import { RobustResumeParser } from './src/services/resumeParser.server.ts';
 // Load environment variables immediately on startup
 dotenv.config();
 
+import OpenAI from 'openai';
+import Anthropic from '@anthropic-ai/sdk';
+const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
+
 const resumeParser = new RobustResumeParser();
 
 // Handle paths for both ESM and CJS
@@ -151,6 +156,101 @@ app.post('/api/cv/parse-advanced', upload.single('file'), async (req, res) => {
     console.error('[Server] Advanced Parsing Error:', error);
     res.status(500).json({ error: 'Failed to parse resume with advanced engine' });
   }
+});
+
+app.post('/api/cv/parse-openai', upload.single('file'), async (req, res) => {
+  if (!openai) return res.status(500).json({ error: 'OpenAI not configured' });
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  
+  try {
+    const result = await resumeParser.parseBuffer(req.file.buffer, req.file.mimetype);
+    const text = result.rawText;
+    
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4o',
+      messages: [{ role: 'user', content: `Extract resume data from: ${text}` }],
+      response_format: { type: 'json_object' }
+    });
+    res.json(JSON.parse(response.choices[0].message.content!));
+  } catch (error) {
+    console.error('[Server] OpenAI Parsing Error:', error);
+    res.status(500).json({ error: 'Failed to parse resume with OpenAI' });
+  }
+});
+
+app.post('/api/cv/parse-claude', upload.single('file'), async (req, res) => {
+  if (!anthropic) return res.status(500).json({ error: 'Anthropic not configured' });
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  
+  try {
+    const result = await resumeParser.parseBuffer(req.file.buffer, req.file.mimetype);
+    const text = result.rawText;
+    
+    const response = await anthropic.messages.create({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 1024,
+      messages: [{ role: 'user', content: `Extract resume data in JSON format from: ${text}` }]
+    });
+    
+    // Simplistic JSON extraction from text response
+    const content = (response.content[0] as any).text;
+    const jsonMatch = content.match(/\{[\s\S]*\}/);
+    if (jsonMatch) {
+      res.json(JSON.parse(jsonMatch[0]));
+    } else {
+      res.status(500).json({ error: 'Failed to extract JSON from Claude' });
+    }
+  } catch (error) {
+    console.error('[Server] Claude Parsing Error:', error);
+    res.status(500).json({ error: 'Failed to parse resume with Claude' });
+  }
+});
+
+app.post('/api/cv/parse-waterfall', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+  
+  const file = req.file;
+  const parseResult = await resumeParser.parseBuffer(file.buffer, file.mimetype);
+  const text = parseResult.rawText;
+  
+  // Helper for JSON extraction
+  const extractJSON = (content: string) => {
+      const jsonMatch = content.match(/\{[\s\S]*\}/);
+      return jsonMatch ? JSON.parse(jsonMatch[0]) : JSON.parse(content);
+  };
+
+  // 1. Try Gemini (Placeholder - assumed to be handled by the existing client-side logic or backend?)
+  // Actually, I'll add a proper call here if I had the SDK. I'll just skip to Claude/ChatGPT as I have keys.
+  
+  // 2. Try Claude
+  if (anthropic) {
+    try {
+      const response = await anthropic.messages.create({
+        model: 'claude-3-5-sonnet-20241022',
+        max_tokens: 1024,
+        messages: [{ role: 'user', content: `Extract resume data in JSON format from: ${text}` }]
+      });
+      return res.json(extractJSON((response.content[0] as any).text));
+    } catch (error) {
+      console.warn('[Server] Claude Fallback Failed:', error);
+    }
+  }
+  
+  // 3. Try ChatGPT
+  if (openai) {
+    try {
+      const response = await openai.chat.completions.create({
+        model: 'gpt-4o',
+        messages: [{ role: 'user', content: `Extract resume data from: ${text}` }],
+        response_format: { type: 'json_object' }
+      });
+      return res.json(JSON.parse(response.choices[0].message.content!));
+    } catch (error) {
+      console.warn('[Server] ChatGPT Fallback Failed:', error);
+    }
+  }
+  
+  res.status(500).json({ error: 'All AI providers are currently unavailable.' });
 });
 
 app.post('/api/cv/upload', upload.single('file'), async (req, res) => {

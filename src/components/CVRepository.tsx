@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
-import { Search, FileText, Mail, Calendar, ExternalLink, Download } from 'lucide-react';
+import { Search, FileText, Mail, Calendar, ExternalLink, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import Select from 'react-select';
+import { Pagination } from './Pagination';
 
 interface CVRepositoryProps {
   candidates: any[];
@@ -27,6 +28,12 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
   const [search, setSearch] = useState('');
   const [selectedDomains, setSelectedDomains] = useState<any[]>([]);
   const [isMultiDomain, setIsMultiDomain] = useState<boolean>(true);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [rowsPerPage, setRowsPerPage] = useState(20);
+
+  React.useEffect(() => {
+    setCurrentPage(1);
+  }, [search, selectedDomains, rowsPerPage]);
 
   const stats = useMemo(() => {
     const total = candidates.length;
@@ -88,6 +95,42 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
     }),
   };
 
+  const evaluateBooleanSearch = (candidate: any, searchString: string) => {
+    const tokens = searchString.toLowerCase().split(/\s+/);
+    const fullName = (candidate.fullName || '').toLowerCase();
+    const skills = (candidate.skills || []).map((s: string) => s.toLowerCase());
+
+    const matchesTerm = (term: string) => 
+      fullName.includes(term) || skills.some((s: string) => s.includes(term));
+
+    let i = 0;
+    let result = true;
+    let operator = 'AND'; // Default operator
+
+    while (i < tokens.length) {
+      let token = tokens[i];
+      
+      if (token === 'and' || token === 'or' || token === 'not') {
+        operator = token.toUpperCase();
+        i++;
+        continue;
+      }
+
+      const match = matchesTerm(token);
+
+      if (operator === 'AND') {
+        result = result && match;
+      } else if (operator === 'OR') {
+        result = result || match;
+      } else if (operator === 'NOT') {
+        result = result && !match;
+      }
+      
+      i++;
+    }
+    return result;
+  };
+
   const filteredCandidates = useMemo(() => {
     let list = [...candidates];
     
@@ -107,12 +150,13 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
     }
 
     if (!search) return list;
-    const lower = search.toLowerCase();
-    return list.filter(c => 
-      c.fullName?.toLowerCase().includes(lower) || 
-      c.skills?.some((s: string) => s.toLowerCase().includes(lower))
-    );
+    return list.filter(c => evaluateBooleanSearch(c, search));
   }, [candidates, search, selectedDomains]);
+
+  const paginatedCandidates = useMemo(() => {
+    const startIndex = (currentPage - 1) * rowsPerPage;
+    return filteredCandidates.slice(startIndex, startIndex + rowsPerPage);
+  }, [filteredCandidates, currentPage, rowsPerPage]);
 
   return (
     <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
@@ -156,7 +200,7 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
               type="text"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Filter by Name or Skill..."
+              placeholder="Search (Name, Skill, AND, OR, NOT)..."
               className="w-full bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-2xl py-3.5 pl-12 pr-4 text-sm font-bold text-[var(--text-primary)] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all"
             />
           </div>
@@ -227,7 +271,7 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
       
       {/* Grid of Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredCandidates.map(c => {
+        {paginatedCandidates.map(c => {
           const d = (c.domainFocus || c.domain || '').trim();
           const normalizedDom = (!d) ? 'Unknown Domain' : (d === 'IT' ? 'IT / Software' : d === 'Other' ? 'Others' : d);
 
@@ -292,11 +336,11 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                               if (finalUrl) {
                                 const link = document.createElement('a');
                                 link.href = finalUrl;
-                                link.setAttribute('download', fileName);
-                                link.setAttribute('target', '_blank');
-                                document.body.appendChild(link);
-                                link.click();
-                                document.body.removeChild(link);
+                                  link.setAttribute('download', fileName);
+                                  link.setAttribute('target', '_blank');
+                                  document.body.appendChild(link);
+                                  link.click();
+                                  document.body.removeChild(link);
                               } else {
                                 onSelect?.(c);
                               }
@@ -315,6 +359,19 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
           );
         })}
       </div>
+
+      {filteredCandidates.length > 20 && (
+        <div className="mt-8 pt-6 border-t border-[var(--border-color)]">
+          <Pagination
+            page={currentPage}
+            rowsPerPage={rowsPerPage}
+            totalCount={filteredCandidates.length}
+            onPageChange={() => {}}
+            onRowsPerPageChange={(rows) => setRowsPerPage(rows)}
+            setPage={setCurrentPage}
+          />
+        </div>
+      )}
     </div>
   );
 }

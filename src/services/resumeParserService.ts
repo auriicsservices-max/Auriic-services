@@ -35,11 +35,29 @@ export class ResumeParserService {
           initialParsed = await this.parseWithGemini(text);
           return { parsed: initialParsed, text };
         } catch (geminiError) {
-          console.warn("[ResumeParser] Gemini failed, trying backend next:", geminiError);
+          console.warn("[ResumeParser] Gemini failed, trying OpenAI next:", geminiError);
         }
       }
 
-      // 3. Try Advanced Parser via backend
+      // 3. Try Waterfall (Claude -> ChatGPT)
+      try {
+        const formData = new FormData();
+        formData.append('file', file);
+        const response = await fetch('/api/cv/parse-waterfall', {
+          method: 'POST',
+          body: formData
+        });
+        if (response.ok) {
+          initialParsed = await response.json();
+          return { parsed: initialParsed, text };
+        } else {
+          console.warn("[ResumeParser] Waterfall parser error, trying backend next");
+        }
+      } catch (e) {
+        console.warn("[ResumeParser] Waterfall connection failed, trying backend next:", e);
+      }
+
+      // 4. Try Advanced Parser via backend
       try {
         const formData = new FormData();
         formData.append('file', file);

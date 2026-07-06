@@ -114,150 +114,77 @@ export default function ActivityLogList({ role }: { role: string | null }) {
   };
 
   return (
-    <div className="bg-white dark:bg-slate-950 p-8 rounded-[2rem] border border-slate-200 dark:border-slate-800 shadow-sm transition-colors duration-300">
+    <div className="bg-[var(--card-bg)] p-8 rounded-3xl border border-[var(--border-color)] shadow-[var(--card-shadow)] transition-colors duration-300">
       <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between mb-8 gap-6">
         <div>
-          <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Activity Logs Registry</h3>
-          <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">Audit log tracking candidate updates, system notifications, and team workflow history</p>
+          <h3 className="text-2xl font-bold text-[var(--text-primary)] tracking-tight">Activity Stream</h3>
+          <p className="text-sm text-[var(--text-muted)] mt-1">Real-time team workflow and system audit history</p>
         </div>
         
         {/* Filters */}
         <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
           <div className="relative flex-1 sm:flex-initial">
-              <Search className="absolute left-3.5 top-3 text-slate-400" size={14} />
+              <Search className="absolute left-3.5 top-3 text-[var(--text-muted)]" size={16} />
               <input 
                 type="text"
-                placeholder="Search candidates or users..."
+                placeholder="Search logs..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9 pr-4 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-semibold w-full sm:w-56 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:text-white"
+                className="pl-10 pr-4 py-2.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl text-sm w-full sm:w-64 focus:ring-2 focus:ring-[var(--brand-color)] outline-none transition-all"
               />
           </div>
           <select 
             value={userFilter} 
             onChange={(e) => setUserFilter(e.target.value)} 
-            className="px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 dark:text-slate-300 cursor-pointer"
+            className="px-4 py-2.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl text-sm font-medium focus:ring-2 focus:ring-[var(--brand-color)] text-[var(--text-secondary)] cursor-pointer"
           >
             <option value="All">All Senders</option>
             {[...new Set(logs.map(l => l.author).filter(Boolean))].map(u => <option key={u} value={u}>{u}</option>)}
-          </select>
-          <select 
-            value={moduleFilter} 
-            onChange={(e) => setModuleFilter(e.target.value)} 
-            className="px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 dark:text-slate-300 cursor-pointer"
-          >
-            <option value="All">All Modules</option>
-            {[...new Set(logs.map(l => l.module).filter(Boolean))].map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
-          <select 
-            value={actionFilter} 
-            onChange={(e) => setActionFilter(e.target.value)} 
-            className="px-3.5 py-2.5 bg-slate-50 dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold focus:outline-none focus:ring-2 focus:ring-indigo-500 text-slate-700 dark:text-slate-300 cursor-pointer"
-          >
-            <option value="All">All Actions</option>
-            {[...new Set(logs.map(l => l.action).filter(Boolean))].map(a => <option key={a} value={a}>{a}</option>)}
           </select>
         </div>
       </div>
       
       {/* Timeline List */}
       {filteredLogs.length === 0 ? (
-        <div className="py-20 text-center text-slate-400 dark:text-slate-500 border border-dashed border-slate-200 dark:border-slate-800 rounded-2xl bg-slate-50/50 dark:bg-slate-950/20">
+        <div className="py-20 text-center text-[var(--text-muted)] border border-dashed border-[var(--border-color)] rounded-2xl bg-[var(--bg-secondary)]/50">
           <LayoutGrid size={40} className="mx-auto mb-3 opacity-20" />
-          <p className="text-sm font-medium">No activity records match your filter parameters</p>
+          <p className="text-sm font-medium">No activity records found.</p>
         </div>
       ) : (
-        <div className="space-y-6 relative before:absolute before:left-[17px] before:top-4 before:bottom-4 before:w-0.5 before:bg-slate-100 dark:before:bg-slate-800/80">
+        <div className="space-y-6 relative before:absolute before:left-[19px] before:top-4 before:bottom-4 before:w-0.5 before:bg-[var(--border-color)]">
           {filteredLogs.map(log => {
               const Icon = getModuleIcon(log.module);
-              const authorName = log.author || 'System Operator';
-              const authorRole = formatRoleLabel(log.role);
-              const ipAddress = log.ip || '193.186.4.142';
-              const deviceName = log.device || 'Chrome (Mac OS)';
+              const authorName = log.author || 'System';
               
               return (
-                <div key={log.id} className="relative pl-10 group">
+                <div key={log.id} className="relative pl-12 group">
                     {/* Circle dot timeline marker */}
-                    <div className="absolute left-[5px] top-1.5 w-6 h-6 rounded-full bg-slate-100 dark:bg-slate-900 border-2 border-white dark:border-slate-950 flex items-center justify-center text-slate-600 dark:text-slate-400 group-hover:bg-indigo-50 dark:group-hover:bg-indigo-950/40 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors duration-300 z-10">
-                        <Icon size={11} />
+                    <div className="absolute left-2 top-0 w-6 h-6 rounded-full bg-[var(--card-bg)] border-2 border-[var(--border-color)] flex items-center justify-center text-[var(--text-muted)] group-hover:border-[var(--brand-color)] group-hover:text-[var(--brand-color)] transition-colors duration-300 z-10">
+                        <Icon size={12} />
                     </div>
                     
                     {/* Log card */}
-                    <div className="p-6 bg-slate-50 dark:bg-slate-900/40 rounded-2xl border border-slate-100 dark:border-slate-850 hover:border-indigo-150 dark:hover:border-indigo-950/60 transition-all duration-300 shadow-[0_2px_8px_-3px_rgba(0,0,0,0.02)]">
-                        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4 pb-4 border-b border-slate-200/50 dark:border-slate-800/50">
-                            {/* User details */}
-                            <div className="flex items-center gap-3">
-                                <div className={`w-9 h-9 rounded-full bg-gradient-to-tr ${getAvatarStyle(authorName)} text-white flex items-center justify-center text-xs font-black shadow-inner`}>
+                    <div className="p-6 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)] hover:border-[var(--accent-color)]/50 transition-all duration-300 shadow-sm">
+                        <div className="flex items-center justify-between gap-4 mb-4">
+                             <div className="flex items-center gap-3">
+                                <div className={`w-10 h-10 rounded-full bg-gradient-to-tr ${getAvatarStyle(authorName)} text-white flex items-center justify-center font-bold text-sm shadow-inner`}>
                                   {getInitials(authorName)}
                                 </div>
                                 <div>
-                                  <div className="font-extrabold text-slate-800 dark:text-white text-sm flex items-center gap-2">
-                                      <span>{authorName}</span>
-                                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded">
-                                        {authorRole}
-                                      </span>
-                                  </div>
-                                  <p className="text-[10px] text-slate-400 dark:text-slate-500 font-medium mt-0.5 uppercase tracking-wider">{log.module || 'General'}</p>
+                                  <div className="font-semibold text-[var(--text-primary)]">{authorName}</div>
+                                  <div className="text-xs text-[var(--text-muted)]">{log.module}</div>
                                 </div>
-                            </div>
-                            
-                            {/* Status & Timestamp */}
-                            <div className="flex items-center gap-3 self-start sm:self-center">
-                                {getStatusBadge(log.status)}
-                                <div className="text-slate-400 dark:text-slate-500 text-[11px] font-bold flex items-center gap-1.5 uppercase tracking-wide">
-                                    <Clock size={11} /> {formatTimestamp(log.timestamp)}
-                                </div>
-                            </div>
+                             </div>
+                             
+                             <div className="text-xs text-[var(--text-muted)] font-medium">
+                                 {formatTimestamp(log.timestamp)}
+                             </div>
                         </div>
 
-                        {/* Action Content */}
-                        <div className="text-sm text-slate-700 dark:text-slate-300 font-medium mb-4 flex flex-wrap items-center gap-1.5">
-                            <span className="text-xs font-black uppercase tracking-widest text-slate-400 dark:text-slate-500 mr-1">Action:</span>
-                            <span className="font-black text-slate-900 dark:text-white bg-slate-200/60 dark:bg-slate-800 px-2 py-0.5 rounded text-xs">{log.action || 'Performed Action'}</span>
-                            {log.candidateName && (
-                              <>
-                                <ChevronRight size={14} className="text-slate-400" />
-                                <span className="font-extrabold text-indigo-600 dark:text-indigo-400 text-xs uppercase tracking-wide bg-indigo-50/50 dark:bg-indigo-950/30 px-2 py-0.5 rounded border border-indigo-100/50 dark:border-indigo-900/30">Candidate: {log.candidateName}</span>
-                              </>
-                            )}
+                        <div className="text-sm text-[var(--text-secondary)] font-medium mb-2">
+                           {log.action} <span className="text-[var(--text-primary)] font-semibold">{log.candidateName}</span>
                         </div>
-
-                        {/* Description & Old/New Values */}
-                        <div className="bg-white dark:bg-slate-950/60 p-4 rounded-xl border border-slate-200/40 dark:border-slate-800/60 text-xs space-y-3 shadow-inner">
-                            <div>
-                              <span className="font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest block text-[9px] mb-1">Description</span>
-                              <p className="text-slate-650 dark:text-slate-300 font-semibold">{log.purpose || 'No description provided'}</p>
-                            </div>
-                            
-                            {log.oldValue && log.newValue && (
-                              <div className="pt-2 border-t border-slate-100 dark:border-slate-900">
-                                <span className="font-extrabold text-slate-400 dark:text-slate-500 uppercase tracking-widest block text-[9px] mb-1">Value Change</span>
-                                <div className="flex flex-wrap items-center gap-2 mt-1">
-                                  <span className="bg-red-50 text-red-700 dark:bg-red-950/30 dark:text-red-400 px-2.5 py-1 rounded font-mono text-[10px] border border-red-100/50 dark:border-red-900/30 line-through">
-                                    {log.oldValue}
-                                  </span>
-                                  <ChevronRight size={12} className="text-slate-400" />
-                                  <span className="bg-emerald-50 text-emerald-700 dark:bg-emerald-950/30 dark:text-emerald-400 px-2.5 py-1 rounded font-mono text-[10px] border border-emerald-100/50 dark:border-emerald-900/30 font-bold">
-                                    {log.newValue}
-                                  </span>
-                                </div>
-                              </div>
-                            )}
-                        </div>
-
-                        {/* Metadata Footer */}
-                        <div className="mt-4 pt-3 border-t border-slate-200/40 dark:border-slate-800/40 flex flex-wrap items-center gap-x-6 gap-y-2 text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-wider">
-                            <div className="flex items-center gap-1.5">
-                                <Globe size={11} className="text-slate-350 dark:text-slate-650" />
-                                <span>IP Address:</span>
-                                <span className="font-mono text-[10px] lowercase text-slate-600 dark:text-slate-300">{ipAddress}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                                <Monitor size={11} className="text-slate-350 dark:text-slate-650" />
-                                <span>Client Device:</span>
-                                <span className="text-slate-600 dark:text-slate-300">{deviceName}</span>
-                            </div>
-                        </div>
+                        <div className="text-xs text-[var(--text-muted)]">{log.purpose}</div>
                     </div>
                 </div>
               );

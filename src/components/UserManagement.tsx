@@ -14,7 +14,7 @@ export default function UserManagement() {
   const [users, setUsers] = useState<any[]>([]);
   const [newEmail, setNewEmail] = useState('');
   const [newPassword, setNewPassword] = useState('');
-  const [newRole, setNewRole] = useState<'developer' | 'admin' | 'team_leader' | 'recruiter'>('recruiter');
+  const [newRole, setNewRole] = useState<'developer' | 'admin' | 'team_leader' | 'recruiter' | 'client'>('recruiter');
   const [isAdding, setIsAdding] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
   const [error, setError] = useState('');
@@ -109,10 +109,11 @@ export default function UserManagement() {
   };
 
   const handleUpdateRole = async (userId: string, currentRole: string) => {
-    let nextRole: 'developer' | 'admin' | 'team_leader' | 'recruiter' = 'admin';
+    let nextRole: 'developer' | 'admin' | 'team_leader' | 'recruiter' | 'client' = 'admin';
     if (currentRole === 'admin') nextRole = 'team_leader';
     else if (currentRole === 'team_leader') nextRole = 'recruiter';
-    else if (currentRole === 'recruiter') nextRole = 'developer';
+    else if (currentRole === 'recruiter') nextRole = 'client';
+    else if (currentRole === 'client') nextRole = 'developer';
     else nextRole = 'admin';
     
     try {
@@ -266,6 +267,7 @@ export default function UserManagement() {
               className="w-full bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-xl px-4 text-xs font-bold uppercase tracking-wider text-[var(--text-secondary)] focus:outline-none focus:ring-2 focus:ring-indigo-500/10 h-11"
             >
               <option value="recruiter">Recruiter</option>
+              <option value="client">Client</option>
               <option value="team_leader">Team Leader</option>
               <option value="admin">Admin</option>
               <option value="developer">Developer</option>

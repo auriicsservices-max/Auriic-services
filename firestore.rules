@@ -79,15 +79,13 @@ service cloud.firestore {
       allow read: if isSignedIn() && (
         isAdmin() ||
         (
-          'recipientId' in resource.data &&
-          (resource.data.recipientId == request.auth.uid || resource.data.recipientId == 'all')
+          resource.data.recipientId == request.auth.uid || resource.data.recipientId == 'all'
         )
       );
       allow update: if isSignedIn() && (
         isAdmin() ||
         (
-          'recipientId' in resource.data &&
-          (resource.data.recipientId == request.auth.uid || resource.data.recipientId == 'all')
+          resource.data.recipientId == request.auth.uid || resource.data.recipientId == 'all'
         )
       );
       allow create: if isAdmin();

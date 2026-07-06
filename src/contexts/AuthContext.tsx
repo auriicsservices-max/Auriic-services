@@ -5,7 +5,7 @@ import { auth, db } from '../lib/firebase';
 
 interface AuthContextType {
   user: User | null;
-  role: 'developer' | 'admin' | 'team_leader' | 'recruiter' | null;
+  role: 'developer' | 'admin' | 'team_leader' | 'recruiter' | 'client' | null;
   loading: boolean;
   quotaExceeded: boolean;
   setQuotaExceeded: (value: boolean) => void;
@@ -29,7 +29,7 @@ const AuthContext = createContext<AuthContextType>({
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
-  const [role, setRole] = useState<'developer' | 'admin' | 'team_leader' | 'recruiter' | null>(null);
+  const [role, setRole] = useState<'developer' | 'admin' | 'team_leader' | 'recruiter' | 'client' | null>(null);
   const [loading, setLoading] = useState(true);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const isPrivileged = role === 'admin' || role === 'team_leader' || role === 'developer';
