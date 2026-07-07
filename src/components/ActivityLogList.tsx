@@ -24,11 +24,17 @@ export default function ActivityLogList({ role }: { role: string | null }) {
     if (role === 'admin' || role === 'developer' || role === 'team_leader') {
       q = query(activitiesRef, orderBy('timestamp', 'desc'), limit(100));
     } else {
-      q = query(activitiesRef, where('authorUid', '==', user?.uid), orderBy('timestamp', 'desc'), limit(100));
+      q = query(activitiesRef, where('authorUid', '==', user?.uid), limit(100));
     }
 
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      setLogs(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+      const parsedLogs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const sortedLogs = parsedLogs.sort((a: any, b: any) => {
+        const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : new Date(a.timestamp || 0).getTime();
+        const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : new Date(b.timestamp || 0).getTime();
+        return timeB - timeA;
+      });
+      setLogs(sortedLogs);
     });
 
     return () => unsubscribe();

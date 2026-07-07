@@ -81,7 +81,6 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       q = query(
         collection(db, 'notifications'),
         where('recipientId', 'in', [user.uid, 'all']),
-        orderBy('createdAt', 'desc'),
         limit(50)
       );
     }
@@ -90,7 +89,11 @@ export function NotificationProvider({ children }: { children: React.ReactNode }
       const allNotifs: Notification[] = snapshot.docs.map(doc => ({
         id: doc.id,
         ...doc.data()
-      } as Notification));
+      } as Notification)).sort((a, b) => {
+        const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
+        const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
+        return dateB - dateA;
+      });
       
       setNotifications(allNotifs);
       const unread = allNotifs.filter(n => !n.read).length;

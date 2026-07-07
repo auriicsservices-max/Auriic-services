@@ -128,6 +128,12 @@ export default function Dashboard() {
   const [parsingStatus, setParsingStatus] = useState<Record<string, { status: string, progress: number }>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; }>({ isOpen: false, message: '' });
+  const [duplicateResolution, setDuplicateResolution] = useState<{
+    isOpen: boolean;
+    candidate: any;
+    newParsed: any;
+    file: File | null;
+  } | null>(null);
   const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'security'>('home');
   const [bulkLimit, setBulkLimit] = useState<number>(20);
   const [fileSizeLimit, setFileSizeLimit] = useState<number>(5);
@@ -302,60 +308,43 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     if (!quotaExceeded) {
       const q = query(
         collection(db, 'candidates'), 
-        where('isArchived', '==', false),
-        ...(role === 'client' 
-            ? [where('clientId', '==', user?.uid)] 
-            : (role !== 'admin' && role !== 'team_leader' && role !== 'developer' 
-                ? [where('uploadedBy', '==', user?.uid)] 
-                : [])),
-        orderBy('createdAt', 'desc')
+        where('isArchived', '==', false)
       );
       unsubCandidates = onSnapshot(q, (snapshot) => {
         const candidatesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log("[Dashboard] Snapshot updated, candidates count:", candidatesData.length);
-        setCandidates(candidatesData);
+        
+        let filtered = candidatesData;
+        if (role === 'client') {
+          filtered = candidatesData.filter((c: any) => c.clientId === user?.uid);
+        } else if (role !== 'admin' && role !== 'team_leader' && role !== 'developer') {
+          filtered = candidatesData.filter((c: any) => c.uploadedBy === user?.uid || c.assignedTo === user?.uid);
+        }
+
+        setCandidates(prev => {
+          const trashOnly = prev.filter(c => c.isArchived);
+          return [...filtered, ...trashOnly].sort((a: any, b: any) => {
+            const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
+            const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
+            return dateB - dateA;
+          });
+        });
 
       }, (err: any) => {
         handleFirestoreError(err, 'get', 'candidates');
         if (err.code === 'resource-exhausted') setQuotaExceeded(true);
       });
       
-      if (role !== 'admin' && role !== 'team_leader' && role !== 'developer') {
-         const qAssigned = query(
-            collection(db, 'candidates'), 
-            where('isArchived', '==', false),
-            where('assignedTo', '==', user?.uid),
-            orderBy('createdAt', 'desc')
-        );
-        unsubAssigned = onSnapshot(qAssigned, (snapshot) => {
-          const assignedCandidates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-          // Merge with main candidates to ensure full view
-          setCandidates(prev => {
-             const map = new Map(prev.map(c => [c.id, c]));
-             assignedCandidates.forEach(c => map.set(c.id, c));
-             return Array.from(map.values()).sort((a, b) => {
-                 const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
-                 const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
-                 return dateB - dateA;
-             });
-          });
-        });
-      }
-
       // Trash - unconditional
       const qTrash = query(
         collection(db, 'candidates'), 
-        where('isArchived', '==', true),
-        orderBy('createdAt', 'desc')
+        where('isArchived', '==', true)
       );
       unsubTrash = onSnapshot(qTrash, (snapshot) => {
         const trashedCandidates = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-        // Note: For simplicity and since trashed candidates don't affect total count in DashboardHome, 
-        // we might not need to merge them into 'candidates' state if they are kept separate.
-        // Assuming current logic wants them in 'candidates' state:
         setCandidates(prev => {
             const activeOnly = prev.filter(c => !c.isArchived);
-            return [...activeOnly, ...trashedCandidates].sort((a, b) => {
+            return [...activeOnly, ...trashedCandidates].sort((a: any, b: any) => {
                 const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
                 const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
                 return dateB - dateA;
@@ -369,10 +358,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       unsubNotifications = onSnapshot(query(
         collection(db, 'notifications'), 
         where('recipientId', 'in', [user?.uid, 'all']),                
-        orderBy('createdAt', 'desc'), 
-        limit(10)
+        limit(50)
       ), (snapshot) => {
-        const notificationsData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        const rawNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
+        const sortedNotifs = rawNotifs.sort((a: any, b: any) => {
+          const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
+          const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : new Date(b.createdAt || 0).getTime();
+          return dateB - dateA;
+        });
+        const notificationsData = sortedNotifs.slice(0, 10);
         
         // Notify for new chat or assignment notifications
         const recentNotifications = notificationsData.filter(n => 
@@ -409,11 +403,16 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       // Real-time activity logs listener with role safety
       const qLogs = (role === 'admin' || role === 'developer' || role === 'team_leader')
         ? query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc'), limit(1000))
-        : query(collection(db, 'activity_logs'), where('authorUid', '==', user?.uid), orderBy('timestamp', 'desc'), limit(1000));
+        : query(collection(db, 'activity_logs'), where('authorUid', '==', user?.uid), limit(1000));
       
       unsubActivityLogs = onSnapshot(qLogs, (snapshot) => {
         const logs = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
-        setActivityLogs(logs);
+        const sortedLogs = logs.sort((a: any, b: any) => {
+          const timeA = a.timestamp?.toMillis ? a.timestamp.toMillis() : new Date(a.timestamp || 0).getTime();
+          const timeB = b.timestamp?.toMillis ? b.timestamp.toMillis() : new Date(b.timestamp || 0).getTime();
+          return timeB - timeA;
+        });
+        setActivityLogs(sortedLogs);
       }, (err: any) => {
         console.warn("Activity logs query error/index warning, falling back:", err);
         // Fallback or handle offline
@@ -548,7 +547,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         if (isDuplicateInState || isDuplicateInBatch) {
           const workerId = isDuplicateInState ? (isDuplicateInState.assignedTo || isDuplicateInState.uploadedBy) : 'this batch';
           const workerName = isDuplicateInState ? (teamMembers[workerId] || 'Unknown Recruiter') : 'this batch';
-          const status = isDuplicateInState ? (isDuplicateInState.status || 'Screening') : 'New';
+          const status = isDuplicateInState ? (isDuplicateInState.pipelineStage || isDuplicateInState.status || 'Screening') : 'New';
           const lastUpdated = isDuplicateInState ? formatUKDate(isDuplicateInState.updatedAt || isDuplicateInState.createdAt) : 'N/A';
           
           setDuplicateNotification({ 
@@ -557,6 +556,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           });
           setUploadStatus('duplicate');
           setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
+
+          if (isDuplicateInState) {
+            setDuplicateResolution({
+              isOpen: true,
+              candidate: isDuplicateInState,
+              newParsed: parsed,
+              file: file
+            });
+          }
           return;
         }
 
@@ -999,6 +1007,231 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       }
     } catch (err) {
       console.error('[Dashboard] Error updating candidate client:', err);
+    }
+  };
+
+  const handleUpdateStage = async (id: string, stage: string) => {
+    if (role !== 'admin' && role !== 'team_leader' && role !== 'developer' && role !== 'recruiter') return;
+    try {
+      const candidateDoc = doc(db, 'candidates', id);
+      const candSnap = await getDoc(candidateDoc);
+      if (!candSnap.exists()) return;
+      const candidateData = candSnap.data();
+
+      const timestamp = new Date().toISOString();
+      const author = getUserDisplayName() || user?.email || 'System';
+
+      const updateData: any = {
+        pipelineStage: stage,
+        status: stage,
+        updatedAt: timestamp
+      };
+
+      const currentStageHistory = candidateData.stageHistory || [];
+      const isDuplicateStage = currentStageHistory.some((h: any) => h.stage === stage);
+      if (!isDuplicateStage) {
+        updateData.stageHistory = [
+          ...currentStageHistory,
+          { stage, timestamp, author }
+        ];
+      }
+
+      await updateDoc(candidateDoc, updateData);
+
+      if (selectedCandidate?.id === id) {
+        setSelectedCandidate((prev: any) => ({ 
+          ...prev, 
+          pipelineStage: stage,
+          status: stage,
+          stageHistory: updateData.stageHistory || prev.stageHistory
+        }));
+      }
+
+      await logActivity(
+        author,
+        user?.uid || 'System',
+        getUserRole() || 'recruiter',
+        'pipeline_stage_moved',
+        candidateData.fullName || 'Candidate',
+        null,
+        `Moved candidate stage to: ${stage}`,
+        'Pipeline'
+      );
+    } catch (err) {
+      console.error('[Dashboard] Error updating candidate stage:', err);
+    }
+  };
+
+  const handleResolveView = () => {
+    if (!duplicateResolution) return;
+    setSelectedCandidate(duplicateResolution.candidate);
+    setDuplicateResolution(null);
+  };
+
+  const handleResolveRestore = async () => {
+    if (!duplicateResolution) return;
+    try {
+      await updateDoc(doc(db, 'candidates', duplicateResolution.candidate.id), {
+        isArchived: false,
+        updatedAt: new Date().toISOString()
+      });
+      setDuplicateResolution(null);
+      showAlert('Success', 'Candidate has been successfully restored.');
+    } catch (err) {
+      console.error('[Dashboard] Error restoring duplicate candidate:', err);
+      showAlert('Error', 'Failed to restore candidate.');
+    }
+  };
+
+  const handleResolveDelete = async () => {
+    if (!duplicateResolution) return;
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Permanently',
+      message: `Are you sure you want to PERMANENTLY delete ${duplicateResolution.candidate.fullName}? This cannot be undone and will completely erase their records.`,
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'candidates', duplicateResolution.candidate.id));
+          setDuplicateResolution(null);
+          showAlert('Success', 'Candidate has been permanently deleted from Firebase.');
+        } catch (err) {
+          console.error('[Dashboard] Error permanently deleting duplicate candidate:', err);
+          showAlert('Error', 'Failed to permanently delete candidate.');
+        }
+      },
+      variant: 'danger'
+    });
+  };
+
+  const handleResolveOverwrite = async () => {
+    if (!duplicateResolution || !duplicateResolution.file) return;
+    const { candidate, newParsed, file } = duplicateResolution;
+    setIsProcessing(true);
+    try {
+      const fileToBase64 = (f: File): Promise<string> => {
+        return new Promise((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(f);
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = error => reject(error);
+        });
+      };
+
+      const MAX_BASE64_SIZE = 1000000;
+      let cvBase64 = null;
+      if (file.size < MAX_BASE64_SIZE) {
+        cvBase64 = await fileToBase64(file);
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('name', newParsed.name || file.name);
+      formData.append('email', newParsed.contact.email || 'pending@aurrum.co');
+      if (newParsed.contact.phone) {
+        formData.append('phone', newParsed.contact.phone);
+      }
+
+      let uploadResultUrl = candidate.url;
+      let uploadResultCid = candidate.cid;
+
+      try {
+        const response = await fetch('/api/cv/upload', {
+          method: 'POST',
+          body: formData
+        });
+        if (response.ok) {
+          const data = await response.json();
+          if (data.data) {
+            uploadResultCid = data.data.id || uploadResultCid;
+            if (data.data.url) uploadResultUrl = data.data.url;
+          }
+        }
+      } catch (apiErr) {
+        console.warn('API upload failed for overwrite, sticking to existing url:', apiErr);
+      }
+
+      const normalizedExperience = newParsed.experience?.map((exp: any) => ({
+        role: exp.title || '',
+        company: exp.company || '',
+        duration: exp.duration || '',
+        description: exp.responsibilities?.join(". ") || "",
+        location: exp.location || ''
+      })) || [];
+
+      const normalizedEducation = newParsed.education?.map((edu: any) => ({
+        degree: edu.degree || '',
+        school: edu.institution || '',
+        year: edu.duration || '',
+        field: edu.field || '',
+        gpa: edu.gpa || '',
+        location: edu.location || ''
+      })) || [];
+
+      const allSkills = Array.from(new Set([
+        ...(newParsed.skills?.languages || []),
+        ...(newParsed.skills?.frameworks || []),
+        ...(newParsed.skills?.databases || []),
+        ...(newParsed.skills?.tools || []),
+        ...(newParsed.skills?.libraries || []),
+        ...(newParsed.skills?.other || [])
+      ])).filter(s => s && s.length > 0);
+
+      const projectLinks = newParsed.projects?.flatMap((p: any) => p.links.map((l: any) => ({ url: l, label: `Project: ${p.name}` }))) || [];
+
+      await updateDoc(doc(db, 'candidates', candidate.id), {
+        fullName: newParsed.name || file.name,
+        cvBase64: cvBase64 || candidate.cvBase64,
+        originalFileName: file.name,
+        email: (newParsed.contact.email || 'pending@aurrum.co').toLowerCase(),
+        phone: newParsed.contact.phone || candidate.phone,
+        locationInfo: newParsed.locationDetails || candidate.locationInfo,
+        summary: newParsed.profile || candidate.summary,
+        domainFocus: newParsed.domainFocus || candidate.domainFocus,
+        skills: allSkills,
+        categorizedSkills: newParsed.skills || candidate.categorizedSkills,
+        experience: normalizedExperience,
+        education: normalizedEducation,
+        projects: newParsed.projects?.map((p: any) => ({
+          title: p.name,
+          description: p.description.join(". "),
+          technologies: p.technologies,
+          duration: p.duration,
+          link: p.links[0] || null
+        })) || candidate.projects,
+        certifications: newParsed.achievements || candidate.certifications,
+        achievements: newParsed.achievements || candidate.achievements,
+        languages: newParsed.languages || candidate.languages,
+        interests: newParsed.interests || candidate.interests,
+        links: [
+          ...(newParsed.contact.linkedin ? [{ url: newParsed.contact.linkedin, label: 'LinkedIn' }] : []),
+          ...(newParsed.contact.github ? [{ url: newParsed.contact.github, label: 'GitHub' }] : []),
+          ...(newParsed.contact.portfolio ? [{ url: newParsed.contact.portfolio, label: 'Portfolio' }] : []),
+          ...projectLinks
+        ],
+        totalExperience: newParsed.totalExperienceYears || candidate.totalExperienceYears,
+        cid: uploadResultCid,
+        url: uploadResultUrl,
+        updatedAt: new Date().toISOString()
+      });
+
+      await logActivity(
+        getUserDisplayName() || user?.email || 'System',
+        user?.uid || 'System',
+        getUserRole() || 'recruiter',
+        'Candidate Overwritten',
+        candidate.fullName || 'Candidate',
+        null,
+        `Overwrote duplicate candidate ${candidate.fullName || 'Candidate'} with newly uploaded CV: ${file.name}`,
+        'Candidate'
+      );
+
+      setDuplicateResolution(null);
+      showAlert('Success', `Candidate ${candidate.fullName} profile has been updated with the new resume data.`);
+    } catch (err) {
+      console.error('[Dashboard] Error overwriting candidate:', err);
+      showAlert('Error', 'Failed to overwrite candidate.');
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -2306,6 +2539,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         teamMembers={teamMembers}
         fullTeamList={fullTeamList}
         onUpdateClient={handleUpdateClient}
+        onUpdateStage={handleUpdateStage}
       />
 
       <ConfirmModal 
@@ -2317,6 +2551,96 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         variant={confirmConfig.variant}
         confirmText={confirmConfig.confirmText}
       />
+
+      {duplicateResolution?.isOpen && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-md z-[1100] flex items-center justify-center p-4 animate-in fade-in duration-300">
+          <div className="bg-[var(--card-bg)] border border-[var(--border-color)] max-w-lg w-full rounded-[2rem] p-6 sm:p-8 shadow-2xl relative flex flex-col gap-6 animate-in zoom-in-95 duration-300">
+            {/* Header */}
+            <div className="flex items-start justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-amber-50 dark:bg-amber-950/20 rounded-2xl flex items-center justify-center text-amber-600 dark:text-amber-400">
+                  <AlertCircle size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-serif text-[var(--text-primary)]">Duplicate Detected</h3>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-amber-600 dark:text-amber-400">Manage existing candidate profile conflict</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setDuplicateResolution(null)} 
+                className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors"
+              >
+                <X size={18} />
+              </button>
+            </div>
+
+            {/* Candidate Details */}
+            <div className="bg-slate-50 dark:bg-slate-950/50 p-5 rounded-2xl border border-[var(--border-color)]/70 flex flex-col gap-3 text-xs font-bold text-[var(--text-secondary)]">
+              <div className="flex justify-between border-b border-[var(--border-color)]/50 pb-2">
+                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[9px]">Candidate Identity:</span>
+                <span className="text-[var(--text-primary)] text-right truncate max-w-[200px]">{duplicateResolution.candidate.fullName}</span>
+              </div>
+              <div className="flex justify-between border-b border-[var(--border-color)]/50 pb-2">
+                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[9px]">Email address:</span>
+                <span className="text-[var(--text-primary)] text-right truncate max-w-[200px]">{duplicateResolution.candidate.email}</span>
+              </div>
+              <div className="flex justify-between border-b border-[var(--border-color)]/50 pb-2">
+                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[9px]">Current Pipeline Stage:</span>
+                <span className="text-indigo-600 dark:text-indigo-400 capitalize">{(duplicateResolution.candidate.pipelineStage || 'cv_upload').replace('_', ' ')}</span>
+              </div>
+              <div className="flex justify-between border-b border-[var(--border-color)]/50 pb-2">
+                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[9px]">Currently Assigned To:</span>
+                <span className="text-[var(--text-primary)]">{teamMembers[duplicateResolution.candidate.assignedTo || duplicateResolution.candidate.uploadedBy] || 'Unassigned'}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[9px]">Last Record Update:</span>
+                <span className="text-[var(--text-primary)] font-mono">{formatUKDate(duplicateResolution.candidate.updatedAt || duplicateResolution.candidate.createdAt)}</span>
+              </div>
+            </div>
+
+            <p className="text-xs text-[var(--text-muted)] leading-relaxed font-bold">
+              This candidate is already registered in the system. Please select an action to resolve this conflict:
+            </p>
+
+            {/* Actions Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {duplicateResolution.candidate.isArchived ? (
+                <button 
+                  onClick={handleResolveRestore}
+                  className="col-span-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-md shadow-emerald-600/10"
+                >
+                  <RotateCcw size={14} /> Restore & View Candidate
+                </button>
+              ) : (
+                <button 
+                  onClick={handleResolveView}
+                  className="col-span-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-600/10"
+                >
+                  View Profile Details
+                </button>
+              )}
+
+              <button 
+                onClick={handleResolveOverwrite}
+                className="py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-[var(--text-primary)] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 border border-[var(--border-color)]"
+                title="Overwrite the existing resume data and file with the new one"
+              >
+                Overwrite Profile
+              </button>
+
+              {isPrivileged && (
+                <button 
+                  onClick={handleResolveDelete}
+                  className="py-2.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 border border-rose-200/50 dark:border-rose-950"
+                  title="Permanently remove candidate from Firebase database"
+                >
+                  Delete Permanently
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

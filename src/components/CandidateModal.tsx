@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown, Linkedin, Github, Twitter, ExternalLink, CheckCircle2, MapPin, Trash, Trash2, Plus } from 'lucide-react';
+import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown, Linkedin, Github, Twitter, ExternalLink, CheckCircle2, MapPin, Trash, Trash2, Plus, Layers } from 'lucide-react';
 import LZString from 'lz-string';
 
 // Helper to get icon for link
@@ -23,6 +23,21 @@ import { fetchCvList } from '../services/cvApiService';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 
+const STAGES_LIST = [
+  { id: 'cv_upload', label: 'CV Upload', parentLabel: 'Inflow' },
+  { id: 'telephone_screening', label: 'Telephone Screening', parentLabel: 'Screening' },
+  { id: 'video_screening', label: 'Video Screening', parentLabel: 'Screening' },
+  { id: 'technical_screening', label: 'Technical Screening', parentLabel: 'Interviews' },
+  { id: 'assessment', label: 'Assessment', parentLabel: 'Interviews' },
+  { id: 'client_interview_round_1', label: 'Client Interview R1', parentLabel: 'Interviews' },
+  { id: 'client_interview_round_2', label: 'Client Interview R2', parentLabel: 'Interviews' },
+  { id: 'final_interview', label: 'Final Interview', parentLabel: 'Interviews' },
+  { id: 'offer_received', label: 'Offer Received', parentLabel: 'Offer' },
+  { id: 'offer_accepted_declined', label: 'Offer Accepted/Declined', parentLabel: 'Offer Decision' },
+  { id: 'joining', label: 'Joining', parentLabel: 'Placement' },
+  { id: 'invoice_generated', label: 'Invoice Generated', parentLabel: 'Invoice' }
+];
+
 interface CandidateModalProps {
   candidate: any;
   isOpen: boolean;
@@ -36,9 +51,10 @@ interface CandidateModalProps {
   teamMembers: Record<string, string>;
   fullTeamList?: any[];
   onUpdateClient?: (id: string, clientId: string) => void;
+  onUpdateStage?: (id: string, stage: string) => void;
 }
 
-export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp, onCompleteFollowUp, onUpdateNotes, onUpdateAssignee, onContact, teamMembers, fullTeamList = [], onUpdateClient }: CandidateModalProps) {
+export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp, onCompleteFollowUp, onUpdateNotes, onUpdateAssignee, onContact, teamMembers, fullTeamList = [], onUpdateClient, onUpdateStage }: CandidateModalProps) {
   const { user, role, isPrivileged, getUserDisplayName, getUserRole } = useAuth();
   const { formatDate } = useTimezone();
   const [followUpNote, setFollowUpNote] = useState('');
@@ -46,8 +62,10 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const [generalNotes, setGeneralNotes] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
   const [assignedClientId, setAssignedClientId] = useState('');
+  const [assignedStage, setAssignedStage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingClient, setIsSavingClient] = useState(false);
+  const [isSavingStage, setIsSavingStage] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   
@@ -341,6 +359,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       setGeneralNotes(candidate.notes || '');
       setAssignedTo(candidate.assignedTo || '');
       setAssignedClientId(candidate.clientId || '');
+      setAssignedStage(candidate.pipelineStage || 'cv_upload');
       setSkills(candidate.skills || []);
       setSearchTerm(''); // Clear search on candidate change
 
@@ -609,6 +628,43 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       showAlert('Error', 'Failed to update client assignment.');
     } finally {
       setIsSavingClient(false);
+    }
+  };
+
+  const handleUpdateStage = async () => {
+    setIsSavingStage(true);
+    try {
+      if (onUpdateStage) {
+        await onUpdateStage(candidate.id, assignedStage);
+      } else {
+        await updateDoc(doc(db, 'candidates', candidate.id), {
+          pipelineStage: assignedStage,
+          updatedAt: new Date().toISOString()
+        });
+      }
+
+      candidate.pipelineStage = assignedStage;
+
+      const stageObj = STAGES_LIST.find(s => s.id === assignedStage);
+      const stageLabel = stageObj ? stageObj.label : assignedStage;
+
+      await logActivity(
+        getUserDisplayName(),
+        user!.uid,
+        getUserRole(),
+        'Pipeline Stage Updated',
+        candidate.fullName || 'Candidate',
+        null,
+        `Updated pipeline stage to: ${stageLabel}`,
+        'Candidate'
+      );
+      
+      showAlert('Success', 'Candidate pipeline stage updated successfully.');
+    } catch (err) {
+      console.error(err);
+      showAlert('Error', 'Failed to update candidate pipeline stage.');
+    } finally {
+      setIsSavingStage(false);
     }
   };
 
@@ -1409,6 +1465,37 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   >
                     {isSavingClient ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />} 
                     Update Client Assignment
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {/* Pipeline Stage Panel */}
+            {(isPrivileged || role === 'recruiter') && (
+              <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
+                  <Layers size={12} /> Pipeline Stage
+                </h3>
+                <div className="space-y-3.5">
+                  <div className="relative">
+                    <select 
+                      value={assignedStage}
+                      onChange={(e) => setAssignedStage(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl pl-4 pr-10 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] appearance-none cursor-pointer hover:border-indigo-400 transition-colors font-bold"
+                    >
+                      {STAGES_LIST.map((stage) => (
+                        <option key={stage.id} value={stage.id}>{stage.label} ({stage.parentLabel})</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-3.5 text-[var(--text-muted)] pointer-events-none" />
+                  </div>
+                  <button 
+                    onClick={handleUpdateStage}
+                    disabled={isSavingStage}
+                    className="w-full py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isSavingStage ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />} 
+                    Update Pipeline Stage
                   </button>
                 </div>
               </section>
