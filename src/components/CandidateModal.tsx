@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown, Linkedin, Github, Twitter, ExternalLink, CheckCircle2, MapPin } from 'lucide-react';
+import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown, Linkedin, Github, Twitter, ExternalLink, CheckCircle2, MapPin, Trash, Trash2, Plus } from 'lucide-react';
 import LZString from 'lz-string';
 
 // Helper to get icon for link
@@ -34,16 +34,20 @@ interface CandidateModalProps {
   onUpdateAssignee: (id: string, userId: string) => void;
   onContact: (userId: string) => void;
   teamMembers: Record<string, string>;
+  fullTeamList?: any[];
+  onUpdateClient?: (id: string, clientId: string) => void;
 }
 
-export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp, onCompleteFollowUp, onUpdateNotes, onUpdateAssignee, onContact, teamMembers }: CandidateModalProps) {
+export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp, onCompleteFollowUp, onUpdateNotes, onUpdateAssignee, onContact, teamMembers, fullTeamList = [], onUpdateClient }: CandidateModalProps) {
   const { user, role, isPrivileged, getUserDisplayName, getUserRole } = useAuth();
   const { formatDate } = useTimezone();
   const [followUpNote, setFollowUpNote] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [generalNotes, setGeneralNotes] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
+  const [assignedClientId, setAssignedClientId] = useState('');
   const [isSaving, setIsSaving] = useState(false);
+  const [isSavingClient, setIsSavingClient] = useState(false);
   const [isCompleting, setIsCompleting] = useState(false);
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   
@@ -52,6 +56,145 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const [country, setCountry] = useState('');
   const [postalCode, setPostalCode] = useState('');
   const [isSavingLoc, setIsSavingLoc] = useState(false);
+
+  const [isEditing, setIsEditing] = useState(false);
+  const [editedFullName, setEditedFullName] = useState('');
+  const [editedSummary, setEditedSummary] = useState('');
+  const [editedDomain, setEditedDomain] = useState('');
+  const [editedDomainFocus, setEditedDomainFocus] = useState('');
+  const [editedExperience, setEditedExperience] = useState<any[]>([]);
+  const [editedEducation, setEditedEducation] = useState<any[]>([]);
+  const [editedProjects, setEditedProjects] = useState<any[]>([]);
+  const [editedCertifications, setEditedCertifications] = useState<string[]>([]);
+  const [editedAchievements, setEditedAchievements] = useState<string[]>([]);
+  const [editedSkills, setEditedSkills] = useState<string[]>([]);
+  const [editedEmail, setEditedEmail] = useState('');
+  const [editedPhone, setEditedPhone] = useState('');
+
+  const handleAddExperience = () => {
+    setEditedExperience(prev => [...prev, { role: '', company: '', duration: '', description: '' }]);
+  };
+  const handleUpdateExperience = (index: number, key: string, value: string) => {
+    setEditedExperience(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [key]: value };
+      return updated;
+    });
+  };
+  const handleRemoveExperience = (index: number) => {
+    setEditedExperience(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddEducation = () => {
+    setEditedEducation(prev => [...prev, { degree: '', school: '', year: '' }]);
+  };
+  const handleUpdateEducation = (index: number, key: string, value: string) => {
+    setEditedEducation(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [key]: value };
+      return updated;
+    });
+  };
+  const handleRemoveEducation = (index: number) => {
+    setEditedEducation(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddProject = () => {
+    setEditedProjects(prev => [...prev, { title: '', description: '', link: '' }]);
+  };
+  const handleUpdateProject = (index: number, key: string, value: string) => {
+    setEditedProjects(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [key]: value };
+      return updated;
+    });
+  };
+  const handleRemoveProject = (index: number) => {
+    setEditedProjects(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddCert = () => {
+    setEditedCertifications(prev => [...prev, '']);
+  };
+  const handleUpdateCert = (index: number, value: string) => {
+    setEditedCertifications(prev => {
+      const updated = [...prev];
+      updated[index] = value;
+      return updated;
+    });
+  };
+  const handleRemoveCert = (index: number) => {
+    setEditedCertifications(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleAddAchievement = () => {
+    setEditedAchievements(prev => [...prev, '']);
+  };
+  const handleUpdateAchievement = (index: number, value: string) => {
+    setEditedAchievements(prev => {
+      const updated = [...prev];
+      updated[index] = value;
+      return updated;
+    });
+  };
+  const handleRemoveAchievement = (index: number) => {
+    setEditedAchievements(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveCandidateProfile = async () => {
+    setIsSaving(true);
+    try {
+      const { doc, updateDoc } = await import('firebase/firestore');
+      const { db } = await import('../lib/firebase');
+      const candidateRef = doc(db, 'candidates', candidate.id);
+      const updateData: any = {};
+      
+      if (role === 'developer') {
+        updateData.fullName = editedFullName.trim();
+        updateData.summary = editedSummary.trim();
+        updateData.domain = editedDomain.trim();
+        updateData.domainFocus = editedDomainFocus.trim();
+        updateData.experience = editedExperience;
+        updateData.education = editedEducation;
+        updateData.projects = editedProjects;
+        updateData.certifications = editedCertifications.filter(Boolean);
+        updateData.achievements = editedAchievements.filter(Boolean);
+        updateData.skills = editedSkills.filter(Boolean);
+        updateData.email = editedEmail.trim();
+        updateData.phone = editedPhone.trim();
+      } else if (role === 'admin' || role === 'team_leader') {
+        updateData.fullName = editedFullName.trim();
+      }
+
+      await updateDoc(candidateRef, updateData);
+
+      // Update local candidate properties
+      Object.assign(candidate, updateData);
+      
+      if (role === 'developer') {
+        setSkills(editedSkills.filter(Boolean));
+      }
+
+      await logActivity(
+        getUserDisplayName(),
+        user!.uid,
+        getUserRole(),
+        'Profile Updated',
+        candidate.fullName || 'Candidate',
+        null,
+        `Updated profile details of candidate: ${candidate.fullName}`,
+        'Candidate'
+      );
+
+      setIsEditing(false);
+      showAlert('Success', 'Candidate profile updated successfully!');
+    } catch (err: any) {
+      console.error('Error saving candidate profile:', err);
+      showAlert('Error', 'Failed to save candidate profile changes.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
 
   const handleSaveLocation = async () => {
     setIsSavingLoc(true);
@@ -197,6 +340,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       setFollowUpDate(candidate.followUpDate || '');
       setGeneralNotes(candidate.notes || '');
       setAssignedTo(candidate.assignedTo || '');
+      setAssignedClientId(candidate.clientId || '');
       setSkills(candidate.skills || []);
       setSearchTerm(''); // Clear search on candidate change
 
@@ -228,6 +372,23 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       }
     }
   }, [candidate]);
+
+  useEffect(() => {
+    if (candidate) {
+      setEditedFullName(candidate.fullName || '');
+      setEditedSummary(candidate.summary || '');
+      setEditedDomain(candidate.domain || '');
+      setEditedDomainFocus(candidate.domainFocus || '');
+      setEditedExperience(candidate.experience || []);
+      setEditedEducation(candidate.education || []);
+      setEditedProjects(candidate.projects || []);
+      setEditedCertifications(candidate.certifications || []);
+      setEditedAchievements(candidate.achievements || []);
+      setEditedSkills(candidate.skills || []);
+      setEditedEmail(candidate.email || '');
+      setEditedPhone(candidate.phone || '');
+    }
+  }, [candidate, isEditing]);
 
   if (!isOpen || !candidate) return null;
 
@@ -409,6 +570,48 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     }
   };
 
+  const handleUpdateClient = async () => {
+    if (!candidate) return;
+    setIsSavingClient(true);
+    try {
+      const isRemoval = assignedClientId === '';
+      
+      if (onUpdateClient) {
+        await onUpdateClient(candidate.id, assignedClientId);
+      } else {
+        await updateDoc(doc(db, 'candidates', candidate.id), {
+          clientId: assignedClientId || null,
+          clientAssignedAt: new Date().toISOString()
+        });
+      }
+
+      candidate.clientId = assignedClientId || null;
+      
+      const clientsList = (fullTeamList || []).filter(u => u.role === 'client');
+      const clientUser = clientsList.find(c => c.id === assignedClientId);
+      const clientName = clientUser ? (clientUser.name || clientUser.email) : 'Client';
+
+      const activityAction = isRemoval ? 'Client Assignment Removed' : 'Client Assigned'; 
+      await logActivity(
+        getUserDisplayName(),
+        user!.uid,
+        getUserRole(),
+        activityAction,
+        candidate.fullName || 'Candidate',
+        assignedClientId ? clientName : null,
+        isRemoval ? 'Client assignment removed' : `Assigned to Client ${clientName}`,
+        'Candidate Client Assignment'
+      );
+      
+      showAlert('Success', isRemoval ? 'Client assignment removed successfully.' : 'Candidate assigned to client successfully.');
+    } catch (err) {
+      console.error(err);
+      showAlert('Error', 'Failed to update client assignment.');
+    } finally {
+      setIsSavingClient(false);
+    }
+  };
+
   const handleRemoveSkill = async (skillToRemove: string) => {
     const updatedSkills = skills.filter(s => s !== skillToRemove);
     setSkills(updatedSkills);
@@ -446,31 +649,105 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl font-black shadow-md uppercase shrink-0">
                 {(candidate.fullName || '??').slice(0, 2)}
               </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2.5 flex-wrap">
-                  <h2 className="text-xl sm:text-2xl font-black text-[var(--text-primary)] leading-tight tracking-tight">{candidate.fullName || 'Unnamed Candidate'}</h2>
-                  <button 
-                    onClick={handleShortlistClick}
-                    disabled={!isPrivileged && role !== 'recruiter'}
-                    className={`p-1.5 rounded-xl transition-all shrink-0 ${!isPrivileged && role !== 'recruiter' ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105 active:scale-95'} ${candidate.isShortlisted ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/40' : 'text-slate-300 dark:text-slate-700 hover:text-amber-500 dark:hover:text-amber-400'}`}
-                  >
-                    {candidate.isShortlisted ? <Star fill="currentColor" size={16} /> : <StarOff size={16} />}
-                  </button>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2.5 flex-wrap w-full max-w-xl">
+                  {isEditing ? (
+                    <div className="flex flex-col gap-1 w-full max-w-md">
+                      <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Candidate Full Name</label>
+                      <input 
+                        type="text" 
+                        value={editedFullName} 
+                        onChange={(e) => setEditedFullName(e.target.value)} 
+                        className="w-full bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-base focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold shadow-sm"
+                        placeholder="Candidate Full Name"
+                      />
+                    </div>
+                  ) : (
+                    <h2 className="text-xl sm:text-2xl font-black text-[var(--text-primary)] leading-tight tracking-tight">{candidate.fullName || 'Unnamed Candidate'}</h2>
+                  )}
+                  {!isEditing && (
+                    <button 
+                      onClick={handleShortlistClick}
+                      disabled={!isPrivileged && role !== 'recruiter'}
+                      className={`p-1.5 rounded-xl transition-all shrink-0 ${!isPrivileged && role !== 'recruiter' ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105 active:scale-95'} ${candidate.isShortlisted ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/40' : 'text-slate-300 dark:text-slate-700 hover:text-amber-500 dark:hover:text-amber-400'}`}
+                    >
+                      {candidate.isShortlisted ? <Star fill="currentColor" size={16} /> : <StarOff size={16} />}
+                    </button>
+                  )}
                 </div>
-                <div className="flex items-center gap-2 mt-1 flex-wrap text-[10px] font-bold">
-                  <span className="text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md">
-                    {candidate.domainFocus || candidate.domain || 'Uncategorized Profile'}
-                  </span>
-                  <span className="text-[var(--text-muted)]">•</span>
-                  <span className="text-[var(--text-muted)] uppercase tracking-wider">
-                    {candidate.domain || 'General Talent'}
-                  </span>
+                <div className="flex items-center gap-2 mt-1.5 flex-wrap text-[10px] font-bold w-full">
+                  {isEditing && role === 'developer' ? (
+                    <div className="grid grid-cols-2 gap-2.5 w-full max-w-md mt-1">
+                      <div className="flex flex-col gap-0.5">
+                        <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Domain Focus</label>
+                        <input 
+                          type="text" 
+                          value={editedDomainFocus} 
+                          onChange={(e) => setEditedDomainFocus(e.target.value)} 
+                          className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold shadow-sm"
+                          placeholder="e.g. Full-Stack Engineer"
+                        />
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Main Domain</label>
+                        <input 
+                          type="text" 
+                          value={editedDomain} 
+                          onChange={(e) => setEditedDomain(e.target.value)} 
+                          className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-lg px-2.5 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold shadow-sm"
+                          placeholder="e.g. Technology"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <span className="text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/40 px-2 py-0.5 rounded-md">
+                        {candidate.domainFocus || candidate.domain || 'Uncategorized Profile'}
+                      </span>
+                      <span className="text-[var(--text-muted)]">•</span>
+                      <span className="text-[var(--text-muted)] uppercase tracking-wider">
+                        {candidate.domain || 'General Talent'}
+                      </span>
+                    </>
+                  )}
                 </div>
               </div>
             </div>
             
             {/* Action Buttons Toolbar */}
-            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+              {/* Profile Editing Controls */}
+              {(role === 'developer' || role === 'admin' || role === 'team_leader') && (
+                <>
+                  {isEditing ? (
+                    <div className="flex items-center gap-1.5">
+                      <button
+                        onClick={handleSaveCandidateProfile}
+                        disabled={isSaving}
+                        className="px-3.5 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md active:scale-95 disabled:opacity-50"
+                      >
+                        {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
+                        <span>Save Profile</span>
+                      </button>
+                      <button
+                        onClick={() => setIsEditing(false)}
+                        disabled={isSaving}
+                        className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all border border-[var(--border-color)]"
+                      >
+                        <span>Cancel</span>
+                      </button>
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => setIsEditing(true)}
+                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                    >
+                      <Code size={13} />
+                      <span>{role === 'developer' ? 'Edit Profile' : 'Edit Name'}</span>
+                    </button>
+                  )}
+                </>
+              )}
               {(role === 'admin' || role === 'developer' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid) && (
                 <button 
                   onClick={handleView}
@@ -547,7 +824,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
                   <Globe size={12} className="text-indigo-500" /> Executive summary
                 </h3>
-                {(cvUrl || candidate.url || candidate.compressedText) && (
+                {(cvUrl || candidate.url || candidate.compressedText) && !isEditing && (
                   <button 
                     onClick={handleView}
                     className="text-[9px] font-black text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 uppercase tracking-widest transition-colors"
@@ -556,99 +833,371 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   </button>
                 )}
               </div>
-              <p className="text-[var(--text-secondary)] leading-relaxed text-sm italic border-l-2 border-indigo-500 pl-4 select-text">
-                "{renderHighlightedText(candidate.summary || 'No summary extracted.')}"
-              </p>
+              {isEditing && role === 'developer' ? (
+                <textarea
+                  value={editedSummary}
+                  onChange={(e) => setEditedSummary(e.target.value)}
+                  className="w-full h-32 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl p-4 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-medium leading-relaxed shadow-sm"
+                  placeholder="Enter executive summary..."
+                />
+              ) : (
+                <p className="text-[var(--text-secondary)] leading-relaxed text-sm italic border-l-2 border-indigo-500 pl-4 select-text">
+                  "{renderHighlightedText(candidate.summary || 'No summary extracted.')}"
+                </p>
+              )}
             </section>
 
             {/* Work History timeline */}
             <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm card-hover-effect">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-5 flex items-center gap-2">
-                <Briefcase size={12} className="text-indigo-500" /> Professional timeline
-              </h3>
-              <div className="space-y-6 max-h-[320px] overflow-y-auto custom-scrollbar pr-2">
-                {candidate.experience?.map((exp: any, i: number) => (
-                  <div key={i} className="relative pl-6 border-l-2 border-[var(--border-color)]/70 hover:border-indigo-500/50 transition-all duration-300">
-                    <div className="absolute -left-1.5 top-1.5 w-3.5 h-3.5 rounded-full bg-indigo-500 border-2 border-[var(--bg-primary)] shadow-sm" />
-                    <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">{renderHighlightedText(exp.role)}</h4>
-                    <p className="text-indigo-600 dark:text-indigo-400 text-xs font-bold mt-0.5">{renderHighlightedText(exp.company)} • {renderHighlightedText(exp.duration)}</p>
-                    <p className="text-[var(--text-secondary)] text-xs mt-2 leading-relaxed select-text">{renderHighlightedText(exp.description)}</p>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
+                  <Briefcase size={12} className="text-indigo-500" /> Professional timeline
+                </h3>
+                {isEditing && role === 'developer' && (
+                  <button
+                    onClick={handleAddExperience}
+                    className="text-[9px] font-black text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 uppercase tracking-widest transition-colors flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-lg border border-indigo-100/30"
+                  >
+                    <Plus size={10} /> Add Experience
+                  </button>
+                )}
               </div>
+              {isEditing && role === 'developer' ? (
+                <div className="space-y-4 max-h-[400px] overflow-y-auto custom-scrollbar pr-2">
+                  {editedExperience.map((exp: any, i: number) => (
+                    <div key={i} className="p-4 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl relative flex flex-col gap-3 shadow-sm">
+                      <button
+                        onClick={() => handleRemoveExperience(i)}
+                        className="absolute top-3 right-3 text-rose-500 hover:text-rose-600 transition-colors p-1"
+                        title="Remove work history entry"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div className="flex flex-col gap-0.5">
+                          <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Role / Title</label>
+                          <input
+                            type="text"
+                            value={exp.role || ''}
+                            onChange={(e) => handleUpdateExperience(i, 'role', e.target.value)}
+                            className="bg-slate-50 dark:bg-slate-950 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                            placeholder="e.g. Senior Frontend Engineer"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Company</label>
+                          <input
+                            type="text"
+                            value={exp.company || ''}
+                            onChange={(e) => handleUpdateExperience(i, 'company', e.target.value)}
+                            className="bg-slate-50 dark:bg-slate-950 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                            placeholder="e.g. Google"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Duration</label>
+                          <input
+                            type="text"
+                            value={exp.duration || ''}
+                            onChange={(e) => handleUpdateExperience(i, 'duration', e.target.value)}
+                            className="bg-slate-50 dark:bg-slate-950 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                            placeholder="e.g. Jan 2021 - Present"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Job Description</label>
+                        <textarea
+                          value={exp.description || ''}
+                          onChange={(e) => handleUpdateExperience(i, 'description', e.target.value)}
+                          className="w-full bg-slate-50 dark:bg-slate-950 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-medium leading-relaxed h-20"
+                          placeholder="Describe your responsibilities, technologies used, and key achievements..."
+                        />
+                      </div>
+                    </div>
+                  ))}
+                  {editedExperience.length === 0 && (
+                    <p className="text-[var(--text-muted)] text-center py-6 text-xs font-semibold">No experience entries. Click "+ Add Experience" to add one.</p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-6 max-h-[320px] overflow-y-auto custom-scrollbar pr-2">
+                  {candidate.experience?.map((exp: any, i: number) => (
+                    <div key={i} className="relative pl-6 border-l-2 border-[var(--border-color)]/70 hover:border-indigo-500/50 transition-all duration-300">
+                      <div className="absolute -left-1.5 top-1.5 w-3.5 h-3.5 rounded-full bg-indigo-500 border-2 border-[var(--bg-primary)] shadow-sm" />
+                      <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">{renderHighlightedText(exp.role)}</h4>
+                      <p className="text-indigo-600 dark:text-indigo-400 text-xs font-bold mt-0.5">{renderHighlightedText(exp.company)} • {renderHighlightedText(exp.duration)}</p>
+                      <p className="text-[var(--text-secondary)] text-xs mt-2 leading-relaxed select-text">{renderHighlightedText(exp.description)}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* Academic Credentials */}
             <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm card-hover-effect">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-5 flex items-center gap-2">
-                <GraduationCap size={12} className="text-indigo-500" /> Academic credentials
-              </h3>
-              <div className="space-y-6 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
-                {candidate.education?.map((edu: any, i: number) => (
-                  <div key={i} className="relative pl-6 border-l-2 border-[var(--border-color)]/70 hover:border-emerald-500/50 transition-all duration-300">
-                    <div className="absolute -left-1.5 top-1.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[var(--bg-primary)] shadow-sm" />
-                    <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">{edu.degree}</h4>
-                    <p className="text-emerald-600 dark:text-emerald-400 text-xs font-bold mt-0.5">{edu.school} • {edu.year}</p>
-                  </div>
-                ))}
+              <div className="flex items-center justify-between mb-5">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
+                  <GraduationCap size={12} className="text-indigo-500" /> Academic credentials
+                </h3>
+                {isEditing && role === 'developer' && (
+                  <button
+                    onClick={handleAddEducation}
+                    className="text-[9px] font-black text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 uppercase tracking-widest transition-colors flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-lg border border-indigo-100/30"
+                  >
+                    <Plus size={10} /> Add Education
+                  </button>
+                )}
               </div>
+              {isEditing && role === 'developer' ? (
+                <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                  {editedEducation.map((edu: any, i: number) => (
+                    <div key={i} className="p-4 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl relative flex flex-col gap-2.5 shadow-sm">
+                      <button
+                        onClick={() => handleRemoveEducation(i)}
+                        className="absolute top-3 right-3 text-rose-500 hover:text-rose-600 transition-colors p-1"
+                        title="Remove education entry"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                      <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                        <div className="flex flex-col gap-0.5 sm:col-span-1">
+                          <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Degree / Course</label>
+                          <input
+                            type="text"
+                            value={edu.degree || ''}
+                            onChange={(e) => handleUpdateEducation(i, 'degree', e.target.value)}
+                            className="bg-slate-50 dark:bg-slate-950 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                            placeholder="e.g. B.S. Computer Science"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-0.5 sm:col-span-1">
+                          <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">School / University</label>
+                          <input
+                            type="text"
+                            value={edu.school || ''}
+                            onChange={(e) => handleUpdateEducation(i, 'school', e.target.value)}
+                            className="bg-slate-50 dark:bg-slate-950 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                            placeholder="e.g. Stanford University"
+                          />
+                        </div>
+                        <div className="flex flex-col gap-0.5 sm:col-span-1">
+                          <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Year</label>
+                          <input
+                            type="text"
+                            value={edu.year || ''}
+                            onChange={(e) => handleUpdateEducation(i, 'year', e.target.value)}
+                            className="bg-slate-50 dark:bg-slate-950 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                            placeholder="e.g. 2018 - 2022"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {editedEducation.length === 0 && (
+                    <p className="text-[var(--text-muted)] text-center py-6 text-xs font-semibold">No education entries. Click "+ Add Education" to add one.</p>
+                  )}
+                </div>
+              ) : (
+                <div className="space-y-6 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+                  {candidate.education?.map((edu: any, i: number) => (
+                    <div key={i} className="relative pl-6 border-l-2 border-[var(--border-color)]/70 hover:border-emerald-500/50 transition-all duration-300">
+                      <div className="absolute -left-1.5 top-1.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[var(--bg-primary)] shadow-sm" />
+                      <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">{edu.degree}</h4>
+                      <p className="text-emerald-600 dark:text-emerald-400 text-xs font-bold mt-0.5">{edu.school} • {edu.year}</p>
+                    </div>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* Key Projects */}
-            {candidate.projects?.length > 0 && (
+            {((candidate.projects && candidate.projects.length > 0) || (isEditing && role === 'developer')) && (
               <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm card-hover-effect">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                  <Star size={12} className="text-indigo-500" /> Key Projects
-                </h3>
-                <div className="space-y-4 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
-                  {candidate.projects.map((project: any, i: number) => (
-                     <div key={i} className="p-4 bg-slate-50/50 dark:bg-slate-900/40 border border-[var(--border-color)]/70 rounded-2xl transition-colors hover:border-indigo-500/20">
-                       <div className="flex items-center justify-between mb-2">
-                         <h4 className="font-extrabold text-[var(--text-primary)] text-xs tracking-tight">{project.title}</h4>
-                         {project.link && (
-                           <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-indigo-500 hover:underline">
-                             Link Target
-                           </a>
-                         )}
-                       </div>
-                       <p className="text-[var(--text-secondary)] text-[11px] leading-relaxed select-text">
-                         {project.description}
-                       </p>
-                     </div>
-                  ))}
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
+                    <Star size={12} className="text-indigo-500" /> Key Projects
+                  </h3>
+                  {isEditing && role === 'developer' && (
+                    <button
+                      onClick={handleAddProject}
+                      className="text-[9px] font-black text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 uppercase tracking-widest transition-colors flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-lg border border-indigo-100/30"
+                    >
+                      <Plus size={10} /> Add Project
+                    </button>
+                  )}
                 </div>
+                {isEditing && role === 'developer' ? (
+                  <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                    {editedProjects.map((project: any, i: number) => (
+                      <div key={i} className="p-4 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl relative flex flex-col gap-2.5 shadow-sm">
+                        <button
+                          onClick={() => handleRemoveProject(i)}
+                          className="absolute top-3 right-3 text-rose-500 hover:text-rose-600 transition-colors p-1"
+                          title="Remove project"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                          <div className="flex flex-col gap-0.5">
+                            <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Project Title</label>
+                            <input
+                              type="text"
+                              value={project.title || ''}
+                              onChange={(e) => handleUpdateProject(i, 'title', e.target.value)}
+                              className="bg-slate-50 dark:bg-slate-950 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                              placeholder="e.g. ATS Platform Rewrite"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-0.5">
+                            <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Link / Repository (Optional)</label>
+                            <input
+                              type="text"
+                              value={project.link || ''}
+                              onChange={(e) => handleUpdateProject(i, 'link', e.target.value)}
+                              className="bg-slate-50 dark:bg-slate-950 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                              placeholder="e.g. https://github.com/..."
+                            />
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-0.5">
+                          <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Project Description</label>
+                          <textarea
+                            value={project.description || ''}
+                            onChange={(e) => handleUpdateProject(i, 'description', e.target.value)}
+                            className="w-full bg-slate-50 dark:bg-slate-950 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-medium leading-relaxed h-16"
+                            placeholder="Describe the project objective, technologies utilized, and contribution..."
+                          />
+                        </div>
+                      </div>
+                    ))}
+                    {editedProjects.length === 0 && (
+                      <p className="text-[var(--text-muted)] text-center py-6 text-xs font-semibold">No project entries. Click "+ Add Project" to add one.</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="space-y-4 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
+                    {candidate.projects?.map((project: any, i: number) => (
+                       <div key={i} className="p-4 bg-slate-50/50 dark:bg-slate-900/40 border border-[var(--border-color)]/70 rounded-2xl transition-colors hover:border-indigo-500/20">
+                         <div className="flex items-center justify-between mb-2">
+                           <h4 className="font-extrabold text-[var(--text-primary)] text-xs tracking-tight">{project.title}</h4>
+                           {project.link && (
+                             <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-indigo-500 hover:underline">
+                               Link Target
+                             </a>
+                           )}
+                         </div>
+                         <p className="text-[var(--text-secondary)] text-[11px] leading-relaxed select-text">
+                           {project.description}
+                         </p>
+                       </div>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
 
             {/* Certifications and achievements */}
-            {candidate.certifications?.length > 0 && (
+            {((candidate.certifications && candidate.certifications.length > 0) || (isEditing && role === 'developer')) && (
               <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm card-hover-effect">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                  <Star size={12} className="text-amber-500" /> Certifications & Licenses
-                </h3>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[180px] overflow-y-auto custom-scrollbar pr-2">
-                  {candidate.certifications.map((cert: string, i: number) => (
-                    <div key={i} className="p-3 bg-amber-50/20 dark:bg-amber-950/20 border border-amber-100/10 dark:border-amber-900/10 rounded-xl text-[11px] font-bold text-amber-900 dark:text-amber-300">
-                      {cert}
-                    </div>
-                  ))}
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
+                    <Star size={12} className="text-amber-500" /> Certifications & Licenses
+                  </h3>
+                  {isEditing && role === 'developer' && (
+                    <button
+                      onClick={handleAddCert}
+                      className="text-[9px] font-black text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 uppercase tracking-widest transition-colors flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-lg border border-indigo-100/30"
+                    >
+                      <Plus size={10} /> Add Certificate
+                    </button>
+                  )}
                 </div>
+                {isEditing && role === 'developer' ? (
+                  <div className="space-y-2.5 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+                    {editedCertifications.map((cert: string, i: number) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={cert}
+                          onChange={(e) => handleUpdateCert(i, e.target.value)}
+                          className="flex-1 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold shadow-sm"
+                          placeholder="e.g. AWS Certified Solutions Architect"
+                        />
+                        <button
+                          onClick={() => handleRemoveCert(i)}
+                          className="text-rose-500 hover:text-rose-600 transition-colors p-1"
+                          title="Remove certification"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    {editedCertifications.length === 0 && (
+                      <p className="text-[var(--text-muted)] text-center py-4 text-xs font-semibold">No certifications. Click "+ Add Certificate" to add one.</p>
+                    )}
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[180px] overflow-y-auto custom-scrollbar pr-2">
+                    {candidate.certifications?.map((cert: string, i: number) => (
+                      <div key={i} className="p-3 bg-amber-50/20 dark:bg-amber-950/20 border border-amber-100/10 dark:border-amber-900/10 rounded-xl text-[11px] font-bold text-amber-900 dark:text-amber-300">
+                        {cert}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </section>
             )}
 
-            {candidate.achievements?.length > 0 && (
+            {((candidate.achievements && candidate.achievements.length > 0) || (isEditing && role === 'developer')) && (
               <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm card-hover-effect">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                   <Globe size={12} className="text-emerald-500" /> Key Achievements
-                </h3>
-                <ul className="space-y-2.5 max-h-[160px] overflow-y-auto custom-scrollbar pr-2">
-                  {candidate.achievements.map((ach: string, i: number) => (
-                    <li key={i} className="text-xs text-[var(--text-secondary)] flex items-start gap-2 select-text">
-                      <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 shrink-0 animate-pulse" />
-                      <span>{ach}</span>
-                    </li>
-                  ))}
-                </ul>
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
+                     <Globe size={12} className="text-emerald-500" /> Key Achievements
+                  </h3>
+                  {isEditing && role === 'developer' && (
+                    <button
+                      onClick={handleAddAchievement}
+                      className="text-[9px] font-black text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 uppercase tracking-widest transition-colors flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-lg border border-indigo-100/30"
+                    >
+                      <Plus size={10} /> Add Achievement
+                    </button>
+                  )}
+                </div>
+                {isEditing && role === 'developer' ? (
+                  <div className="space-y-2.5 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+                    {editedAchievements.map((ach: string, i: number) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          value={ach}
+                          onChange={(e) => handleUpdateAchievement(i, e.target.value)}
+                          className="flex-1 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-medium shadow-sm"
+                          placeholder="e.g. Reduced processing latency by 45%"
+                        />
+                        <button
+                          onClick={() => handleRemoveAchievement(i)}
+                          className="text-rose-500 hover:text-rose-600 transition-colors p-1"
+                          title="Remove achievement"
+                        >
+                          <Trash2 size={14} />
+                        </button>
+                      </div>
+                    ))}
+                    {editedAchievements.length === 0 && (
+                      <p className="text-[var(--text-muted)] text-center py-4 text-xs font-semibold">No achievements. Click "+ Add Achievement" to add one.</p>
+                    )}
+                  </div>
+                ) : (
+                  <ul className="space-y-2.5 max-h-[160px] overflow-y-auto custom-scrollbar pr-2">
+                    {candidate.achievements?.map((ach: string, i: number) => (
+                      <li key={i} className="text-xs text-[var(--text-secondary)] flex items-start gap-2 select-text">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 mt-2 shrink-0 animate-pulse" />
+                        <span>{ach}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
               </section>
             )}
           </div>
@@ -661,13 +1210,25 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
                 <Code size={12} className="text-indigo-500" /> Skills Profile
               </h3>
-              <div className="flex flex-wrap gap-2 max-h-[140px] overflow-y-auto custom-scrollbar pr-2">
-                {skills.map((skill: string) => (
-                  <span key={skill} className="px-3 py-1.5 bg-slate-100 dark:bg-slate-900 border border-[var(--border-color)]/70 text-[var(--text-secondary)] rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
-                    {skill}
-                  </span>
-                ))}
-              </div>
+              {isEditing && role === 'developer' ? (
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Skills (Comma-separated)</label>
+                  <textarea
+                    value={editedSkills.join(', ')}
+                    onChange={(e) => setEditedSkills(e.target.value.split(',').map(s => s.trim()))}
+                    className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold h-20 shadow-sm"
+                    placeholder="e.g. React, TypeScript, Node.js"
+                  />
+                </div>
+              ) : (
+                <div className="flex flex-wrap gap-2 max-h-[140px] overflow-y-auto custom-scrollbar pr-2">
+                  {skills.map((skill: string) => (
+                    <span key={skill} className="px-3 py-1.5 bg-slate-100 dark:bg-slate-900 border border-[var(--border-color)]/70 text-[var(--text-secondary)] rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                      {skill}
+                    </span>
+                  ))}
+                </div>
+              )}
             </section>
 
             {/* Direct Contact info */}
@@ -676,14 +1237,41 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                 <Mail size={12} className="text-indigo-500" /> Contact channels
               </h3>
               <div className="space-y-3">
-                <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl">
-                  <Mail className="text-indigo-500 shrink-0" size={14} />
-                  <p className="text-xs font-bold text-[var(--text-secondary)] truncate select-all">{candidate.email}</p>
-                </div>
-                <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl">
-                  <Phone className="text-indigo-500 shrink-0" size={14} />
-                  <p className="text-xs font-bold text-[var(--text-secondary)] select-all">{candidate.phone || 'N/A'}</p>
-                </div>
+                {isEditing && role === 'developer' ? (
+                  <>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Email Address</label>
+                      <input
+                        type="email"
+                        value={editedEmail}
+                        onChange={(e) => setEditedEmail(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold shadow-sm"
+                        placeholder="email@example.com"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Phone Number</label>
+                      <input
+                        type="text"
+                        value={editedPhone}
+                        onChange={(e) => setEditedPhone(e.target.value)}
+                        className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold shadow-sm"
+                        placeholder="+1 (555) 019-2834"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl">
+                      <Mail className="text-indigo-500 shrink-0" size={14} />
+                      <p className="text-xs font-bold text-[var(--text-secondary)] truncate select-all">{candidate.email}</p>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl">
+                      <Phone className="text-indigo-500 shrink-0" size={14} />
+                      <p className="text-xs font-bold text-[var(--text-secondary)] select-all">{candidate.phone || 'N/A'}</p>
+                    </div>
+                  </>
+                )}
                 <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl">
                   <MapPin className="text-indigo-500 shrink-0" size={14} />
                   <p className="text-xs font-bold text-[var(--text-secondary)] truncate">
@@ -692,7 +1280,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                         : 'Location undisclosed'}
                   </p>
                 </div>
-                {candidate.links?.map((link: any, i: number) => (
+                {!isEditing && candidate.links?.map((link: any, i: number) => (
                     <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100/30 dark:border-indigo-900/20 rounded-xl transition-all hover:border-indigo-500/40 hover:scale-[1.01]">
                         <div className="text-indigo-500 shrink-0">
                             {getLinkIcon(link.label || 'Link')}
@@ -789,6 +1377,38 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   >
                     {isSavingAssignee ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />} 
                     Update Sourcing
+                  </button>
+                </div>
+              </section>
+            )}
+
+            {/* Client Assignment Panel */}
+            {(isPrivileged || role === 'recruiter') && (
+              <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
+                  <Briefcase size={12} /> Assign to Client
+                </h3>
+                <div className="space-y-3.5">
+                  <div className="relative">
+                    <select 
+                      value={assignedClientId}
+                      onChange={(e) => setAssignedClientId(e.target.value)}
+                      className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl pl-4 pr-10 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] appearance-none cursor-pointer hover:border-indigo-400 transition-colors font-bold"
+                    >
+                      <option value="">No Client Assigned</option>
+                      {fullTeamList && fullTeamList.filter(u => u.role === 'client').map((client) => (
+                        <option key={client.id} value={client.id}>{client.name || client.email}</option>
+                      ))}
+                    </select>
+                    <ChevronDown size={14} className="absolute right-3 top-3.5 text-[var(--text-muted)] pointer-events-none" />
+                  </div>
+                  <button 
+                    onClick={handleUpdateClient}
+                    disabled={isSavingClient}
+                    className="w-full py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                  >
+                    {isSavingClient ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />} 
+                    Update Client Assignment
                   </button>
                 </div>
               </section>

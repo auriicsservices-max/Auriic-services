@@ -68,11 +68,20 @@ try {
 // Setup Notification Listener (Only run this when listening as a standalone server)
 let notificationListener: (() => void) | null = null;
 
-const startNotificationListener = () => {
+const startNotificationListener = async () => {
   if (!adminDb || !adminMessaging) {
     console.warn('[Server] Firebase services unavailable. Skipping notification stream listener.');
     return;
   }
+  try {
+    // Gracefully test permissions with a lightweight read first before opening a real-time listener
+    await adminDb.collection('notifications').limit(1).get();
+    console.log('[Server] Firestore permission verified. Initializing notification stream listener.');
+  } catch (permissionErr: any) {
+    console.warn('[Server] Firestore database permissions restricted. Skipping real-time notification listener.');
+    return;
+  }
+
   try {
     notificationListener = adminDb.collection('notifications').onSnapshot(async (snapshot) => {
       snapshot.docChanges().forEach(async (change) => {
@@ -108,10 +117,7 @@ const startNotificationListener = () => {
         }
       });
     }, (err) => {
-      console.warn('[Server] Notification listener permission error:', err.message);
-      if (err.message.includes('permission')) {
-        console.warn('[Server] Tip: Ensure your Service Account has "Cloud Datastore User" or "Firebase Admin" role.');
-      }
+      console.warn('[Server] Notification listener stream error:', err.message);
     });
   } catch(err) {
     console.error('[Server] Failed to initialize notification listener:', err);

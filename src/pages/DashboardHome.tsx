@@ -131,6 +131,10 @@ export default function DashboardHome({
       if (role === 'admin' || role === 'developer') {
         return true;
       }
+      if (role === 'client') {
+        const clientCandidateNames = new Set(candidates.map(c => (c.fullName || '').trim().toLowerCase()));
+        return log.candidateName && clientCandidateNames.has(log.candidateName.trim().toLowerCase());
+      }
       if (role === 'team_leader') {
         if (log.authorUid === user?.uid) return true;
         
@@ -141,7 +145,7 @@ export default function DashboardHome({
       // Recruiter sees own activities only
       return log.authorUid === user?.uid;
     });
-  }, [activityLogs, role, user?.uid, fullTeamList]);
+  }, [activityLogs, role, user?.uid, fullTeamList, candidates]);
 
   // 2. Sort visible logs by timestamp DESC for the "Recent Activity" list
   const sortedRecentLogs = useMemo(() => {

@@ -303,7 +303,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       const q = query(
         collection(db, 'candidates'), 
         where('isArchived', '==', false),
-        ...(role !== 'admin' && role !== 'team_leader' && role !== 'developer' ? [where('uploadedBy', '==', user?.uid)] : []),
+        ...(role === 'client' 
+            ? [where('clientId', '==', user?.uid)] 
+            : (role !== 'admin' && role !== 'team_leader' && role !== 'developer' 
+                ? [where('uploadedBy', '==', user?.uid)] 
+                : [])),
         orderBy('createdAt', 'desc')
       );
       unsubCandidates = onSnapshot(q, (snapshot) => {
@@ -982,6 +986,22 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     }
   };
 
+  const handleUpdateClient = async (id: string, clientId: string) => {
+    if (role !== 'admin' && role !== 'team_leader' && role !== 'developer' && role !== 'recruiter') return;
+    try {
+      await updateDoc(doc(db, 'candidates', id), { 
+        clientId: clientId || null,
+        clientAssignedAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString()
+      });
+      if (selectedCandidate?.id === id) {
+        setSelectedCandidate((prev: any) => ({ ...prev, clientId: clientId || null }));
+      }
+    } catch (err) {
+      console.error('[Dashboard] Error updating candidate client:', err);
+    }
+  };
+
   const handleArchiveCandidate = async (e: React.MouseEvent, id: string) => {
     e.stopPropagation();
     setConfirmConfig({
@@ -1221,9 +1241,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <div className="space-y-1">
               {[
                 { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
-                ...(role === 'client' ? [{ id: 'pipeline', label: 'Pipeline', icon: Layers }] : []),
+                ...(role === 'client' || role === 'admin' || role === 'developer' ? [{ id: 'pipeline', label: 'Pipeline', icon: Layers }] : []),
                 { id: 'candidates', label: 'Candidates', icon: Users },
-                { id: 'upload', label: 'CV Parsing', icon: Upload },
+                ...(role !== 'client' ? [{ id: 'upload', label: 'CV Parsing', icon: Upload }] : []),
                 { id: 'shortlist', label: 'Shortlist', icon: Star },
                 { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
                 { id: 'repository', label: 'CV Repository', icon: FileText },
@@ -1561,7 +1581,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           ) : activeTab === 'upload' ? (
             <BulkUpload onUpload={onDrop} isProcessing={isProcessing} />
           ) : activeTab === 'pipeline' ? (
-            <RecruitmentPipeline candidates={activeCandidates} onSelect={setSelectedCandidate} role={role} teamMembers={teamMembers} />
+            <RecruitmentPipeline candidates={activeCandidates} onSelect={setSelectedCandidate} role={role} teamMembers={teamMembers} fullTeamList={fullTeamList} />
           ) : activeTab === 'candidates' ? (
             <div className="flex flex-col gap-6 sm:gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {/* Candidates Header banner */}
@@ -2284,6 +2304,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         onUpdateAssignee={handleUpdateAssignee}
         onContact={() => {}}
         teamMembers={teamMembers}
+        fullTeamList={fullTeamList}
+        onUpdateClient={handleUpdateClient}
       />
 
       <ConfirmModal 

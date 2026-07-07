@@ -32,6 +32,7 @@ interface Props {
   onSelect: (candidate: any) => void;
   role: string | null;
   teamMembers?: Record<string, string>;
+  fullTeamList?: any[];
 }
 
 // Stage configuration defining the workflow columns
@@ -182,13 +183,46 @@ export const STAGES: Stage[] = [
   }
 ];
 
-export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = {} }: Props) {
+export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = {}, fullTeamList = [] }: Props) {
   const { user, getUserDisplayName, getUserRole } = useAuth();
   
   // Local state for dragging feedback
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
   const [draggingId, setDraggingId] = useState<string | null>(null);
   const [isUpdatingStage, setIsUpdatingStage] = useState<string | null>(null);
+
+  // Celebration state
+  const [celebration, setCelebration] = useState<{
+    isOpen: boolean;
+    candidateName: string;
+    stageId: string;
+    stageLabel: string;
+    client: string;
+    position: string;
+  } | null>(null);
+
+  // Confetti particles memo
+  const particles = useMemo(() => {
+    if (!celebration) return [];
+    return Array.from({ length: 65 }).map((_, i) => ({
+      id: i,
+      x: Math.random() * 120 - 60, // relative position horizontal spread %
+      y: Math.random() * -120 - 60, // initial y above
+      rotation: Math.random() * 360,
+      scale: Math.random() * 0.7 + 0.3,
+      color: [
+        '#F43F5E', // rose
+        '#3B82F6', // blue
+        '#10B981', // emerald
+        '#F59E0B', // amber
+        '#8B5CF6', // violet
+        '#EC4899', // pink
+        '#14B8A6'  // teal
+      ][Math.floor(Math.random() * 7)],
+      shape: Math.random() > 0.5 ? 'circle' : 'square',
+      delay: Math.random() * 0.4
+    }));
+  }, [celebration]);
 
   // Filters State
   const [searchQuery, setSearchQuery] = useState('');
@@ -202,6 +236,8 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
   const [editFields, setEditFields] = useState({
     position: '',
     client: '',
+    clientId: '',
+    stage: '',
     recruiter: '',
     nextAction: '',
     priority: 'medium',
@@ -388,6 +424,16 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
       );
 
       console.log(`[Pipeline] Candidate ${candidateId} successfully moved to ${targetStageId}`);
+      if (['offer_received', 'joining', 'invoice_generated'].includes(targetStageId)) {
+        setCelebration({
+          isOpen: true,
+          candidateName: candidate.fullName || 'Candidate',
+          stageId: targetStageId,
+          stageLabel: targetStageName,
+          client: candidate.client || 'Client Partner',
+          position: candidate.position || candidate.domainFocus || candidate.domain || 'Target Role'
+        });
+      }
     } catch (err) {
       console.error('[Pipeline] Error updating stage:', err);
     } finally {
@@ -401,6 +447,8 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
     setEditFields({
       position: candidate.position || candidate.domainFocus || candidate.domain || '',
       client: candidate.client || '',
+      clientId: candidate.clientId || '',
+      stage: candidate.pipelineStage || 'cv_upload',
       recruiter: candidate.recruiter || getUserDisplayName() || '',
       nextAction: candidate.nextAction || '',
       priority: candidate.priority || 'medium',
@@ -420,6 +468,8 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
       const updateData: any = {
         position: editFields.position.trim(),
         client: editFields.client.trim(),
+        clientId: editFields.clientId || null,
+        pipelineStage: editFields.stage,
         recruiter: editFields.recruiter.trim(),
         nextAction: editFields.nextAction.trim(),
         priority: editFields.priority,
@@ -433,6 +483,26 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
         updateData.followUpUpdatedBy = user?.uid;
       }
 
+      // Check if stage changed
+      const oldStageId = getCandidateStage(editingCandidate);
+      const newStageId = editFields.stage;
+      if (oldStageId !== newStageId) {
+        updateData.pipelineStageChangedAt = timestamp;
+        
+        // Trigger celebration check
+        if (['offer_received', 'joining', 'invoice_generated'].includes(newStageId)) {
+          const stageObj = STAGES.find(s => s.id === newStageId);
+          setCelebration({
+            isOpen: true,
+            candidateName: editingCandidate.fullName || 'Candidate',
+            stageId: newStageId,
+            stageLabel: stageObj?.label || newStageId,
+            client: editFields.client.trim() || editingCandidate.client || 'Client Partner',
+            position: editFields.position.trim() || 'Target Role'
+          });
+        }
+      }
+
       await updateDoc(candidateRef, updateData);
 
       await logActivity(
@@ -442,7 +512,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
         'pipeline_card_updated',
         editingCandidate.fullName,
         null,
-        `Updated position, client, priority, and next action details`,
+        `Updated position, client, stage, priority, and next action details`,
         'Pipeline'
       );
 
@@ -781,6 +851,29 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                               </div>
                             )}
 
+                            {/* Stage Selector Dropdown */}
+                            <div className="flex flex-col gap-1 border-t border-[var(--border-color)]/30 pt-2.5">
+                              <label className="text-[8px] font-black uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1">
+                                <ArrowRight size={8} className="text-indigo-500 animate-pulse" /> Change Stage:
+                              </label>
+                              <div className="relative">
+                                <select
+                                  value={getCandidateStage(candidate)}
+                                  onChange={(e) => moveCandidateStage(candidate.id, e.target.value)}
+                                  className="w-full bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[var(--border-color)] text-[10px] font-bold text-[var(--text-secondary)] rounded-xl px-2.5 py-1.5 appearance-none focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer pr-7 text-left leading-tight"
+                                >
+                                  {STAGES.map(s => (
+                                    <option key={s.id} value={s.id}>
+                                      {s.label}
+                                    </option>
+                                  ))}
+                                </select>
+                                <div className="absolute right-2 top-2 pointer-events-none text-slate-400 dark:text-slate-500">
+                                  <ChevronRight size={10} className="rotate-90" />
+                                </div>
+                              </div>
+                            </div>
+
                             {/* Hover Controls (View & Edit Pipeline details) */}
                             <div className="flex gap-1.5 pt-1 border-t border-[var(--border-color)]/30 opacity-80 group-hover:opacity-100 transition-opacity">
                               <button
@@ -858,9 +951,34 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
               {/* Form fields */}
               <div className="flex flex-col gap-4.5">
                 
-                {/* Client Partner */}
+                {/* Assigned Client Partner Dropdown */}
                 <div className="flex flex-col gap-1.5">
-                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Client Partner Name</label>
+                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Assigned Client Partner User</label>
+                  <select
+                    value={editFields.clientId}
+                    onChange={(e) => {
+                      const selectedId = e.target.value;
+                      const selectedClientObj = fullTeamList.find((u: any) => u.id === selectedId);
+                      setEditFields(prev => ({
+                        ...prev,
+                        clientId: selectedId,
+                        client: selectedClientObj ? (selectedClientObj.name || selectedClientObj.company || selectedClientObj.email) : prev.client
+                      }));
+                    }}
+                    className="bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer"
+                  >
+                    <option value="">No Client User Assigned</option>
+                    {fullTeamList && fullTeamList.filter((u: any) => u.role === 'client').map((client: any) => (
+                      <option key={client.id} value={client.id}>
+                        {client.name || client.email}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Client Partner Name (text field) */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Client Partner Name / Company</label>
                   <input
                     type="text"
                     value={editFields.client}
@@ -868,6 +986,22 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                     placeholder="e.g. Acme Corporation, Meta, Stripe"
                     className="bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
                   />
+                </div>
+
+                {/* Pipeline Stage Dropdown */}
+                <div className="flex flex-col gap-1.5">
+                  <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Pipeline Stage</label>
+                  <select
+                    value={editFields.stage}
+                    onChange={(e) => setEditFields(prev => ({ ...prev, stage: e.target.value }))}
+                    className="bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer"
+                  >
+                    {STAGES.map((s) => (
+                      <option key={s.id} value={s.id}>
+                        {s.label}
+                      </option>
+                    ))}
+                  </select>
                 </div>
 
                 {/* Target Position */}
@@ -964,6 +1098,152 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                 </button>
               </div>
 
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Celebration Milestones Appreciator Modal Overlay */}
+      <AnimatePresence>
+        {celebration && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 overflow-hidden">
+            {/* Dark Backdrop with glowing overlay */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setCelebration(null)}
+              className="absolute inset-0 bg-slate-950/80 backdrop-blur-md"
+            />
+            
+            {/* Confetti Explosion Particles */}
+            {particles.map((p) => (
+              <motion.div
+                key={p.id}
+                initial={{ 
+                  x: '50vw', 
+                  y: '100vh', 
+                  scale: 0, 
+                  rotate: 0,
+                  opacity: 1 
+                }}
+                animate={{
+                  x: `calc(50vw + ${p.x}vw)`,
+                  y: '120vh',
+                  scale: p.scale,
+                  rotate: p.rotation + 1080,
+                  opacity: [1, 1, 0.6, 0]
+                }}
+                transition={{
+                  duration: Math.random() * 2.5 + 2.5,
+                  delay: p.delay,
+                  ease: [0.1, 0.8, 0.3, 1]
+                }}
+                className="fixed z-[101] pointer-events-none"
+                style={{
+                  backgroundColor: p.color,
+                  width: p.shape === 'circle' ? '12px' : '10px',
+                  height: '12px',
+                  borderRadius: p.shape === 'circle' ? '50%' : '2px',
+                }}
+              />
+            ))}
+
+            {/* Celebrate Container */}
+            <motion.div
+              initial={{ scale: 0.85, y: 50, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.85, y: 50, opacity: 0 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 120 }}
+              className="bg-[var(--card-bg)] border-2 border-indigo-500/30 w-full max-w-lg rounded-[3rem] p-8 shadow-[0_20px_50px_rgba(99,102,241,0.2)] relative z-[102] text-center overflow-hidden flex flex-col items-center gap-6"
+            >
+              {/* Decorative Glowing Radial Backdrops */}
+              <div className="absolute -top-40 -left-40 w-80 h-80 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-40 -right-40 w-80 h-80 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+              
+              {/* Animated Icon with Glow */}
+              <motion.div 
+                initial={{ rotate: -15, scale: 0.8 }}
+                animate={{ rotate: [0, -10, 10, -5, 5, 0], scale: 1 }}
+                transition={{ duration: 1.2, ease: 'easeOut', delay: 0.2 }}
+                className="w-20 h-20 rounded-[2rem] bg-gradient-to-tr from-amber-500 to-yellow-300 dark:from-amber-600 dark:to-yellow-400 flex items-center justify-center text-white shadow-[0_10px_25px_rgba(245,158,11,0.4)] relative"
+              >
+                <Award size={44} className="animate-pulse" />
+                
+                {/* Sparkling Stars around Icon */}
+                <motion.div
+                  animate={{ scale: [1, 1.3, 1], opacity: [0.5, 1, 0.5] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                  className="absolute -top-2 -right-2 text-yellow-400"
+                >
+                  <Sparkles size={16} />
+                </motion.div>
+              </motion.div>
+
+              {/* Celebration Badge/Title */}
+              <div className="flex flex-col gap-1.5">
+                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100/20 px-3 py-1 rounded-full">
+                  🎉 Pipeline Milestone Reached
+                </span>
+                <h2 className="text-3xl font-black tracking-tight text-[var(--text-primary)] mt-1">
+                  {celebration.stageId === 'offer_received' && 'Offer Received!'}
+                  {celebration.stageId === 'joining' && 'Candidate Joined!'}
+                  {celebration.stageId === 'invoice_generated' && 'Invoice Generated!'}
+                </h2>
+                <p className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider mt-0.5">
+                  Congratulations! Let's celebrate this placement success
+                </p>
+              </div>
+
+              {/* Detail Box */}
+              <div className="w-full bg-slate-50 dark:bg-slate-900/60 border border-[var(--border-color)]/60 rounded-[2rem] p-6 flex flex-col gap-4 text-left shadow-inner relative">
+                
+                {/* Candidate and Position */}
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-950/40 border border-indigo-200/50 dark:border-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black text-sm uppercase">
+                    {(celebration.candidateName || 'C').slice(0, 2)}
+                  </div>
+                  <div>
+                    <h4 className="text-sm font-extrabold text-[var(--text-primary)] tracking-tight">
+                      {celebration.candidateName}
+                    </h4>
+                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                      {celebration.position}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Client Detail */}
+                <div className="grid grid-cols-2 gap-4 pt-3.5 border-t border-[var(--border-color)]/50 text-xs">
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Client Partner</span>
+                    <span className="font-bold text-[var(--text-primary)] flex items-center gap-1">
+                      <Building size={12} className="text-slate-400" /> {celebration.client}
+                    </span>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Current Status</span>
+                    <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
+                      <CheckCircle2 size={12} /> {celebration.stageLabel}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Beautiful Appreciation / Motivation text */}
+              <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed max-w-sm italic">
+                {celebration.stageId === 'offer_received' && `Outstanding work securing the offer for ${celebration.candidateName}! We are one step closer to finalizing this placement.`}
+                {celebration.stageId === 'joining' && `Fantastic news! ${celebration.candidateName} has officially joined ${celebration.client}. Kudos to the recruiting team! 🚀`}
+                {celebration.stageId === 'invoice_generated' && `Revenue secured! The invoice for ${celebration.candidateName}'s placement has been generated. Brilliant job! 💼💰`}
+              </p>
+
+              {/* Awesome Button */}
+              <button
+                onClick={() => setCelebration(null)}
+                className="w-full sm:w-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-2xl shadow-lg hover:shadow-indigo-500/20 transition-all cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0 uppercase tracking-widest"
+              >
+                Awesome! Continue
+              </button>
             </motion.div>
           </div>
         )}

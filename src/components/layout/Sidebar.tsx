@@ -9,7 +9,7 @@ export default function Sidebar({ isOpen, setIsOpen, activeTab, setActiveTab }: 
   
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', id: 'home' },
-    ...(role === 'client' ? [{ icon: Layers, label: 'Pipeline', id: 'pipeline' }] : []),
+    ...(role === 'client' || role === 'admin' || role === 'developer' ? [{ icon: Layers, label: 'Pipeline', id: 'pipeline' }] : []),
     { icon: Users, label: 'Candidates', id: 'candidates' },
     { icon: FileText, label: 'CV Repository', id: 'repository' },
     { icon: BarChart2, label: 'Analytics', id: 'analytics' },
