@@ -14,6 +14,7 @@ import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { RobustResumeParser } from './src/services/resumeParser.server.ts';
+import { GeminiResumeParser } from './src/services/geminiParser.server.ts';
 
 // Load environment variables immediately on startup
 dotenv.config();
@@ -24,6 +25,7 @@ const openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPE
 const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
 
 const resumeParser = new RobustResumeParser();
+const geminiParser = new GeminiResumeParser();
 
 // Handle paths for both ESM and CJS
 const _filename = typeof __filename !== 'undefined' ? __filename : fileURLToPath(import.meta.url);
@@ -148,19 +150,16 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 } // 10MB limit
 });
 
-app.post('/api/cv/parse-advanced', upload.single('file'), async (req, res) => {
-  console.log('[Server] POST /api/cv/parse-advanced received');
-  if (!req.file) {
-    console.log('[Server] parse-advanced: No file uploaded');
-    return res.status(400).json({ error: 'No file uploaded' });
-  }
+app.post('/api/cv/parse-gemini', upload.single('file'), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
   
   try {
     const result = await resumeParser.parseBuffer(req.file.buffer, req.file.mimetype);
-    res.json(result);
+    const parsed = await geminiParser.parseText(result.rawText);
+    res.json(parsed);
   } catch (error) {
-    console.error('[Server] Advanced Parsing Error:', error);
-    res.status(500).json({ error: 'Failed to parse resume with advanced engine' });
+    console.error('[Server] Gemini Parsing Error:', error);
+    res.status(500).json({ error: 'Failed to parse resume with Gemini' });
   }
 });
 

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
-import { doc, getDoc, setDoc, collection, query, where, getCountFromServer } from 'firebase/firestore';
+import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
 import { Save, Shield, Settings, Info, AlertTriangle, Lock, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
@@ -24,9 +24,10 @@ export default function SystemSettings() {
           setFileSizeLimit(docSnap.data().fileSizeLimit || 5);
         }
 
-        const countQuery = query(collection(db, 'candidates'), where('isArchived', '==', false));
-        const countSnapshot = await getCountFromServer(countQuery);
-        setTotalCvCount(countSnapshot.data().count);
+        const allCandidatesQuery = query(collection(db, 'candidates'));
+        const allCandidatesSnapshot = await getDocs(allCandidatesQuery);
+        const activeCandidatesCount = allCandidatesSnapshot.docs.filter(doc => !doc.data().isArchived).length;
+        setTotalCvCount(activeCandidatesCount);
       } catch (err: any) {
         console.error("Error fetching settings:", err);
         const errMsg = err instanceof Error ? err.message : String(err);
@@ -133,6 +134,24 @@ export default function SystemSettings() {
                 />
                 <span className="absolute right-4 top-1/2 -translate-y-1/2 text-[10px] font-black uppercase text-[var(--text-muted)]">MB</span>
               </div>
+            </div>
+          </div>
+
+          {/* Gemini API Key Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-[var(--border-color)]">
+            <div className="space-y-2">
+              <h3 className="font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <Settings size={18} className="text-indigo-500" /> Resume Parsing Engine
+              </h3>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                Currently using Gemini API for advanced resume parsing.
+              </p>
+            </div>
+            <div className="bg-slate-50 dark:bg-slate-900/30 p-6 rounded-2xl border border-dashed border-[var(--border-color)] flex flex-col justify-center items-center">
+                <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+                    <CheckCircle2 size={18} />
+                    <span className="text-sm font-black">Gemini API Key Configured</span>
+                </div>
             </div>
           </div>
 

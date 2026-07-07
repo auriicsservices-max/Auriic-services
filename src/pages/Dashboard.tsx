@@ -17,6 +17,7 @@ import UserProfile from '../components/UserProfile';
 import Shortlist from '../components/Shortlist';
 import LogReview from '../components/LogReview';
 import ActivityLogList from '../components/ActivityLogList';
+import { InvoiceList } from '../components/InvoiceList';
 import ConfirmModal from '../components/ConfirmModal';
 
 import SystemSettings from '../components/SystemSettings';
@@ -134,7 +135,7 @@ export default function Dashboard() {
     newParsed: any;
     file: File | null;
   } | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'security'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'security' | 'invoices'>('home');
   const [bulkLimit, setBulkLimit] = useState<number>(20);
   const [fileSizeLimit, setFileSizeLimit] = useState<number>(5);
   const [searchPage, setSearchPage] = useState(1);
@@ -1689,6 +1690,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 ? 'CV Repository' 
                 : activeTab === 'upload' 
                 ? 'CV Parsing Engine' 
+                : activeTab === 'invoices'
+                ? 'Generated Invoices'
                 : 'Dashboard Hub'}
             </span>
           </div>
@@ -1805,6 +1808,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
              <DatabaseDetails />
           ) : activeTab === 'security' ? (
              <SecurityManagement />
+          ) : activeTab === 'invoices' ? (
+             <InvoiceList />
           ) : activeTab === 'home' ? (
             <div className="flex flex-col gap-6">
               <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} fullTeamList={fullTeamList} />

@@ -5,7 +5,7 @@ interface Props {
   page: number;
   rowsPerPage: number;
   totalCount: number;
-  onPageChange: (direction: 'next' | 'prev' | 'first') => void;
+  onPageChange: (direction: 'next' | 'prev' | 'first', newPage: number) => void;
   onRowsPerPageChange: (rows: number) => void;
   setPage: React.Dispatch<React.SetStateAction<number>>;
 }
@@ -27,21 +27,21 @@ export const Pagination: React.FC<Props> = ({ page, rowsPerPage, totalCount, onP
         <div className="flex gap-1">
           <button 
             className="p-1 border rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50" 
-            onClick={() => { setPage(1); onPageChange('first'); }} 
+            onClick={() => { const newPage = 1; setPage(newPage); onPageChange('first', newPage); }} 
             disabled={page === 1}
           >
             <span className="text-xs">First</span>
           </button>
           <button 
             className="p-1 border rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50" 
-            onClick={() => { setPage(p => Math.max(1, p - 1)); onPageChange('prev'); }} 
+            onClick={() => { const newPage = Math.max(1, page - 1); setPage(newPage); onPageChange('prev', newPage); }} 
             disabled={page === 1}
           >
             <ChevronLeft size={16} />
           </button>
           <button 
             className="p-1 border rounded hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-50" 
-            onClick={() => { setPage(p => p + 1); onPageChange('next'); }} 
+            onClick={() => { const newPage = page + 1; setPage(newPage); onPageChange('next', newPage); }} 
             disabled={page * rowsPerPage >= totalCount}
           >
             <ChevronRight size={16} />

@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, FileText, BarChart2, Bell, Settings, LogOut, ChevronLeft, ChevronRight, Sparkles, Layers } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, BarChart2, Bell, Settings, LogOut, ChevronLeft, ChevronRight, Sparkles, Layers, Receipt } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -12,6 +12,7 @@ export default function Sidebar({ isOpen, setIsOpen, activeTab, setActiveTab }: 
     ...(role === 'client' || role === 'admin' || role === 'developer' ? [{ icon: Layers, label: 'Pipeline', id: 'pipeline' }] : []),
     { icon: Users, label: 'Candidates', id: 'candidates' },
     { icon: FileText, label: 'CV Repository', id: 'repository' },
+    { icon: Receipt, label: 'Invoices', id: 'invoices' },
     { icon: BarChart2, label: 'Analytics', id: 'analytics' },
     { icon: Bell, label: 'Notifications', id: 'notifications' },
     { icon: Settings, label: 'Settings', id: 'settings' },

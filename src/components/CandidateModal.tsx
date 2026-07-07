@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown, Linkedin, Github, Twitter, ExternalLink, CheckCircle2, MapPin, Trash, Trash2, Plus, Layers } from 'lucide-react';
 import LZString from 'lz-string';
+import { RectecInvoice } from './RectecInvoice';
 
 // Helper to get icon for link
 const getLinkIcon = (label: string) => {
@@ -772,6 +773,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             
             {/* Action Buttons Toolbar */}
             <div className="flex items-center gap-2 w-full sm:w-auto justify-end flex-wrap">
+              {assignedStage === 'invoice_generated' && (
+                <RectecInvoice candidate={candidate} db={db} />
+              )}
               {/* Profile Editing Controls */}
               {(role === 'developer' || role === 'admin' || role === 'team_leader') && (
                 <>

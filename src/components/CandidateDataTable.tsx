@@ -12,60 +12,37 @@ interface Props {
 export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
   const [candidates, setCandidates] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
-  const [snapshots, setSnapshots] = useState<QueryDocumentSnapshot<DocumentData>[]>([]); // Store snapshots for pagination
   const [page, setPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(20);
   const [totalCount, setTotalCount] = useState(0);
   
-  const fetchCandidates = async (direction: 'next' | 'prev' | 'first' = 'first') => {
+  const fetchCandidates = async (direction: 'next' | 'prev' | 'first' = 'first', newPage: number = page) => {
     
     setLoading(true);
     const isPrivileged = ['admin', 'team_leader', 'developer'].includes(role);
-    const filterQuery = isPrivileged ? [] : [where('uploadedBy', '==', user?.uid)];
-
+    
     try {
-      // Fetch total count for all users
-      const countQuery = query(collection(db, 'candidates'), where('isArchived', '==', false), ...filterQuery);
-      const countSnapshot = await getCountFromServer(countQuery);
-      setTotalCount(countSnapshot.data().count);
+      const q = query(collection(db, 'candidates'));
+      const querySnapshot = await getDocs(q);
+      let allCandidates = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
 
-      let q = query(
-        collection(db, 'candidates'), 
-        where('isArchived', '==', false),
-        ...filterQuery,
-        orderBy('createdAt', 'desc'),
-        limit(rowsPerPage)
-      );
-
-      if (direction === 'next' && snapshots.length > 0) {
-        q = query(q, startAfter(snapshots[snapshots.length - 1]));
-      } else if (direction === 'prev' && snapshots.length > 1) {
-        // To go back, we need to fetch the page BEFORE the previous one, and then limit to rowsPerPage.
-        // This is complex. For now, let's pop the last snapshot and fetch again from the one before that.
-        const newSnapshots = [...snapshots];
-        newSnapshots.pop(); // Remove current page's snapshot
-        newSnapshots.pop(); // Remove previous page's snapshot (we want to start *before* this one)
-        
-        if (newSnapshots.length > 0) {
-          q = query(q, startAfter(newSnapshots[newSnapshots.length - 1]));
-        }
-        setSnapshots(newSnapshots);
+      // Filter
+      allCandidates = allCandidates.filter(c => !c.isArchived);
+      if (!isPrivileged) {
+        allCandidates = allCandidates.filter(c => c.uploadedBy === user?.uid);
       }
       
-      const querySnapshot = await getDocs(q);
-      const data = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCandidates(data);
-      if (direction === 'first') {
-          setSnapshots([querySnapshot.docs[querySnapshot.docs.length - 1]]);
-      } else if (direction === 'next') {
-          setSnapshots(prev => [...prev, querySnapshot.docs[querySnapshot.docs.length - 1]]);
-      } else if (direction === 'prev') {
-          setSnapshots(prev => {
-              const newSnaps = [...prev];
-              newSnaps.pop();
-              return [...newSnaps, querySnapshot.docs[querySnapshot.docs.length - 1]];
-          });
-      }
+      // Sort
+      const getTime = (t: any) => t?.toDate ? t.toDate().getTime() : (new Date(t || 0).getTime());
+      allCandidates = allCandidates.sort((a, b) => getTime(b.createdAt) - getTime(a.createdAt));
+      
+      setTotalCount(allCandidates.length);
+      
+      // Paginate client-side
+      const startIndex = (newPage - 1) * rowsPerPage;
+      const paginatedCandidates = allCandidates.slice(startIndex, startIndex + rowsPerPage);
+      
+      setCandidates(paginatedCandidates);
       setLoading(false);
     } catch (err) {
       console.error("Error fetching candidates:", err);
