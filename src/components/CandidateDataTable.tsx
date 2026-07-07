@@ -24,7 +24,7 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
     try {
       const q = query(collection(db, 'candidates'));
       const querySnapshot = await getDocs(q);
-      let allCandidates = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      let allCandidates = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
 
       // Filter
       allCandidates = allCandidates.filter(c => !c.isArchived);
