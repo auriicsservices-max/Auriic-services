@@ -15,6 +15,7 @@ import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import { RobustResumeParser } from './src/services/resumeParser.server.ts';
 import { GeminiResumeParser } from './src/services/geminiParser.server.ts';
+import { GeminiSearchAssistant } from './src/services/geminiSearch.server.ts';
 
 // Load environment variables immediately on startup
 dotenv.config();
@@ -26,6 +27,7 @@ const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: proces
 
 const resumeParser = new RobustResumeParser();
 const geminiParser = new GeminiResumeParser();
+const geminiSearchAssistant = new GeminiSearchAssistant();
 
 // Handle paths for both ESM and CJS
 const _filename = typeof __filename !== 'undefined' ? __filename : fileURLToPath(import.meta.url);
@@ -132,7 +134,8 @@ app.set('trust proxy', true);
 const PORT = 3000;
 
 // Use standard, shared middlewares
-app.use(express.json());
+app.use(express.json({ limit: '50mb' }));
+app.use(express.urlencoded({ limit: '50mb', extended: true }));
 app.use(cors());
 
 // Configure synchronous API route handlers (instantly resolvable inside Vercel Serverless environment)
@@ -160,6 +163,20 @@ app.post('/api/cv/parse-gemini', upload.single('file'), async (req, res) => {
   } catch (error) {
     console.error('[Server] Gemini Parsing Error:', error);
     res.status(500).json({ error: 'Failed to parse resume with Gemini' });
+  }
+});
+
+app.post('/api/cv/search-ai', async (req, res) => {
+  const { query, candidates, history, precision } = req.body;
+  if (!query) return res.status(400).json({ error: 'Query is required' });
+  if (!Array.isArray(candidates)) return res.status(400).json({ error: 'Candidates array is required' });
+
+  try {
+    const result = await geminiSearchAssistant.search(query, candidates, history || [], precision);
+    res.json(result);
+  } catch (error) {
+    console.error('[Server] Gemini Search Error:', error);
+    res.status(500).json({ error: 'Failed to search candidates with Gemini' });
   }
 });
 

@@ -1827,7 +1827,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 <div className="flex items-center gap-4">
                   <div className="flex -space-x-2.5">
                     {['A', 'B', 'C'].map((char, i) => {
-                      const colors = ['bg-indigo-600', 'bg-purple-600', 'bg-teal-600'];
+                      const colors = ['bg-blue-4564', 'bg-gold-a98b', 'bg-blue-3649'];
                       return (
                         <div key={i} className={`w-9 h-9 rounded-full border-2 border-[var(--card-bg)] ${colors[i]} flex items-center justify-center text-[10px] font-bold text-white shadow-sm`}>
                           {char}
@@ -2011,12 +2011,12 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                           cursor: 'pointer',
                           minHeight: '44px',
                           '&:hover': {
-                            borderColor: 'var(--accent-purple)',
+                            borderColor: 'var(--brand-color)',
                           },
                         }),
                         option: (provided: any, state: any) => ({
                           ...provided,
-                          backgroundColor: state.isSelected ? '#4F46E5' : state.isFocused ? 'var(--bg-secondary)' : 'var(--card-bg)',
+                          backgroundColor: state.isSelected ? 'var(--brand-color)' : state.isFocused ? 'var(--bg-secondary)' : 'var(--card-bg)',
                           color: state.isSelected ? 'white' : 'var(--text-primary)',
                           fontSize: '12px',
                           fontWeight: '600',
@@ -2157,12 +2157,12 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                         // Beautiful dynamic color initials gradient
                         const getAvatarGradient = (name: string) => {
                           const gradients = [
-                            'from-indigo-500 to-rose-500',
-                            'from-purple-500 to-indigo-500',
-                            'from-blue-500 to-teal-500',
-                            'from-emerald-500 to-teal-500',
-                            'from-amber-500 to-orange-500',
-                            'from-fuchsia-500 to-purple-500'
+                            'from-blue-5472 to-blue-4564',
+                            'from-gold-bc9b to-gold-a98b',
+                            'from-blue-3e51 to-gold-bc9b',
+                            'from-blue-2d38 to-blue-3e51',
+                            'from-gold-a98b to-blue-4564',
+                            'from-gold-9b7e to-gold-a081'
                           ];
                           let sum = 0;
                           const cleanName = name || 'Anonymous';
@@ -2180,7 +2180,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                         return (
                           <tr 
                             key={candidate.id} 
-                            className={`hover:bg-slate-50/45 dark:hover:bg-slate-900/30 group transition-all duration-250 cursor-pointer ${selectedIds.has(candidate.id) ? 'bg-indigo-50/20 dark:bg-indigo-950/15' : ''}`} 
+                            className={`hover:bg-slate-50/45 dark:hover:bg-slate-900/30 group transition-all duration-250 cursor-pointer ${selectedIds.has(candidate.id) ? 'bg-gold-bc9b/10 dark:bg-gold-a98b/10' : ''}`} 
                             onClick={() => setSelectedCandidate(candidate)}
                           >
                             {isPrivileged && (
@@ -2189,7 +2189,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                                   type="checkbox" 
                                   checked={selectedIds.has(candidate.id)}
                                   onChange={(e) => toggleSelect(e as any, candidate.id)}
-                                  className="w-4.5 h-4.5 rounded-md border-[var(--border-color)] text-indigo-600 focus:ring-indigo-500 cursor-pointer bg-[var(--card-bg)]"
+                                  className="w-4.5 h-4.5 rounded-md border-[var(--border-color)] text-gold-a98b focus:ring-gold-a98b cursor-pointer bg-[var(--card-bg)]"
                                 />
                               </td>
                             )}
@@ -2200,19 +2200,19 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                                 </div>
                                 <div className="min-w-0">
                                   <div className="flex items-center gap-2 flex-wrap">
-                                    <div className="font-extrabold text-[var(--text-primary)] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors tracking-tight truncate max-w-[170px]">{candidate.fullName}</div>
+                                    <div className="font-extrabold text-[var(--text-primary)] group-hover:text-gold-a98b dark:group-hover:text-gold-bc9b transition-colors tracking-tight truncate max-w-[170px]">{candidate.fullName}</div>
                                     {candidate.isShortlisted && <Star size={11} className="text-amber-500 fill-amber-500 shrink-0" />}
-                                    {candidate.notes && <StickyNote size={11} className="text-indigo-400 shrink-0" />}
+                                    {candidate.notes && <StickyNote size={11} className="text-gold-bc9b shrink-0" />}
                                     {(candidate.followUpDate && !candidate.notes) && <Clock size={11} className="text-pink-400 shrink-0" />}
                                     {candidate.assignedTo && (
-                                      <span className="text-[8px] text-indigo-500 font-extrabold bg-indigo-50 dark:bg-indigo-950/50 px-1.5 py-0.5 rounded uppercase tracking-wider border border-indigo-100/25">Assigned</span>
+                                      <span className="text-[8px] text-gold-a98b font-extrabold bg-gold-bc9b/10 px-1.5 py-0.5 rounded uppercase tracking-wider border border-gold-bc9b/20">Assigned</span>
                                     )}
                                   </div>
                                   <div className="text-[11px] text-[var(--text-muted)] font-semibold truncate max-w-[190px]">
                                     {candidate.email || 'No contact mail'}
                                   </div>
                                   {candidate.locationInfo && (candidate.locationInfo.city || candidate.locationInfo.state || candidate.locationInfo.country || candidate.locationInfo.postalCode) && (
-                                    <div className="flex items-center gap-1 mt-1 text-[9px] text-teal-600 dark:text-teal-400 font-black uppercase tracking-widest">
+                                    <div className="flex items-center gap-1 mt-1 text-[9px] text-gold-a98b dark:text-gold-bc9b font-black uppercase tracking-widest">
                                       <MapPin size={10} className="shrink-0" />
                                       <span>
                                         {candidate.locationInfo.city || ''}

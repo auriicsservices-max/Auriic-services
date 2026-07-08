@@ -102,11 +102,11 @@ export default function ActivityLogList({ role }: { role: string | null }) {
   // Generate modern gradient avatar based on name
   const getAvatarStyle = (name?: string) => {
     const colors = [
-      'from-blue-500 to-indigo-600',
-      'from-purple-500 to-pink-600',
-      'from-emerald-500 to-teal-600',
-      'from-amber-500 to-orange-600',
-      'from-sky-500 to-blue-600',
+      'from-blue-5472 to-blue-4564',
+      'from-blue-3e51 to-blue-3649',
+      'from-gold-bc9b to-gold-a98b',
+      'from-gold-a98b to-gold-9b7e',
+      'from-blue-5472 to-gold-bc9b',
     ];
     const index = (name || '').charCodeAt(0) % colors.length;
     return colors[index];

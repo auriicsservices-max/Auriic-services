@@ -164,11 +164,11 @@ export const STAGES: Stage[] = [
     label: 'Joining',
     parentStage: 'joining',
     parentLabel: 'Placement',
-    color: 'text-teal-600 dark:text-teal-400 border-teal-300 dark:border-teal-800',
-    bgColor: 'bg-teal-50/40',
-    darkBgColor: 'dark:bg-teal-950/20',
-    accentColor: 'bg-teal-100 text-teal-800',
-    darkAccentColor: 'dark:bg-teal-900/40 dark:text-teal-200'
+    color: 'text-gold-a98b dark:text-gold-bc9b border-gold-bc9b/30 dark:border-gold-bc9b/20',
+    bgColor: 'bg-gold-bc9b/5',
+    darkBgColor: 'dark:bg-gold-a98b/10',
+    accentColor: 'bg-gold-bc9b/10 text-gold-8c6e',
+    darkAccentColor: 'dark:bg-gold-a98b/20 dark:text-gold-bc9b'
   },
   {
     id: 'invoice_generated',
@@ -539,7 +539,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
     { id: 'interview_stage', label: 'Interview Process', colSpan: 5, color: 'border-purple-300 bg-purple-100/80 text-purple-700 dark:bg-purple-950/40 dark:text-purple-350 dark:border-purple-900' },
     { id: 'offer_received', label: 'Offer Sent', colSpan: 1, color: 'border-amber-300 bg-amber-100/80 text-amber-700 dark:bg-amber-950/40 dark:text-amber-350 dark:border-amber-900' },
     { id: 'offer_accepted_declined', label: 'Closing Choice', colSpan: 1, color: 'border-orange-300 bg-orange-100/80 text-orange-700 dark:bg-orange-950/40 dark:text-orange-350 dark:border-orange-900' },
-    { id: 'joining', label: 'Placement', colSpan: 1, color: 'border-teal-300 bg-teal-100/80 text-teal-700 dark:bg-teal-950/40 dark:text-teal-350 dark:border-teal-900' },
+    { id: 'joining', label: 'Placement', colSpan: 1, color: 'border-gold-bc9b bg-gold-bc9b/10 text-gold-a98b dark:bg-gold-bc9b/5 dark:text-gold-bc9b dark:border-gold-a98b/40' },
     { id: 'invoice_generated', label: 'Billing/Invoice', colSpan: 1, color: 'border-emerald-300 bg-emerald-100/80 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-350 dark:border-emerald-900' }
   ];
 
@@ -927,7 +927,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
             >
               <div className="flex items-center justify-between gap-4 mb-4.5">
                 <div className="flex items-center gap-2">
-                  <div className="w-9 h-9 bg-teal-50 dark:bg-teal-950/40 rounded-xl flex items-center justify-center text-teal-600">
+                  <div className="w-9 h-9 bg-gold-bc9b/10 dark:bg-gold-a98b/20 rounded-xl flex items-center justify-center text-gold-a98b">
                     <Award size={18} />
                   </div>
                   <div>

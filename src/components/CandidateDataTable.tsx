@@ -71,7 +71,7 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
       </div>
       
       {loading ? (
-        <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-indigo-500" /></div>
+        <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-gold-a98b" /></div>
       ) : (
         <table className="w-full text-left">
             <thead>

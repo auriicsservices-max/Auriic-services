@@ -314,32 +314,32 @@ export default function DashboardHome({
 
       {/* Welcome & Quote Banner with high-contrast luxury styling */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 dark:from-slate-950 dark:via-indigo-950/40 dark:to-slate-950 rounded-[2rem] p-8 text-white border border-indigo-500/10 shadow-xl flex flex-col justify-between relative overflow-hidden group">
-          <div className="absolute -right-8 -top-8 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/15 transition-all duration-700" />
-          <div className="absolute -left-12 -bottom-12 w-48 h-48 bg-teal-500/10 rounded-full blur-3xl group-hover:bg-teal-500/15 transition-all duration-700" />
+        <div className="lg:col-span-2 bg-gradient-to-r from-blue-2d38 via-blue-4564 to-blue-3649 rounded-[2rem] p-8 text-white border border-gold-bc9b/20 shadow-xl flex flex-col justify-between relative overflow-hidden group">
+          <div className="absolute -right-8 -top-8 w-48 h-48 bg-gold-a98b/10 rounded-full blur-3xl group-hover:bg-gold-a98b/15 transition-all duration-700" />
+          <div className="absolute -left-12 -bottom-12 w-48 h-48 bg-gold-bc9b/10 rounded-full blur-3xl group-hover:bg-gold-bc9b/15 transition-all duration-700" />
           
           <div className="relative z-10 space-y-6">
-            <div className="flex items-center gap-2 text-indigo-400 font-extrabold text-[10px] uppercase tracking-[0.2em] bg-indigo-500/10 px-3 py-1 rounded-full border border-indigo-500/20 w-fit">
-              <Sparkles size={11} className="animate-pulse" />
+            <div className="flex items-center gap-2 text-gold-bc9b font-extrabold text-[10px] uppercase tracking-[0.2em] bg-gold-a98b/10 px-3 py-1 rounded-full border border-gold-a98b/25 w-fit">
+              <Sparkles size={11} className="text-gold-a98b animate-pulse" />
               <span>Talent Operations Intelligence</span>
             </div>
             
             <div className="space-y-2">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-none bg-gradient-to-r from-white via-indigo-100 to-indigo-200 bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-none bg-gradient-to-r from-white via-gold-bc9b to-gold-a98b bg-clip-text text-transparent">
                 Welcome back, {userName}!
               </h1>
-              <p className="text-indigo-200/80 text-xs sm:text-sm font-medium max-w-lg">
-                Your high-performance recruitment database is parsed, indexed, and synchronized. Let's make spectacular hires today.
+              <p className="text-slate-200/90 text-xs sm:text-sm font-medium max-w-lg">
+                Your high-performance recruitment database is parsed, indexed, and synchronized. Let's make stellar hires today.
               </p>
             </div>
           </div>
           
           <div className="relative z-10 flex items-center gap-4 mt-8 pt-4 border-t border-white/5">
-            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-indigo-300 bg-white/5 px-3 py-1.5 rounded-xl border border-white/5">
-              <Clock size={12} className="text-indigo-400" />
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gold-bc9b bg-white/5 px-3 py-1.5 rounded-xl border border-white/5">
+              <Clock size={12} className="text-gold-a98b" />
               <span>{formatDate(new Date())}</span>
             </div>
-            <div className="text-[10px] text-white/40 font-semibold uppercase tracking-wider">
+            <div className="text-[10px] text-white/45 font-semibold uppercase tracking-wider">
               System State: Active
             </div>
           </div>
@@ -347,7 +347,7 @@ export default function DashboardHome({
         
         <div className="bg-[var(--card-bg)] p-8 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex flex-col justify-between relative card-hover-effect">
           <div>
-            <span className="inline-flex items-center justify-center p-2 rounded-xl bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 mb-6">
+            <span className="inline-flex items-center justify-center p-2 rounded-xl bg-gold-bc9b/10 dark:bg-gold-a98b/20 text-gold-a98b mb-6">
               <Sparkles size={16} />
             </span>
             <h4 className="text-[10px] uppercase font-black text-[var(--text-muted)] tracking-[0.15em] mb-2">Daily Inspiration</h4>
@@ -355,7 +355,7 @@ export default function DashboardHome({
               "{quote}"
             </p>
           </div>
-          <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mt-6">
+          <p className="text-[10px] text-gold-a98b font-bold uppercase tracking-wider mt-6">
             Talent Insights Advisor
           </p>
         </div>
@@ -364,11 +364,11 @@ export default function DashboardHome({
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
         {[
-          { label: 'Total Index', value: total, icon: Users, color: 'text-indigo-600 dark:text-indigo-400', bg: 'bg-indigo-50 dark:bg-indigo-950/30', border: 'border-indigo-100/50 dark:border-indigo-950/50' },
-          { label: 'New (24h)', value: newCVs, icon: FileText, color: 'text-emerald-600 dark:text-emerald-400', bg: 'bg-emerald-50 dark:bg-emerald-950/30', border: 'border-emerald-100/50 dark:border-emerald-950/50' },
-          { label: 'Processed', value: processed, icon: Target, color: 'text-amber-600 dark:text-amber-400', bg: 'bg-amber-50 dark:bg-amber-950/30', border: 'border-amber-100/50 dark:border-amber-950/50' },
-          { label: 'Shortlisted', value: shortlisted, icon: Star, color: 'text-fuchsia-600 dark:text-fuchsia-400', bg: 'bg-fuchsia-50 dark:bg-fuchsia-950/30', border: 'border-fuchsia-100/50 dark:border-fuchsia-950/50' },
-          { label: 'Follow-ups', value: followUps, icon: Clock, color: 'text-rose-600 dark:text-rose-400', bg: 'bg-rose-50 dark:bg-rose-950/30', border: 'border-rose-100/50 dark:border-rose-950/50' },
+          { label: 'Total Index', value: total, icon: Users, color: 'text-blue-5472', bg: 'bg-blue-5472/10', border: 'border-blue-5472/20' },
+          { label: 'New (24h)', value: newCVs, icon: FileText, color: 'text-gold-a98b', bg: 'bg-gold-a98b/10', border: 'border-gold-a98b/20' },
+          { label: 'Processed', value: processed, icon: Target, color: 'text-gold-bc9b', bg: 'bg-gold-bc9b/10', border: 'border-gold-bc9b/20' },
+          { label: 'Shortlisted', value: shortlisted, icon: Star, color: 'text-gold-9b7e', bg: 'bg-gold-9b7e/10', border: 'border-gold-9b7e/20' },
+          { label: 'Follow-ups', value: followUps, icon: Clock, color: 'text-blue-3e51', bg: 'bg-blue-3e51/10', border: 'border-blue-3e51/20' },
         ].map((card, i) => (
           <motion.div 
             key={i} 
@@ -393,7 +393,7 @@ export default function DashboardHome({
         <div className="bg-[var(--card-bg)] p-6 sm:p-8 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex flex-col min-h-[480px]">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6 pb-4 border-b border-slate-100 dark:border-slate-900">
             <h2 className="text-base sm:text-lg font-black uppercase tracking-wider flex items-center gap-2.5 text-slate-900 dark:text-white">
-              <span className="p-1.5 rounded-lg bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400">
+              <span className="p-1.5 rounded-lg bg-gold-bc9b/15 text-gold-a98b">
                 <TrendingUp size={16} />
               </span>
               Productivity Analytics
@@ -402,7 +402,7 @@ export default function DashboardHome({
               <select 
                 value={activeRange} 
                 onChange={(e) => setActiveRange(e.target.value as any)} 
-                className="px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] text-xs font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 cursor-pointer text-slate-700 dark:text-slate-300"
+                className="px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] text-xs font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-gold-a98b cursor-pointer text-slate-700 dark:text-slate-300"
               >
                 <option value="7days">Last 7 Days</option>
                 <option value="30days">Last 30 Days</option>
@@ -422,7 +422,7 @@ export default function DashboardHome({
                   value={customStart}
                   onChange={(e) => setCustomStart(e.target.value)}
                   max={customEnd}
-                  className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl px-2.5 py-1 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
+                  className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl px-2.5 py-1 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-gold-a98b font-bold"
                 />
               </div>
               <div className="flex flex-col min-w-[120px]">
@@ -432,7 +432,7 @@ export default function DashboardHome({
                   value={customEnd}
                   onChange={(e) => setCustomEnd(e.target.value)}
                   min={customStart}
-                  className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl px-2.5 py-1 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-indigo-500 font-bold"
+                  className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl px-2.5 py-1 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-gold-a98b font-bold"
                 />
               </div>
             </div>
@@ -452,14 +452,14 @@ export default function DashboardHome({
                     iconSize={8}
                     wrapperStyle={{ fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', paddingTop: 20 }}
                   />
-                  <Line type="monotone" name="CV Uploads" dataKey="CV Uploads" stroke="#10b981" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                  <Line type="monotone" name="Resume Parsing" dataKey="Resume Parsing" stroke="#14b8a6" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                  <Line type="monotone" name="Candidate Updates" dataKey="Candidate Updates" stroke="#6366f1" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                  <Line type="monotone" name="Assignments" dataKey="Assignments" stroke="#d946ef" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                  <Line type="monotone" name="Follow-ups" dataKey="Follow-ups" stroke="#f43f5e" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                  <Line type="monotone" name="Shortlists" dataKey="Shortlists" stroke="#f59e0b" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                  <Line type="monotone" name="Notes/Feedback" dataKey="Notes/Feedback" stroke="#3b82f6" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                  <Line type="monotone" name="Chat Messages" dataKey="Chat Messages" stroke="#8b5cf6" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" name="CV Uploads" dataKey="CV Uploads" stroke="#BC9B66" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" name="Resume Parsing" dataKey="Resume Parsing" stroke="#A98B56" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" name="Candidate Updates" dataKey="Candidate Updates" stroke="#004564" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" name="Assignments" dataKey="Assignments" stroke="#005472" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" name="Follow-ups" dataKey="Follow-ups" stroke="#9B7E50" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" name="Shortlists" dataKey="Shortlists" stroke="#A08151" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" name="Notes/Feedback" dataKey="Notes/Feedback" stroke="#003E51" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" name="Chat Messages" dataKey="Chat Messages" stroke="#003649" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (

@@ -325,14 +325,14 @@ export default function Analytics({
                   iconSize={8}
                   wrapperStyle={{ fontSize: 10, fontWeight: 'bold', paddingTop: 15 }}
                 />
-                <Bar name="CV Uploads" dataKey="uploads" stackId="a" fill="#10b981" />
-                <Bar name="Resume Parsing" dataKey="parsing" stackId="a" fill="#14b8a6" />
-                <Bar name="Candidate Updates" dataKey="updates" stackId="a" fill="#6366f1" />
-                <Bar name="Assignments" dataKey="assignments" stackId="a" fill="#d946ef" />
-                <Bar name="Follow-ups" dataKey="followUps" stackId="a" fill="#f43f5e" />
-                <Bar name="Shortlists" dataKey="shortlists" stackId="a" fill="#f59e0b" />
-                <Bar name="Notes/Feedback" dataKey="notesFeedback" stackId="a" fill="#3b82f6" />
-                <Bar name="Chat Messages" dataKey="chatMessages" stackId="a" fill="#8b5cf6" />
+                <Bar name="CV Uploads" dataKey="uploads" stackId="a" fill="#BC9B66" />
+                <Bar name="Resume Parsing" dataKey="parsing" stackId="a" fill="#A98B56" />
+                <Bar name="Candidate Updates" dataKey="updates" stackId="a" fill="#004564" />
+                <Bar name="Assignments" dataKey="assignments" stackId="a" fill="#005472" />
+                <Bar name="Follow-ups" dataKey="followUps" stackId="a" fill="#9B7E50" />
+                <Bar name="Shortlists" dataKey="shortlists" stackId="a" fill="#A08151" />
+                <Bar name="Notes/Feedback" dataKey="notesFeedback" stackId="a" fill="#003E51" />
+                <Bar name="Chat Messages" dataKey="chatMessages" stackId="a" fill="#003649" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -405,7 +405,7 @@ export default function Analytics({
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 9, fill: 'var(--text-muted)', fontWeight: 'bold' }} />
                 <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} />
                 <Tooltip contentStyle={chartTooltipStyle} itemStyle={itemStyle} cursor={{ fill: 'var(--border-color)', opacity: 0.1 }} />
-                <Bar dataKey="value" name="Candidates" fill="#4f46e5" radius={[10, 10, 0, 0]} barSize={36} />
+                <Bar dataKey="value" name="Candidates" fill="#A98B56" radius={[10, 10, 0, 0]} barSize={36} />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -421,9 +421,9 @@ export default function Analytics({
                 <input type="text" placeholder="Search skills overview..." value={skillSearch} onChange={(e) => setSkillSearch(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-3 text-xs font-bold text-[var(--text-primary)] shadow-sm" />
                 <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto">
                     {filteredSkills.map(({ name, count }: any) => (
-                        <button key={name} title={`Skill: ${name} (${count} candidates)`} onClick={() => handleSkillClick(name)} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-xl hover:bg-indigo-100 dark:hover:bg-indigo-900/50 transition-all border border-transparent hover:border-indigo-300 dark:hover:border-indigo-500">
+                        <button key={name} title={`Skill: ${name} (${count} candidates)`} onClick={() => handleSkillClick(name)} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-xl hover:bg-gold-bc9b/15 dark:hover:bg-blue-3e51/30 transition-all border border-transparent hover:border-gold-bc9b dark:hover:border-gold-a98b">
                             <span className="font-bold text-xs truncate mr-2 text-[var(--text-primary)]">{name}</span>
-                            <span className="px-2 py-1 bg-white dark:bg-slate-800 rounded-md text-[10px] font-bold text-indigo-600 shadow-sm">{count}</span>
+                            <span className="px-2 py-1 bg-white dark:bg-slate-800 rounded-md text-[10px] font-bold text-gold-a98b shadow-sm">{count}</span>
                         </button>
                     ))}
                 </div>
@@ -434,7 +434,7 @@ export default function Analytics({
                       <XAxis type="number" hide />
                       <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={chartTooltipStyle} itemStyle={itemStyle} />
-                      <Bar dataKey="count" fill="#4F46E5" radius={[0, 10, 10, 0]} barSize={20} />
+                      <Bar dataKey="count" fill="#004564" radius={[0, 10, 10, 0]} barSize={20} />
                     </BarChart>
                  </ResponsiveContainer>
             </div>

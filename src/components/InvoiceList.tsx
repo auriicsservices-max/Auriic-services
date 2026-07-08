@@ -20,7 +20,7 @@ export const InvoiceList = () => {
   if (loading) {
     return (
       <div className="flex justify-center items-center h-full">
-        <Loader2 className="animate-spin text-teal-600" size={32} />
+        <Loader2 className="animate-spin text-gold-a98b" size={32} />
       </div>
     );
   }

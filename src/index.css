@@ -42,44 +42,60 @@
   --color-slate-50: var(--bg-primary);
   --color-slate-950: var(--bg-primary);
   
-  --color-brand-dark: #0f172a;
+  --color-brand-dark: #002D38;
+  --color-primary-blue: #004564;
+  --color-primary-gold: #A98B56;
+  
+  /* Blue Shades */
+  --color-blue-5472: #005472;
+  --color-blue-4564: #004564;
+  --color-blue-3649: #003649;
+  --color-blue-2d38: #002D38;
+  --color-blue-3e51: #003E51;
+  
+  /* Gold Shades */
+  --color-gold-bc9b: #BC9B66;
+  --color-gold-a98b: #A98B56;
+  --color-gold-9b7e: #9B7E50;
+  --color-gold-8c6e: #8C6E42;
+  --color-gold-a081: #A08151;
 }
 
 :root {
   --bg-primary: #f8fafc;
   --bg-secondary: #f1f5f9;
-  --text-primary: #111827;
-  --text-secondary: #374151;
+  --text-primary: #002D38;
+  --text-secondary: #003E51;
   --text-muted: #6b7280;
   --card-bg: #ffffff;
-  --sidebar-bg: #111827;
+  --sidebar-bg: #002D38; /* dark blue sidebar */
   --border-color: #e5e7eb;
-  --brand-color: #0f766e;
-  --accent-color: #14b8a6;
+  --brand-color: #004564; /* Primary Blue */
+  --accent-color: #A98B56; /* Primary Gold */
   --success-color: #10b981;
   --warning-color: #f59e0b;
   --danger-color: #ef4444;
-  --info-color: #06b6d4;
+  --info-color: #005472;
   
   --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
   --sidebar-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
 }
 
 .dark {
-  --bg-primary: #0f172a;
-  --bg-secondary: #1e293b;
+  --bg-primary: #002D38;
+  --bg-secondary: #003649;
   --text-primary: #f9fafb;
   --text-secondary: #e5e7eb;
   --text-muted: #9ca3af;
-  --card-bg: #1f2937;
-  --sidebar-bg: #111827;
-  --border-color: #374151;
-  --brand-color: #14b8a6;
-  --accent-color: #2dd4bf;
+  --card-bg: #003E51;
+  --sidebar-bg: #002D38;
+  --border-color: #005472;
+  --brand-color: #004564;
+  --accent-color: #A98B56;
   --success-color: #10b981;
   --warning-color: #f59e0b;
   --danger-color: #ef4444;
-  --info-color: #06b6d4;
+  --info-color: #005472;
   
   --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
   --sidebar-shadow: 2px 0 12px rgba(0, 0, 0, 0.4);
