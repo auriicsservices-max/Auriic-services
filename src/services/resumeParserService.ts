@@ -1,6 +1,7 @@
 import { extractTextFromPDF, extractTextFromDocx, parseResumeHeuristically } from "../lib/localParser";
 import { ResumeData, ResumeSchema } from "../types/resume";
 import { GoogleGenAI, Type } from "@google/genai";
+import Anthropic from '@anthropic-ai/sdk';
 import retry from "async-retry";
 
 /**
@@ -9,11 +10,16 @@ import retry from "async-retry";
  */
 export class ResumeParserService {
   private genAI: GoogleGenAI | null = null;
+  private anthropic: Anthropic | null = null;
 
   constructor() {
-    const apiKey = process.env.GEMINI_API_KEY;
-    if (apiKey) {
-      this.genAI = new GoogleGenAI({ apiKey });
+    const geminiKey = process.env.GEMINI_API_KEY;
+    if (geminiKey) {
+      this.genAI = new GoogleGenAI({ apiKey: geminiKey });
+    }
+    const anthropicKey = process.env.ANTHROPIC_API_KEY;
+    if (anthropicKey) {
+      this.anthropic = new Anthropic({ apiKey: anthropicKey });
     }
   }
 
@@ -29,17 +35,27 @@ export class ResumeParserService {
       
       let initialParsed: ResumeData;
 
-      // 2. Try Gemini first (Robust parsing)
+      // 2. Try Anthropic first (Robust parsing)
+      if (this.anthropic) {
+        try {
+          initialParsed = await this.parseWithAnthropic(text);
+          return { parsed: initialParsed, text };
+        } catch (anthropicError) {
+          console.warn("[ResumeParser] Anthropic failed, trying Gemini next:", anthropicError);
+        }
+      }
+
+      // 3. Try Gemini next
       if (this.genAI) {
         try {
           initialParsed = await this.parseWithGemini(text);
           return { parsed: initialParsed, text };
         } catch (geminiError) {
-          console.warn("[ResumeParser] Gemini failed, trying OpenAI next:", geminiError);
+          console.warn("[ResumeParser] Gemini failed, trying Waterfall next:", geminiError);
         }
       }
 
-      // 3. Try Waterfall (Claude -> ChatGPT)
+      // 4. Try Waterfall (Claude -> ChatGPT)
       try {
         const formData = new FormData();
         formData.append('file', file);
@@ -57,7 +73,7 @@ export class ResumeParserService {
         console.warn("[ResumeParser] Waterfall connection failed, trying backend next:", e);
       }
 
-      // 4. Try Advanced Parser via backend
+      // 5. Try Advanced Parser via backend
       try {
         const formData = new FormData();
         formData.append('file', file);
@@ -110,6 +126,88 @@ export class ResumeParserService {
       return await extractTextFromDocx(buffer);
     }
     return await file.text();
+  }
+
+  private async parseWithAnthropic(text: string): Promise<ResumeData> {
+    return await retry(async (bail) => {
+      try {
+        const prompt = `
+          Extract structured data from the following resume text.
+          Respond ONLY in JSON format according to this structure:
+          {
+            "name": "Full Name",
+            "contact": { "email": "Email", "phone": "Phone", "linkedin": "LinkedIn", "github": "GitHub", "portfolio": "Portfolio" },
+            "location": { "city": "City", "state": "State", "country": "Country", "postalCode": "Postal Code", "display": "Formatted string" },
+            "profile": "Summary or profile",
+            "domainFocus": "Main professional domain",
+            "totalExperienceYears": 0,
+            "education": [{ "institution": "Institution", "degree": "Degree", "duration": "Duration" }],
+            "experience": [{ "title": "Title", "company": "Company", "duration": "Duration", "responsibilities": ["Resp 1"] }],
+            "projects": [{ "name": "Name", "description": ["Desc 1"], "technologies": ["Tech 1"], "duration": "Duration", "links": ["Link 1"] }],
+            "skills": { "languages": ["L1"], "frameworks": ["F1"], "databases": ["D1"], "tools": ["T1"], "libraries": ["Lib1"], "other": ["O1"] },
+            "achievements": ["Ach1"],
+            "languages": ["Lang1"],
+            "interests": ["Int1"]
+          }
+          Resume text:
+          ${text.slice(0, 30000)}
+        `;
+
+        const response = await this.anthropic!.messages.create({
+          model: "claude-3-5-sonnet-20241022",
+          max_tokens: 4096,
+          messages: [{ role: "user", content: prompt }],
+        });
+
+        const content = (response.content[0] as any).text;
+        
+        // Extract JSON from response
+        const jsonMatch = content.match(/\{[\s\S]*\}/);
+        if (!jsonMatch) throw new Error("No JSON found in Anthropic response");
+        
+        let parsed = JSON.parse(jsonMatch[0]);
+        parsed.rawText = text;
+
+        // Skill Normalization and Deduplication
+        const normalizeSkill = (s: string) => {
+          let normalized = s.trim();
+          const lower = normalized.toLowerCase();
+          if (lower === 'react.js' || lower === 'reactjs') return 'React';
+          if (lower === 'node.js' || lower === 'nodejs') return 'Node.js';
+          if (lower === 'vue.js' || lower === 'vuejs') return 'Vue.js';
+          if (lower === 'javascript' || lower === 'js') return 'JavaScript';
+          if (lower === 'typescript' || lower === 'ts') return 'TypeScript';
+          if (normalized.length > 0 && !normalized.includes(' ') && normalized === lower) {
+            return normalized.charAt(0).toUpperCase() + normalized.slice(1);
+          }
+          return normalized;
+        };
+
+        if (parsed.skills) {
+          Object.keys(parsed.skills).forEach(category => {
+            if (Array.isArray(parsed.skills[category])) {
+              const uniqueNormalized = Array.from(new Set(
+                (parsed.skills[category] as string[]).map(s => normalizeSkill(s))
+              ));
+              parsed.skills[category] = uniqueNormalized;
+            }
+          });
+        }
+        
+        return ResumeSchema.parse(parsed);
+      } catch (error: any) {
+        if (error?.status === 400 || error?.name === 'ZodError') {
+          bail(error);
+          return null as any;
+        }
+        throw error;
+      }
+    }, {
+      retries: 3,
+      minTimeout: 2000,
+      maxTimeout: 10000,
+      onRetry: (err, i) => console.warn(`[Anthropic] Retry ${i}:`, err.message)
+    });
   }
 
   private async parseWithGemini(text: string): Promise<ResumeData> {
