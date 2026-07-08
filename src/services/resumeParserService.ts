@@ -137,6 +137,7 @@ export class ResumeParserService {
           {
             "name": "Full Name",
             "contact": { "email": "Email", "phone": "Phone", "linkedin": "LinkedIn", "github": "GitHub", "portfolio": "Portfolio" },
+            "links": [{ "type": "Social/Project Type", "url": "URL" }],
             "location": { "city": "City", "state": "State", "country": "Country", "postalCode": "Postal Code", "display": "Formatted string" },
             "profile": "Summary or profile",
             "domainFocus": "Main professional domain",
@@ -222,6 +223,7 @@ export class ResumeParserService {
             "experience": "Total years of experience",
             "phone": "Phone number",
             "email": "Email address",
+            "links": [{ "type": "Social/Project Type", "url": "URL" }],
             "location": { "city": "City", "state": "State", "country": "Country", "postalCode": "Postal Code", "display": "Formatted string" },
             "domainFocus": ["Profession 1", "Profession 2"],
             "currentCompany": "Company name",
@@ -249,6 +251,16 @@ export class ResumeParserService {
                             linkedin: { type: Type.STRING },
                             github: { type: Type.STRING },
                             portfolio: { type: Type.STRING }
+                        }
+                    },
+                    links: {
+                        type: Type.ARRAY,
+                        items: {
+                            type: Type.OBJECT,
+                            properties: {
+                                type: { type: Type.STRING },
+                                url: { type: Type.STRING }
+                            }
                         }
                     },
                     location: {
