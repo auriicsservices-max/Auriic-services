@@ -1,5 +1,7 @@
 import { extractTextFromPDF, extractTextFromDocx, parseResumeHeuristically } from "../lib/localParser";
 import { ResumeData, ResumeSchema } from "../types/resume";
+import { JSONResumeData, JSONResumeSchema } from "../types/jsonResume";
+import { toInternalResumeData } from "../utils/mapper";
 import { GoogleGenAI, Type } from "@google/genai";
 import Anthropic from '@anthropic-ai/sdk';
 import retry from "async-retry";
@@ -128,28 +130,28 @@ export class ResumeParserService {
     return await file.text();
   }
 
+  // Anthropic Parser
   private async parseWithAnthropic(text: string): Promise<ResumeData> {
     return await retry(async (bail) => {
       try {
         const prompt = `
-          Extract structured data from the following resume text.
+          Extract structured data from the following resume text and format it strictly as a JSON Resume (https://jsonresume.org/schema/).
           Respond ONLY in JSON format according to this structure:
           {
-            "name": "Full Name",
-            "contact": { "email": "Email", "phone": "Phone", "linkedin": "LinkedIn", "github": "GitHub", "portfolio": "Portfolio" },
-            "links": [{ "type": "Social/Project Type", "url": "URL" }],
-            "location": { "city": "City", "state": "State", "country": "Country", "postalCode": "Postal Code", "display": "Formatted string" },
-            "profile": "Summary or profile",
-            "domainFocus": "Main professional domain",
-            "totalExperienceYears": 0,
-            "education": [{ "institution": "Institution", "degree": "Degree", "duration": "Duration" }],
-            "experience": [{ "title": "Title", "company": "Company", "duration": "Duration", "responsibilities": ["Resp 1"] }],
-            "projects": [{ "name": "Name", "description": ["Desc 1"], "technologies": ["Tech 1"], "duration": "Duration", "links": ["Link 1"] }],
-            "skills": { "languages": ["L1"], "frameworks": ["F1"], "databases": ["D1"], "tools": ["T1"], "libraries": ["Lib1"], "other": ["O1"] },
-            "achievements": ["Ach1"],
-            "languages": ["Lang1"],
-            "interests": ["Int1"]
+            "basics": { "name": "", "email": "", "phone": "", "website": "", "summary": "", "location": {}, "profiles": [] },
+            "work": [],
+            "education": [],
+            "skills": [],
+            "projects": [],
+            "certificates": [],
+            "publications": [],
+            "awards": [],
+            "languages": [],
+            "interests": [],
+            "references": [],
+            "volunteer": []
           }
+          Ensure all fields match the JSON Resume schema.
           Resume text:
           ${text.slice(0, 30000)}
         `;
@@ -215,23 +217,23 @@ export class ResumeParserService {
     return await retry(async (bail) => {
       try {
         const prompt = `
-          Extract structured data from the following resume text. 
+          Extract structured data from the following resume text and format it strictly as a JSON Resume (https://jsonresume.org/schema/).
           Respond in JSON format according to this structure:
           {
-            "name": "Full Name",
-            "currentRole": "Current Title",
-            "experience": "Total years of experience",
-            "phone": "Phone number",
-            "email": "Email address",
-            "links": [{ "type": "Social/Project Type", "url": "URL" }],
-            "location": { "city": "City", "state": "State", "country": "Country", "postalCode": "Postal Code", "display": "Formatted string" },
-            "domainFocus": ["Profession 1", "Profession 2"],
-            "currentCompany": "Company name",
-            "previousCompanies": ["Company 1", "Company 2"],
-            "skills": ["Skill 1", "Skill 2"],
-            "education": { "degree": "Degree", "university": "University", "location": "Location", "graduationYear": "Year" }
+            "basics": { "name": "", "email": "", "phone": "", "website": "", "summary": "", "location": {}, "profiles": [] },
+            "work": [],
+            "education": [],
+            "skills": [],
+            "projects": [],
+            "certificates": [],
+            "publications": [],
+            "awards": [],
+            "languages": [],
+            "interests": [],
+            "references": [],
+            "volunteer": []
           }
-          Also, ensure the fields required by the internal resume schema are fully populated based on the extracted data: Experience (array of objects with title, company, duration, responsibilities), Education (array), Projects (array), and Skills (categorized by language, framework, database, tools, etc.).
+          Ensure all fields match the JSON Resume schema.
         `;
 
         const response = await this.genAI!.models.generateContent({
