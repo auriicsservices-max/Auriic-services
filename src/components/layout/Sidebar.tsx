@@ -29,38 +29,38 @@ export default function Sidebar({ isOpen, setIsOpen, activeTab, setActiveTab }: 
             <span className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-gold-bc9b to-gold-a98b bg-clip-text text-transparent">Aurrum</span>
           </div>
         )}
-        <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg text-slate-400 hover:bg-blue-3e51/60 hover:text-slate-100 transition-colors">
+        <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg text-blue-200/60 hover:bg-blue-3e51/60 hover:text-white transition-colors">
           {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
         </button>
       </div>
       
-      <nav className="flex-1 py-6 px-4 space-y-1.5 overflow-y-auto custom-scrollbar">
+      <nav className="flex-1 py-6 px-4 space-y-2 overflow-y-auto custom-scrollbar">
         {menuItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex items-center gap-4.5 p-3 w-full rounded-xl transition-all duration-200 text-left ${
+              className={`flex items-center gap-4.5 p-3.5 w-full rounded-xl transition-all duration-200 text-left ${
                 isActive 
                   ? 'bg-gold-a98b text-white font-semibold shadow-lg shadow-gold-a98b/40 translate-x-1' 
-                  : 'text-slate-400 hover:text-slate-100 hover:bg-blue-3e51/40'
+                  : 'text-white/85 hover:text-white hover:bg-white/10'
               }`}
             >
-              <item.icon size={20} className={isActive ? 'text-white' : 'text-slate-400 group-hover:text-slate-100'} />
-              {isOpen && <span className="text-sm font-medium">{item.label}</span>}
+              <item.icon size={20} className={isActive ? 'text-white' : 'text-white/85 group-hover:text-white'} />
+              {isOpen && <span className="text-sm font-semibold">{item.label}</span>}
             </button>
           );
         })}
       </nav>
 
-      <div className="p-4 border-t border-blue-3649/80">
+      <div className="p-4 border-t border-white/10">
         <button 
           onClick={() => auth.signOut()} 
-          className="flex items-center gap-4.5 p-3 w-full rounded-xl hover:bg-rose-950/30 text-slate-400 hover:text-rose-400 transition-all duration-200"
+          className="flex items-center gap-4.5 p-3.5 w-full rounded-xl hover:bg-rose-950/50 text-white/70 hover:text-rose-200 transition-all duration-200"
         >
           <LogOut size={20} />
-          {isOpen && <span className="text-sm font-medium">Logout</span>}
+          {isOpen && <span className="text-sm font-semibold">Logout</span>}
         </button>
       </div>
     </div>

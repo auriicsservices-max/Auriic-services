@@ -93,7 +93,7 @@ import {
   Layers
 } from 'lucide-react';
 
-import SecurityManagement from '../components/SecurityManagement';
+
 import DatabaseDetails from '../components/DatabaseDetails';
 import BackupDashboard from '../components/BackupDashboard';
 
@@ -135,7 +135,7 @@ export default function Dashboard() {
     newParsed: any;
     file: File | null;
   } | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'security' | 'invoices'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices'>('home');
   const [bulkLimit, setBulkLimit] = useState<number>(20);
   const [fileSizeLimit, setFileSizeLimit] = useState<number>(5);
   const [searchPage, setSearchPage] = useState(1);
@@ -1515,7 +1515,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   ...((role === 'admin' || role === 'team_leader' || role === 'developer') ? [{ id: 'users', label: 'Team Hub', icon: Users }] : []),
                   ...((role === 'developer') ? [{ id: 'backup', label: 'Backup & Export', icon: Download }] : []),
                   ...((role === 'developer') ? [{ id: 'database', label: 'Database Details', icon: Database }] : []),
-                  ...((role === 'developer') ? [{ id: 'security', label: 'Security', icon: Shield }] : []),
                   ...(isPrivileged ? [{ id: 'trash', label: 'Archive Trash', icon: Trash2 }] : []),
                 ].map((item) => (
                   <button 
@@ -1806,8 +1805,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
              <BackupDashboard />
           ) : activeTab === 'database' ? (
              <DatabaseDetails />
-          ) : activeTab === 'security' ? (
-             <SecurityManagement />
           ) : activeTab === 'invoices' ? (
              <InvoiceList />
           ) : activeTab === 'home' ? (
