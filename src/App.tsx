@@ -5,6 +5,7 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { auth } from './lib/firebase';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
+import CandidateDetails from './pages/CandidateDetails';
 import './index.css';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
@@ -41,7 +42,14 @@ export default function App() {
                         <Dashboard />
                       </PrivateRoute>
                     } 
-                    
+                  />
+                  <Route 
+                    path="/candidate/:id" 
+                    element={
+                      <PrivateRoute>
+                        <CandidateDetails />
+                      </PrivateRoute>
+                    } 
                   />
                   <Route path="*" element={<Navigate to="/dashboard" />} />
                 </Routes>

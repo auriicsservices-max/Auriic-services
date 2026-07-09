@@ -1,10 +1,9 @@
 import { extractTextFromPDF, extractTextFromDocx, parseResumeHeuristically } from "../lib/localParser";
-import { ResumeData, ResumeSchema } from "../types/resume";
-import { JSONResumeData, JSONResumeSchema } from "../types/jsonResume";
+import { ResumeData } from "../types/resume";
+import { toJSONResumeData } from "../utils/jsonResumeMapper";
 import { toInternalResumeData } from "../utils/mapper";
-import { GoogleGenAI, Type } from "@google/genai";
-import Anthropic from '@anthropic-ai/sdk';
-import retry from "async-retry";
+import { GoogleGenAI } from "@google/genai";
+import { JSONResumeData } from "../types/jsonResume";
 
 /**
  * Robust Resume Parsing Service
@@ -12,95 +11,78 @@ import retry from "async-retry";
  */
 export class ResumeParserService {
   private genAI: GoogleGenAI | null = null;
-  private anthropic: Anthropic | null = null;
 
   constructor() {
     const geminiKey = process.env.GEMINI_API_KEY;
     if (geminiKey) {
       this.genAI = new GoogleGenAI({ apiKey: geminiKey });
     }
-    const anthropicKey = process.env.ANTHROPIC_API_KEY;
-    if (anthropicKey) {
-      this.anthropic = new Anthropic({ apiKey: anthropicKey });
-    }
   }
-
   /**
    * Main entry point for parsing a CV file.
    * Uses rule-based extraction in backend for high precision.
    */
   async parse(file: File, onProgress?: (progress: number) => void): Promise<{ parsed: ResumeData; text: string }> {
-    let text = "";
     try {
       // 1. Extract raw text
-      text = await this.extractText(file, onProgress);
+      const text = await this.extractText(file, onProgress);
       
-      let initialParsed: ResumeData;
-
-      // 2. Try Anthropic first (Robust parsing)
-      if (this.anthropic) {
-        try {
-          initialParsed = await this.parseWithAnthropic(text);
-          return { parsed: initialParsed, text };
-        } catch (anthropicError) {
-          console.warn("[ResumeParser] Anthropic failed, trying Gemini next:", anthropicError);
-        }
-      }
-
-      // 3. Try Gemini next
-      if (this.genAI) {
-        try {
-          initialParsed = await this.parseWithGemini(text);
-          return { parsed: initialParsed, text };
-        } catch (geminiError) {
-          console.warn("[ResumeParser] Gemini failed, trying Waterfall next:", geminiError);
-        }
-      }
-
-      // 4. Try Waterfall (Claude -> ChatGPT)
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        const response = await fetch('/api/cv/parse-waterfall', {
-          method: 'POST',
-          body: formData
-        });
-        if (response.ok) {
-          initialParsed = await response.json();
-          return { parsed: initialParsed, text };
-        } else {
-          console.warn("[ResumeParser] Waterfall parser error, trying backend next");
-        }
-      } catch (e) {
-        console.warn("[ResumeParser] Waterfall connection failed, trying backend next:", e);
-      }
-
-      // 5. Try Advanced Parser via backend
-      try {
-        const formData = new FormData();
-        formData.append('file', file);
-        const response = await fetch('/api/cv/parse-advanced', {
-          method: 'POST',
-          body: formData
-        });
-        
-        if (response.ok) {
-          initialParsed = await response.json();
-        } else {
-          console.warn("[ResumeParser] Backend parser error, falling back to heuristics");
-          initialParsed = await parseResumeHeuristically(text);
-        }
-      } catch (e) {
-        console.warn("[ResumeParser] Backend connection failed, using local heuristics:", e);
-        initialParsed = await parseResumeHeuristically(text);
+      // 2. Parse using local heuristics
+      let initialParsed = await parseResumeHeuristically(text);
+      
+      // 3. Map to JSON Resume to check for missing fields
+      let jsonResume = toJSONResumeData(initialParsed);
+      
+      // Check for missing fields
+      const missingFields = this.getMissingFields(jsonResume);
+      
+      if (missingFields.length > 0 && this.genAI) {
+        // 4. Call Gemini only for missing fields
+        jsonResume = await this.fillMissingFieldsWithGemini(text, jsonResume, missingFields);
       }
       
-      return { parsed: initialParsed, text };
+      // 5. Map back to internal ResumeData
+      const parsed = toInternalResumeData(jsonResume);
+      
+      return { parsed, text };
     } catch (error) {
       console.error("[ResumeParser] Critical parsing failure:", error);
-      const parsed = await parseResumeHeuristically(text || "Error extracting text.");
+      // Fallback in case of failure
+      const text = await this.extractText(file, onProgress);
+      const parsed = await parseResumeHeuristically(text);
       return { parsed, text };
     }
+  }
+
+  private getMissingFields(jsonResume: JSONResumeData): string[] {
+    const missing: string[] = [];
+    if (!jsonResume.basics.name) missing.push("basics.name");
+    if (!jsonResume.basics.email) missing.push("basics.email");
+    if (jsonResume.work.length === 0) missing.push("work");
+    if (jsonResume.skills.length === 0) missing.push("skills");
+    return missing;
+  }
+
+  private async fillMissingFieldsWithGemini(text: string, currentJson: JSONResumeData, missingFields: string[]): Promise<JSONResumeData> {
+      const prompt = `
+        The following resume data is incomplete. Please fill in ONLY the missing fields specified below, based on the provided resume text.
+        Missing fields: ${missingFields.join(", ")}
+        
+        Current JSON:
+        ${JSON.stringify(currentJson)}
+        
+        Resume text:
+        ${text.slice(0, 30000)}
+        
+        Respond ONLY in the same JSON format.
+      `;
+      const response = await this.genAI!.models.generateContent({
+          model: "gemini-3-flash-preview",
+          contents: prompt,
+      });
+      const resultText = response.text;
+      if (!resultText) return currentJson;
+      return { ...currentJson, ...JSON.parse(resultText) };
   }
 
   /**
@@ -128,271 +110,6 @@ export class ResumeParserService {
       return await extractTextFromDocx(buffer);
     }
     return await file.text();
-  }
-
-  // Anthropic Parser
-  private async parseWithAnthropic(text: string): Promise<ResumeData> {
-    return await retry(async (bail) => {
-      try {
-        const prompt = `
-          Extract structured data from the following resume text and format it strictly as a JSON Resume (https://jsonresume.org/schema/).
-          Respond ONLY in JSON format according to this structure:
-          {
-            "basics": { "name": "", "email": "", "phone": "", "website": "", "summary": "", "location": {}, "profiles": [] },
-            "work": [],
-            "education": [],
-            "skills": [],
-            "projects": [],
-            "certificates": [],
-            "publications": [],
-            "awards": [],
-            "languages": [],
-            "interests": [],
-            "references": [],
-            "volunteer": []
-          }
-          Ensure all fields match the JSON Resume schema.
-          Resume text:
-          ${text.slice(0, 30000)}
-        `;
-
-        const response = await this.anthropic!.messages.create({
-          model: "claude-3-5-sonnet-20241022",
-          max_tokens: 4096,
-          messages: [{ role: "user", content: prompt }],
-        });
-
-        const content = (response.content[0] as any).text;
-        
-        // Extract JSON from response
-        const jsonMatch = content.match(/\{[\s\S]*\}/);
-        if (!jsonMatch) throw new Error("No JSON found in Anthropic response");
-        
-        let parsed = JSON.parse(jsonMatch[0]);
-        parsed.rawText = text;
-
-        // Skill Normalization and Deduplication
-        const normalizeSkill = (s: string) => {
-          let normalized = s.trim();
-          const lower = normalized.toLowerCase();
-          if (lower === 'react.js' || lower === 'reactjs') return 'React';
-          if (lower === 'node.js' || lower === 'nodejs') return 'Node.js';
-          if (lower === 'vue.js' || lower === 'vuejs') return 'Vue.js';
-          if (lower === 'javascript' || lower === 'js') return 'JavaScript';
-          if (lower === 'typescript' || lower === 'ts') return 'TypeScript';
-          if (normalized.length > 0 && !normalized.includes(' ') && normalized === lower) {
-            return normalized.charAt(0).toUpperCase() + normalized.slice(1);
-          }
-          return normalized;
-        };
-
-        if (parsed.skills) {
-          Object.keys(parsed.skills).forEach(category => {
-            if (Array.isArray(parsed.skills[category])) {
-              const uniqueNormalized = Array.from(new Set(
-                (parsed.skills[category] as string[]).map(s => normalizeSkill(s))
-              ));
-              parsed.skills[category] = uniqueNormalized;
-            }
-          });
-        }
-        
-        return ResumeSchema.parse(parsed);
-      } catch (error: any) {
-        if (error?.status === 400 || error?.name === 'ZodError') {
-          bail(error);
-          return null as any;
-        }
-        throw error;
-      }
-    }, {
-      retries: 3,
-      minTimeout: 2000,
-      maxTimeout: 10000,
-      onRetry: (err, i) => console.warn(`[Anthropic] Retry ${i}:`, err.message)
-    });
-  }
-
-  private async parseWithGemini(text: string): Promise<ResumeData> {
-    return await retry(async (bail) => {
-      try {
-        const prompt = `
-          Extract structured data from the following resume text and format it strictly as a JSON Resume (https://jsonresume.org/schema/).
-          Respond in JSON format according to this structure:
-          {
-            "basics": { "name": "", "email": "", "phone": "", "website": "", "summary": "", "location": {}, "profiles": [] },
-            "work": [],
-            "education": [],
-            "skills": [],
-            "projects": [],
-            "certificates": [],
-            "publications": [],
-            "awards": [],
-            "languages": [],
-            "interests": [],
-            "references": [],
-            "volunteer": []
-          }
-          Ensure all fields match the JSON Resume schema.
-        `;
-
-        const response = await this.genAI!.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: `${prompt}\n\nResume text:\n${text.slice(0, 30000)}`,
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-                type: Type.OBJECT,
-                properties: {
-                    name: { type: Type.STRING },
-                    contact: {
-                        type: Type.OBJECT,
-                        properties: {
-                            email: { type: Type.STRING },
-                            phone: { type: Type.STRING },
-                            linkedin: { type: Type.STRING },
-                            github: { type: Type.STRING },
-                            portfolio: { type: Type.STRING }
-                        }
-                    },
-                    links: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                type: { type: Type.STRING },
-                                url: { type: Type.STRING }
-                            }
-                        }
-                    },
-                    location: {
-                        type: Type.OBJECT,
-                        properties: {
-                            city: { type: Type.STRING },
-                            state: { type: Type.STRING },
-                            country: { type: Type.STRING },
-                            postalCode: { type: Type.STRING, description: "ZIP or postal code if available on resume" },
-                            display: { type: Type.STRING, description: "Full formatted location string" }
-                        }
-                     },
-                    profile: { type: Type.STRING },
-                    domainFocus: { type: Type.STRING, description: "Main professional domain (IT, Healthcare, etc.)" },
-                    totalExperienceYears: { type: Type.NUMBER },
-                    education: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                institution: { type: Type.STRING },
-                                degree: { type: Type.STRING },
-                                duration: { type: Type.STRING }
-                            }
-                        }
-                    },
-                    experience: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                title: { type: Type.STRING },
-                                company: { type: Type.STRING },
-                                duration: { type: Type.STRING },
-                                responsibilities: { type: Type.ARRAY, items: { type: Type.STRING } }
-                            }
-                        }
-                    },
-                    projects: {
-                        type: Type.ARRAY,
-                        items: {
-                            type: Type.OBJECT,
-                            properties: {
-                                name: { type: Type.STRING },
-                                description: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                technologies: { type: Type.ARRAY, items: { type: Type.STRING } },
-                                duration: { type: Type.STRING },
-                                links: { type: Type.ARRAY, items: { type: Type.STRING } }
-                            }
-                        }
-                    },
-                    skills: {
-                        type: Type.OBJECT,
-                        properties: {
-                            languages: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            frameworks: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            databases: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            tools: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            libraries: { type: Type.ARRAY, items: { type: Type.STRING } },
-                            other: { type: Type.ARRAY, items: { type: Type.STRING } }
-                        }
-                    },
-                    achievements: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    languages: { type: Type.ARRAY, items: { type: Type.STRING } },
-                    interests: { type: Type.ARRAY, items: { type: Type.STRING } }
-                }
-            }
-          }
-        });
-
-        const resultText = response.text;
-        if (!resultText) throw new Error("Empty response from Gemini");
-        
-        let parsed = JSON.parse(resultText);
-        parsed.rawText = text;
-
-        const geminiLocation = parsed.location || {};
-        parsed.locationDetails = {
-          city: geminiLocation.city || '',
-          state: geminiLocation.state || '',
-          country: geminiLocation.country || '',
-          postalCode: geminiLocation.postalCode || ''
-        };
-        parsed.location = geminiLocation.display || (geminiLocation.city ? `${geminiLocation.city}, ${geminiLocation.state || ''}` : '');
-
-        // Skill Normalization and Deduplication
-        const normalizeSkill = (s: string) => {
-          let normalized = s.trim();
-          const lower = normalized.toLowerCase();
-          
-          // Common normalization rules
-          if (lower === 'react.js' || lower === 'reactjs') return 'React';
-          if (lower === 'node.js' || lower === 'nodejs') return 'Node.js';
-          if (lower === 'vue.js' || lower === 'vuejs') return 'Vue.js';
-          if (lower === 'javascript' || lower === 'js') return 'JavaScript';
-          if (lower === 'typescript' || lower === 'ts') return 'TypeScript';
-          
-          // Title case for others if they are single words and not already capitalized
-          if (normalized.length > 0 && !normalized.includes(' ') && normalized === lower) {
-            return normalized.charAt(0).toUpperCase() + normalized.slice(1);
-          }
-          
-          return normalized;
-        };
-
-        if (parsed.skills) {
-          Object.keys(parsed.skills).forEach(category => {
-            if (Array.isArray(parsed.skills[category])) {
-              const uniqueNormalized = Array.from(new Set(
-                (parsed.skills[category] as string[]).map(s => normalizeSkill(s))
-              ));
-              parsed.skills[category] = uniqueNormalized;
-            }
-          });
-        }
-        
-        return ResumeSchema.parse(parsed);
-      } catch (error: any) {
-        if (error?.status === 400 || error?.name === 'ZodError') {
-          bail(error);
-          return null as any;
-        }
-        throw error;
-      }
-    }, {
-      retries: 3,
-      minTimeout: 2000,
-      maxTimeout: 10000,
-      onRetry: (err, i) => console.warn(`[Gemini] Retry ${i}:`, err.message)
-    });
   }
 }
 

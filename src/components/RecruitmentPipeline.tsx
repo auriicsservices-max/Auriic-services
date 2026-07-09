@@ -26,6 +26,7 @@ import { logActivity } from '../services/activityService';
 import { createNotification, formatNotificationMessage } from '../services/notificationService';
 import { useAuth } from '../contexts/AuthContext';
 import { motion, AnimatePresence } from 'motion/react';
+import { useNavigate } from 'react-router-dom';
 
 interface Props {
   candidates: any[];
@@ -185,6 +186,7 @@ export const STAGES: Stage[] = [
 
 export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = {}, fullTeamList = [] }: Props) {
   const { user, getUserDisplayName, getUserRole } = useAuth();
+  const navigate = useNavigate();
   
   // Local state for dragging feedback
   const [dragOverStage, setDragOverStage] = useState<string | null>(null);
@@ -817,13 +819,15 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                             </div>
 
                             {/* Meta fields: Client & Recruiter */}
-                            <div className="grid grid-cols-2 gap-2 border-t border-[var(--border-color)]/30 pt-2.5">
-                              <div className="flex items-center gap-1 min-w-0">
-                                <Building size={11} className="text-slate-400 shrink-0" />
-                                <span className="text-[9px] font-semibold text-[var(--text-secondary)] truncate">
-                                  {candidate.client || 'Acme Partners'}
-                                </span>
-                              </div>
+                            <div className="flex flex-col gap-1 border-t border-[var(--border-color)]/30 pt-2.5 mt-1">
+                              {candidate.client && (
+                                <div className="flex items-center gap-1 min-w-0">
+                                  <Building size={11} className="text-slate-400 shrink-0" />
+                                  <span className="text-[9px] font-semibold text-[var(--text-secondary)] truncate">
+                                    {candidate.client}
+                                  </span>
+                                </div>
+                              )}
                               <div className="flex items-center gap-1 min-w-0">
                                 <User size={11} className="text-slate-400 shrink-0" />
                                 <span className="text-[9px] font-semibold text-[var(--text-secondary)] truncate">
@@ -877,7 +881,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                             {/* Hover Controls (View & Edit Pipeline details) */}
                             <div className="flex gap-1.5 pt-1 border-t border-[var(--border-color)]/30 opacity-80 group-hover:opacity-100 transition-opacity">
                               <button
-                                onClick={() => onSelect(candidate)}
+                                onClick={() => navigate(`/candidate/${candidate.id}`)}
                                 className="flex-1 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[var(--border-color)] text-[var(--text-secondary)] rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
                               >
                                 <Eye size={10} /> Profile

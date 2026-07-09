@@ -2,6 +2,7 @@ import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
 import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
+import { OperationType, handleFirestoreError } from '../lib/firestoreError';
 
 interface AuthContextType {
   user: User | null;
@@ -56,13 +57,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(authenticatedUser);
         if (authenticatedUser) {
           const userDocRef = doc(db, 'users', authenticatedUser.uid);
-          const userDoc = await getDoc(userDocRef);
+          let userDoc;
+          try {
+            userDoc = await getDoc(userDocRef);
+          } catch (error) {
+            handleFirestoreError(error, OperationType.GET, 'users/' + authenticatedUser.uid);
+          }
           
           const isAdminEmail = authenticatedUser.email === 'darshanwala894@gmail.com' || authenticatedUser.email === 'auriicsservices@gmail.com' || authenticatedUser.email === 'mayur.jungi@aurrum.co';
           
           if (!userDoc.exists()) {
             const inviteDocRef = doc(db, 'invitations', authenticatedUser.email!);
-            const inviteDoc = await getDoc(inviteDocRef);
+            let inviteDoc;
+            try {
+              inviteDoc = await getDoc(inviteDocRef);
+            } catch (error) {
+              handleFirestoreError(error, OperationType.GET, 'invitations/' + authenticatedUser.email!);
+            }
             const defaultRole = isAdminEmail ? 'admin' : (inviteDoc.exists() ? inviteDoc.data().role : 'recruiter');
 
             const newUser = {
@@ -75,17 +86,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               status: 'online',
               lastSeen: serverTimestamp()
             };
-            await setDoc(userDocRef, newUser);
+            try {
+              await setDoc(userDocRef, newUser);
+            } catch (error) {
+              handleFirestoreError(error, OperationType.CREATE, 'users/' + authenticatedUser.uid);
+            }
             setRole(defaultRole as any);
           } else {
             const data = userDoc.data();
             if (isAdminEmail && data.isArchived) {
-              await updateDoc(userDocRef, { isArchived: false, status: 'online', lastSeen: serverTimestamp() });
+              try {
+                await updateDoc(userDocRef, { isArchived: false, status: 'online', lastSeen: serverTimestamp() });
+              } catch (error) {
+                handleFirestoreError(error, OperationType.UPDATE, 'users/' + authenticatedUser.uid);
+              }
               setRole('admin');
             } else if (data.isArchived) {
               setRole(null);
             } else {
-              await updateDoc(userDocRef, { status: 'online', lastSeen: serverTimestamp() });
+              try {
+                await updateDoc(userDocRef, { status: 'online', lastSeen: serverTimestamp() });
+              } catch (error) {
+                handleFirestoreError(error, OperationType.UPDATE, 'users/' + authenticatedUser.uid);
+              }
               setRole(data.role);
             }
           }
@@ -95,10 +118,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           statusInterval = setInterval(async () => {
             if (quotaExceeded) return;
             try {
-              await updateDoc(userDocRef, { 
-                status: 'online', 
-                lastSeen: serverTimestamp() 
-              });
+              try {
+                await updateDoc(userDocRef, { 
+                  status: 'online', 
+                  lastSeen: serverTimestamp() 
+                });
+              } catch (error) {
+                handleFirestoreError(error, OperationType.UPDATE, 'users/' + authenticatedUser.uid);
+              }
             } catch (err: any) {
               if (err.code === 'resource-exhausted') setQuotaExceeded(true);
               console.error(err);

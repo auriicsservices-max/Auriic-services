@@ -62,23 +62,23 @@
 }
 
 :root {
-  --bg-primary: #f8fafc;
-  --bg-secondary: #f1f5f9;
-  --text-primary: #002D38;
-  --text-secondary: #003E51;
-  --text-muted: #6b7280;
+  --bg-primary: #ffffff;
+  --bg-secondary: #f9fafb;
+  --text-primary: #111827;
+  --text-secondary: #4b5563;
+  --text-muted: #9ca3af;
   --card-bg: #ffffff;
-  --sidebar-bg: #002D38; /* dark blue sidebar */
+  --sidebar-bg: #1f2937;
   --border-color: #e5e7eb;
-  --brand-color: #004564; /* Primary Blue */
-  --accent-color: #A98B56; /* Primary Gold */
+  --brand-color: #2563eb;
+  --accent-color: #059669;
   --success-color: #10b981;
   --warning-color: #f59e0b;
   --danger-color: #ef4444;
-  --info-color: #005472;
+  --info-color: #3b82f6;
   
-  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-  --sidebar-shadow: 2px 0 12px rgba(0, 0, 0, 0.15);
+  --card-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+  --sidebar-shadow: 2px 0 12px rgba(0, 0, 0, 0.05);
 }
 
 .dark {
