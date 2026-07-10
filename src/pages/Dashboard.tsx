@@ -78,6 +78,7 @@ import {
   RotateCcw,
   AlertTriangle,
   Calendar,
+  Receipt,
   UserCircle,
   Activity,
   Menu,
@@ -99,6 +100,7 @@ import BackupDashboard from '../components/BackupDashboard';
 
 export default function Dashboard() {
   const { user, role, quotaExceeded, setQuotaExceeded, isPrivileged, getUserDisplayName, getUserRole, getUserName } = useAuth();
+  console.log("DEBUG: Dashboard role:", role);
   const { theme } = useTheme();
   const { notifications, markAsRead, markAllAsRead } = useNotifications();
   const { timezone, setTimezone, formatDate } = useTimezone();
@@ -1481,6 +1483,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 { id: 'shortlist', label: 'Shortlist', icon: Star },
                 { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
                 { id: 'repository', label: 'CV Repository', icon: FileText },
+                ...(role === 'developer' || role === 'admin' || role === 'team_leader' ? [{ id: 'invoices', label: 'Invoices', icon: Receipt }] : []),
               ].map((item) => (
                 <button 
                   key={item.id}

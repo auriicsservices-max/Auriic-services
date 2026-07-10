@@ -1,16 +1,19 @@
 import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc, collection, query, where, getDocs } from 'firebase/firestore';
-import { Save, Shield, Settings, Info, AlertTriangle, Lock, CheckCircle2 } from 'lucide-react';
+import { Save, Shield, Settings, Info, AlertTriangle, Lock, CheckCircle2, Image, Upload, Trash2, X } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 
 export default function SystemSettings() {
   const { role } = useAuth();
   const [limit, setLimit] = useState<number>(20);
   const [fileSizeLimit, setFileSizeLimit] = useState<number>(5);
+  const [logoUrl, setLogoUrl] = useState<string>('');
   const [totalCvCount, setTotalCvCount] = useState<number>(0);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [isDragging, setIsDragging] = useState(false);
+  const [uploadError, setUploadError] = useState<string | null>(null);
 
   const isAdmin = role === 'admin' || role === 'developer';
 
@@ -21,7 +24,8 @@ export default function SystemSettings() {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           setLimit(docSnap.data().bulkUploadLimit || 20);
-          setFileSizeLimit(docSnap.data().fileSizeLimit || 5);
+          setFileSizeLimit(docSnap.data().fileSizeCap || docSnap.data().fileSizeLimit || 5);
+          setLogoUrl(docSnap.data().logoUrl || '');
         }
 
         const allCandidatesQuery = query(collection(db, 'candidates'));
@@ -37,6 +41,60 @@ export default function SystemSettings() {
     fetchSettings();
   }, []);
 
+  const processFile = (file: File) => {
+    setUploadError(null);
+    if (!file) return;
+
+    // Validate type (must be image)
+    if (!file.type.startsWith('image/')) {
+      setUploadError("Only image files (PNG, JPG, SVG, WebP, etc.) are supported.");
+      return;
+    }
+
+    // Validate size (500KB cap for smooth base64 Firestore document storage)
+    const maxSize = 500 * 1024; // 500 KB
+    if (file.size > maxSize) {
+      setUploadError("Image is too large. Logo must be under 500KB to ensure high-performance loading.");
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      if (event.target?.result) {
+        setLogoUrl(event.target.result as string);
+      }
+    };
+    reader.onerror = () => {
+      setUploadError("Failed to read file.");
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
+  const handleDragOver = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(true);
+  };
+
+  const handleDragLeave = () => {
+    setIsDragging(false);
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setIsDragging(false);
+    const file = e.dataTransfer.files?.[0];
+    if (file) {
+      processFile(file);
+    }
+  };
+
   const handleSave = async () => {
     if (!isAdmin) return;
     
@@ -46,8 +104,10 @@ export default function SystemSettings() {
       await setDoc(doc(db, 'settings', 'global'), {
         bulkUploadLimit: limit,
         fileSizeLimit: fileSizeLimit,
+        logoUrl: logoUrl.trim(),
         updatedAt: new Date().toISOString()
       }, { merge: true });
+
       setMessage({ type: 'success', text: 'Settings updated successfully!' });
     } catch (err: any) {
       console.error("Error saving settings:", err);
@@ -152,6 +212,97 @@ export default function SystemSettings() {
                     <CheckCircle2 size={18} />
                     <span className="text-sm font-black">Gemini API Key Configured</span>
                 </div>
+            </div>
+          </div>
+
+          {/* Global Logo Configuration Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-[var(--border-color)]">
+            <div className="space-y-2">
+              <h3 className="font-bold text-[var(--text-primary)] flex items-center gap-2">
+                <Image size={18} className="text-indigo-500" /> Global Invoice Logo
+              </h3>
+              <p className="text-xs text-[var(--text-secondary)] leading-relaxed">
+                Upload your company logo or provide a custom image URL. This logo will dynamically appear on all generated statement lists, pdfs, and invoices.
+              </p>
+            </div>
+            <div className="space-y-4">
+              {/* Drag and Drop Upload Zone */}
+              <div
+                onDragOver={handleDragOver}
+                onDragLeave={handleDragLeave}
+                onDrop={handleDrop}
+                className={`p-6 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center text-center cursor-pointer ${
+                  isDragging 
+                    ? 'border-indigo-500 bg-indigo-50/50 dark:bg-indigo-950/20' 
+                    : 'border-[var(--border-color)] hover:border-indigo-400 bg-slate-50 dark:bg-slate-900/30'
+                }`}
+                onClick={() => document.getElementById('logo-upload-input')?.click()}
+              >
+                <input
+                  id="logo-upload-input"
+                  type="file"
+                  accept="image/*"
+                  onChange={handleFileChange}
+                  className="hidden"
+                />
+                <Upload size={24} className={`mb-2 text-indigo-500 ${isDragging ? 'animate-bounce' : ''}`} />
+                <span className="text-xs font-bold text-[var(--text-primary)]">
+                  Drag & drop company logo here
+                </span>
+                <span className="text-[10px] text-[var(--text-secondary)] mt-0.5">
+                  or click to browse files (PNG, JPG, SVG, WebP up to 500KB)
+                </span>
+              </div>
+
+              {uploadError && (
+                <div className="flex items-center gap-2 text-xs font-bold text-rose-500 bg-rose-50 dark:bg-rose-950/20 p-3 rounded-xl border border-rose-100 dark:border-rose-900/40">
+                  <AlertTriangle size={14} className="shrink-0" />
+                  <span>{uploadError}</span>
+                </div>
+              )}
+
+              <div className="relative">
+                <label className="block text-[10px] font-black uppercase text-[var(--text-muted)] mb-1">Or Logo Image URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    placeholder="https://example.com/logo.png"
+                    value={logoUrl}
+                    onChange={(e) => {
+                      setLogoUrl(e.target.value);
+                      setUploadError(null);
+                    }}
+                    className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl px-4 py-2.5 text-xs text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+                  />
+                  {logoUrl && (
+                    <button
+                      type="button"
+                      onClick={() => setLogoUrl('')}
+                      className="p-2.5 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[var(--border-color)] rounded-xl text-[var(--text-muted)] hover:text-rose-500 transition-all"
+                      title="Clear logo"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  )}
+                </div>
+              </div>
+              
+              {logoUrl.trim() && (
+                <div className="pt-2 flex flex-col items-center gap-1.5 border-t border-[var(--border-color)]">
+                  <span className="text-[10px] font-black uppercase text-[var(--text-muted)]">Live Preview</span>
+                  <div className="p-3 bg-white dark:bg-slate-800 rounded-xl border border-[var(--border-color)] max-w-full flex items-center justify-center">
+                    <img 
+                      src={logoUrl} 
+                      alt="Logo preview" 
+                      className="max-h-12 max-w-[200px] object-contain"
+                      onError={(e) => {
+                        (e.target as HTMLImageElement).src = 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg';
+                      }}
+                      referrerPolicy="no-referrer"
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

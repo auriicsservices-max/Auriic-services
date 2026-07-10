@@ -41,16 +41,16 @@ export default function CandidateDetailsPage() {
   if (!candidate) return <div className="p-10 text-center">Candidate not found</div>;
 
   return (
-    <div className="p-8 max-w-6xl mx-auto bg-white min-h-screen">
-      <button onClick={() => navigate(-1)} className="mb-6 flex items-center gap-2 text-slate-600 hover:text-brand-color">
+    <div className="p-8 max-w-6xl mx-auto bg-[var(--bg-primary)] min-h-screen">
+      <button onClick={() => navigate(-1)} className="mb-6 flex items-center gap-2 text-[var(--text-secondary)] hover:text-[var(--brand-color)]">
         <ArrowLeft size={18} /> Back to Pipeline
       </button>
 
-      <div className="bg-white border border-border-color rounded-xl p-6 shadow-sm mb-6">
-        <h1 className="text-3xl font-bold text-text-primary mb-2">{candidate.fullName}</h1>
-        <p className="text-lg text-text-secondary mb-4">{candidate.position}</p>
+      <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl p-6 shadow-[var(--card-shadow)] mb-6">
+        <h1 className="text-3xl font-bold text-[var(--text-primary)] mb-2">{candidate.fullName}</h1>
+        <p className="text-lg text-[var(--text-secondary)] mb-4">{candidate.position}</p>
         
-        <div className="flex flex-wrap gap-4 text-sm text-text-secondary">
+        <div className="flex flex-wrap gap-4 text-sm text-[var(--text-secondary)]">
           {candidate.contact?.email && <div className="flex items-center gap-1.5"><Mail size={16}/> {candidate.contact.email}</div>}
           {candidate.contact?.phone && <div className="flex items-center gap-1.5"><Phone size={16}/> {candidate.contact.phone}</div>}
           {candidate.location && <div className="flex items-center gap-1.5"><MapPin size={16}/> {candidate.location}</div>}
@@ -58,18 +58,18 @@ export default function CandidateDetailsPage() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-        <div className="bg-white border border-border-color rounded-xl p-6 shadow-sm">
-          <h2 className="text-xl font-semibold mb-4 text-text-primary">Experience</h2>
+        <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl p-6 shadow-[var(--card-shadow)]">
+          <h2 className="text-xl font-semibold mb-4 text-[var(--text-primary)]">Experience</h2>
           {/* Add experience details here */}
         </div>
 
-        <div className="bg-white border border-border-color rounded-xl p-6 shadow-sm">
-          <h2 className="text-xl font-semibold mb-4 text-text-primary">Activity Log</h2>
+        <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl p-6 shadow-[var(--card-shadow)]">
+          <h2 className="text-xl font-semibold mb-4 text-[var(--text-primary)]">Activity Log</h2>
           <div className="space-y-4">
             {activities.map(act => (
-              <div key={act.id} className="border-l-2 border-border-color pl-4 pb-2">
-                <p className="text-sm font-medium text-text-primary">{act.action}</p>
-                <p className="text-xs text-text-muted">{act.createdAt?.toDate?.().toLocaleString()}</p>
+              <div key={act.id} className="border-l-2 border-[var(--border-color)] pl-4 pb-2">
+                <p className="text-sm font-medium text-[var(--text-primary)]">{act.action}</p>
+                <p className="text-xs text-[var(--text-muted)]">{act.createdAt?.toDate?.().toLocaleString()}</p>
               </div>
             ))}
           </div>

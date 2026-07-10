@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext';
 
 export default function Sidebar({ isOpen, setIsOpen, activeTab, setActiveTab }: { isOpen: boolean; setIsOpen: (val: boolean) => void; activeTab: string; setActiveTab: (tab: string) => void }) {
   const { role } = useAuth();
+  console.log("DEBUG: Sidebar role:", role);
   
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', id: 'home' },

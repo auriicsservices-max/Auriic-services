@@ -134,6 +134,30 @@ service cloud.firestore {
       allow write: if isSignedIn();
     }
 
+    // Help Section Rules
+    match /help_sections/{sectionId} {
+      allow read: if isSignedIn();
+      allow write: if isAdmin();
+    }
+
+    // Consolidated Invoices Rules
+    match /consolidated_invoices/{invoiceId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (
+        isAdmin() || 
+        getUserData().get('role', 'none') == 'client'
+      );
+    }
+
+    // Candidate Invoice Rules
+    match /invoices/{invoiceId} {
+      allow read: if isSignedIn();
+      allow write: if isSignedIn() && (
+        isAdmin() || 
+        getUserData().get('role', 'none') == 'client'
+      );
+    }
+
     // Global Settings Rules
     match /settings/global {
       allow read: if isSignedIn();

@@ -48,6 +48,8 @@ export default function UserManagement() {
     const usersQ = query(collection(db, 'users'));
     return onSnapshot(usersQ, (snapshot) => {
       setUsers(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
+    }, (error) => {
+      console.error("Error loading users in UserManagement:", error);
     });
   }, []);
 

@@ -162,8 +162,6 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const handleSaveCandidateProfile = async () => {
     setIsSaving(true);
     try {
-      const { doc, updateDoc } = await import('firebase/firestore');
-      const { db } = await import('../lib/firebase');
       const candidateRef = doc(db, 'candidates', candidate.id);
       const updateData: any = {};
       
@@ -223,9 +221,6 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
         country: country.trim(),
         postalCode: postalCode.trim(),
       };
-      
-      const { updateDoc, doc } = await import('firebase/firestore');
-      const { db } = await import('../lib/firebase');
       
       await updateDoc(doc(db, 'candidates', candidate.id), {
         locationInfo: updatedLocationInfo
@@ -672,8 +667,6 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     const updatedSkills = skills.filter(s => s !== skillToRemove);
     setSkills(updatedSkills);
     try {
-      const { updateDoc, doc } = await import('firebase/firestore');
-      const { db } = await import('../lib/firebase');
       await updateDoc(doc(db, 'candidates', candidate.id), { skills: updatedSkills });
       await logActivity(
         getUserDisplayName(),

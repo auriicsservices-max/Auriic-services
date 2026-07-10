@@ -375,9 +375,9 @@ export default function DashboardHome({
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4, delay: i * 0.05 }}
-            className="bg-[var(--card-bg)] p-5 rounded-[2rem] border border-[var(--border-color)] shadow-sm card-hover-effect"
+            className="bg-[var(--card-bg)] p-5 rounded-[2rem] border border-[var(--border-color)] shadow-[var(--card-shadow)] card-hover-effect"
           >
-            <div className={`w-10 h-10 ${card.bg} ${card.border} rounded-2xl flex items-center justify-center ${card.color} mb-4 shadow-inner`}>
+            <div className={`w-10 h-10 bg-[var(--bg-secondary)] rounded-2xl flex items-center justify-center text-[var(--brand-color)] mb-4 shadow-sm`}>
               <card.icon size={18} />
             </div>
             <p className="text-[10px] text-[var(--text-muted)] uppercase font-black tracking-wider mb-1">{card.label}</p>

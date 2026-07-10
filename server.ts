@@ -326,18 +326,30 @@ app.post('/api/cv/upload', upload.single('file'), async (req, res) => {
 });
 
 app.get('/api/cv/list', async (req, res) => {
+  console.log('[Server] GET /api/cv/list received');
   try {
     const apiKey = process.env.AURRUM_API_KEY || 'AURRUM_SECRET_123';
+    console.log('[Server] Fetching list from Aurrum API');
     const response = await fetch('https://aurrum.co/wp-json/cv-api/v1/list', {
       headers: { 'x-api-key': apiKey }
     });
     
+    console.log('[Server] Aurrum API status:', response.status);
+    
     if (response.ok) {
-      const data = await response.json();
-      return res.json(data);
+      const text = await response.text();
+      console.log('[Server] Aurrum API response:', text.slice(0, 100));
+      try {
+        const data = JSON.parse(text);
+        return res.json(data);
+      } catch (parseError) {
+        console.error('[Server] Failed to parse Aurrum API response as JSON');
+        return res.status(500).json({ status: false, message: 'Invalid response from CV service', raw: text.slice(0, 50) });
+      }
     }
     
     const errorText = await response.text();
+    console.error('[Server] Aurrum API error response:', errorText);
     res.status(response.status).json({ status: false, message: 'List sync failed', error: errorText });
   } catch (error) {
     console.error('[Server] List connection error:', (error as Error).message);

@@ -805,11 +805,11 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
 
                             {/* Candidate Identity */}
                             <div className="flex items-start gap-2.5">
-                              <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-slate-200 to-indigo-100 dark:from-slate-800 dark:to-indigo-950/40 flex items-center justify-center font-extrabold text-[10px] text-slate-700 dark:text-slate-300 border border-slate-200/50 dark:border-slate-800 shrink-0 select-none">
+                              <div className="w-8 h-8 rounded-lg bg-[var(--bg-secondary)] flex items-center justify-center font-extrabold text-[10px] text-[var(--text-primary)] border border-[var(--border-color)] shrink-0 select-none">
                                 {initials}
                               </div>
                               <div className="min-w-0 flex-1">
-                                <h4 className="text-xs font-extrabold text-[var(--text-primary)] group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors tracking-tight truncate leading-tight">
+                                <h4 className="text-xs font-extrabold text-[var(--text-primary)] group-hover:text-[var(--brand-color)] transition-colors tracking-tight truncate leading-tight">
                                   {candidate.fullName}
                                 </h4>
                                 <span className="text-[9px] text-[var(--text-muted)] font-bold truncate block mt-0.5">
@@ -818,22 +818,12 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                               </div>
                             </div>
 
-                            {/* Meta fields: Client & Recruiter */}
-                            <div className="flex flex-col gap-1 border-t border-[var(--border-color)]/30 pt-2.5 mt-1">
-                              {candidate.client && (
-                                <div className="flex items-center gap-1 min-w-0">
-                                  <Building size={11} className="text-slate-400 shrink-0" />
-                                  <span className="text-[9px] font-semibold text-[var(--text-secondary)] truncate">
-                                    {candidate.client}
-                                  </span>
-                                </div>
-                              )}
-                              <div className="flex items-center gap-1 min-w-0">
-                                <User size={11} className="text-slate-400 shrink-0" />
+                            {/* Meta fields: Recruiter */}
+                            <div className="flex items-center gap-1 border-t border-[var(--border-color)] pt-2.5 mt-1">
+                                <User size={11} className="text-[var(--text-muted)] shrink-0" />
                                 <span className="text-[9px] font-semibold text-[var(--text-secondary)] truncate">
                                   {candidate.recruiter || 'Internal Agent'}
                                 </span>
-                              </div>
                             </div>
 
                             {/* Follow-up date / Next Action details */}
