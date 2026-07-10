@@ -60,15 +60,25 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
   };
 
   const preparedCandidates = useMemo(() => {
-    return candidates.map(c => ({
-      id: c.id,
-      fullName: c.fullName || '',
-      skills: c.skills || [],
-      domainFocus: c.domainFocus || c.domain || '',
-      position: c.position || '',
-      experience: c.experience || '',
-      location: c.location || ''
-    }));
+    return candidates.map(c => {
+      let flatSkills: string[] = [];
+      if (Array.isArray(c.skills)) {
+        flatSkills = c.skills;
+      } else if (c.skills && typeof c.skills === 'object') {
+        flatSkills = Object.values(c.skills)
+          .filter(Array.isArray)
+          .flat() as string[];
+      }
+      return {
+        id: c.id,
+        fullName: c.fullName || '',
+        skills: flatSkills,
+        domainFocus: c.domainFocus || c.domain || '',
+        position: c.position || '',
+        experience: c.experience || '',
+        location: c.location || ''
+      };
+    });
   }, [candidates]);
 
   const handleChatSubmit = async (e: React.FormEvent) => {
@@ -87,7 +97,8 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
         body: JSON.stringify({
           query: userMsg,
           candidates: preparedCandidates,
-          history: chatMessages
+          history: chatMessages,
+          precision: searchPrecision
         })
       });
 
@@ -192,7 +203,16 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
   const evaluateBooleanSearch = (candidate: any, searchString: string) => {
     const tokens = searchString.toLowerCase().split(/\s+/);
     const fullName = (candidate.fullName || '').toLowerCase();
-    const skills = (candidate.skills || []).map((s: string) => s.toLowerCase());
+    
+    let flatSkills: string[] = [];
+    if (Array.isArray(candidate.skills)) {
+      flatSkills = candidate.skills;
+    } else if (candidate.skills && typeof candidate.skills === 'object') {
+      flatSkills = Object.values(candidate.skills)
+        .filter(Array.isArray)
+        .flat() as string[];
+    }
+    const skills = flatSkills.map((s: string) => s.toLowerCase());
 
     const matchesTerm = (term: string) => 
       fullName.includes(term) || skills.some((s: string) => s.includes(term));

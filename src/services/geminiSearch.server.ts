@@ -1,9 +1,9 @@
-import { GoogleGenAI, Type } from "@google/genai";
+import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
 
 export interface AIPreparedCandidate {
   id: string;
   fullName: string;
-  skills?: string[];
+  skills?: string[] | Record<string, string[]>;
   domainFocus?: string;
   domain?: string;
   position?: string;
@@ -25,12 +25,12 @@ export class GeminiSearchAssistant {
       throw new Error('GEMINI_API_KEY is not defined');
     }
     this.ai = new GoogleGenAI({ 
-        apiKey: process.env.GEMINI_API_KEY,
-        httpOptions: {
-            headers: {
-              'User-Agent': 'aistudio-build',
-            }
+      apiKey: process.env.GEMINI_API_KEY,
+      httpOptions: {
+        headers: {
+          'User-Agent': 'aistudio-build',
         }
+      }
     });
   }
 
@@ -43,6 +43,22 @@ export class GeminiSearchAssistant {
     matchedIds: string[];
     explanation: string;
   }> {
+    // Flatten / sanitize skills for all candidates to guarantee accurate matching on both frontend & backend
+    const sanitizedCandidates = candidates.map(c => {
+      let flatSkills: string[] = [];
+      if (Array.isArray(c.skills)) {
+        flatSkills = c.skills;
+      } else if (c.skills && typeof c.skills === 'object') {
+        flatSkills = Object.values(c.skills)
+          .filter(Array.isArray)
+          .flat() as string[];
+      }
+      return {
+        ...c,
+        skills: flatSkills
+      };
+    });
+
     // Format conversation history to feed to Gemini
     const formattedHistory = history.map(msg => {
       return `${msg.role === 'user' ? 'User' : 'Assistant (Matched Candidates: ' + (msg.matchedIds || []).join(',') + ')'}: ${msg.text}`;
@@ -86,7 +102,7 @@ export class GeminiSearchAssistant {
 
       ---
       # CANDIDATES DATA:
-      ${JSON.stringify(candidates, null, 2)}
+      ${JSON.stringify(sanitizedCandidates, null, 2)}
 
       ---
       # CONVERSATION HISTORY:
@@ -105,9 +121,12 @@ export class GeminiSearchAssistant {
 
     try {
       const response = await this.ai.models.generateContent({
-        model: "gemini-2.5-flash",
+        model: "gemini-3.5-flash",
         contents: prompt,
         config: {
+          thinkingConfig: {
+            thinkingLevel: ThinkingLevel.LOW
+          },
           responseMimeType: "application/json",
           responseSchema: {
             type: Type.OBJECT,
@@ -127,7 +146,7 @@ export class GeminiSearchAssistant {
       return JSON.parse(text);
     } catch (err) {
       console.error('[GeminiSearchAssistant] Search Error:', err);
-      return this.fallbackFilter(query, candidates);
+      return this.fallbackFilter(query, sanitizedCandidates);
     }
   }
 
@@ -138,7 +157,16 @@ export class GeminiSearchAssistant {
       const domain = (c.domainFocus || c.domain || '').toLowerCase();
       const pos = (c.position || '').toLowerCase();
       const loc = (c.location || '').toLowerCase();
-      const skills = (c.skills || []).map(s => s.toLowerCase());
+      
+      let flatSkills: string[] = [];
+      if (Array.isArray(c.skills)) {
+        flatSkills = c.skills;
+      } else if (c.skills && typeof c.skills === 'object') {
+        flatSkills = Object.values(c.skills)
+          .filter(Array.isArray)
+          .flat() as string[];
+      }
+      const skills = flatSkills.map(s => s.toLowerCase());
 
       return name.includes(q) || 
              domain.includes(q) || 
@@ -154,7 +182,16 @@ export class GeminiSearchAssistant {
       matches.forEach(c => {
         explanation += `## ${c.fullName} | ${c.position || 'Professional'}\n`;
         explanation += `* **Experience:** ${c.experience || 'Not specified in CV'}\n`;
-        explanation += `* **Top Skills:** ${c.skills && c.skills.length > 0 ? c.skills.map(s => `\`${s}\``).join(', ') : 'Not specified in CV'}\n`;
+        
+        let flatSkills: string[] = [];
+        if (Array.isArray(c.skills)) {
+          flatSkills = c.skills;
+        } else if (c.skills && typeof c.skills === 'object') {
+          flatSkills = Object.values(c.skills)
+            .filter(Array.isArray)
+            .flat() as string[];
+        }
+        explanation += `* **Top Skills:** ${flatSkills.length > 0 ? flatSkills.map(s => `\`${s}\``).join(', ') : 'Not specified in CV'}\n`;
         explanation += `* **Quick Match Assessment:** Highly qualified professional matching query criteria.\n`;
         explanation += `> **Key Highlight:** Standout background in ${c.domainFocus || 'industry Focus'}.\n\n`;
       });
