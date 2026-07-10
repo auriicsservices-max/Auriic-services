@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap');
 @import "tailwindcss";
 
 @keyframes pulse-red {
@@ -36,65 +36,102 @@
 }
 
 @theme {
-  --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Sora", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  
+
   --color-slate-50: var(--bg-primary);
   --color-slate-950: var(--bg-primary);
-  
+
   --color-brand-dark: #002D38;
   --color-primary-blue: #004564;
   --color-primary-gold: #A98B56;
-  
-  /* Blue Shades */
+
+  /* Blue Shades (raw brand tokens) */
   --color-blue-5472: #005472;
   --color-blue-4564: #004564;
   --color-blue-3649: #003649;
   --color-blue-2d38: #002D38;
   --color-blue-3e51: #003E51;
-  
-  /* Gold Shades */
+
+  /* Gold Shades (raw brand tokens) */
   --color-gold-bc9b: #BC9B66;
   --color-gold-a98b: #A98B56;
   --color-gold-9b7e: #9B7E50;
   --color-gold-8c6e: #8C6E42;
   --color-gold-a081: #A08151;
+
+  /* ------------------------------------------------------------------ */
+  /* BRAND PALETTE REMAP                                                 */
+  /* The whole CRM was built on `indigo` (primary accent) + `amber`      */
+  /* (secondary). We remap those + all other cool/warm accent families   */
+  /* onto the brand Blue (#004564) and Gold (#A98B56) ramps so every     */
+  /* existing utility class picks up the brand colours automatically.    */
+  /* Semantic neutrals (slate/gray), success (emerald) and danger        */
+  /* (red/rose) are intentionally left as-is for readability.            */
+  /* ------------------------------------------------------------------ */
+
+  /* --- Brand BLUE ramp -> indigo / blue / violet / purple / sky / cyan */
+  --color-indigo-50:  #E7EFF3; --color-blue-50:  #E7EFF3; --color-violet-50:  #E7EFF3; --color-purple-50:  #E7EFF3; --color-sky-50:  #E7EFF3; --color-cyan-50:  #E7EFF3;
+  --color-indigo-100: #C7DBE3; --color-blue-100: #C7DBE3; --color-violet-100: #C7DBE3; --color-purple-100: #C7DBE3; --color-sky-100: #C7DBE3; --color-cyan-100: #C7DBE3;
+  --color-indigo-200: #9CBECD; --color-blue-200: #9CBECD; --color-violet-200: #9CBECD; --color-purple-200: #9CBECD; --color-sky-200: #9CBECD; --color-cyan-200: #9CBECD;
+  --color-indigo-300: #6B9DB2; --color-blue-300: #6B9DB2; --color-violet-300: #6B9DB2; --color-purple-300: #6B9DB2; --color-sky-300: #6B9DB2; --color-cyan-300: #6B9DB2;
+  --color-indigo-400: #3C7E97; --color-blue-400: #3C7E97; --color-violet-400: #3C7E97; --color-purple-400: #3C7E97; --color-sky-400: #3C7E97; --color-cyan-400: #3C7E97;
+  --color-indigo-500: #005472; --color-blue-500: #005472; --color-violet-500: #005472; --color-purple-500: #005472; --color-sky-500: #005472; --color-cyan-500: #005472;
+  --color-indigo-600: #004564; --color-blue-600: #004564; --color-violet-600: #004564; --color-purple-600: #004564; --color-sky-600: #004564; --color-cyan-600: #004564;
+  --color-indigo-700: #003E51; --color-blue-700: #003E51; --color-violet-700: #003E51; --color-purple-700: #003E51; --color-sky-700: #003E51; --color-cyan-700: #003E51;
+  --color-indigo-800: #003649; --color-blue-800: #003649; --color-violet-800: #003649; --color-purple-800: #003649; --color-sky-800: #003649; --color-cyan-800: #003649;
+  --color-indigo-900: #002D38; --color-blue-900: #002D38; --color-violet-900: #002D38; --color-purple-900: #002D38; --color-sky-900: #002D38; --color-cyan-900: #002D38;
+  --color-indigo-950: #001C24; --color-blue-950: #001C24; --color-violet-950: #001C24; --color-purple-950: #001C24; --color-sky-950: #001C24; --color-cyan-950: #001C24;
+
+  /* --- Brand GOLD ramp -> amber / yellow / orange */
+  --color-amber-50:  #F8F3EA; --color-yellow-50:  #F8F3EA; --color-orange-50:  #F8F3EA;
+  --color-amber-100: #EFE4CC; --color-yellow-100: #EFE4CC; --color-orange-100: #EFE4CC;
+  --color-amber-200: #E0CDA4; --color-yellow-200: #E0CDA4; --color-orange-200: #E0CDA4;
+  --color-amber-300: #CFB57B; --color-yellow-300: #CFB57B; --color-orange-300: #CFB57B;
+  --color-amber-400: #BC9B66; --color-yellow-400: #BC9B66; --color-orange-400: #BC9B66;
+  --color-amber-500: #A98B56; --color-yellow-500: #A98B56; --color-orange-500: #A98B56;
+  --color-amber-600: #9B7E50; --color-yellow-600: #9B7E50; --color-orange-600: #9B7E50;
+  --color-amber-700: #8C6E42; --color-yellow-700: #8C6E42; --color-orange-700: #8C6E42;
+  --color-amber-800: #745833; --color-yellow-800: #745833; --color-orange-800: #745833;
+  --color-amber-900: #5B4527; --color-yellow-900: #5B4527; --color-orange-900: #5B4527;
+  --color-amber-950: #3B2C18; --color-yellow-950: #3B2C18; --color-orange-950: #3B2C18;
 }
 
 :root {
   --bg-primary: #ffffff;
-  --bg-secondary: #f9fafb;
-  --text-primary: #111827;
-  --text-secondary: #4b5563;
-  --text-muted: #9ca3af;
+  --bg-secondary: #f2f6f8;
+  --text-primary: #012531;
+  --text-secondary: #3a5560;
+  --text-muted: #6d858e;
   --card-bg: #ffffff;
-  --sidebar-bg: #1f2937;
-  --border-color: #e5e7eb;
-  --brand-color: #2563eb;
-  --accent-color: #059669;
-  --success-color: #10b981;
-  --warning-color: #f59e0b;
-  --danger-color: #ef4444;
-  --info-color: #3b82f6;
-  
-  --card-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
-  --sidebar-shadow: 2px 0 12px rgba(0, 0, 0, 0.05);
+  --sidebar-bg: #002D38;
+  --border-color: #dde6ea;
+  --brand-color: #004564;
+  --accent-color: #A98B56;
+  --success-color: #0f9d76;
+  --warning-color: #A98B56;
+  --danger-color: #e0413b;
+  --info-color: #005472;
+
+  --card-shadow: 0 1px 2px 0 rgba(0, 45, 56, 0.06);
+  --sidebar-shadow: 2px 0 12px rgba(0, 45, 56, 0.08);
 }
 
 .dark {
   --bg-primary: #002D38;
   --bg-secondary: #003649;
-  --text-primary: #f9fafb;
-  --text-secondary: #e5e7eb;
-  --text-muted: #9ca3af;
+  --text-primary: #f4f8f9;
+  --text-secondary: #cddbe0;
+  --text-muted: #8ba4ac;
   --card-bg: #003E51;
-  --sidebar-bg: #002D38;
-  --border-color: #005472;
-  --brand-color: #004564;
-  --accent-color: #A98B56;
-  --success-color: #10b981;
-  --warning-color: #f59e0b;
-  --danger-color: #ef4444;
+  --sidebar-bg: #001F27;
+  --border-color: #0a5c78;
+  --brand-color: #005472;
+  --accent-color: #BC9B66;
+  --success-color: #22b892;
+  --warning-color: #BC9B66;
+  --danger-color: #f2645f;
   --info-color: #005472;
   
   --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.3), 0 2px 4px -1px rgba(0, 0, 0, 0.2);
@@ -105,10 +142,48 @@ html, body {
   background-color: var(--bg-primary);
   color: var(--text-primary);
   font-family: var(--font-sans);
+  font-feature-settings: "cv11", "ss01";
+  letter-spacing: -0.011em;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   transition: background-color 0.4s cubic-bezier(0.16, 1, 0.3, 1), color 0.4s cubic-bezier(0.16, 1, 0.3, 1);
   overflow-x: hidden;
+}
+
+/* Eye-catching display typography for headings */
+h1, h2, h3, h4, .font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.02em;
+  color: var(--text-primary);
+}
+h1 { font-weight: 800; }
+h2, h3 { font-weight: 700; }
+h4 { font-weight: 600; }
+
+/* Keep body copy crisp and high-contrast */
+p, span, label, td, th, li, a, button, input, select, textarea {
+  font-family: var(--font-sans);
+}
+
+/* Readable, on-brand form fields + placeholders */
+input, select, textarea {
+  color: var(--text-primary);
+}
+::placeholder {
+  color: var(--text-muted);
+  opacity: 1;
+}
+
+/* Brand focus ring for accessible keyboard navigation */
+:where(a, button, input, select, textarea, [tabindex]):focus-visible {
+  outline: 2px solid var(--brand-color);
+  outline-offset: 2px;
+}
+
+/* Selection uses the gold accent for an on-brand touch */
+::selection {
+  background: color-mix(in srgb, var(--accent-color) 30%, transparent);
+  color: var(--text-primary);
 }
 
 /* Glass panel */
@@ -136,15 +211,15 @@ html, body {
 }
 
 @utility and-chip {
-  background: #e0e7ff;
-  color: #4f46e5;
-  border: 1px solid rgba(79, 70, 229, 0.15);
+  background: #E7EFF3;
+  color: #004564;
+  border: 1px solid rgba(0, 69, 100, 0.18);
 }
 
 .dark .and-chip {
-  background: rgba(129, 140, 248, 0.12);
-  color: #a5b4fc;
-  border: 1px solid rgba(129, 140, 248, 0.2);
+  background: rgba(0, 84, 114, 0.18);
+  color: #9CBECD;
+  border: 1px solid rgba(0, 84, 114, 0.3);
 }
 
 @utility or-chip {
@@ -197,9 +272,9 @@ html, body {
 
 /* Advanced premium gradients */
 .gradient-mesh-indigo {
-  background-image: radial-gradient(at 0% 0%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
-                    radial-gradient(at 50% 0%, rgba(244, 63, 94, 0.05) 0px, transparent 50%),
-                    radial-gradient(at 100% 0%, rgba(13, 148, 136, 0.08) 0px, transparent 50%);
+  background-image: radial-gradient(at 0% 0%, rgba(0, 84, 114, 0.12) 0px, transparent 50%),
+                    radial-gradient(at 50% 0%, rgba(169, 139, 86, 0.10) 0px, transparent 50%),
+                    radial-gradient(at 100% 0%, rgba(0, 69, 100, 0.10) 0px, transparent 50%);
 }
 
 .card-hover-effect {
@@ -208,12 +283,12 @@ html, body {
 
 .card-hover-effect:hover {
   transform: translateY(-2px);
-  box-shadow: 0 12px 24px -10px rgba(148, 163, 184, 0.15);
-  border-color: rgba(99, 102, 241, 0.25);
+  box-shadow: 0 12px 24px -10px rgba(0, 45, 56, 0.18);
+  border-color: rgba(0, 84, 114, 0.35);
 }
 
 .dark .card-hover-effect:hover {
   transform: translateY(-2px);
   box-shadow: 0 12px 30px -12px rgba(0, 0, 0, 0.5);
-  border-color: rgba(129, 140, 248, 0.3);
+  border-color: rgba(188, 155, 102, 0.4);
 }
