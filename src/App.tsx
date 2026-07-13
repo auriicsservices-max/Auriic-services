@@ -6,13 +6,14 @@ import { auth } from './lib/firebase';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
 import CandidateDetails from './pages/CandidateDetails';
+import { InvoiceBuilder } from './components/InvoiceBuilder';
 import './index.css';
 
 function PrivateRoute({ children }: { children: React.ReactNode }) {
   const { user, loading, role } = useAuth();
   if (loading) return (
-    <div className="h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-950 transition-colors duration-300">
-      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
+    <div className="h-screen w-full flex items-center justify-center bg-white transition-colors duration-300">
+      <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--brand-color)]"></div>
     </div>
   );
   
@@ -48,6 +49,14 @@ export default function App() {
                     element={
                       <PrivateRoute>
                         <CandidateDetails />
+                      </PrivateRoute>
+                    } 
+                  />
+                  <Route 
+                    path="/invoice-builder/:candidateId" 
+                    element={
+                      <PrivateRoute>
+                        <InvoiceBuilder />
                       </PrivateRoute>
                     } 
                   />

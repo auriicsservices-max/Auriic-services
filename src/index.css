@@ -24,7 +24,7 @@
 
 .animate-blink-red {
   animation: pulse-red 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
-  color: #f43f5e; 
+  color: #004564; 
 }
 
 .animate-float {
@@ -40,8 +40,18 @@
   --font-display: "Sora", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 
-  --color-slate-50: var(--bg-primary);
-  --color-slate-950: var(--bg-primary);
+  /* --- Brand Neutrals remapping: eradicate all grey, force high contrast brand blue/gold --- */
+  --color-slate-50: var(--bg-secondary); --color-gray-50: var(--bg-secondary); --color-zinc-50: var(--bg-secondary); --color-neutral-50: var(--bg-secondary); --color-stone-50: var(--bg-secondary);
+  --color-slate-100: var(--border-color); --color-gray-100: var(--border-color); --color-zinc-100: var(--border-color); --color-neutral-100: var(--border-color); --color-stone-100: var(--border-color);
+  --color-slate-200: var(--border-color); --color-gray-200: var(--border-color); --color-zinc-200: var(--border-color); --color-neutral-200: var(--border-color); --color-stone-200: var(--border-color);
+  --color-slate-300: var(--accent-color); --color-gray-300: var(--accent-color); --color-zinc-300: var(--accent-color); --color-neutral-300: var(--accent-color); --color-stone-300: var(--accent-color);
+  --color-slate-400: var(--text-muted); --color-gray-400: var(--text-muted); --color-zinc-400: var(--text-muted); --color-neutral-400: var(--text-muted); --color-stone-400: var(--text-muted);
+  --color-slate-500: var(--text-secondary); --color-gray-500: var(--text-secondary); --color-zinc-500: var(--text-secondary); --color-neutral-500: var(--text-secondary); --color-stone-500: var(--text-secondary);
+  --color-slate-600: var(--text-primary); --color-gray-600: var(--text-primary); --color-zinc-600: var(--text-primary); --color-neutral-600: var(--text-primary); --color-stone-600: var(--text-primary);
+  --color-slate-700: var(--text-primary); --color-gray-700: var(--text-primary); --color-zinc-700: var(--text-primary); --color-neutral-700: var(--text-primary); --color-stone-700: var(--text-primary);
+  --color-slate-800: var(--card-bg); --color-gray-800: var(--card-bg); --color-zinc-800: var(--card-bg); --color-neutral-800: var(--card-bg); --color-stone-800: var(--card-bg);
+  --color-slate-900: var(--bg-primary); --color-gray-900: var(--bg-primary); --color-zinc-900: var(--bg-primary); --color-neutral-900: var(--bg-primary); --color-stone-900: var(--bg-primary);
+  --color-slate-950: var(--sidebar-bg); --color-gray-950: var(--sidebar-bg); --color-zinc-950: var(--sidebar-bg); --color-neutral-950: var(--sidebar-bg); --color-stone-950: var(--sidebar-bg);
 
   --color-brand-dark: #002D38;
   --color-primary-blue: #004564;
@@ -99,41 +109,42 @@
 }
 
 :root {
+  /* Strictly using: Blue (#004564), Gold (#A98B56), White (#ffffff) */
   --bg-primary: #ffffff;
-  --bg-secondary: #f4f7f9;
+  --bg-secondary: #ffffff;
   --text-primary: #004564;
-  --text-secondary: #004564;
-  --text-muted: #5e7e8c;
+  --text-secondary: #A98B56;
+  --text-muted: #A98B56;
   --card-bg: #ffffff;
   --sidebar-bg: #ffffff;
   --sidebar-text: #004564;
-  --sidebar-text-muted: #5e7e8c;
-  --sidebar-border: #dde6ea;
-  --sidebar-hover: #f4f7f9;
+  --sidebar-text-muted: #A98B56;
+  --sidebar-border: #A98B56;
+  --sidebar-hover: rgba(169, 139, 86, 0.1);
   --sidebar-item-hover-text: #004564;
-  --sidebar-user-panel-bg: #f4f7f9;
-  --border-color: #dde6ea;
+  --sidebar-user-panel-bg: #ffffff;
+  --border-color: #A98B56;
   --brand-color: #004564;
   --accent-color: #A98B56;
-  --success-color: #0f9d76;
+  --success-color: #004564;
   --warning-color: #A98B56;
-  --danger-color: #e0413b;
-  --info-color: #005472;
+  --danger-color: #004564;
+  --info-color: #004564;
 
-  --card-shadow: 0 1px 3px 0 rgba(0, 69, 100, 0.05), 0 1px 2px 0 rgba(0, 69, 100, 0.03);
-  --sidebar-shadow: 2px 0 12px rgba(0, 45, 56, 0.05);
+  --card-shadow: 0 1px 3px 0 rgba(0, 69, 100, 0.2);
+  --sidebar-shadow: 2px 0 12px rgba(0, 45, 56, 0.1);
 }
 
 .dark {
   --bg-primary: #002D38;
   --bg-secondary: #00242E;
   --text-primary: #f4f8f9;
-  --text-secondary: #9cbecd;
-  --text-muted: #6b9db2;
+  --text-secondary: #A98B56;
+  --text-muted: #BC9B66;
   --card-bg: #003649;
   --sidebar-bg: #001c24;
   --sidebar-text: #f4f8f9;
-  --sidebar-text-muted: #6b9db2;
+  --sidebar-text-muted: #BC9B66;
   --sidebar-border: #003e51;
   --sidebar-hover: rgba(255, 255, 255, 0.05);
   --sidebar-item-hover-text: #ffffff;
@@ -194,8 +205,8 @@ input, select, textarea {
 
 /* Selection uses the gold accent for an on-brand touch */
 ::selection {
-  background: color-mix(in srgb, var(--accent-color) 30%, transparent);
-  color: var(--text-primary);
+  background: var(--accent-color);
+  color: #ffffff;
 }
 
 /* Glass panel */

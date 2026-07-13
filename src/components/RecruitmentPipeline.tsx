@@ -55,9 +55,9 @@ export const STAGES: Stage[] = [
     label: 'CV Upload',
     parentStage: 'cv_upload',
     parentLabel: 'Inflow',
-    color: 'text-slate-600 dark:text-slate-400 border-slate-300 dark:border-slate-700',
-    bgColor: 'bg-slate-50/60',
-    darkBgColor: 'dark:bg-slate-900/40',
+    color: 'text-[#004564] dark:text-[#A98B56] border-[#A98B56]/50 dark:border-[#A98B56]/30',
+    bgColor: 'bg-white',
+    darkBgColor: 'dark:bg-[#002D38]',
     accentColor: 'bg-slate-100 text-slate-800',
     darkAccentColor: 'dark:bg-slate-800 dark:text-slate-200'
   },

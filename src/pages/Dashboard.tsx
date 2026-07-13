@@ -2607,7 +2607,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </div>
 
             {/* Candidate Details */}
-            <div className="bg-slate-50 dark:bg-slate-950/50 p-5 rounded-2xl border border-[var(--border-color)]/70 flex flex-col gap-3 text-xs font-bold text-[var(--text-secondary)]">
+            <div className="bg-white dark:bg-[#002D38]/50 p-5 rounded-2xl border border-[var(--border-color)]/70 flex flex-col gap-3 text-xs font-bold text-[var(--text-secondary)]">
               <div className="flex justify-between border-b border-[var(--border-color)]/50 pb-2">
                 <span className="text-[var(--text-muted)] uppercase tracking-wider text-[9px]">Candidate Identity:</span>
                 <span className="text-[var(--text-primary)] text-right truncate max-w-[200px]">{duplicateResolution.candidate.fullName}</span>
@@ -2618,7 +2618,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               </div>
               <div className="flex justify-between border-b border-[var(--border-color)]/50 pb-2">
                 <span className="text-[var(--text-muted)] uppercase tracking-wider text-[9px]">Current Pipeline Stage:</span>
-                <span className="text-indigo-600 dark:text-indigo-400 capitalize">{(duplicateResolution.candidate.pipelineStage || 'cv_upload').replace('_', ' ')}</span>
+                <span className="text-[var(--text-primary)] capitalize">{(duplicateResolution.candidate.pipelineStage || 'cv_upload').replace('_', ' ')}</span>
               </div>
               <div className="flex justify-between border-b border-[var(--border-color)]/50 pb-2">
                 <span className="text-[var(--text-muted)] uppercase tracking-wider text-[9px]">Currently Assigned To:</span>
@@ -2646,7 +2646,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               ) : (
                 <button 
                   onClick={handleResolveView}
-                  className="col-span-2 py-3 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-md shadow-indigo-600/10"
+                  className="col-span-2 py-3 bg-[var(--brand-color)] hover:bg-[#A98B56] text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-md shadow-[var(--brand-color)]/10"
                 >
                   View Profile Details
                 </button>
@@ -2654,7 +2654,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
               <button 
                 onClick={handleResolveOverwrite}
-                className="py-2.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700/80 text-[var(--text-primary)] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 border border-[var(--border-color)]"
+                className="py-2.5 bg-white hover:bg-[#F8F3EA] dark:bg-slate-800 dark:hover:bg-slate-700/80 text-[var(--text-primary)] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 border border-[var(--border-color)]"
                 title="Overwrite the existing resume data and file with the new one"
               >
                 Overwrite Profile

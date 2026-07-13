@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { 
   FileText, Loader2, Plus, Calendar, User, DollarSign, ArrowLeft, 
   Printer, CheckCircle, Trash2, Check, X, ShieldAlert, Users, ChevronRight, 
-  Briefcase, Percent, FileCheck, Layers, Eye, Pencil
+  Briefcase, Percent, FileCheck, Layers, Eye, Pencil, Search, CheckSquare, Square
 } from 'lucide-react';
 
 interface BilledCandidate {
@@ -56,6 +56,22 @@ export const InvoiceList = () => {
 
   // Global branding state
   const [logoUrl, setLogoUrl] = useState<string>('');
+
+  // Search and Filter States for Invoices
+  const [searchInvoiceQuery, setSearchInvoiceQuery] = useState<string>('');
+  const [filterInvoiceStatus, setFilterInvoiceStatus] = useState<string>('all');
+
+  // Search and Filter States for Candidate Selection in Builder
+  const [searchCandidateQuery, setSearchCandidateQuery] = useState<string>('');
+  const [candidateFilter, setCandidateFilter] = useState<'all' | 'selected' | 'unselected'>('all');
+
+  const getCandidateFeeAmount = (c: any) => {
+    if (candidateFees[c.id]?.fee !== undefined) {
+      return Number(candidateFees[c.id].fee);
+    }
+    const salaryNum = parseFloat(String(c.salary || '').replace(/[^0-9.]/g, '')) || 0;
+    return salaryNum > 0 ? Math.round(salaryNum * 0.15) : 5000;
+  };
 
   // Load consolidated invoices, candidates, clients and logo
   useEffect(() => {
@@ -116,23 +132,6 @@ export const InvoiceList = () => {
     };
   }, []);
 
-  // Pre-fill fees when candidate is selected
-  useEffect(() => {
-    const updatedCandidateFees = { ...candidateFees };
-    candidates.forEach(c => {
-      if (!updatedCandidateFees[c.id]) {
-        // default 15% of annual salary if salary is numeric or custom fee
-        const salaryNum = parseFloat(String(c.salary || '').replace(/[^0-9.]/g, '')) || 0;
-        const defaultFee = salaryNum > 0 ? Math.round(salaryNum * 0.15) : 5000;
-        updatedCandidateFees[c.id] = {
-          fee: defaultFee,
-          billingType: 'Contract to Hire (Monthly)'
-        };
-      }
-    });
-    setCandidateFees(updatedCandidateFees);
-  }, [candidates]);
-
   // Group candidates that belong to the currently selected client
   const activeClientCandidates = candidates.filter(c => {
     if (!selectedClientId) return false;
@@ -145,6 +144,21 @@ export const InvoiceList = () => {
       newSelected.delete(candidateId);
     } else {
       newSelected.add(candidateId);
+      // Lazy initialize candidate fee data if not set yet
+      if (!candidateFees[candidateId]) {
+        const c = candidates.find(cand => cand.id === candidateId);
+        if (c) {
+          const salaryNum = parseFloat(String(c.salary || '').replace(/[^0-9.]/g, '')) || 0;
+          const defaultFee = salaryNum > 0 ? Math.round(salaryNum * 0.15) : 5000;
+          setCandidateFees(prev => ({
+            ...prev,
+            [candidateId]: {
+              fee: defaultFee,
+              billingType: 'Contract to Hire (Monthly)'
+            }
+          }));
+        }
+      }
     }
     setSelectedCandidateIds(newSelected);
   };
@@ -292,7 +306,7 @@ export const InvoiceList = () => {
         candidateName: candidateFees[c.id]?.candidateName || c.fullName,
         position: candidateFees[c.id]?.position || c.position || 'Consultant',
         billingType: candidateFees[c.id]?.billingType || 'Contract to Hire (Monthly)',
-        fee: Number(candidateFees[c.id]?.fee || 0)
+        fee: getCandidateFeeAmount(c)
       }));
 
     const subtotal = useFlatSubtotal
@@ -659,6 +673,70 @@ export const InvoiceList = () => {
     }
   };
 
+  // Filtered invoices for the History Tab
+  const filteredInvoices = invoices.filter(inv => {
+    if (filterInvoiceStatus !== 'all' && inv.status !== filterInvoiceStatus) {
+      return false;
+    }
+    if (searchInvoiceQuery.trim()) {
+      const q = searchInvoiceQuery.toLowerCase();
+      const numMatch = (inv.invoiceNumber || '').toLowerCase().includes(q);
+      const clientMatch = (inv.clientName || '').toLowerCase().includes(q);
+      const candMatch = inv.candidates && Array.isArray(inv.candidates)
+        ? inv.candidates.some((c: any) => (c.candidateName || '').toLowerCase().includes(q))
+        : false;
+      return numMatch || clientMatch || candMatch;
+    }
+    return true;
+  });
+
+  // Filtered candidates list for the Builder Tab
+  const baseCandidateList = selectedClientId === 'manual' ? candidates : activeClientCandidates;
+  
+  const filteredCandidateList = baseCandidateList.filter(c => {
+    const q = searchCandidateQuery.toLowerCase();
+    const nameMatch = (c.fullName || '').toLowerCase().includes(q);
+    const posMatch = (c.position || '').toLowerCase().includes(q);
+    const searchMatch = nameMatch || posMatch;
+
+    if (!searchMatch) return false;
+
+    if (candidateFilter === 'selected') {
+      return selectedCandidateIds.has(c.id);
+    }
+    if (candidateFilter === 'unselected') {
+      return !selectedCandidateIds.has(c.id);
+    }
+    return true;
+  });
+
+  const handleSelectAllVisibleCandidates = () => {
+    const newSelected = new Set(selectedCandidateIds);
+    filteredCandidateList.forEach(c => {
+      newSelected.add(c.id);
+      if (!candidateFees[c.id]) {
+        const salaryNum = parseFloat(String(c.salary || '').replace(/[^0-9.]/g, '')) || 0;
+        const defaultFee = salaryNum > 0 ? Math.round(salaryNum * 0.15) : 5000;
+        setCandidateFees(prev => ({
+          ...prev,
+          [c.id]: {
+            fee: defaultFee,
+            billingType: 'Contract to Hire (Monthly)'
+          }
+        }));
+      }
+    });
+    setSelectedCandidateIds(newSelected);
+  };
+
+  const handleDeselectAllVisibleCandidates = () => {
+    const newSelected = new Set(selectedCandidateIds);
+    filteredCandidateList.forEach(c => {
+      newSelected.delete(c.id);
+    });
+    setSelectedCandidateIds(newSelected);
+  };
+
   if (loading) {
     return (
       <div className="flex flex-col justify-center items-center h-96 gap-4">
@@ -722,15 +800,60 @@ export const InvoiceList = () => {
 
       {activeTab === 'history' ? (
         <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50/50 dark:bg-slate-800/20">
-            <span className="text-xs font-black uppercase text-slate-400 tracking-wider">All Consolidated Invoices</span>
-            <span className="text-xs text-indigo-600 font-bold bg-indigo-50 dark:bg-indigo-950/30 px-3 py-1 rounded-full">
+          <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/50 dark:bg-slate-800/20">
+            <div>
+              <span className="text-xs font-black uppercase text-slate-400 tracking-wider">All Consolidated Invoices</span>
+              <p className="text-[10px] text-slate-500 mt-0.5">Filter, search, print, or manage billing statements.</p>
+            </div>
+            <span className="text-xs text-indigo-600 font-bold bg-indigo-50 dark:bg-indigo-950/30 px-3 py-1.5 rounded-full">
               Total Statement Amount: ${invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </span>
           </div>
 
+          {invoices.length > 0 && (
+            <div className="p-4 bg-slate-50/50 dark:bg-slate-800/10 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row gap-3 items-center justify-between">
+              <div className="relative w-full md:max-w-md font-sans">
+                <span className="absolute left-3.5 top-2.5 text-slate-400">
+                  <Search size={16} />
+                </span>
+                <input
+                  type="text"
+                  placeholder="Search by invoice #, client name, or candidate..."
+                  value={searchInvoiceQuery}
+                  onChange={(e) => setSearchInvoiceQuery(e.target.value)}
+                  className="w-full pl-9 pr-8 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400"
+                />
+                {searchInvoiceQuery && (
+                  <button 
+                    onClick={() => setSearchInvoiceQuery('')}
+                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                  >
+                    <X size={14} />
+                  </button>
+                )}
+              </div>
+
+              <div className="flex gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 font-sans">
+                {['all', 'Draft', 'Sent', 'Paid', 'Overdue'].map((status) => (
+                  <button
+                    key={status}
+                    type="button"
+                    onClick={() => setFilterInvoiceStatus(status)}
+                    className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition shrink-0 ${
+                      filterInvoiceStatus === status
+                        ? 'bg-indigo-600 text-white shadow-sm'
+                        : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                    }`}
+                  >
+                    {status}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {invoices.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-16 text-center">
+            <div className="flex flex-col items-center justify-center p-16 text-center font-sans">
               <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-3xl flex items-center justify-center text-slate-400 dark:text-slate-500 mb-4 border border-slate-100 dark:border-slate-700">
                 <FileText className="w-8 h-8" />
               </div>
@@ -760,7 +883,16 @@ export const InvoiceList = () => {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
-                  {invoices.map((inv) => (
+                  {filteredInvoices.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="p-16 text-center text-slate-500 font-sans">
+                        <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                        <p className="text-xs font-medium">No invoices match your search query or status filter.</p>
+                        <p className="text-[10px] text-slate-400 mt-1">Try resetting the invoice search or choosing a different status filter.</p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredInvoices.map((inv) => (
                     <tr key={inv.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
                       <td className="p-4 pl-6">
                         <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">{inv.invoiceNumber}</span>
@@ -838,7 +970,7 @@ export const InvoiceList = () => {
                         </div>
                       </td>
                     </tr>
-                  ))}
+                  )))}
                 </tbody>
               </table>
             </div>
@@ -972,8 +1104,73 @@ export const InvoiceList = () => {
                   </span>
                 </div>
 
+                {/* Search and Filters for Candidates */}
+                <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-3">
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <div className="relative flex-1">
+                      <span className="absolute left-3 top-2.5 text-slate-400">
+                        <Search size={14} />
+                      </span>
+                      <input
+                        type="text"
+                        placeholder="Search candidates by name or role..."
+                        value={searchCandidateQuery}
+                        onChange={(e) => setSearchCandidateQuery(e.target.value)}
+                        className="w-full pl-8 pr-8 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      {searchCandidateQuery && (
+                        <button
+                          type="button"
+                          onClick={() => setSearchCandidateQuery('')}
+                          className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                        >
+                          <X size={12} />
+                        </button>
+                      )}
+                    </div>
+                    
+                    <div className="flex gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-0.5 self-start sm:self-auto shrink-0 font-sans">
+                      {[
+                        { label: 'All', value: 'all' },
+                        { label: 'Selected', value: 'selected' },
+                        { label: 'Unselected', value: 'unselected' }
+                      ].map(opt => (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          onClick={() => setCandidateFilter(opt.value as any)}
+                          className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold tracking-tight transition ${
+                            candidateFilter === opt.value
+                              ? 'bg-indigo-600 text-white shadow-sm'
+                              : 'text-slate-500 hover:text-slate-750 dark:hover:text-slate-300'
+                          }`}
+                        >
+                          {opt.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-2 pt-1 border-t border-slate-200/40 dark:border-slate-800/60 font-sans">
+                    <button
+                      type="button"
+                      onClick={handleSelectAllVisibleCandidates}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold text-indigo-600 dark:text-indigo-400 transition"
+                    >
+                      <CheckSquare size={12} /> Select All Match
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleDeselectAllVisibleCandidates}
+                      className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold text-red-500 transition"
+                    >
+                      <Square size={12} /> Deselect All Match
+                    </button>
+                  </div>
+                </div>
+
                 {activeClientCandidates.length === 0 && selectedClientId !== 'manual' ? (
-                  <div className="p-8 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl text-center">
+                  <div className="p-8 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl text-center font-sans">
                     <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-xs text-slate-500">No candidates are currently assigned to this Client account.</p>
                     <p className="text-[10px] text-slate-400 mt-1 max-w-sm mx-auto">
@@ -982,8 +1179,14 @@ export const InvoiceList = () => {
                   </div>
                 ) : (
                   <div className="space-y-3">
-                    {/* If custom manual client is chosen, we let them select from ALL candidates in the system to compile bulk invoices */}
-                    {(selectedClientId === 'manual' ? candidates : activeClientCandidates).map(c => {
+                    {filteredCandidateList.length === 0 ? (
+                      <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/10 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 font-sans">
+                        <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                        <p className="text-xs text-slate-500 font-medium">No candidates match your search/filter criteria.</p>
+                        <p className="text-[10px] text-slate-400 mt-1">Try resetting the candidate search or selection filter chip.</p>
+                      </div>
+                    ) : (
+                      filteredCandidateList.map(c => {
                       const isChecked = selectedCandidateIds.has(c.id);
                       const currentFeeData = candidateFees[c.id] || { fee: 5000, billingType: 'Contract to Hire (Monthly)' };
 
@@ -1075,7 +1278,7 @@ export const InvoiceList = () => {
                           </div>
                         </div>
                       );
-                    })}
+                    }))}
                   </div>
                 )}
               </div>
@@ -1247,7 +1450,7 @@ export const InvoiceList = () => {
                   <span className="font-mono font-bold text-slate-800 dark:text-slate-100">
                     ${(useFlatSubtotal ? flatSubtotalVal : candidates
                       .filter(c => selectedCandidateIds.has(c.id))
-                      .reduce((sum, item) => sum + (candidateFees[item.id]?.fee || 0), 0))
+                      .reduce((sum, item) => sum + getCandidateFeeAmount(item), 0))
                       .toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
@@ -1288,7 +1491,7 @@ export const InvoiceList = () => {
                     ${(() => {
                       const subtotal = useFlatSubtotal ? flatSubtotalVal : candidates
                         .filter(c => selectedCandidateIds.has(c.id))
-                        .reduce((sum, item) => sum + (candidateFees[item.id]?.fee || 0), 0);
+                        .reduce((sum, item) => sum + getCandidateFeeAmount(item), 0);
                       const taxVal = Math.round(subtotal * (taxRate / 100));
                       const finalTotal = subtotal + taxVal - discountAmount;
                       return Math.max(0, finalTotal).toLocaleString(undefined, { minimumFractionDigits: 2 });

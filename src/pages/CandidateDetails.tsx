@@ -6,7 +6,7 @@ import {
   ArrowLeft, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, 
   Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, 
   MessageSquare, ChevronDown, Linkedin, Github, Twitter, ExternalLink, 
-  CheckCircle2, MapPin, Trash, Trash2, Plus, Layers 
+  CheckCircle2, MapPin, Trash, Trash2, Plus, Layers, FileText 
 } from 'lucide-react';
 import LZString from 'lz-string';
 
@@ -971,6 +971,13 @@ export default function CandidateDetailsPage() {
                 >
                   {isFetchingCV ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                   <span>Download CV</span>
+                </button>
+                <button 
+                  onClick={() => navigate(`/invoice-builder/${candidate.id}`)}
+                  className="px-4 py-2.5 bg-[#A98B56] hover:bg-[#8e7548] text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                >
+                  <FileText size={13} />
+                  <span>Invoice</span>
                 </button>
               </>
             )}
