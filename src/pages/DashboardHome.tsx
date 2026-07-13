@@ -314,7 +314,7 @@ export default function DashboardHome({
 
       {/* Welcome & Quote Banner with high-contrast luxury styling */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        <div className="lg:col-span-2 bg-gradient-to-r from-blue-2d38 via-blue-4564 to-blue-3649 rounded-[2rem] p-8 text-white border border-gold-bc9b/20 shadow-xl flex flex-col justify-between relative overflow-hidden group">
+        <div className="lg:col-span-2 bg-[var(--card-bg)] rounded-[2rem] p-8 text-[var(--text-primary)] border border-[var(--border-color)] shadow-sm flex flex-col justify-between relative overflow-hidden group transition-all duration-300">
           <div className="absolute -right-8 -top-8 w-48 h-48 bg-gold-a98b/10 rounded-full blur-3xl group-hover:bg-gold-a98b/15 transition-all duration-700" />
           <div className="absolute -left-12 -bottom-12 w-48 h-48 bg-gold-bc9b/10 rounded-full blur-3xl group-hover:bg-gold-bc9b/15 transition-all duration-700" />
           
@@ -325,21 +325,21 @@ export default function DashboardHome({
             </div>
             
             <div className="space-y-2">
-              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-none bg-gradient-to-r from-white via-gold-bc9b to-gold-a98b bg-clip-text text-transparent">
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight leading-none bg-gradient-to-r from-[var(--text-primary)] via-gold-bc9b to-gold-a98b bg-clip-text text-transparent">
                 Welcome back, {userName}!
               </h1>
-              <p className="text-slate-200/90 text-xs sm:text-sm font-medium max-w-lg">
+              <p className="text-[var(--text-secondary)] text-xs sm:text-sm font-medium max-w-lg">
                 Your high-performance recruitment database is parsed, indexed, and synchronized. Let's make stellar hires today.
               </p>
             </div>
           </div>
           
-          <div className="relative z-10 flex items-center gap-4 mt-8 pt-4 border-t border-white/5">
-            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gold-bc9b bg-white/5 px-3 py-1.5 rounded-xl border border-white/5">
+          <div className="relative z-10 flex items-center gap-4 mt-8 pt-4 border-t border-[var(--border-color)]/70">
+            <div className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest text-gold-bc9b bg-[var(--bg-secondary)] px-3 py-1.5 rounded-xl border border-[var(--border-color)]">
               <Clock size={12} className="text-gold-a98b" />
               <span>{formatDate(new Date())}</span>
             </div>
-            <div className="text-[10px] text-white/45 font-semibold uppercase tracking-wider">
+            <div className="text-[10px] text-[var(--text-muted)] font-semibold uppercase tracking-wider">
               System State: Active
             </div>
           </div>
@@ -452,14 +452,14 @@ export default function DashboardHome({
                     iconSize={8}
                     wrapperStyle={{ fontSize: 10, fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.05em', paddingTop: 20 }}
                   />
-                  <Line type="monotone" name="CV Uploads" dataKey="CV Uploads" stroke="#BC9B66" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                  <Line type="monotone" name="Resume Parsing" dataKey="Resume Parsing" stroke="#A98B56" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                  <Line type="monotone" name="Candidate Updates" dataKey="Candidate Updates" stroke="#004564" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                  <Line type="monotone" name="Assignments" dataKey="Assignments" stroke="#005472" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                  <Line type="monotone" name="Follow-ups" dataKey="Follow-ups" stroke="#9B7E50" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" name="CV Uploads" dataKey="CV Uploads" stroke="#CFB57B" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" name="Resume Parsing" dataKey="Resume Parsing" stroke="#BC9B66" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" name="Candidate Updates" dataKey="Candidate Updates" stroke="#A98B56" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" name="Assignments" dataKey="Assignments" stroke="#9B7E50" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" name="Follow-ups" dataKey="Follow-ups" stroke="#8C6E42" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
                   <Line type="monotone" name="Shortlists" dataKey="Shortlists" stroke="#A08151" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                  <Line type="monotone" name="Notes/Feedback" dataKey="Notes/Feedback" stroke="#003E51" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
-                  <Line type="monotone" name="Chat Messages" dataKey="Chat Messages" stroke="#003649" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" name="Notes/Feedback" dataKey="Notes/Feedback" stroke="#5B4527" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
+                  <Line type="monotone" name="Chat Messages" dataKey="Chat Messages" stroke="#3B2C18" strokeWidth={3} dot={false} activeDot={{ r: 6 }} />
                 </LineChart>
               </ResponsiveContainer>
             ) : (

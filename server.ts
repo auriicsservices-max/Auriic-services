@@ -158,8 +158,13 @@ app.post('/api/cv/parse-gemini', upload.single('file'), async (req, res) => {
   
   try {
     const result = await resumeParser.parseBuffer(req.file.buffer, req.file.mimetype);
-    const parsed = await geminiParser.parseText(result.rawText);
-    res.json(parsed);
+    try {
+      const parsed = await geminiParser.parseText(result.rawText);
+      res.json(parsed);
+    } catch (geminiError) {
+      console.warn('[Server] Gemini parsing failed or rate-limited. Falling back to heuristic parsed data.', geminiError);
+      res.json(result);
+    }
   } catch (error) {
     console.error('[Server] Gemini Parsing Error:', error);
     res.status(500).json({ error: 'Failed to parse resume with Gemini' });

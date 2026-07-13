@@ -62,22 +62,22 @@ export default function TimezoneWidget() {
   }, []);
 
   return (
-    <div className="p-4 bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-      <h3 className="text-sm font-semibold text-slate-800 dark:text-slate-100 mb-4">World Clock</h3>
+    <div className="p-4 bg-[var(--card-bg)] rounded-2xl border border-[var(--border-color)] shadow-sm">
+      <h3 className="text-sm font-semibold text-[var(--text-primary)] mb-4">World Clock</h3>
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {TZ_DATA.map((tz) => {
           const working = isWorkingHours(now, tz.id);
           return (
-            <div key={tz.id} className="relative p-3 rounded-lg border border-slate-100 dark:border-slate-700 bg-slate-50 dark:bg-slate-800">
-              <div className={`absolute top-2 right-2 h-2 w-2 rounded-full ${working ? 'bg-green-500' : 'bg-gray-400'}`} />
-              <div className="text-[10px] uppercase font-bold text-slate-500">{tz.label} ({tz.abbr})</div>
-              <div className="text-xl font-mono font-bold text-slate-900 dark:text-white mt-1">
+            <div key={tz.id} className="relative p-3 rounded-lg border border-[var(--border-color)]/70 bg-[var(--bg-secondary)]">
+              <div className={`absolute top-2 right-2 h-2 w-2 rounded-full ${working ? 'bg-green-500 animate-pulse' : 'bg-gray-400'}`} />
+              <div className="text-[10px] uppercase font-bold text-[var(--text-muted)]">{tz.label} ({tz.abbr})</div>
+              <div className="text-xl font-mono font-bold text-[var(--text-primary)] mt-1">
                 {formatTime(now, tz.id)}
               </div>
-              <div className="text-[10px] text-slate-400 mt-0.5">
+              <div className="text-[10px] text-[var(--text-muted)]/80 mt-0.5">
                   {tz.id !== 'Asia/Kolkata' ? getTimeDifference(now, tz.id) : 'Reference'}
               </div>
-              <div className="text-[10px] font-medium text-slate-600 dark:text-slate-300 mt-1">
+              <div className="text-[10px] font-medium text-[var(--text-secondary)] mt-1">
                  {getRelativeDay(now, 'Asia/Kolkata', tz.id)}
               </div>
             </div>

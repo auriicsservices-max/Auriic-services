@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { PieChart, Pie, Cell, ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, Legend, LineChart, Line, CartesianGrid } from 'recharts';
 import { TrendingUp, Users, Target, Briefcase, X, User, Activity, Search } from 'lucide-react';
 import Select from 'react-select';
@@ -34,6 +35,7 @@ export default function Analytics({
   role,
   fullTeamList = []
 }: StatsProps) {
+  const navigate = useNavigate();
   const { quotaExceeded, user } = useAuth();
   const { timezone } = useTimezone();
   const [selectedSkill, setSelectedSkill] = useState<string | null>(null);
@@ -297,7 +299,7 @@ export default function Analytics({
           { label: 'Shortlisted', value: candidates.filter(c => c.isShortlisted).length, icon: Target, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/40' },
           { label: 'Unique Domains', value: Object.keys(domainDataMap).length, icon: Briefcase, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/40' },
           { label: 'Total Actions', value: activityLogs.length, icon: Activity, color: 'text-slate-600', bg: 'bg-slate-100 dark:bg-slate-800' },
-          { label: 'Avg Skills/CV', value: (candidates.reduce((acc, c) => acc + (c.skills?.length || 0), 0) / (candidates.length || 1)).toFixed(1), icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-900 dark:bg-indigo-600' },
+          { label: 'Avg Skills/CV', value: (candidates.reduce((acc, c) => acc + (c.skills?.length || 0), 0) / (candidates.length || 1)).toFixed(1), icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
         ].map((item, idx) => (
           <div key={idx} className="bg-[var(--card-bg)] p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm hover:shadow-md transition-all duration-300">
             <div className={`w-10 h-10 ${item.bg} rounded-xl flex items-center justify-center ${item.color} mb-4`}>
@@ -325,14 +327,14 @@ export default function Analytics({
                   iconSize={8}
                   wrapperStyle={{ fontSize: 10, fontWeight: 'bold', paddingTop: 15 }}
                 />
-                <Bar name="CV Uploads" dataKey="uploads" stackId="a" fill="#BC9B66" />
-                <Bar name="Resume Parsing" dataKey="parsing" stackId="a" fill="#A98B56" />
-                <Bar name="Candidate Updates" dataKey="updates" stackId="a" fill="#004564" />
-                <Bar name="Assignments" dataKey="assignments" stackId="a" fill="#005472" />
-                <Bar name="Follow-ups" dataKey="followUps" stackId="a" fill="#9B7E50" />
+                <Bar name="CV Uploads" dataKey="uploads" stackId="a" fill="#CFB57B" />
+                <Bar name="Resume Parsing" dataKey="parsing" stackId="a" fill="#BC9B66" />
+                <Bar name="Candidate Updates" dataKey="updates" stackId="a" fill="#A98B56" />
+                <Bar name="Assignments" dataKey="assignments" stackId="a" fill="#9B7E50" />
+                <Bar name="Follow-ups" dataKey="followUps" stackId="a" fill="#8C6E42" />
                 <Bar name="Shortlists" dataKey="shortlists" stackId="a" fill="#A08151" />
-                <Bar name="Notes/Feedback" dataKey="notesFeedback" stackId="a" fill="#003E51" />
-                <Bar name="Chat Messages" dataKey="chatMessages" stackId="a" fill="#003649" />
+                <Bar name="Notes/Feedback" dataKey="notesFeedback" stackId="a" fill="#5B4527" />
+                <Bar name="Chat Messages" dataKey="chatMessages" stackId="a" fill="#3B2C18" />
               </BarChart>
             </ResponsiveContainer>
           </div>
@@ -434,7 +436,7 @@ export default function Analytics({
                       <XAxis type="number" hide />
                       <YAxis dataKey="name" type="category" width={120} tick={{ fontSize: 10, fill: 'var(--text-muted)' }} axisLine={false} tickLine={false} />
                       <Tooltip contentStyle={chartTooltipStyle} itemStyle={itemStyle} />
-                      <Bar dataKey="count" fill="#004564" radius={[0, 10, 10, 0]} barSize={20} />
+                      <Bar dataKey="count" fill="#A98B56" radius={[0, 10, 10, 0]} barSize={20} />
                     </BarChart>
                  </ResponsiveContainer>
             </div>
@@ -451,7 +453,14 @@ export default function Analytics({
             </div>
             <div className="overflow-y-auto space-y-4 font-sans">
               {filteredCandidates.map(c => (
-                <button key={c.id} onClick={() => setSelectedCandidate(c)} className="w-full p-4 border border-[var(--border-color)] rounded-xl flex items-center gap-4 hover:bg-[var(--sidebar-bg)] transition-all">
+                <button 
+                  key={c.id} 
+                  onClick={() => {
+                    navigate(`/candidate/${c.id}`);
+                    setShowModal(false);
+                  }} 
+                  className="w-full p-4 border border-[var(--border-color)] rounded-xl flex items-center gap-4 hover:bg-[var(--sidebar-bg)] transition-all"
+                >
                   <div className="w-10 h-10 bg-[var(--sidebar-bg)] rounded-full flex items-center justify-center font-bold text-sm text-slate-500">{c.fullName.slice(0,2).toUpperCase()}</div>
                   <div className="flex-1 text-left">
                     <p className="font-bold text-sm">{c.fullName}</p>
@@ -482,7 +491,7 @@ export default function Analytics({
                 <button 
                   key={c.id} 
                   onClick={() => {
-                    setSelectedCandidate(c);
+                    navigate(`/candidate/${c.id}`);
                     setShowDomainModal(false);
                   }} 
                   className="w-full p-4 border border-[var(--border-color)] rounded-xl flex items-center gap-4 hover:bg-[var(--sidebar-bg)] transition-all"
@@ -502,21 +511,6 @@ export default function Analytics({
             </div>
           </div>
         </div>
-      )}
-
-      {selectedCandidate && (
-        <CandidateModal 
-          isOpen={true}
-          candidate={selectedCandidate} 
-          onClose={() => setSelectedCandidate(null)} 
-          onShortlist={onShortlist} 
-          onUpdateFollowUp={onUpdateFollowUp}
-          onCompleteFollowUp={onCompleteFollowUp}
-          onUpdateNotes={onUpdateNotes}
-          onUpdateAssignee={onUpdateAssignee}
-          onContact={onContact}
-          teamMembers={teamMembers || {}}
-        />
       )}
     </div>
   );

@@ -461,7 +461,7 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
             </div>
 
             {/* Chat History View */}
-            <div className={`overflow-y-auto space-y-4 p-4 bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-2xl ${
+            <div className={`overflow-y-auto space-y-4 p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl ${
               chatFullscreen ? 'flex-1 my-2 min-h-[45vh]' : 'max-h-64'
             }`}>
               {chatMessages.length === 0 ? (

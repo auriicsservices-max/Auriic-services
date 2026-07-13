@@ -120,6 +120,7 @@ export class GeminiSearchAssistant {
     `;
 
     try {
+      console.log('[GeminiSearchAssistant] Attempting search with gemini-3.5-flash...');
       const response = await this.ai.models.generateContent({
         model: "gemini-3.5-flash",
         contents: prompt,
@@ -144,9 +145,38 @@ export class GeminiSearchAssistant {
 
       const text = response.text || '{}';
       return JSON.parse(text);
-    } catch (err) {
-      console.error('[GeminiSearchAssistant] Search Error:', err);
-      return this.fallbackFilter(query, sanitizedCandidates);
+    } catch (err: any) {
+      console.warn('[GeminiSearchAssistant] gemini-3.5-flash failed or rate-limited. Error details:', err?.message || err);
+      
+      // Retry with gemini-3.1-flash-lite
+      try {
+        console.log('[GeminiSearchAssistant] Retrying search with fallback model: gemini-3.1-flash-lite...');
+        const response = await this.ai.models.generateContent({
+          model: "gemini-3.1-flash-lite",
+          contents: prompt,
+          config: {
+            responseMimeType: "application/json",
+            responseSchema: {
+              type: Type.OBJECT,
+              properties: {
+                matchedIds: {
+                  type: Type.ARRAY,
+                  items: { type: Type.STRING }
+                },
+                explanation: { type: Type.STRING }
+              },
+              required: ["matchedIds", "explanation"]
+            }
+          },
+        });
+
+        const text = response.text || '{}';
+        return JSON.parse(text);
+      } catch (fallbackErr: any) {
+        console.error('[GeminiSearchAssistant] Fallback model gemini-3.1-flash-lite also failed:', fallbackErr?.message || fallbackErr);
+        console.log('[GeminiSearchAssistant] Invoking offline rule-based heuristic search fallback...');
+        return this.fallbackFilter(query, sanitizedCandidates);
+      }
     }
   }
 

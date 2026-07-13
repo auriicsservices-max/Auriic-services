@@ -20,17 +20,17 @@ export default function Sidebar({ isOpen, setIsOpen, activeTab, setActiveTab }: 
   ];
 
   return (
-    <div className={`h-screen ${isOpen ? 'w-64' : 'w-20'} bg-[var(--sidebar-bg)] text-white transition-all duration-300 flex flex-col shrink-0 shadow-xl`}>
-      <div className="h-16 flex items-center justify-between px-6 border-b border-white/10">
+    <div className={`h-screen ${isOpen ? 'w-64' : 'w-20'} bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] border-r border-[var(--sidebar-border)] transition-all duration-300 flex flex-col shrink-0 shadow-xl`}>
+      <div className="h-16 flex items-center justify-between px-6 border-b border-[var(--sidebar-border)]">
         {isOpen && (
           <div className="flex items-center gap-2.5">
             <div className="w-8 h-8 rounded-xl bg-[var(--accent-color)] flex items-center justify-center shadow-lg">
               <Sparkles className="text-white" size={16} />
             </div>
-            <span className="font-extrabold text-lg tracking-tight text-white">Aurrum</span>
+            <span className="font-extrabold text-lg tracking-tight text-[var(--sidebar-text)]">Aurrum</span>
           </div>
         )}
-        <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg text-white/60 hover:bg-white/10 hover:text-white transition-colors">
+        <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg text-[var(--sidebar-text-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-item-hover-text)] transition-colors">
           {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
         </button>
       </div>
@@ -44,21 +44,21 @@ export default function Sidebar({ isOpen, setIsOpen, activeTab, setActiveTab }: 
               onClick={() => setActiveTab(item.id)}
               className={`flex items-center gap-4.5 p-3.5 w-full rounded-xl transition-all duration-200 text-left ${
                 isActive 
-                  ? 'bg-[var(--accent-color)] text-white font-semibold shadow-md' 
-                  : 'text-white/85 hover:text-white hover:bg-white/10'
+                  ? 'bg-amber-500 text-white font-semibold shadow-md shadow-amber-500/20' 
+                  : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-item-hover-text)] hover:bg-[var(--sidebar-hover)]'
               }`}
             >
-              <item.icon size={20} className={isActive ? 'text-white' : 'text-white/85'} />
+              <item.icon size={20} className={isActive ? 'text-white' : 'text-[var(--sidebar-text-muted)] group-hover:text-amber-500'} />
               {isOpen && <span className="text-sm font-semibold">{item.label}</span>}
             </button>
           );
         })}
       </nav>
 
-      <div className="p-4 border-t border-white/10">
+      <div className="p-4 border-t border-[var(--sidebar-border)]">
         <button 
           onClick={() => auth.signOut()} 
-          className="flex items-center gap-4.5 p-3.5 w-full rounded-xl hover:bg-rose-950/50 text-white/70 hover:text-rose-200 transition-all duration-200"
+          className="flex items-center gap-4.5 p-3.5 w-full rounded-xl hover:bg-[var(--sidebar-hover)] text-[var(--sidebar-text-muted)] hover:text-rose-500 transition-all duration-200"
         >
           <LogOut size={20} />
           {isOpen && <span className="text-sm font-semibold">Logout</span>}

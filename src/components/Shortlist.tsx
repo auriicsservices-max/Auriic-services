@@ -29,7 +29,7 @@ export default function Shortlist({ candidates, onCandidateSelect, onArchive, ro
                 </div>
             ) : (
                 <table className="w-full text-left border-collapse">
-                    <thead className="bg-[var(--sidebar-bg)] text-[10px] uppercase font-bold text-[var(--text-muted)] border-b border-[var(--border-color)]">
+                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-[10px] uppercase font-black text-[var(--text-muted)] border-b border-[var(--border-color)] tracking-wider">
                         <tr>
                             <th className="px-6 py-4">Candidate</th>
                             <th className="px-6 py-4">Domain</th>

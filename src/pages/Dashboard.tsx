@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, db, getFirebaseStorage } from '../lib/firebase';
 import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs, limit, getDocFromServer, getDoc, QuerySnapshot } from 'firebase/firestore';
@@ -99,6 +100,7 @@ import DatabaseDetails from '../components/DatabaseDetails';
 import BackupDashboard from '../components/BackupDashboard';
 
 export default function Dashboard() {
+  const navigate = useNavigate();
   const { user, role, quotaExceeded, setQuotaExceeded, isPrivileged, getUserDisplayName, getUserRole, getUserName } = useAuth();
   console.log("DEBUG: Dashboard role:", role);
   const { theme } = useTheme();
@@ -209,6 +211,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
   const [showNotifications, setShowNotifications] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
+  const handleCandidateSelect = (cand: any) => {
+    if (cand?.id) {
+      navigate(`/candidate/${cand.id}`);
+    }
+  };
   const notificationRef = React.useRef<HTMLDivElement>(null);
 
   // Close notification box when clicking outside
@@ -1431,10 +1438,10 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
       {/* Sidebar */}
       <aside 
         id="sidebar-nav"
-        className={`bg-[var(--sidebar-bg)] border-r border-[var(--border-color)] flex flex-col transition-all duration-300 fixed inset-y-0 left-0 z-40 lg:static lg:translate-x-0 ${isSidebarCollapsed ? 'lg:w-20 w-68' : 'w-68'} ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}
+        className={`bg-[var(--sidebar-bg)] border-r border-[var(--sidebar-border)] flex flex-col transition-all duration-300 fixed inset-y-0 left-0 z-40 lg:static lg:translate-x-0 ${isSidebarCollapsed ? 'lg:w-20 w-68' : 'w-68'} ${isSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full'}`}
         style={{ boxShadow: 'var(--sidebar-shadow)' }}
       >
-        <div className={`px-5 py-6 flex items-center justify-between border-b border-[var(--border-color)]/70 ${isSidebarCollapsed ? 'lg:justify-center lg:px-3' : ''}`}>
+        <div className={`px-5 py-6 flex items-center justify-between border-b border-[var(--sidebar-border)] ${isSidebarCollapsed ? 'lg:justify-center lg:px-3' : ''}`}>
           <div className="flex items-center gap-3">
             {!isSidebarCollapsed ? (
               <div className="flex items-center gap-2">
@@ -1443,23 +1450,20 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   alt="Rectech Logo" 
                   className="h-7 w-auto object-contain transition-all duration-300 hover:opacity-90"
                 />
-                <span className="text-[10px] bg-indigo-50 dark:bg-indigo-950/50 text-indigo-600 dark:text-indigo-400 font-extrabold px-1.5 py-0.5 rounded-md uppercase tracking-wider font-mono">
-                  SaaS
-                </span>
               </div>
             ) : (
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-purple-600 flex items-center justify-center text-white font-black text-base shadow-lg shadow-indigo-500/10">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-white font-black text-base shadow-lg shadow-amber-500/20">
                 R
               </div>
             )}
           </div>
           <div className="flex items-center gap-1.5">
             {!isSidebarCollapsed && <ThemeToggle />}
-            <button className="lg:hidden p-2 hover:bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-xl transition-colors" onClick={() => setIsSidebarOpen(false)}>
+            <button className="lg:hidden p-2 hover:bg-[var(--sidebar-hover)] text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-item-hover-text)] rounded-xl transition-colors" onClick={() => setIsSidebarOpen(false)}>
               <X size={18} />
             </button>
             <button 
-              className="hidden lg:block p-1.5 hover:bg-[var(--bg-secondary)] text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-xl transition-all hover:scale-105" 
+              className="hidden lg:block p-1.5 hover:bg-[var(--sidebar-hover)] text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-item-hover-text)] rounded-xl transition-all hover:scale-105" 
               onClick={() => setIsSidebarCollapsed(!isSidebarCollapsed)}
               title={isSidebarCollapsed ? "Expand sidebar" : "Collapse sidebar"}
             >
@@ -1472,7 +1476,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           {/* Workspace Group */}
           <div>
             {!isSidebarCollapsed && (
-              <p className="px-3 text-[10px] font-black uppercase text-[var(--text-muted)] tracking-[0.2em] mb-3">Workspace</p>
+              <p className="px-3 text-[10px] font-black uppercase text-[var(--sidebar-text-muted)] tracking-[0.2em] mb-3">Workspace</p>
             )}
             <div className="space-y-1">
               {[
@@ -1492,15 +1496,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   title={isSidebarCollapsed ? item.label : undefined}
                   className={`w-full flex items-center ${isSidebarCollapsed ? 'lg:justify-center px-3' : 'px-3.5'} py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group relative ${
                     activeTab === item.id 
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10 dark:shadow-none' 
-                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)] hover:translate-x-0.5'
+                      ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' 
+                      : 'text-[var(--sidebar-text-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-item-hover-text)] hover:translate-x-0.5'
                   }`}
                 >
-                  <item.icon className={`w-4 h-4 ${isSidebarCollapsed ? 'lg:mr-0' : 'mr-3'} shrink-0 transition-colors ${activeTab === item.id ? 'text-white' : 'text-[var(--text-muted)] group-hover:text-indigo-500'}`} />
+                  <item.icon className={`w-4 h-4 ${isSidebarCollapsed ? 'lg:mr-0' : 'mr-3'} shrink-0 transition-colors ${activeTab === item.id ? 'text-white' : 'text-[var(--sidebar-text-muted)] group-hover:text-amber-500'}`} />
                   {(!isSidebarCollapsed || (isSidebarCollapsed && window.innerWidth < 1024)) && <span className="tracking-tight">{item.label}</span>}
                   
                   {activeTab === item.id && isSidebarCollapsed && (
-                    <span className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-white rounded-r-md" />
+                    <span className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-amber-400 rounded-r-md" />
                   )}
                 </button>
               ))}
@@ -1511,7 +1515,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           {((role === 'admin' || role === 'team_leader' || role === 'developer') || isPrivileged) && (
             <div>
               {!isSidebarCollapsed && (
-                <p className="px-3 text-[10px] font-black uppercase text-[var(--text-muted)] tracking-[0.2em] mb-3">Management</p>
+                <p className="px-3 text-[10px] font-black uppercase text-[var(--sidebar-text-muted)] tracking-[0.2em] mb-3">Management</p>
               )}
               <div className="space-y-1">
                 {[
@@ -1527,15 +1531,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                     title={isSidebarCollapsed ? item.label : undefined}
                     className={`w-full flex items-center ${isSidebarCollapsed ? 'lg:justify-center px-3' : 'px-3.5'} py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group relative ${
                       activeTab === item.id 
-                        ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10 dark:shadow-none' 
-                        : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)] hover:translate-x-0.5'
+                        ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' 
+                        : 'text-[var(--sidebar-text-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-item-hover-text)] hover:translate-x-0.5'
                     }`}
                   >
-                    <item.icon className={`w-4 h-4 ${isSidebarCollapsed ? 'lg:mr-0' : 'mr-3'} shrink-0 transition-colors ${activeTab === item.id ? 'text-white' : 'text-[var(--text-muted)] group-hover:text-indigo-500'}`} />
+                    <item.icon className={`w-4 h-4 ${isSidebarCollapsed ? 'lg:mr-0' : 'mr-3'} shrink-0 transition-colors ${activeTab === item.id ? 'text-white' : 'text-[var(--sidebar-text-muted)] group-hover:text-amber-500'}`} />
                     {(!isSidebarCollapsed || (isSidebarCollapsed && window.innerWidth < 1024)) && <span className="tracking-tight">{item.label}</span>}
                     
                     {activeTab === item.id && isSidebarCollapsed && (
-                      <span className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-white rounded-r-md" />
+                      <span className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-amber-400 rounded-r-md" />
                     )}
                   </button>
                 ))}
@@ -1546,7 +1550,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           {/* Preferences Group */}
           <div>
             {!isSidebarCollapsed && (
-              <p className="px-3 text-[10px] font-black uppercase text-[var(--text-muted)] tracking-[0.2em] mb-3">Preferences</p>
+              <p className="px-3 text-[10px] font-black uppercase text-[var(--sidebar-text-muted)] tracking-[0.2em] mb-3">Preferences</p>
             )}
             <div className="space-y-1">
               {[
@@ -1560,15 +1564,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   title={isSidebarCollapsed ? item.label : undefined}
                   className={`w-full flex items-center ${isSidebarCollapsed ? 'lg:justify-center px-3' : 'px-3.5'} py-2.5 rounded-xl text-xs font-bold transition-all duration-200 group relative ${
                     activeTab === item.id 
-                      ? 'bg-indigo-600 text-white shadow-md shadow-indigo-600/10 dark:shadow-none' 
-                      : 'text-[var(--text-secondary)] hover:bg-[var(--bg-secondary)] hover:text-[var(--text-primary)] hover:translate-x-0.5'
+                      ? 'bg-amber-500 text-white shadow-md shadow-amber-500/20' 
+                      : 'text-[var(--sidebar-text-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-item-hover-text)] hover:translate-x-0.5'
                   }`}
                 >
-                  <item.icon className={`w-4 h-4 ${isSidebarCollapsed ? 'lg:mr-0' : 'mr-3'} shrink-0 transition-colors ${activeTab === item.id ? 'text-white' : 'text-[var(--text-muted)] group-hover:text-indigo-500'}`} />
+                  <item.icon className={`w-4 h-4 ${isSidebarCollapsed ? 'lg:mr-0' : 'mr-3'} shrink-0 transition-colors ${activeTab === item.id ? 'text-white' : 'text-[var(--sidebar-text-muted)] group-hover:text-amber-500'}`} />
                   {(!isSidebarCollapsed || (isSidebarCollapsed && window.innerWidth < 1024)) && <span className="tracking-tight">{item.label}</span>}
                   
                   {activeTab === item.id && isSidebarCollapsed && (
-                    <span className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-white rounded-r-md" />
+                    <span className="absolute left-0 top-1/4 bottom-1/4 w-1 bg-amber-400 rounded-r-md" />
                   )}
                 </button>
               ))}
@@ -1577,22 +1581,22 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         </nav>
 
         {/* User Account Bento Panel */}
-        <div className={`p-4 border-t border-[var(--border-color)]/70 ${isSidebarCollapsed ? 'lg:flex lg:flex-col lg:items-center' : ''}`}>
-          <div className={`flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900/50 rounded-2xl group transition-all duration-300 border border-[var(--border-color)]/75 hover:border-indigo-500/25 ${isSidebarCollapsed ? 'lg:justify-center lg:p-1.5 lg:border-none lg:bg-transparent lg:shadow-none' : 'shadow-sm'}`}>
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-indigo-500 flex items-center justify-center text-white font-extrabold text-xs uppercase shadow-md relative shrink-0">
+        <div className={`p-4 border-t border-[var(--sidebar-border)] ${isSidebarCollapsed ? 'lg:flex lg:flex-col lg:items-center' : ''}`}>
+          <div className={`flex items-center gap-3 p-3 bg-[var(--sidebar-user-panel-bg)] rounded-2xl group transition-all duration-300 border border-[var(--sidebar-border)] hover:border-amber-500/25 ${isSidebarCollapsed ? 'lg:justify-center lg:p-1.5 lg:border-none lg:bg-transparent lg:shadow-none' : 'shadow-sm'}`}>
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-white font-extrabold text-xs uppercase shadow-md relative shrink-0">
               {user?.displayName?.slice(0, 2) || user?.email?.slice(0, 2)}
               <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[var(--sidebar-bg)] rounded-full shadow-sm animate-pulse" />
             </div>
             {!isSidebarCollapsed && (
               <div className="overflow-hidden flex-1">
-                <p className="text-xs font-bold text-[var(--text-primary)] truncate">{user?.displayName || user?.email?.split('@')[0]}</p>
-                <p className="text-[9px] text-[var(--text-muted)] uppercase tracking-widest font-black mt-0.5">{role || 'Recruiter'}</p>
+                <p className="text-xs font-bold text-[var(--sidebar-text)] truncate">{user?.displayName || user?.email?.split('@')[0]}</p>
+                <p className="text-[9px] text-[var(--sidebar-text-muted)] uppercase tracking-widest font-black mt-0.5">{role || 'Recruiter'}</p>
               </div>
             )}
             {!isSidebarCollapsed ? (
               <button 
                 onClick={handleLogout} 
-                className="text-[var(--text-muted)] hover:text-rose-500 transition-all p-2 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl" 
+                className="text-[var(--sidebar-text-muted)] hover:text-rose-500 hover:bg-[var(--sidebar-hover)] transition-all p-2 rounded-xl" 
                 title="Sign out"
               >
                 <LogOut size={14} />
@@ -1606,7 +1610,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               <ThemeToggle />
               <button 
                 onClick={handleLogout} 
-                className="text-[var(--text-muted)] hover:text-rose-500 transition-all p-2 hover:bg-rose-50 dark:hover:bg-rose-950/20 rounded-xl border border-[var(--border-color)] hover:border-rose-500/20 hover:scale-105" 
+                className="text-[var(--sidebar-text-muted)] hover:text-rose-500 hover:bg-[var(--sidebar-hover)] transition-all p-2 rounded-xl border border-[var(--sidebar-border)] hover:border-rose-500/20 hover:scale-105" 
                 title="Sign out"
               >
                 <LogOut size={14} />
@@ -1815,11 +1819,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} fullTeamList={fullTeamList} />
             </div>
           ) : activeTab === 'repository' ? (
-            <CVRepository candidates={activeCandidates} onSelect={setSelectedCandidate} />
+            <CVRepository candidates={activeCandidates} onSelect={handleCandidateSelect} />
           ) : activeTab === 'upload' ? (
             <BulkUpload onUpload={onDrop} isProcessing={isProcessing} />
           ) : activeTab === 'pipeline' ? (
-            <RecruitmentPipeline candidates={activeCandidates} onSelect={setSelectedCandidate} role={role} teamMembers={teamMembers} fullTeamList={fullTeamList} />
+            <RecruitmentPipeline candidates={activeCandidates} onSelect={handleCandidateSelect} role={role} teamMembers={teamMembers} fullTeamList={fullTeamList} />
           ) : activeTab === 'candidates' ? (
             <div className="flex flex-col gap-6 sm:gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {/* Candidates Header banner */}
@@ -1827,7 +1831,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 <div className="flex items-center gap-4">
                   <div className="flex -space-x-2.5">
                     {['A', 'B', 'C'].map((char, i) => {
-                      const colors = ['bg-blue-4564', 'bg-gold-a98b', 'bg-blue-3649'];
+                      const colors = ['bg-gold-a98b', 'bg-gold-bc9b', 'bg-amber-400'];
                       return (
                         <div key={i} className={`w-9 h-9 rounded-full border-2 border-[var(--card-bg)] ${colors[i]} flex items-center justify-center text-[10px] font-bold text-white shadow-sm`}>
                           {char}
@@ -2097,6 +2101,28 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   </div>
                 )}
 
+                {/* Header Pagination bar */}
+                <div className="flex flex-col sm:flex-row justify-between items-center gap-4 text-xs font-bold text-[var(--text-secondary)] pb-4 border-b border-[var(--border-color)]/50">
+                  <div>
+                    Showing <span className="font-mono text-indigo-600 dark:text-indigo-400">{Math.min((searchPage - 1) * searchRowsPerPage + 1, filteredCandidates.length)}</span>–<span className="font-mono text-indigo-600 dark:text-indigo-400">{Math.min(searchPage * searchRowsPerPage, filteredCandidates.length)}</span> of <span className="font-mono text-indigo-600 dark:text-indigo-400">{filteredCandidates.length}</span> records
+                  </div>
+                  <div className="flex flex-wrap items-center gap-3.5">
+                    <select 
+                      value={searchRowsPerPage} 
+                      onChange={(e) => { setSearchRowsPerPage(Number(e.target.value)); setSearchPage(1); }} 
+                      className="px-2.5 py-1.5 border rounded-xl bg-slate-50 dark:bg-slate-900 border-[var(--border-color)] text-xs font-bold focus:outline-none cursor-pointer"
+                    >
+                      {[20, 50, 100, 200].map(v => <option key={v} value={v}>{v} rows</option>)}
+                    </select>
+                    <div className="flex gap-1.5">
+                      <button className="px-3 py-1.5 border border-[var(--border-color)] rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-[var(--bg-secondary)] disabled:opacity-50 text-[10px] uppercase font-black tracking-wider transition-all" onClick={() => setSearchPage(1)} disabled={searchPage === 1}>First</button>
+                      <button className="px-3 py-1.5 border border-[var(--border-color)] rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-[var(--bg-secondary)] disabled:opacity-50 text-[10px] uppercase font-black tracking-wider transition-all" onClick={() => setSearchPage(p => Math.max(1, p - 1))} disabled={searchPage === 1}>Previous</button>
+                      <button className="px-3 py-1.5 border border-[var(--border-color)] rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-[var(--bg-secondary)] disabled:opacity-50 text-[10px] uppercase font-black tracking-wider transition-all" onClick={() => setSearchPage(p => p + 1)} disabled={searchPage * searchRowsPerPage >= filteredCandidates.length}>Next</button>
+                      <button className="px-3 py-1.5 border border-[var(--border-color)] rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-[var(--bg-secondary)] disabled:opacity-50 text-[10px] uppercase font-black tracking-wider transition-all" onClick={() => setSearchPage(Math.ceil(filteredCandidates.length / searchRowsPerPage) || 1)} disabled={searchPage * searchRowsPerPage >= filteredCandidates.length}>Last</button>
+                    </div>
+                  </div>
+                </div>
+
                 {/* Candidates Table Grid wrapper */}
                 <div className="overflow-hidden border border-[var(--border-color)]/70 rounded-2xl transition-colors duration-300 bg-[var(--card-bg)] overflow-x-auto">
                   <table className="w-full text-left border-collapse">
@@ -2157,11 +2183,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                         // Beautiful dynamic color initials gradient
                         const getAvatarGradient = (name: string) => {
                           const gradients = [
-                            'from-blue-5472 to-blue-4564',
                             'from-gold-bc9b to-gold-a98b',
-                            'from-blue-3e51 to-gold-bc9b',
-                            'from-blue-2d38 to-blue-3e51',
-                            'from-gold-a98b to-blue-4564',
+                            'from-amber-600 to-amber-400',
+                            'from-gold-a98b to-amber-500',
+                            'from-amber-500 to-amber-300',
+                            'from-gold-bc9b to-amber-400',
                             'from-gold-9b7e to-gold-a081'
                           ];
                           let sum = 0;
@@ -2181,7 +2207,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                           <tr 
                             key={candidate.id} 
                             className={`hover:bg-slate-50/45 dark:hover:bg-slate-900/30 group transition-all duration-250 cursor-pointer ${selectedIds.has(candidate.id) ? 'bg-gold-bc9b/10 dark:bg-gold-a98b/10' : ''}`} 
-                            onClick={() => setSelectedCandidate(candidate)}
+                            onClick={() => handleCandidateSelect(candidate)}
                           >
                             {isPrivileged && (
                               <td className="px-6 py-4.5" onClick={(e) => e.stopPropagation()}>
@@ -2255,7 +2281,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                             </td>
                             <td className="px-6 py-4.5">
                               <button 
-                                onClick={(e) => { e.stopPropagation(); setSelectedCandidate(candidate); }}
+                                onClick={(e) => { e.stopPropagation(); handleCandidateSelect(candidate); }}
                                 className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl transition-all text-[10px] font-black uppercase tracking-wider ${isFollowUpDue ? 'bg-rose-500 text-white animate-blink-red' : candidate.followUpDate ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-400 border border-amber-100/10' : 'bg-slate-50 text-slate-400 dark:bg-slate-900/40'}`}
                               >
                                 <Clock size={11} />
@@ -2273,7 +2299,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                                 </button>
                               )}
                               <button 
-                                onClick={() => setSelectedCandidate(candidate)}
+                                onClick={() => handleCandidateSelect(candidate)}
                                 className="px-3.5 py-1.5 text-[10px] font-black bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/80 rounded-xl uppercase tracking-widest transition-all"
                               >
                                 Profile
@@ -2311,6 +2337,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                       <button className="px-3 py-1.5 border border-[var(--border-color)] rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-[var(--bg-secondary)] disabled:opacity-50 text-[10px] uppercase font-black tracking-wider transition-all" onClick={() => setSearchPage(1)} disabled={searchPage === 1}>First</button>
                       <button className="px-3 py-1.5 border border-[var(--border-color)] rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-[var(--bg-secondary)] disabled:opacity-50 text-[10px] uppercase font-black tracking-wider transition-all" onClick={() => setSearchPage(p => Math.max(1, p - 1))} disabled={searchPage === 1}>Previous</button>
                       <button className="px-3 py-1.5 border border-[var(--border-color)] rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-[var(--bg-secondary)] disabled:opacity-50 text-[10px] uppercase font-black tracking-wider transition-all" onClick={() => setSearchPage(p => p + 1)} disabled={searchPage * searchRowsPerPage >= filteredCandidates.length}>Next</button>
+                      <button className="px-3 py-1.5 border border-[var(--border-color)] rounded-xl bg-slate-50 dark:bg-slate-900 hover:bg-[var(--bg-secondary)] disabled:opacity-50 text-[10px] uppercase font-black tracking-wider transition-all" onClick={() => setSearchPage(Math.ceil(filteredCandidates.length / searchRowsPerPage) || 1)} disabled={searchPage * searchRowsPerPage >= filteredCandidates.length}>Last</button>
                     </div>
                   </div>
                 </div>
@@ -2513,7 +2540,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 </div>
             </div>
           ) : activeTab === 'shortlist' ? (
-            <Shortlist candidates={candidates} onCandidateSelect={setSelectedCandidate} onArchive={handleArchiveCandidate} role={role} />
+            <Shortlist candidates={candidates} onCandidateSelect={handleCandidateSelect} onArchive={handleArchiveCandidate} role={role} />
           ) : activeTab === 'profile' ? (
             <UserProfile />
           ) : activeTab === 'logs' ? (

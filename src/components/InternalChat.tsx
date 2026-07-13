@@ -304,18 +304,18 @@ export default function InternalChat({ teamMembers, initialRecipientId }: Intern
   ) : (
     <div className="flex h-[75vh] bg-[var(--card-bg)] rounded-[2.5rem] border border-[var(--border-color)] shadow-xl overflow-hidden transition-all duration-300">
       {/* Sidebar - Users List */}
-      <aside className="w-80 border-r border-[var(--border-color)] flex flex-col bg-[var(--sidebar-bg)] font-sans">
-        <div className="p-6 border-b border-[var(--border-color)]">
-          <h2 className="text-xl font-serif text-[var(--text-primary)] mb-4">Rectech Message Hub</h2>
+      <aside className="w-80 border-r border-[var(--sidebar-border)] flex flex-col bg-[var(--sidebar-bg)] font-sans">
+        <div className="p-6 border-b border-[var(--sidebar-border)]">
+          <h2 className="text-xl font-serif text-[var(--sidebar-text)] mb-4">Rectech Message Hub</h2>
           <div className="relative">
-            <Search className="absolute left-3 top-2.5 text-[var(--text-muted)]" size={16} />
+            <Search className="absolute left-3 top-2.5 text-[var(--sidebar-text-muted)]" size={16} />
             <input 
               type="text"
               placeholder="Search team..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               onFocus={() => setIsSearching(true)}
-              className="w-full pl-10 pr-4 py-2 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-indigo-500/10 transition-all font-bold text-[var(--text-primary)]"
+              className="w-full pl-10 pr-4 py-2 bg-[var(--bg-secondary)] border border-[var(--sidebar-border)] rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-amber-500/30 transition-all font-bold text-[var(--sidebar-text)] placeholder:text-[var(--sidebar-text-muted)]/60"
             />
           </div>
         </div>
@@ -323,32 +323,32 @@ export default function InternalChat({ teamMembers, initialRecipientId }: Intern
         <div className="flex-1 overflow-y-auto p-4 space-y-2">
           {filteredUsers.length === 0 ? (
             <div className="py-10 text-center px-4">
-              <User className="mx-auto text-[var(--text-muted)] opacity-20 mb-2" size={32} />
-              <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">No members found</p>
+              <User className="mx-auto text-[var(--sidebar-text-muted)]/30 mb-2" size={32} />
+              <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--sidebar-text-muted)]/60">No members found</p>
             </div>
           ) : (
             filteredUsers.map(u => (
               <button 
                 key={u.uid}
                 onClick={() => setActivePartnerId(u.uid)}
-                className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all ${activePartnerId === u.uid ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-100 dark:shadow-none' : 'hover:bg-[var(--bg-primary)] text-[var(--text-secondary)]'}`}
+                className={`w-full flex items-center gap-3 p-3 rounded-2xl transition-all ${activePartnerId === u.uid ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/25' : 'hover:bg-[var(--sidebar-hover)] text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-item-hover-text)]'}`}
               >
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold relative ${activePartnerId === u.uid ? 'bg-white/20' : 'bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-muted)]'}`}>
+                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xs font-bold relative shrink-0 ${activePartnerId === u.uid ? 'bg-white/20' : 'bg-[var(--bg-secondary)] border border-[var(--sidebar-border)] text-[var(--sidebar-text)]'}`}>
                   {u.name?.slice(0, 2).toUpperCase() || '??'}
                   {u.status === 'online' && (
-                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[var(--bg-primary)] rounded-full shadow-sm" />
+                    <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-500 border-2 border-[var(--sidebar-bg)] rounded-full shadow-sm" />
                   )}
                 </div>
                 <div className="text-left flex-1 min-w-0">
-                  <p className="text-xs font-bold truncate">{u.name || u.email}</p>
-                  <p className={`text-[8px] uppercase font-black tracking-tighter ${activePartnerId === u.uid ? 'text-indigo-200' : 'text-[var(--text-muted)]'}`}>{u.role}</p>
+                  <p className={`text-xs font-bold truncate ${activePartnerId === u.uid ? 'text-white' : 'text-[var(--sidebar-text)]'}`}>{u.name || u.email}</p>
+                  <p className={`text-[8px] uppercase font-black tracking-tighter ${activePartnerId === u.uid ? 'text-white/80' : 'text-[var(--sidebar-text-muted)]/80'}`}>{u.role}</p>
                 </div>
                 {unreadCounts[u.uid] > 0 && (
                   <div className="w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center shadow-lg animate-in zoom-in">
                     {unreadCounts[u.uid]}
                   </div>
                 )}
-                {u.role === 'admin' && <Shield size={12} className={activePartnerId === u.uid ? 'text-indigo-200' : 'text-amber-500'} />}
+                {u.role === 'admin' && <Shield size={12} className={activePartnerId === u.uid ? 'text-white' : 'text-amber-500 dark:text-amber-400'} />}
               </button>
             ))
           )}
@@ -422,7 +422,7 @@ export default function InternalChat({ teamMembers, initialRecipientId }: Intern
                           <div className={`p-4 rounded-3xl text-sm shadow-sm transition-all ${
                             isOwn 
                               ? 'bg-indigo-600 text-white rounded-tr-none' 
-                              : 'bg-[var(--sidebar-bg)] text-[var(--text-primary)] rounded-tl-none border border-[var(--border-color)]'
+                              : 'bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-tl-none border border-[var(--border-color)]/70'
                           }`}>
                             {msg.text && <p className="leading-relaxed">{msg.text}</p>}
                             

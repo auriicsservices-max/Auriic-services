@@ -59,13 +59,13 @@ export default function BulkUpload({ onUpload, isProcessing }: BulkUploadProps) 
         {...getRootProps()}
         className={`relative group border-2 border-dashed rounded-[2rem] p-12 flex flex-col items-center justify-center gap-4 transition-all cursor-pointer ${
           isDragActive 
-            ? 'border-indigo-500 bg-indigo-950/20' 
-            : 'border-[var(--border-color)] bg-[var(--card-bg)] hover:border-indigo-500/50 hover:bg-slate-900/50'
+            ? 'border-indigo-500 bg-indigo-500/5' 
+            : 'border-[var(--border-color)] bg-[var(--card-bg)] hover:border-indigo-500/50 hover:bg-[var(--bg-secondary)]'
         }`}
       >
         <input {...getInputProps()} />
-        <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${isDragActive ? 'bg-indigo-500/20' : 'bg-slate-800'}`}>
-          <Upload className={`w-10 h-10 ${isDragActive ? 'text-indigo-400' : 'text-slate-400'}`} />
+        <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${isDragActive ? 'bg-indigo-500/20' : 'bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)]'}`}>
+          <Upload className={`w-10 h-10 ${isDragActive ? 'text-indigo-400' : 'text-[var(--text-muted)]'}`} />
         </div>
         <div className="text-center">
             <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">Click or drag files here</h3>
