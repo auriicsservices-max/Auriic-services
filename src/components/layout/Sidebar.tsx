@@ -6,7 +6,6 @@ import { useAuth } from '../../contexts/AuthContext';
 
 export default function Sidebar({ isOpen, setIsOpen, activeTab, setActiveTab }: { isOpen: boolean; setIsOpen: (val: boolean) => void; activeTab: string; setActiveTab: (tab: string) => void }) {
   const { role } = useAuth();
-  console.log("DEBUG: Sidebar role:", role);
   
   const menuItems = [
     { icon: LayoutDashboard, label: 'Dashboard', id: 'home' },
@@ -20,47 +19,47 @@ export default function Sidebar({ isOpen, setIsOpen, activeTab, setActiveTab }: 
   ];
 
   return (
-    <div className={`h-screen ${isOpen ? 'w-64' : 'w-20'} bg-[var(--sidebar-bg)] text-[var(--sidebar-text)] border-r border-[var(--sidebar-border)] transition-all duration-300 flex flex-col shrink-0 shadow-xl`}>
-      <div className="h-16 flex items-center justify-between px-6 border-b border-[var(--sidebar-border)]">
+    <div className={`h-screen ${isOpen ? 'w-64' : 'w-20'} bg-[var(--sidebar-bg)] text-[var(--text-primary)] border-r border-[var(--border-color)] transition-all duration-300 flex flex-col shrink-0`}>
+      <div className="h-20 flex items-center justify-between px-6">
         {isOpen && (
-          <div className="flex items-center gap-2.5">
-            <div className="w-8 h-8 rounded-xl bg-[var(--accent-color)] flex items-center justify-center shadow-lg">
-              <Sparkles className="text-white" size={16} />
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-[var(--primary-gold)] flex items-center justify-center shadow-lg">
+              <Sparkles className="text-white" size={20} />
             </div>
-            <span className="font-extrabold text-lg tracking-tight text-[var(--sidebar-text)]">Aurrum</span>
+            <span className="font-extrabold text-xl tracking-tight text-[var(--primary-blue)]">Aurrum</span>
           </div>
         )}
-        <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-lg text-[var(--sidebar-text-muted)] hover:bg-[var(--sidebar-hover)] hover:text-[var(--sidebar-item-hover-text)] transition-colors">
-          {isOpen ? <ChevronLeft size={18} /> : <ChevronRight size={18} />}
+        <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--bg-primary)] transition-colors">
+          {isOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
         </button>
       </div>
       
-      <nav className="flex-1 py-6 px-4 space-y-2 overflow-y-auto custom-scrollbar">
+      <nav className="flex-1 py-8 px-4 space-y-2 overflow-y-auto">
         {menuItems.map((item) => {
           const isActive = activeTab === item.id;
           return (
             <button
               key={item.id}
               onClick={() => setActiveTab(item.id)}
-              className={`flex items-center gap-4.5 p-3.5 w-full rounded-xl transition-all duration-200 text-left ${
+              className={`flex items-center gap-4 p-4 w-full rounded-2xl transition-all duration-200 text-left ${
                 isActive 
-                  ? 'bg-amber-500 text-white font-semibold shadow-md shadow-amber-500/20' 
-                  : 'text-[var(--sidebar-text-muted)] hover:text-[var(--sidebar-item-hover-text)] hover:bg-[var(--sidebar-hover)]'
+                  ? 'bg-[var(--primary-blue)] text-white font-semibold' 
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)]'
               }`}
             >
-              <item.icon size={20} className={isActive ? 'text-white' : 'text-[var(--sidebar-text-muted)] group-hover:text-amber-500'} />
-              {isOpen && <span className="text-sm font-semibold">{item.label}</span>}
+              <item.icon size={22} className={isActive ? 'text-[var(--primary-gold)]' : ''} />
+              {isOpen && <span className="text-sm font-medium">{item.label}</span>}
             </button>
           );
         })}
       </nav>
 
-      <div className="p-4 border-t border-[var(--sidebar-border)]">
+      <div className="p-6 border-t border-[var(--border-color)]">
         <button 
           onClick={() => auth.signOut()} 
-          className="flex items-center gap-4.5 p-3.5 w-full rounded-xl hover:bg-[var(--sidebar-hover)] text-[var(--sidebar-text-muted)] hover:text-rose-500 transition-all duration-200"
+          className="flex items-center gap-4 p-4 w-full rounded-2xl hover:bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:text-rose-600 transition-all duration-200"
         >
-          <LogOut size={20} />
+          <LogOut size={22} />
           {isOpen && <span className="text-sm font-semibold">Logout</span>}
         </button>
       </div>

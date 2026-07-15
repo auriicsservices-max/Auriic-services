@@ -461,10 +461,10 @@ export default function Analytics({
                   }} 
                   className="w-full p-4 border border-[var(--border-color)] rounded-xl flex items-center gap-4 hover:bg-[var(--sidebar-bg)] transition-all"
                 >
-                  <div className="w-10 h-10 bg-[var(--sidebar-bg)] rounded-full flex items-center justify-center font-bold text-sm text-slate-500">{c.fullName.slice(0,2).toUpperCase()}</div>
+                  <div className="w-10 h-10 bg-[var(--sidebar-bg)] rounded-full flex items-center justify-center font-bold text-sm text-white">{c.fullName.slice(0,2).toUpperCase()}</div>
                   <div className="flex-1 text-left">
-                    <p className="font-bold text-sm">{c.fullName}</p>
-                    <p className="text-xs text-slate-500">{c.domain}</p>
+                    <p className="font-bold text-sm text-[var(--text-primary)]">{c.fullName}</p>
+                    <p className="text-xs text-[#334155]">{c.domain}</p>
                   </div>
                 </button>
               ))}
@@ -496,12 +496,12 @@ export default function Analytics({
                   }} 
                   className="w-full p-4 border border-[var(--border-color)] rounded-xl flex items-center gap-4 hover:bg-[var(--sidebar-bg)] transition-all"
                 >
-                  <div className="w-10 h-10 bg-[var(--sidebar-bg)] rounded-full flex items-center justify-center font-bold text-sm text-slate-500">
+                  <div className="w-10 h-10 bg-[var(--sidebar-bg)] rounded-full flex items-center justify-center font-bold text-sm text-white">
                     {c.fullName.slice(0, 2).toUpperCase()}
                   </div>
                   <div className="flex-1 text-left">
-                    <p className="font-bold text-sm">{c.fullName}</p>
-                    <p className="text-xs text-slate-500">{c.domainFocus || c.domain || 'N/A'}</p>
+                    <p className="font-bold text-sm text-[var(--text-primary)]">{c.fullName}</p>
+                    <p className="text-xs text-[#334155]">{c.domainFocus || c.domain || 'N/A'}</p>
                   </div>
                 </button>
               ))}

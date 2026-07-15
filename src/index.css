@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&family=Sora:wght@500;600;700;800&display=swap');
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap');
 @import "tailwindcss";
 
 @keyframes pulse-red {
@@ -36,129 +36,52 @@
 }
 
 @theme {
-  --font-sans: "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-display: "Sora", "Plus Jakarta Sans", ui-sans-serif, system-ui, sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-
-  /* --- Brand Neutrals remapping: eradicate all grey, force high contrast brand blue/gold --- */
-  --color-slate-50: var(--bg-secondary); --color-gray-50: var(--bg-secondary); --color-zinc-50: var(--bg-secondary); --color-neutral-50: var(--bg-secondary); --color-stone-50: var(--bg-secondary);
-  --color-slate-100: var(--border-color); --color-gray-100: var(--border-color); --color-zinc-100: var(--border-color); --color-neutral-100: var(--border-color); --color-stone-100: var(--border-color);
-  --color-slate-200: var(--border-color); --color-gray-200: var(--border-color); --color-zinc-200: var(--border-color); --color-neutral-200: var(--border-color); --color-stone-200: var(--border-color);
-  --color-slate-300: var(--accent-color); --color-gray-300: var(--accent-color); --color-zinc-300: var(--accent-color); --color-neutral-300: var(--accent-color); --color-stone-300: var(--accent-color);
-  --color-slate-400: var(--text-muted); --color-gray-400: var(--text-muted); --color-zinc-400: var(--text-muted); --color-neutral-400: var(--text-muted); --color-stone-400: var(--text-muted);
-  --color-slate-500: var(--text-secondary); --color-gray-500: var(--text-secondary); --color-zinc-500: var(--text-secondary); --color-neutral-500: var(--text-secondary); --color-stone-500: var(--text-secondary);
-  --color-slate-600: var(--text-primary); --color-gray-600: var(--text-primary); --color-zinc-600: var(--text-primary); --color-neutral-600: var(--text-primary); --color-stone-600: var(--text-primary);
-  --color-slate-700: var(--text-primary); --color-gray-700: var(--text-primary); --color-zinc-700: var(--text-primary); --color-neutral-700: var(--text-primary); --color-stone-700: var(--text-primary);
-  --color-slate-800: var(--card-bg); --color-gray-800: var(--card-bg); --color-zinc-800: var(--card-bg); --color-neutral-800: var(--card-bg); --color-stone-800: var(--card-bg);
-  --color-slate-900: var(--bg-primary); --color-gray-900: var(--bg-primary); --color-zinc-900: var(--bg-primary); --color-neutral-900: var(--bg-primary); --color-stone-900: var(--bg-primary);
-  --color-slate-950: var(--sidebar-bg); --color-gray-950: var(--sidebar-bg); --color-zinc-950: var(--sidebar-bg); --color-neutral-950: var(--sidebar-bg); --color-stone-950: var(--sidebar-bg);
-
-  --color-brand-dark: #002D38;
-  --color-primary-blue: #004564;
-  --color-primary-gold: #A98B56;
-
-  /* Blue Shades (raw brand tokens) */
-  --color-blue-5472: #005472;
-  --color-blue-4564: #004564;
-  --color-blue-3649: #003649;
-  --color-blue-2d38: #002D38;
-  --color-blue-3e51: #003E51;
-
-  /* Gold Shades (raw brand tokens) */
-  --color-gold-bc9b: #BC9B66;
-  --color-gold-a98b: #A98B56;
-  --color-gold-9b7e: #9B7E50;
-  --color-gold-8c6e: #8C6E42;
-  --color-gold-a081: #A08151;
-
-  /* ------------------------------------------------------------------ */
-  /* BRAND PALETTE REMAP                                                 */
-  /* The whole CRM was built on `indigo` (primary accent) + `amber`      */
-  /* (secondary). We remap those + all other cool/warm accent families   */
-  /* onto the brand Blue (#004564) and Gold (#A98B56) ramps so every     */
-  /* existing utility class picks up the brand colours automatically.    */
-  /* Semantic neutrals (slate/gray), success (emerald) and danger        */
-  /* (red/rose) are intentionally left as-is for readability.            */
-  /* ------------------------------------------------------------------ */
-
-  /* --- Brand BLUE ramp -> indigo / blue / violet / purple / sky / cyan */
-  --color-indigo-50:  #F8F3EA; --color-blue-50:  #F8F3EA; --color-violet-50:  #F8F3EA; --color-purple-50:  #F8F3EA; --color-sky-50:  #F8F3EA; --color-cyan-50:  #F8F3EA;
-  --color-indigo-100: #EFE4CC; --color-blue-100: #EFE4CC; --color-violet-100: #EFE4CC; --color-purple-100: #EFE4CC; --color-sky-100: #EFE4CC; --color-cyan-100: #EFE4CC;
-  --color-indigo-200: #E0CDA4; --color-blue-200: #E0CDA4; --color-violet-200: #E0CDA4; --color-purple-200: #E0CDA4; --color-sky-200: #E0CDA4; --color-cyan-200: #E0CDA4;
-  --color-indigo-300: #CFB57B; --color-blue-300: #CFB57B; --color-violet-300: #CFB57B; --color-purple-300: #CFB57B; --color-sky-300: #CFB57B; --color-cyan-300: #CFB57B;
-  --color-indigo-400: #BC9B66; --color-blue-400: #BC9B66; --color-violet-400: #BC9B66; --color-purple-400: #BC9B66; --color-sky-400: #BC9B66; --color-cyan-400: #BC9B66;
-  --color-indigo-500: #A98B56; --color-blue-500: #A98B56; --color-violet-500: #A98B56; --color-purple-500: #A98B56; --color-sky-500: #A98B56; --color-cyan-500: #A98B56;
-  --color-indigo-600: #A98B56; --color-blue-600: #A98B56; --color-violet-600: #A98B56; --color-purple-600: #A98B56; --color-sky-600: #A98B56; --color-cyan-600: #A98B56;
-  --color-indigo-700: #9B7E50; --color-blue-700: #9B7E50; --color-violet-700: #9B7E50; --color-purple-700: #9B7E50; --color-sky-700: #9B7E50; --color-cyan-700: #9B7E50;
-  --color-indigo-800: #8C6E42; --color-blue-800: #8C6E42; --color-violet-800: #8C6E42; --color-purple-800: #8C6E42; --color-sky-800: #8C6E42; --color-cyan-800: #8C6E42;
-  --color-indigo-900: #004564; --color-blue-900: #004564; --color-violet-900: #004564; --color-purple-900: #004564; --color-sky-900: #004564; --color-cyan-900: #004564;
-  --color-indigo-950: #002D38; --color-blue-950: #002D38; --color-violet-950: #002D38; --color-purple-950: #002D38; --color-sky-950: #002D38; --color-cyan-950: #002D38;
-
-  /* --- Brand GOLD ramp -> amber / yellow / orange */
-  --color-amber-50:  #F8F3EA; --color-yellow-50:  #F8F3EA; --color-orange-50:  #F8F3EA;
-  --color-amber-100: #EFE4CC; --color-yellow-100: #EFE4CC; --color-orange-100: #EFE4CC;
-  --color-amber-200: #E0CDA4; --color-yellow-200: #E0CDA4; --color-orange-200: #E0CDA4;
-  --color-amber-300: #CFB57B; --color-yellow-300: #CFB57B; --color-orange-300: #CFB57B;
-  --color-amber-400: #BC9B66; --color-yellow-400: #BC9B66; --color-orange-400: #BC9B66;
-  --color-amber-500: #A98B56; --color-yellow-500: #A98B56; --color-orange-500: #A98B56;
-  --color-amber-600: #A08151; --color-yellow-600: #A08151; --color-orange-600: #A08151;
-  --color-amber-700: #9B7E50; --color-yellow-700: #9B7E50; --color-orange-700: #9B7E50;
-  --color-amber-800: #8C6E42; --color-yellow-800: #8C6E42; --color-orange-800: #8C6E42;
-  --color-amber-900: #5B4527; --color-yellow-900: #5B4527; --color-orange-900: #5B4527;
-  --color-amber-950: #3B2C18; --color-yellow-950: #3B2C18; --color-orange-950: #3B2C18;
+  --font-sans: "Poppins", ui-sans-serif, system-ui, sans-serif;
+  
+  /* Brand Palette */
+  --primary-blue: #004564;
+  --dark-blue: #005472;
+  --dark-blue-2: #003E51;
+  --dark-blue-3: #003649;
+  --darkest-blue: #002D38;
+  
+  --primary-gold: #A98B56;
+  --gold-light: #BC9B66;
+  --gold-medium: #A08151;
+  --gold-dark: #9B7E50;
+  --dark-gold: #8C6E42;
+  
+  --success: #22C55E;
+  --warning: #F59E0B;
+  --error: #EF4444;
+  --info: #3B82F6;
 }
 
 :root {
-  /* Strictly using: Blue (#004564), Gold (#A98B56), White (#ffffff) */
-  --bg-primary: #ffffff;
-  --bg-secondary: #ffffff;
-  --text-primary: #004564;
-  --text-secondary: #A98B56;
-  --text-muted: #A98B56;
-  --card-bg: #ffffff;
-  --sidebar-bg: #ffffff;
-  --sidebar-text: #004564;
-  --sidebar-text-muted: #A98B56;
-  --sidebar-border: #A98B56;
-  --sidebar-hover: rgba(169, 139, 86, 0.1);
-  --sidebar-item-hover-text: #004564;
-  --sidebar-user-panel-bg: #ffffff;
-  --border-color: #A98B56;
-  --brand-color: #004564;
-  --accent-color: #A98B56;
-  --success-color: #004564;
-  --warning-color: #A98B56;
-  --danger-color: #004564;
-  --info-color: #004564;
-
-  --card-shadow: 0 1px 3px 0 rgba(0, 69, 100, 0.2);
-  --sidebar-shadow: 2px 0 12px rgba(0, 45, 56, 0.1);
+  /* Light Theme */
+  --bg-primary: #F8FAFC;
+  --card-bg: #FFFFFF;
+  --sidebar-bg: #FFFFFF;
+  --navbar-bg: #FFFFFF;
+  --primary-btn: var(--primary-gold);
+  --primary-btn-hover: var(--gold-light);
+  --text-primary: #0F172A;
+  --text-secondary: #334155;
+  --text-muted: #475569;
+  --border-color: #E2E8F0;
 }
 
 .dark {
-  --bg-primary: #002D38;
-  --bg-secondary: #00242E;
-  --text-primary: #f4f8f9;
-  --text-secondary: #A98B56;
-  --text-muted: #BC9B66;
-  --card-bg: #003649;
-  --sidebar-bg: #001c24;
-  --sidebar-text: #f4f8f9;
-  --sidebar-text-muted: #BC9B66;
-  --sidebar-border: #003e51;
-  --sidebar-hover: rgba(255, 255, 255, 0.05);
-  --sidebar-item-hover-text: #ffffff;
-  --sidebar-user-panel-bg: rgba(255, 255, 255, 0.03);
-  --border-color: #003e51;
-  --brand-color: #005472;
-  --accent-color: #BC9B66;
-  --success-color: #22b892;
-  --warning-color: #BC9B66;
-  --danger-color: #f2645f;
-  --info-color: #005472;
-  
-  --card-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.25), 0 2px 4px -1px rgba(0, 0, 0, 0.15);
-  --sidebar-shadow: 2px 0 12px rgba(0, 0, 0, 0.3);
+  /* Dark Theme */
+  --bg-primary: var(--darkest-blue);
+  --card-bg: var(--dark-blue-2);
+  --sidebar-bg: var(--darkest-blue);
+  --navbar-bg: var(--dark-blue-3);
+  --primary-btn: var(--primary-gold);
+  --primary-btn-hover: var(--gold-light);
+  --text-primary: #FFFFFF;
+  --text-secondary: rgba(255,255,255,.72);
+  --border-color: rgba(255,255,255,.08);
 }
 
 html, body {
