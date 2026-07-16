@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { LayoutDashboard, Users, FileText, BarChart2, Bell, Settings, LogOut, ChevronLeft, ChevronRight, Sparkles, Layers, Receipt } from 'lucide-react';
+import { LayoutDashboard, Users, FileText, BarChart2, Bell, Settings, LogOut, ChevronLeft, ChevronRight, Sparkles, Layers, Receipt, Linkedin } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 
@@ -11,6 +11,7 @@ export default function Sidebar({ isOpen, setIsOpen, activeTab, setActiveTab }: 
     { icon: LayoutDashboard, label: 'Dashboard', id: 'home' },
     ...(role === 'client' || role === 'admin' || role === 'developer' ? [{ icon: Layers, label: 'Pipeline', id: 'pipeline' }] : []),
     { icon: Users, label: 'Candidates', id: 'candidates' },
+    { icon: Linkedin, label: 'LinkedIn Search', id: 'linkedin-search' },
     { icon: FileText, label: 'CV Repository', id: 'repository' },
     ...(role === 'developer' || role === 'admin' || role === 'team_leader' ? [{ icon: Receipt, label: 'Invoices', id: 'invoices' }] : []),
     { icon: BarChart2, label: 'Analytics', id: 'analytics' },
@@ -19,17 +20,17 @@ export default function Sidebar({ isOpen, setIsOpen, activeTab, setActiveTab }: 
   ];
 
   return (
-    <div className={`h-screen ${isOpen ? 'w-64' : 'w-20'} bg-[var(--sidebar-bg)] text-[var(--text-primary)] border-r border-[var(--border-color)] transition-all duration-300 flex flex-col shrink-0`}>
+    <div className={`h-screen ${isOpen ? 'w-64' : 'w-20'} bg-[var(--sidebar-bg)] text-white transition-all duration-300 flex flex-col shrink-0`}>
       <div className="h-20 flex items-center justify-between px-6">
         {isOpen && (
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-[var(--primary-gold)] flex items-center justify-center shadow-lg">
               <Sparkles className="text-white" size={20} />
             </div>
-            <span className="font-extrabold text-xl tracking-tight text-[var(--primary-blue)]">Aurrum</span>
+            <span className="font-extrabold text-xl tracking-tight">Aurrum</span>
           </div>
         )}
-        <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-xl text-[var(--text-muted)] hover:bg-[var(--bg-primary)] transition-colors">
+        <button onClick={() => setIsOpen(!isOpen)} className="p-2 rounded-xl text-white/70 hover:bg-white/10 hover:text-white transition-colors">
           {isOpen ? <ChevronLeft size={20} /> : <ChevronRight size={20} />}
         </button>
       </div>
@@ -43,8 +44,8 @@ export default function Sidebar({ isOpen, setIsOpen, activeTab, setActiveTab }: 
               onClick={() => setActiveTab(item.id)}
               className={`flex items-center gap-4 p-4 w-full rounded-2xl transition-all duration-200 text-left ${
                 isActive 
-                  ? 'bg-[var(--primary-blue)] text-white font-semibold' 
-                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)]'
+                  ? 'bg-white/10 text-white font-semibold border-l-4 border-[var(--primary-gold)]' 
+                  : 'text-[#CBD5E1] hover:text-white hover:bg-white/5'
               }`}
             >
               <item.icon size={22} className={isActive ? 'text-[var(--primary-gold)]' : ''} />
@@ -54,10 +55,10 @@ export default function Sidebar({ isOpen, setIsOpen, activeTab, setActiveTab }: 
         })}
       </nav>
 
-      <div className="p-6 border-t border-[var(--border-color)]">
+      <div className="p-6 border-t border-white/10">
         <button 
           onClick={() => auth.signOut()} 
-          className="flex items-center gap-4 p-4 w-full rounded-2xl hover:bg-[var(--bg-primary)] text-[var(--text-secondary)] hover:text-rose-600 transition-all duration-200"
+          className="flex items-center gap-4 p-4 w-full rounded-2xl hover:bg-white/5 text-[#CBD5E1] hover:text-rose-400 transition-all duration-200"
         >
           <LogOut size={22} />
           {isOpen && <span className="text-sm font-semibold">Logout</span>}

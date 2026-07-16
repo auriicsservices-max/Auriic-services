@@ -96,6 +96,7 @@ import {
 } from 'lucide-react';
 
 
+import LinkedInSearch from '../components/LinkedInSearch';
 import DatabaseDetails from '../components/DatabaseDetails';
 import BackupDashboard from '../components/BackupDashboard';
 
@@ -139,7 +140,7 @@ export default function Dashboard() {
     newParsed: any;
     file: File | null;
   } | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search'>('home');
   const [bulkLimit, setBulkLimit] = useState<number>(20);
   const [fileSizeLimit, setFileSizeLimit] = useState<number>(5);
   const [searchPage, setSearchPage] = useState(1);
@@ -1808,6 +1809,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <div className="h-full flex items-center justify-center p-4">
               <QuotaNotice onRetry={() => window.location.reload()} />
             </div>
+          ) : activeTab === 'linkedin-search' ? (
+             <LinkedInSearch onImportComplete={() => setActiveTab('candidates')} />
           ) : activeTab === 'backup' ? (
              <BackupDashboard />
           ) : activeTab === 'database' ? (

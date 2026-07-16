@@ -59,16 +59,16 @@
 
 :root {
   /* Light Theme */
-  --bg-primary: #F8FAFC;
+  --bg-primary: #F1F4F9;
   --card-bg: #FFFFFF;
-  --sidebar-bg: #FFFFFF;
+  --sidebar-bg: var(--primary-blue);
   --navbar-bg: #FFFFFF;
   --primary-btn: var(--primary-gold);
   --primary-btn-hover: var(--gold-light);
-  --text-primary: #0F172A;
-  --text-secondary: #334155;
+  --text-primary: var(--darkest-blue);
+  --text-secondary: #1F2937;
   --text-muted: #475569;
-  --border-color: #E2E8F0;
+  --border-color: #CBD5E1;
 }
 
 .dark {
