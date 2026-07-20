@@ -13,9 +13,10 @@ import { initializeApp, getApps } from 'firebase-admin/app';
 import * as admin from 'firebase-admin';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
-import { RobustResumeParser } from './src/services/resumeParser.server.ts';
-import { GeminiResumeParser } from './src/services/geminiParser.server.ts';
-import { GeminiSearchAssistant } from './src/services/geminiSearch.server.ts';
+import { RobustResumeParser } from './src/services/resumeParser.server';
+import { GeminiResumeParser } from './src/services/geminiParser.server';
+import { GeminiSearchAssistant } from './src/services/geminiSearch.server';
+import { parseResumeFromBuffer } from './src/services/resumeParserServer';
 
 // Load environment variables immediately on startup
 dotenv.config();
@@ -30,21 +31,23 @@ const geminiParser = new GeminiResumeParser();
 const geminiSearchAssistant = new GeminiSearchAssistant();
 
 // Handle paths for both ESM and CJS
-const _filename = typeof __filename !== 'undefined' ? __filename : fileURLToPath(import.meta.url);
-const _dirname = typeof __dirname !== 'undefined' ? __dirname : path.dirname(_filename);
+const _filename = fileURLToPath(import.meta.url);
+const _dirname = path.dirname(_filename);
 
 // Initialize Admin SDK
 if (!getApps().length) {
   try {
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
+    console.log('[Server] FIREBASE_SERVICE_ACCOUNT present:', !!serviceAccountJson);
     if (serviceAccountJson) {
       const serviceAccount = JSON.parse(serviceAccountJson);
       initializeApp({
         credential: admin.credential.cert(serviceAccount),
         projectId: firebaseConfig.projectId
       });
-      console.log('[Server] Admin SDK initialized with Service Account');
+      console.log('[Server] Admin SDK initialized with Service Account for Project:', firebaseConfig.projectId);
     } else {
+      console.log('[Server] WARNING: FIREBASE_SERVICE_ACCOUNT env var is missing! Trying ADC.');
       initializeApp({
         projectId: firebaseConfig.projectId
       });
@@ -62,9 +65,10 @@ let adminMessaging: admin.messaging.Messaging | null = null;
 
 try {
   const dbId = firebaseConfig.firestoreDatabaseId || '(default)';
-  adminDb = getFirestore(dbId);
-  adminMessaging = getMessaging();
-  console.log('[Server] Firebase DB and Messaging helpers initialized successfully.');
+  const app = admin.app();
+  adminDb = getFirestore(app, dbId);
+  adminMessaging = getMessaging(app);
+  console.log('[Server] Firebase DB and Messaging helpers initialized successfully for DB:', dbId);
 } catch (sdkError) {
   console.warn('[Server] Firebase Firestore or Messaging is unavailable on this host. Operational features will fall back gracefully.', (sdkError as Error).message);
 }
@@ -278,6 +282,79 @@ app.post('/api/cv/parse-waterfall', upload.single('file'), async (req, res) => {
   }
   
   res.status(500).json({ error: 'All AI providers are currently unavailable.' });
+});
+
+app.post('/api/batches', async (req, res) => {
+  const { userId, totalFiles } = req.body;
+  if (!userId || !totalFiles) return res.status(400).json({ error: 'Missing userId or totalFiles' });
+  
+  if (!adminDb) return res.status(503).json({ error: 'Database unavailable' });
+
+  const batchRef = await adminDb.collection('batches').add({
+    userId,
+    totalFiles,
+    processedFiles: 0,
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  });
+  res.json({ batchId: batchRef.id });
+});
+
+app.post('/api/batches/:batchId/resumes', upload.single('file'), async (req, res) => {
+  const { batchId } = req.params;
+  if (!req.file) return res.status(400).json({ error: 'No file' });
+  
+  if (!adminDb) return res.status(503).json({ error: 'Database unavailable' });
+
+  const resumeRef = await adminDb.collection('resumes').add({
+    batchId,
+    fileName: req.file.originalname,
+    fileContent: req.file.buffer.toString('base64'),
+    status: 'pending',
+    createdAt: new Date().toISOString()
+  });
+  
+  res.json({ resumeId: resumeRef.id });
+});
+
+
+// Resume Worker
+cron.schedule('*/10 * * * * *', async () => {
+    if (!adminDb) return;
+    
+    // Pick up pending resumes
+    const snapshot = await adminDb.collection('resumes').where('status', '==', 'pending').limit(1).get();
+    if (snapshot.empty) return;
+    
+    const resumeDoc = snapshot.docs[0];
+    const resume = resumeDoc.data();
+    
+    await resumeDoc.ref.update({ status: 'processing' });
+    
+    try {
+        console.log(`[Worker] Processing resume: ${resume.fileName}`);
+        const buffer = Buffer.from(resume.fileContent, 'base64');
+        const mimeType = resume.fileName.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+        const parsedData = await parseResumeFromBuffer(buffer, mimeType);
+        
+        await resumeDoc.ref.update({ status: 'completed', data: parsedData });
+        
+        // Update batch progress
+        const batchRef = adminDb!.collection('batches').doc(resume.batchId);
+        const batchDoc = await batchRef.get();
+        if (batchDoc.exists) {
+            const batchData = batchDoc.data()!;
+            const processedFiles = (batchData.processedFiles || 0) + 1;
+            const totalFiles = batchData.totalFiles || 1;
+            await batchRef.update({ 
+                processedFiles,
+                status: processedFiles >= totalFiles ? 'completed' : 'processing'
+            });
+        }
+    } catch (err) {
+        console.error(`[Worker] Error processing resume ${resume.fileName}:`, err);
+        await resumeDoc.ref.update({ status: 'failed', error: (err as Error).message });
+    }
 });
 
 app.post('/api/cv/upload', upload.single('file'), async (req, res) => {

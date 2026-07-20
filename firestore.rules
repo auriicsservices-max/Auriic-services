@@ -158,6 +158,16 @@ service cloud.firestore {
       );
     }
 
+    // Resume Batch Rules
+    match /batches/{batchId} {
+      allow read, write: if isSignedIn();
+    }
+    
+    // Resume Collection Rules
+    match /resumes/{resumeId} {
+      allow read, write: if isSignedIn();
+    }
+
     // Global Settings Rules
     match /settings/global {
       allow read: if isSignedIn();

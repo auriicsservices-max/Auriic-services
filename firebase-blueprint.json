@@ -112,6 +112,32 @@
         "roles": { "type": "array", "items": { "type": "string" } }
       },
       "required": ["title", "content", "order"]
+    },
+    "Batch": {
+      "title": "Batch",
+      "description": "Resume upload batch tracking",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "totalFiles": { "type": "number" },
+        "processedFiles": { "type": "number" },
+        "status": { "type": "string", "enum": ["pending", "processing", "completed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "totalFiles", "status", "createdAt"]
+    },
+    "Resume": {
+      "title": "Resume",
+      "description": "Individual resume within a batch",
+      "type": "object",
+      "properties": {
+        "batchId": { "type": "string" },
+        "fileName": { "type": "string" },
+        "fileContent": { "type": "string" },
+        "status": { "type": "string", "enum": ["pending", "processing", "completed", "failed"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["batchId", "fileName", "status", "createdAt"]
     }
   },
   "firestore": {
@@ -138,6 +164,14 @@
     "/help_sections/{sectionId}": {
       "schema": "HelpSection",
       "description": "Help center documentation sections"
+    },
+    "/batches/{batchId}": {
+      "schema": "Batch",
+      "description": "Resume upload batches"
+    },
+    "/resumes/{resumeId}": {
+      "schema": "Resume",
+      "description": "Individual resumes within batches"
     }
   }
 }
