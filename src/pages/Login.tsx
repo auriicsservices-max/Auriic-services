@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
+import { LogIn, AlertCircle, Eye, EyeOff, Loader2, Sun, Moon } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from '../contexts/ThemeContext';
 
@@ -13,7 +13,7 @@ export default function Login() {
   const [error, setError] = useState('');
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const navigate = useNavigate();
-  const { theme } = useTheme();
+  const { theme, toggleTheme } = useTheme();
 
   const handleAuthSuccess = () => {
     setIsLoggingIn(true);
@@ -34,8 +34,15 @@ export default function Login() {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center p-4 font-sans transition-colors duration-300 bg-white"
+      className="min-h-screen flex items-center justify-center p-4 font-sans transition-colors duration-300 bg-slate-50 dark:bg-slate-950"
     >
+      <button
+        onClick={toggleTheme}
+        className="absolute top-4 right-4 p-2 rounded-full bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-700 transition-all text-[var(--text-secondary)] hover:text-[var(--brand-color)] shadow-sm"
+      >
+        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+      </button>
+
       <AnimatePresence>
         {isLoggingIn && (
             <motion.div
@@ -57,7 +64,7 @@ export default function Login() {
         )}
       </AnimatePresence>
 
-      <div className="bg-white p-10 rounded-[2rem] shadow-xl w-full max-w-sm border border-[var(--border-color)] transition-all duration-300">
+      <div className="bg-white dark:bg-slate-900 p-10 rounded-[2rem] shadow-2xl shadow-slate-200/50 dark:shadow-slate-950 w-full max-w-sm border border-slate-200 dark:border-slate-800 transition-all duration-300">
         <div className="flex justify-center mb-8">
           <img 
             src={theme === 'dark' ? "https://aurrum.co/wp-content/uploads/2026/05/Rectech-white-logo.svg" : "https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg"} 
@@ -72,7 +79,7 @@ export default function Login() {
         </div>
         
         {error && (
-          <div className="text-[var(--text-primary)] border border-[var(--border-color)] p-3 rounded-xl mb-6 text-xs flex items-center gap-2">
+          <div className="text-red-500 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 p-3 rounded-xl mb-6 text-xs flex items-center gap-2">
             <AlertCircle size={14} />
             {error}
           </div>
@@ -85,7 +92,7 @@ export default function Login() {
               type="email" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 rounded-lg bg-white border border-[var(--border-color)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-color)] transition-all text-sm text-[var(--text-primary)]"
+              className="w-full p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-[var(--brand-color)] transition-all text-sm text-[var(--text-primary)]"
               placeholder="name@aurrum.co"
               required
             />
@@ -96,7 +103,7 @@ export default function Login() {
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 rounded-lg bg-white border border-[var(--border-color)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-color)] transition-all text-sm text-[var(--text-primary)] pr-10"
+              className="w-full p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-[var(--brand-color)] transition-all text-sm text-[var(--text-primary)] pr-10"
               placeholder="••••••••"
               required
             />
@@ -109,14 +116,14 @@ export default function Login() {
             </button>
           </div>
           <div className="flex items-center gap-2 mt-2">
-            <input type="checkbox" id="remember" className="rounded border-[var(--border-color)] text-[var(--brand-color)] focus:ring-[var(--brand-color)]" />
+            <input type="checkbox" id="remember" className="rounded border-slate-300 dark:border-slate-600 text-[var(--brand-color)] focus:ring-[var(--brand-color)]" />
             <label htmlFor="remember" className="text-[10px] text-[var(--text-secondary)] font-medium">Remember me</label>
           </div>
           <button 
             type="submit"
             className="w-full bg-[var(--brand-color)] text-white p-3 rounded-lg font-bold hover:bg-[#A98B56] transition-all shadow-md mt-2 flex items-center justify-center gap-2 text-sm"
           >
-            <LogIn size={16} />
+            {isLoggingIn ? <Loader2 size={16} className="animate-spin" /> : <LogIn size={16} />}
             Secure Login
           </button>
         </form>

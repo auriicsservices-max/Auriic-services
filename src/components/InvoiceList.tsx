@@ -27,8 +27,7 @@ export const InvoiceList = () => {
   // Builder Form State
   const [selectedClientId, setSelectedClientId] = useState<string>('');
   const [manualClientName, setManualClientName] = useState<string>('');
-  const [selectedCandidateIds, setSelectedCandidateIds] = useState<Set<string>>(new Set());
-  const [candidateFees, setCandidateFees] = useState<Record<string, { fee: number; billingType: string; candidateName?: string; position?: string }>>({});
+  // REMOVED: selectedCandidateIds, candidateFees
   const [invoiceNumber, setInvoiceNumber] = useState<string>('');
   const [dueDate, setDueDate] = useState<string>('');
   const [taxRate, setTaxRate] = useState<number>(0);
@@ -61,14 +60,7 @@ export const InvoiceList = () => {
   const [searchInvoiceQuery, setSearchInvoiceQuery] = useState<string>('');
   const [filterInvoiceStatus, setFilterInvoiceStatus] = useState<string>('all');
 
-  // Search and Filter States for Candidate Selection in Builder
-  const [searchCandidateQuery, setSearchCandidateQuery] = useState<string>('');
-  const [candidateFilter, setCandidateFilter] = useState<'all' | 'selected' | 'unselected'>('all');
-
   const getCandidateFeeAmount = (c: any) => {
-    if (candidateFees[c.id]?.fee !== undefined) {
-      return Number(candidateFees[c.id].fee);
-    }
     const salaryNum = parseFloat(String(c.salary || '').replace(/[^0-9.]/g, '')) || 0;
     return salaryNum > 0 ? Math.round(salaryNum * 0.15) : 5000;
   };
@@ -138,60 +130,7 @@ export const InvoiceList = () => {
     return c.clientId === selectedClientId;
   });
 
-  const handleSelectCandidate = (candidateId: string) => {
-    const newSelected = new Set(selectedCandidateIds);
-    if (newSelected.has(candidateId)) {
-      newSelected.delete(candidateId);
-    } else {
-      newSelected.add(candidateId);
-      // Lazy initialize candidate fee data if not set yet
-      if (!candidateFees[candidateId]) {
-        const c = candidates.find(cand => cand.id === candidateId);
-        if (c) {
-          const salaryNum = parseFloat(String(c.salary || '').replace(/[^0-9.]/g, '')) || 0;
-          const defaultFee = salaryNum > 0 ? Math.round(salaryNum * 0.15) : 5000;
-          setCandidateFees(prev => ({
-            ...prev,
-            [candidateId]: {
-              fee: defaultFee,
-              billingType: 'Contract to Hire (Monthly)'
-            }
-          }));
-        }
-      }
-    }
-    setSelectedCandidateIds(newSelected);
-  };
 
-  const handleFeeChange = (candidateId: string, val: number) => {
-    setCandidateFees(prev => ({
-      ...prev,
-      [candidateId]: {
-        ...prev[candidateId],
-        fee: val
-      }
-    }));
-  };
-
-  const handleBillingTypeChange = (candidateId: string, val: string) => {
-    setCandidateFees(prev => ({
-      ...prev,
-      [candidateId]: {
-        ...prev[candidateId],
-        billingType: val
-      }
-    }));
-  };
-
-  const handleCandidateOverrideChange = (candidateId: string, field: 'candidateName' | 'position', val: string) => {
-    setCandidateFees(prev => ({
-      ...prev,
-      [candidateId]: {
-        ...(prev[candidateId] || { fee: 5000, billingType: 'Contract to Hire (Monthly)' }),
-        [field]: val
-      }
-    }));
-  };
 
   const getClientName = () => {
     if (selectedClientId === 'manual') return manualClientName;
@@ -199,29 +138,14 @@ export const InvoiceList = () => {
     return clientUser ? (clientUser.name || clientUser.email) : 'Direct Client';
   };
 
-  // Start Edit Mode
   const handleStartEditInvoice = (inv: any) => {
     setEditingInvoiceId(inv.id);
     setSelectedClientId(inv.clientId);
     setManualClientName(inv.clientId === 'manual' ? inv.clientName : '');
     
     // Set candidate selection and fees
-    const candIds = new Set<string>();
-    const feesRecord: Record<string, { fee: number; billingType: string; candidateName?: string; position?: string }> = {};
-    if (inv.candidates && Array.isArray(inv.candidates)) {
-      inv.candidates.forEach((c: any) => {
-        candIds.add(c.candidateId);
-        feesRecord[c.candidateId] = {
-          fee: Number(c.fee || 0),
-          billingType: c.billingType || 'Contract to Hire (Monthly)',
-          candidateName: c.candidateName,
-          position: c.position
-        };
-      });
-    }
-    
-    setSelectedCandidateIds(candIds);
-    setCandidateFees(feesRecord);
+    // NOTE: This now auto-populates for client based on the invoice content.
+    // In a full refactor, we would validate that all candidates match the client.
     setInvoiceNumber(inv.invoiceNumber || '');
     setDueDate(inv.dueDate || '');
     setTaxRate(inv.taxRate || 0);
@@ -249,8 +173,6 @@ export const InvoiceList = () => {
     setEditingInvoiceId(null);
     setSelectedClientId('');
     setManualClientName('');
-    setSelectedCandidateIds(new Set());
-    setCandidateFees({});
     
     // Regenerate invoice numbers
     const prefix = 'INV-' + new Date().getFullYear();
@@ -294,18 +216,13 @@ export const InvoiceList = () => {
       alert('Please enter a custom client company name');
       return;
     }
-    if (selectedCandidateIds.size === 0) {
-      alert('Please select at least one candidate to include in this bulk invoice.');
-      return;
-    }
 
-    const selectedCandidatesList = candidates
-      .filter(c => selectedCandidateIds.has(c.id))
+    const selectedCandidatesList = activeClientCandidates
       .map(c => ({
         candidateId: c.id,
-        candidateName: candidateFees[c.id]?.candidateName || c.fullName,
-        position: candidateFees[c.id]?.position || c.position || 'Consultant',
-        billingType: candidateFees[c.id]?.billingType || 'Contract to Hire (Monthly)',
+        candidateName: c.fullName,
+        position: c.position || 'Consultant',
+        billingType: 'Contract to Hire (Monthly)',
         fee: getCandidateFeeAmount(c)
       }));
 
@@ -379,7 +296,6 @@ export const InvoiceList = () => {
       
       // Reset form states
       setEditingInvoiceId(null);
-      setSelectedCandidateIds(new Set());
       setSelectedClientId('');
       setManualClientName('');
       setTaxRate(0);
@@ -691,51 +607,7 @@ export const InvoiceList = () => {
   });
 
   // Filtered candidates list for the Builder Tab
-  const baseCandidateList = selectedClientId === 'manual' ? candidates : activeClientCandidates;
-  
-  const filteredCandidateList = baseCandidateList.filter(c => {
-    const q = searchCandidateQuery.toLowerCase();
-    const nameMatch = (c.fullName || '').toLowerCase().includes(q);
-    const posMatch = (c.position || '').toLowerCase().includes(q);
-    const searchMatch = nameMatch || posMatch;
-
-    if (!searchMatch) return false;
-
-    if (candidateFilter === 'selected') {
-      return selectedCandidateIds.has(c.id);
-    }
-    if (candidateFilter === 'unselected') {
-      return !selectedCandidateIds.has(c.id);
-    }
-    return true;
-  });
-
-  const handleSelectAllVisibleCandidates = () => {
-    const newSelected = new Set(selectedCandidateIds);
-    filteredCandidateList.forEach(c => {
-      newSelected.add(c.id);
-      if (!candidateFees[c.id]) {
-        const salaryNum = parseFloat(String(c.salary || '').replace(/[^0-9.]/g, '')) || 0;
-        const defaultFee = salaryNum > 0 ? Math.round(salaryNum * 0.15) : 5000;
-        setCandidateFees(prev => ({
-          ...prev,
-          [c.id]: {
-            fee: defaultFee,
-            billingType: 'Contract to Hire (Monthly)'
-          }
-        }));
-      }
-    });
-    setSelectedCandidateIds(newSelected);
-  };
-
-  const handleDeselectAllVisibleCandidates = () => {
-    const newSelected = new Set(selectedCandidateIds);
-    filteredCandidateList.forEach(c => {
-      newSelected.delete(c.id);
-    });
-    setSelectedCandidateIds(newSelected);
-  };
+  const filteredCandidateList = activeClientCandidates;
 
   if (loading) {
     return (
@@ -1017,8 +889,7 @@ export const InvoiceList = () => {
                   value={selectedClientId}
                   onChange={(e) => {
                     setSelectedClientId(e.target.value);
-                    setSelectedCandidateIds(new Set()); // Reset candidates when switching clients
-                  }}
+                    }}
                   className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
                 >
                   <option value="">-- Choose a Registered Client --</option>
@@ -1044,243 +915,63 @@ export const InvoiceList = () => {
             {selectedClientId ? (
               <div className="space-y-4">
                 {/* Billing Model Selector */}
-                <div className="bg-slate-50 dark:bg-slate-800/50 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-3">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-[var(--border-color)] space-y-4">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-color)] pb-4">
                     <div>
-                      <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider">Billing Model</h4>
-                      <p className="text-[10px] text-slate-500 mt-0.5 font-sans">Choose between summing per-candidate fees or setting a single flat consolidated amount.</p>
-                    </div>
-                    <div className="flex items-center gap-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-1 shrink-0">
-                      <button
-                        type="button"
-                        onClick={() => setUseFlatSubtotal(false)}
-                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition ${
-                          !useFlatSubtotal
-                            ? 'bg-indigo-600 text-white shadow-sm'
-                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
-                        }`}
-                      >
-                        Per Candidate
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => setUseFlatSubtotal(true)}
-                        className={`px-3 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-wider transition ${
-                          useFlatSubtotal
-                            ? 'bg-indigo-600 text-white shadow-sm'
-                            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700'
-                        }`}
-                      >
-                        Flat Consolidated Fee
-                      </button>
+                      <h4 className="text-xs font-black uppercase text-[var(--text-muted)] tracking-wider">Billing Model</h4>
+                      <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">Automated client-wise consolidated billing.</p>
                     </div>
                   </div>
-
-                  {useFlatSubtotal && (
-                    <div className="space-y-1.5 pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
-                      <label className="block text-[10px] font-black uppercase text-slate-400 tracking-wider font-mono">Consolidated Flat Placement Fee ($)</label>
-                      <div className="relative max-w-xs">
-                        <span className="absolute left-3 top-2.5 text-xs text-slate-400">$</span>
-                        <input
-                          type="number"
-                          required={useFlatSubtotal}
-                          placeholder="e.g. 15000"
-                          value={flatSubtotalVal || ''}
-                          onChange={(e) => setFlatSubtotalVal(e.target.value === '' ? 0 : Number(e.target.value))}
-                          className="w-full pl-7 pr-3 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs font-mono font-bold text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </div>
-                      <p className="text-[9px] text-slate-400">Specify the total billing amount for the whole group. Candidate fees below will be treated as optional and omitted from calculations.</p>
+                  <div className="space-y-1.5 pt-2">
+                    <label className="block text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider font-mono">Consolidated Flat Placement Fee ($)</label>
+                    <div className="relative max-w-xs">
+                      <span className="absolute left-3 top-2.5 text-xs text-[var(--text-secondary)]">$</span>
+                      <input
+                        type="number"
+                        placeholder="e.g. 15000"
+                        value={flatSubtotalVal || ''}
+                        onChange={(e) => setFlatSubtotalVal(e.target.value === '' ? 0 : Number(e.target.value))}
+                        className="w-full pl-7 pr-3 py-2.5 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl text-xs font-mono font-bold text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-color)]"
+                      />
                     </div>
-                  )}
+                  </div>
                 </div>
 
                 <div className="flex justify-between items-center">
-                  <label className="text-xs font-black uppercase text-slate-400 tracking-wider">
-                    Candidates Associated with this Client
+                  <label className="text-xs font-black uppercase text-[var(--text-primary)] tracking-wider">
+                    Candidates To Be Billed ({activeClientCandidates.length})
                   </label>
-                  <span className="text-[10px] text-slate-400 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-md">
-                    Selected: {selectedCandidateIds.size} Candidates
-                  </span>
                 </div>
 
-                {/* Search and Filters for Candidates */}
-                <div className="bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 space-y-3">
-                  <div className="flex flex-col sm:flex-row gap-3">
-                    <div className="relative flex-1">
-                      <span className="absolute left-3 top-2.5 text-slate-400">
-                        <Search size={14} />
-                      </span>
-                      <input
-                        type="text"
-                        placeholder="Search candidates by name or role..."
-                        value={searchCandidateQuery}
-                        onChange={(e) => setSearchCandidateQuery(e.target.value)}
-                        className="w-full pl-8 pr-8 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                      {searchCandidateQuery && (
-                        <button
-                          type="button"
-                          onClick={() => setSearchCandidateQuery('')}
-                          className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
-                        >
-                          <X size={12} />
-                        </button>
-                      )}
+                <div className="space-y-3">
+                  {activeClientCandidates.length === 0 ? (
+                    <div className="p-8 border border-dashed border-[var(--border-color)] rounded-3xl text-center font-sans">
+                      <Users className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
+                      <p className="text-xs text-[var(--text-secondary)]">No candidates are currently assigned to this Client account.</p>
                     </div>
-                    
-                    <div className="flex gap-1 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl p-0.5 self-start sm:self-auto shrink-0 font-sans">
-                      {[
-                        { label: 'All', value: 'all' },
-                        { label: 'Selected', value: 'selected' },
-                        { label: 'Unselected', value: 'unselected' }
-                      ].map(opt => (
-                        <button
-                          key={opt.value}
-                          type="button"
-                          onClick={() => setCandidateFilter(opt.value as any)}
-                          className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold tracking-tight transition ${
-                            candidateFilter === opt.value
-                              ? 'bg-indigo-600 text-white shadow-sm'
-                              : 'text-slate-500 hover:text-slate-750 dark:hover:text-slate-300'
-                          }`}
-                        >
-                          {opt.label}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2 pt-1 border-t border-slate-200/40 dark:border-slate-800/60 font-sans">
-                    <button
-                      type="button"
-                      onClick={handleSelectAllVisibleCandidates}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold text-indigo-600 dark:text-indigo-400 transition"
-                    >
-                      <CheckSquare size={12} /> Select All Match
-                    </button>
-                    <button
-                      type="button"
-                      onClick={handleDeselectAllVisibleCandidates}
-                      className="flex items-center gap-1 px-2.5 py-1 bg-white hover:bg-slate-50 dark:bg-slate-900 dark:hover:bg-slate-850 border border-slate-200 dark:border-slate-700 rounded-lg text-[10px] font-bold text-red-500 transition"
-                    >
-                      <Square size={12} /> Deselect All Match
-                    </button>
-                  </div>
-                </div>
-
-                {activeClientCandidates.length === 0 && selectedClientId !== 'manual' ? (
-                  <div className="p-8 border border-dashed border-slate-200 dark:border-slate-700 rounded-2xl text-center font-sans">
-                    <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                    <p className="text-xs text-slate-500">No candidates are currently assigned to this Client account.</p>
-                    <p className="text-[10px] text-slate-400 mt-1 max-w-sm mx-auto">
-                      Go to the Candidates list or CV Repository, click the candidate profile modal and select "Assign Client" under actions first.
-                    </p>
-                  </div>
-                ) : (
-                  <div className="space-y-3">
-                    {filteredCandidateList.length === 0 ? (
-                      <div className="p-8 text-center bg-slate-50 dark:bg-slate-800/10 rounded-2xl border border-slate-200/50 dark:border-slate-700/50 font-sans">
-                        <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                        <p className="text-xs text-slate-500 font-medium">No candidates match your search/filter criteria.</p>
-                        <p className="text-[10px] text-slate-400 mt-1">Try resetting the candidate search or selection filter chip.</p>
-                      </div>
-                    ) : (
-                      filteredCandidateList.map(c => {
-                      const isChecked = selectedCandidateIds.has(c.id);
-                      const currentFeeData = candidateFees[c.id] || { fee: 5000, billingType: 'Contract to Hire (Monthly)' };
-
+                  ) : (
+                    activeClientCandidates.map(c => {
                       return (
                         <div 
                           key={c.id} 
-                          className={`p-4 border rounded-2xl transition-all duration-300 ${
-                            isChecked 
-                              ? 'bg-indigo-50/40 dark:bg-indigo-950/10 border-indigo-500/30' 
-                              : 'bg-slate-50/50 dark:bg-slate-800/30 border-slate-200/50 dark:border-slate-700/50 hover:border-slate-300 dark:hover:border-slate-600'
-                          }`}
+                          className="p-5 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-3xl"
                         >
-                          <div className="flex flex-col gap-2">
-                            <div className="flex justify-between items-center w-full">
-                              <div className="flex items-center gap-3">
-                                <input
-                                  type="checkbox"
-                                  checked={isChecked}
-                                  onChange={() => handleSelectCandidate(c.id)}
-                                  className="w-4 h-4 text-indigo-600 border-slate-300 dark:border-slate-700 rounded focus:ring-indigo-500 cursor-pointer"
-                                />
-                                <div>
-                                  <div className="text-xs font-bold text-slate-800 dark:text-slate-100">
-                                    {candidateFees[c.id]?.candidateName || c.fullName}
-                                  </div>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <span className="text-[10px] text-slate-400 font-mono">
-                                      {candidateFees[c.id]?.position || c.position || 'Consultant'}
-                                    </span>
-                                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 capitalize">
-                                      {c.status || 'Active'}
-                                    </span>
-                                  </div>
-                                </div>
-                              </div>
+                          <div className="flex justify-between items-center w-full">
+                            <div className="text-xs font-black text-[var(--text-primary)]">
+                              {c.fullName}
                             </div>
-
-                            {isChecked && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2.5 w-full mt-3 pt-3 border-t border-slate-200/50 dark:border-slate-700/50">
-                                <div className="space-y-0.5">
-                                  <label className="text-[9px] uppercase font-bold text-slate-400">Billing Type</label>
-                                  <select
-                                    value={currentFeeData.billingType}
-                                    onChange={(e) => handleBillingTypeChange(c.id, e.target.value)}
-                                    className="w-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 py-1 text-[11px] text-slate-800 dark:text-slate-200 focus:outline-none"
-                                  >
-                                    <option value="Contract to Hire (Monthly)">Contract to Hire (Monthly)</option>
-                                    <option value="Permanent Placement Fee">Permanent Placement Fee</option>
-                                    <option value="Contract Retainer">Contract Retainer</option>
-                                    <option value="Bulk Recruitment Rate">Bulk Recruitment Rate</option>
-                                  </select>
-                                </div>
-
-                                <div className="space-y-0.5">
-                                  <label className="text-[9px] uppercase font-bold text-slate-400">Override Name</label>
-                                  <input
-                                    type="text"
-                                    value={candidateFees[c.id]?.candidateName ?? c.fullName}
-                                    onChange={(e) => handleCandidateOverrideChange(c.id, 'candidateName', e.target.value)}
-                                    className="w-full px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
-                                  />
-                                </div>
-
-                                <div className="space-y-0.5">
-                                  <label className="text-[9px] uppercase font-bold text-slate-400">Override Position</label>
-                                  <input
-                                    type="text"
-                                    value={candidateFees[c.id]?.position ?? (c.position || 'Consultant')}
-                                    onChange={(e) => handleCandidateOverrideChange(c.id, 'position', e.target.value)}
-                                    className="w-full px-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
-                                  />
-                                </div>
-
-                                <div className="space-y-0.5">
-                                  <label className="text-[9px] uppercase font-bold text-slate-400 font-mono">Fee Amount ($) - Optional</label>
-                                  <div className="relative">
-                                    <span className="absolute left-2 top-1 text-xs text-slate-400">$</span>
-                                    <input
-                                      type="number"
-                                      placeholder="0.00 (Optional)"
-                                      value={currentFeeData.fee === 0 ? '' : currentFeeData.fee}
-                                      onChange={(e) => handleFeeChange(c.id, e.target.value === '' ? 0 : Number(e.target.value))}
-                                      className="w-full pl-5 pr-2 py-1 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-xs font-mono font-bold text-slate-800 dark:text-slate-200 focus:outline-none"
-                                    />
-                                  </div>
-                                </div>
-                              </div>
-                            )}
+                            <div className="text-[10px] text-[var(--text-muted)] font-mono">
+                              {c.position || 'Consultant'}
+                            </div>
+                            <div className="text-xs font-mono font-bold text-[var(--text-primary)]">
+                                ${getCandidateFeeAmount(c).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                            </div>
                           </div>
                         </div>
                       );
-                    }))}
-                  </div>
-                )}
+                    })
+                  )}
+                </div>
               </div>
             ) : (
               <div className="text-center p-8 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
@@ -1436,29 +1127,28 @@ export const InvoiceList = () => {
             </div>
 
             {/* Calculations Summary Card */}
-            <div className="bg-slate-50 dark:bg-slate-900 border border-slate-200/50 dark:border-slate-800 p-6 rounded-3xl shadow-inner space-y-4">
-              <h4 className="text-xs font-black uppercase text-slate-400 tracking-wider">Subtotal Summary</h4>
+            <div className="bg-white dark:bg-slate-900 border border-[var(--border-color)] p-6 rounded-3xl space-y-4">
+              <h4 className="text-xs font-black uppercase text-[var(--text-muted)] tracking-wider">Subtotal Summary</h4>
 
-              <div className="space-y-2 text-xs text-slate-600 dark:text-slate-300">
+              <div className="space-y-3 text-xs text-[var(--text-secondary)]">
                 <div className="flex justify-between">
-                  <span>Selected Candidates Count:</span>
-                  <span className="font-bold text-slate-800 dark:text-slate-100">{selectedCandidateIds.size}</span>
+                  <span>Candidates Count:</span>
+                  <span className="font-bold text-[var(--text-primary)]">{activeClientCandidates.length}</span>
                 </div>
 
                 <div className="flex justify-between">
                   <span>Placements Subtotal:</span>
-                  <span className="font-mono font-bold text-slate-800 dark:text-slate-100">
-                    ${(useFlatSubtotal ? flatSubtotalVal : candidates
-                      .filter(c => selectedCandidateIds.has(c.id))
+                  <span className="font-mono font-bold text-[var(--text-primary)]">
+                    ${(useFlatSubtotal ? flatSubtotalVal : activeClientCandidates
                       .reduce((sum, item) => sum + getCandidateFeeAmount(item), 0))
                       .toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
                 </div>
 
                 {/* Tax Rate */}
-                <div className="flex items-center justify-between py-1 border-t border-b border-slate-200/40 dark:border-slate-800/60">
-                  <span className="flex items-center gap-1">
-                    <Percent className="w-3 h-3" /> Tax Rate (%):
+                <div className="flex items-center justify-between py-2 border-y border-[var(--border-color)]">
+                  <span className="flex items-center gap-1.5 text-[var(--text-primary)]">
+                    <Percent className="w-3.5 h-3.5" /> Tax Rate (%):
                   </span>
                   <input
                     type="number"
@@ -1466,31 +1156,30 @@ export const InvoiceList = () => {
                     max="100"
                     value={taxRate}
                     onChange={(e) => setTaxRate(Number(e.target.value))}
-                    className="w-16 px-1.5 py-0.5 text-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded font-mono font-bold"
+                    className="w-16 px-2 py-1 text-center bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg font-mono font-bold text-[var(--text-primary)]"
                   />
                 </div>
 
                 {/* Discount */}
-                <div className="flex items-center justify-between py-1 border-b border-slate-200/40 dark:border-slate-800/60">
-                  <span className="flex items-center gap-1">
-                    <DollarSign className="w-3 h-3" /> Discount ($):
+                <div className="flex items-center justify-between py-2 border-b border-[var(--border-color)]">
+                  <span className="flex items-center gap-1.5 text-[var(--text-primary)]">
+                    <DollarSign className="w-3.5 h-3.5" /> Discount ($):
                   </span>
                   <input
                     type="number"
                     min="0"
                     value={discountAmount}
                     onChange={(e) => setDiscountAmount(Number(e.target.value))}
-                    className="w-24 px-1.5 py-0.5 text-right bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded font-mono font-bold"
+                    className="w-24 px-2 py-1 text-right bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg font-mono font-bold text-[var(--text-primary)]"
                   />
                 </div>
 
                 {/* Total */}
-                <div className="flex justify-between pt-2 border-t border-slate-300 dark:border-slate-700 text-sm font-black text-slate-800 dark:text-slate-100">
+                <div className="flex justify-between pt-3 text-sm font-black text-[var(--text-primary)]">
                   <span>GRAND TOTAL DUE:</span>
-                  <span className="font-mono text-indigo-600 dark:text-indigo-400">
+                  <span className="font-mono text-[var(--accent-color)]">
                     ${(() => {
-                      const subtotal = useFlatSubtotal ? flatSubtotalVal : candidates
-                        .filter(c => selectedCandidateIds.has(c.id))
+                      const subtotal = useFlatSubtotal ? flatSubtotalVal : activeClientCandidates
                         .reduce((sum, item) => sum + getCandidateFeeAmount(item), 0);
                       const taxVal = Math.round(subtotal * (taxRate / 100));
                       const finalTotal = subtotal + taxVal - discountAmount;
@@ -1502,7 +1191,6 @@ export const InvoiceList = () => {
 
               <button
                 type="submit"
-                disabled={selectedCandidateIds.size === 0}
                 className="w-full flex items-center justify-center gap-2 px-5 py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-black uppercase tracking-wider rounded-2xl transition duration-200 shadow-md hover:shadow-lg shadow-indigo-600/10"
               >
                 <FileCheck className="w-4 h-4" /> {editingInvoiceId ? 'Update Combined Bill' : 'Save & Generate Combined Bill'}

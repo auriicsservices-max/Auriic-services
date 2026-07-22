@@ -1,7 +1,6 @@
 import express from 'express';
 import { createServer as createViteServer } from 'vite';
 import path from 'path';
-import { fileURLToPath } from 'url';
 import multer from 'multer';
 import fs from 'fs';
 import AdmZip from 'adm-zip';
@@ -29,10 +28,6 @@ const anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: proces
 const resumeParser = new RobustResumeParser();
 const geminiParser = new GeminiResumeParser();
 const geminiSearchAssistant = new GeminiSearchAssistant();
-
-// Handle paths for both ESM and CJS
-const _filename = fileURLToPath(import.meta.url);
-const _dirname = path.dirname(_filename);
 
 // Initialize Admin SDK
 if (!getApps().length) {
