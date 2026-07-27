@@ -223,7 +223,10 @@ export class GeminiSearchAssistant {
     } else {
       matches.forEach(c => {
         explanation += `## ${c.fullName} | ${c.position || c.domainFocus || 'Professional'}\n`;
-        explanation += `* **Experience:** ${c.experience ? `${c.experience} Years` : 'Not specified in CV'}\n`;
+        const expStr = c.experience && typeof c.experience !== 'object'
+          ? `${c.experience} Years`
+          : 'Not specified in CV';
+        explanation += `* **Experience:** ${expStr}\n`;
         
         let flatSkills: string[] = [];
         if (Array.isArray(c.skills)) {

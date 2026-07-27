@@ -196,7 +196,11 @@ app.post('/api/cv/search-ai', async (req, res) => {
             skills: flatSkills,
             domainFocus: c.domainFocus || c.domain || '',
             position: c.position || c.title || '',
-            experience: c.totalExperienceYears || c.experience || '',
+            experience: typeof c.totalExperience === 'number' || typeof c.totalExperience === 'string'
+              ? String(c.totalExperience)
+              : (typeof c.totalExperienceYears === 'number' || typeof c.totalExperienceYears === 'string'
+                  ? String(c.totalExperienceYears)
+                  : '0'),
             location: typeof c.location === 'object' 
               ? `${c.location?.city || ''} ${c.location?.country || ''}`.trim() 
               : (c.location || ''),
