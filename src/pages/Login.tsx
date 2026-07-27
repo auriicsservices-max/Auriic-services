@@ -6,6 +6,7 @@ import { LogIn, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from '../contexts/ThemeContext';
 import ThemeToggle from '../components/ThemeToggle';
+import Logo from '../components/Logo';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -64,11 +65,7 @@ export default function Login() {
 
       <div className="bg-[var(--card-bg)] p-10 rounded-[2rem] shadow-2xl w-full max-w-sm border border-[var(--border-color)] transition-all duration-300">
         <div className="flex justify-center mb-8">
-          <img 
-            src={theme === 'dark' ? "https://aurrum.co/wp-content/uploads/2026/05/Rectech-white-logo.svg" : "https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg"} 
-            alt="Rectech Logo" 
-            className="h-16 w-auto object-contain"
-          />
+          <Logo size="lg" className="justify-center" />
         </div>
         
         <div className="text-center mb-8">

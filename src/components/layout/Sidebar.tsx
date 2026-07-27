@@ -6,6 +6,7 @@ import {
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
 import ThemeToggle from '../ThemeToggle';
+import Logo from '../Logo';
 
 export default function Sidebar({ 
   isOpen, 
@@ -56,19 +57,7 @@ export default function Sidebar({
       {/* Brand Header */}
       <div className="h-20 flex items-center justify-between px-5 border-b border-white/10">
         <div className={`flex items-center gap-3 overflow-hidden ${!isOpen && 'justify-center w-full'}`}>
-          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#A98B56] to-[#BC9B66] flex items-center justify-center shadow-lg shrink-0">
-            <Sparkles className="text-white" size={20} />
-          </div>
-          {isOpen && (
-            <div className="flex flex-col">
-              <span className="font-extrabold text-lg tracking-tight text-white font-sans leading-none">
-                Aurrum <span className="text-[#BC9B66] text-xs font-normal">CRM</span>
-              </span>
-              <span className="text-[10px] text-[#A9C2CE] font-medium tracking-wider uppercase mt-1">
-                Talent Insights
-              </span>
-            </div>
-          )}
+          <Logo collapsed={!isOpen} variant="sidebar" />
         </div>
         
         {isOpen && (

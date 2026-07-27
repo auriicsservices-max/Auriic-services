@@ -2,6 +2,7 @@ import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './contexts/AuthContext';
 import { ThemeProvider } from './contexts/ThemeContext';
+import { BrandingProvider } from './contexts/BrandingContext';
 import { auth } from './lib/firebase';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -29,44 +30,46 @@ import { TimezoneProvider } from './contexts/TimezoneContext';
 export default function App() {
   return (
     <ThemeProvider>
-      <AuthProvider>
-        <TimezoneProvider>
-          <NotificationProvider>
-            <ResumeProcessingProvider>
-              <Router>
-                <Routes>
-                  <Route path="/login" element={<Login />} />
-                  <Route 
-                    path="/dashboard" 
-                    element={
-                      <PrivateRoute>
-                        <Dashboard />
-                      </PrivateRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/candidate/:id" 
-                    element={
-                      <PrivateRoute>
-                        <CandidateDetails />
-                      </PrivateRoute>
-                    } 
-                  />
-                  <Route 
-                    path="/invoice-builder/:candidateId" 
-                    element={
-                      <PrivateRoute>
-                        <InvoiceBuilder />
-                      </PrivateRoute>
-                    } 
-                  />
-                  <Route path="*" element={<Navigate to="/dashboard" />} />
-                </Routes>
-              </Router>
-            </ResumeProcessingProvider>
-          </NotificationProvider>
-        </TimezoneProvider>
-      </AuthProvider>
+      <BrandingProvider>
+        <AuthProvider>
+          <TimezoneProvider>
+            <NotificationProvider>
+              <ResumeProcessingProvider>
+                <Router>
+                  <Routes>
+                    <Route path="/login" element={<Login />} />
+                    <Route 
+                      path="/dashboard" 
+                      element={
+                        <PrivateRoute>
+                          <Dashboard />
+                        </PrivateRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/candidate/:id" 
+                      element={
+                        <PrivateRoute>
+                          <CandidateDetails />
+                        </PrivateRoute>
+                      } 
+                    />
+                    <Route 
+                      path="/invoice-builder/:candidateId" 
+                      element={
+                        <PrivateRoute>
+                          <InvoiceBuilder />
+                        </PrivateRoute>
+                      } 
+                    />
+                    <Route path="*" element={<Navigate to="/dashboard" />} />
+                  </Routes>
+                </Router>
+              </ResumeProcessingProvider>
+            </NotificationProvider>
+          </TimezoneProvider>
+        </AuthProvider>
+      </BrandingProvider>
     </ThemeProvider>
   );
 }

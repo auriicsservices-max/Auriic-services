@@ -8,11 +8,13 @@ export default function SystemSettings() {
   const { role } = useAuth();
   const [limit, setLimit] = useState<number>(20);
   const [fileSizeLimit, setFileSizeLimit] = useState<number>(5);
-  const [logoUrl, setLogoUrl] = useState<string>('');
+  const [logoUrlLight, setLogoUrlLight] = useState<string>('');
+  const [logoUrlDark, setLogoUrlDark] = useState<string>('');
   const [totalCvCount, setTotalCvCount] = useState<number>(0);
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
-  const [isDragging, setIsDragging] = useState(false);
+  const [isDraggingLight, setIsDraggingLight] = useState(false);
+  const [isDraggingDark, setIsDraggingDark] = useState(false);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
   const isAdmin = role === 'admin' || role === 'developer';
@@ -23,9 +25,11 @@ export default function SystemSettings() {
         const docRef = doc(db, 'settings', 'global');
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setLimit(docSnap.data().bulkUploadLimit || 20);
-          setFileSizeLimit(docSnap.data().fileSizeCap || docSnap.data().fileSizeLimit || 5);
-          setLogoUrl(docSnap.data().logoUrl || '');
+          const data = docSnap.data();
+          setLimit(data.bulkUploadLimit || 20);
+          setFileSizeLimit(data.fileSizeCap || data.fileSizeLimit || 5);
+          setLogoUrlLight(data.logoUrlLight || data.logoUrl || '');
+          setLogoUrlDark(data.logoUrlDark || data.logoUrl || '');
         }
 
         const allCandidatesQuery = query(collection(db, 'candidates'));
@@ -41,7 +45,7 @@ export default function SystemSettings() {
     fetchSettings();
   }, []);
 
-  const processFile = (file: File) => {
+  const processFile = (file: File, type: 'light' | 'dark') => {
     setUploadError(null);
     if (!file) return;
 
@@ -61,7 +65,11 @@ export default function SystemSettings() {
     const reader = new FileReader();
     reader.onload = (event) => {
       if (event.target?.result) {
-        setLogoUrl(event.target.result as string);
+        if (type === 'light') {
+          setLogoUrlLight(event.target.result as string);
+        } else {
+          setLogoUrlDark(event.target.result as string);
+        }
       }
     };
     reader.onerror = () => {
@@ -70,28 +78,40 @@ export default function SystemSettings() {
     reader.readAsDataURL(file);
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, type: 'light' | 'dark') => {
     const file = e.target.files?.[0];
     if (file) {
-      processFile(file);
+      processFile(file, type);
     }
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
+  const handleDragOver = (e: React.DragEvent, type: 'light' | 'dark') => {
     e.preventDefault();
-    setIsDragging(true);
+    if (type === 'light') {
+      setIsDraggingLight(true);
+    } else {
+      setIsDraggingDark(true);
+    }
   };
 
-  const handleDragLeave = () => {
-    setIsDragging(false);
+  const handleDragLeave = (type: 'light' | 'dark') => {
+    if (type === 'light') {
+      setIsDraggingLight(false);
+    } else {
+      setIsDraggingDark(false);
+    }
   };
 
-  const handleDrop = (e: React.DragEvent) => {
+  const handleDrop = (e: React.DragEvent, type: 'light' | 'dark') => {
     e.preventDefault();
-    setIsDragging(false);
+    if (type === 'light') {
+      setIsDraggingLight(false);
+    } else {
+      setIsDraggingDark(false);
+    }
     const file = e.dataTransfer.files?.[0];
     if (file) {
-      processFile(file);
+      processFile(file, type);
     }
   };
 
@@ -104,7 +124,10 @@ export default function SystemSettings() {
       await setDoc(doc(db, 'settings', 'global'), {
         bulkUploadLimit: limit,
         fileSizeLimit: fileSizeLimit,
-        logoUrl: logoUrl.trim(),
+        logoUrlLight: logoUrlLight.trim(),
+        logoUrlDark: logoUrlDark.trim(),
+        // Save the light one to the legacy logoUrl property for backwards compatibility if needed
+        logoUrl: logoUrlLight.trim() || logoUrlDark.trim(),
         updatedAt: new Date().toISOString()
       }, { merge: true });
 
@@ -215,94 +238,182 @@ export default function SystemSettings() {
             </div>
           </div>
 
-          {/* Global Logo Configuration Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-8 border-t border-[var(--border-color)]">
-            <div className="space-y-2">
-              <h3 className="font-bold text-[var(--text-primary)] text-sm flex items-center gap-2">
-                <Image size={18} className="text-[var(--primary-gold)]" /> Global Invoice Logo
+          {/* Global Branding & Logo Configuration Section */}
+          <div className="pt-8 border-t border-[var(--border-color)]">
+            <div className="mb-6">
+              <h3 className="font-bold text-[var(--text-primary)] text-base flex items-center gap-2">
+                <Image size={20} className="text-[var(--primary-gold)]" /> Global CRM Branding
               </h3>
-              <p className="text-xs text-[var(--text-muted)] leading-relaxed font-medium">
-                Upload your company logo or provide a custom image URL. This logo will dynamically appear on generated statements, PDFs, and invoices.
+              <p className="text-xs text-[var(--text-muted)] leading-relaxed font-medium mt-1">
+                Manage your enterprise corporate identity. Upload distinct logos for Light and Dark themes. These are rendered automatically across the sidebar, login, invoices, PDFs, and all system views.
               </p>
             </div>
-            <div className="space-y-4">
-              {/* Drag and Drop Upload Zone */}
-              <div
-                onDragOver={handleDragOver}
-                onDragLeave={handleDragLeave}
-                onDrop={handleDrop}
-                className={`p-6 rounded-2xl border-2 border-dashed transition-all flex flex-col items-center justify-center text-center cursor-pointer ${
-                  isDragging 
-                    ? 'border-[var(--primary-gold)] bg-[var(--bg-secondary)]' 
-                    : 'border-[var(--border-color)] hover:border-[var(--primary-gold)] bg-[var(--bg-secondary)]'
-                }`}
-                onClick={() => document.getElementById('logo-upload-input')?.click()}
-              >
-                <input
-                  id="logo-upload-input"
-                  type="file"
-                  accept="image/*"
-                  onChange={handleFileChange}
-                  className="hidden"
-                />
-                <Upload size={24} className={`mb-2 text-[var(--primary-gold)] ${isDragging ? 'animate-bounce' : ''}`} />
-                <span className="text-xs font-bold text-[var(--text-primary)]">
-                  Drag & drop company logo here
-                </span>
-                <span className="text-[10px] text-[var(--text-muted)] mt-0.5">
-                  or click to browse files (PNG, JPG, SVG, WebP up to 500KB)
-                </span>
+
+            {uploadError && (
+              <div className="flex items-center gap-2 text-xs font-bold text-rose-500 bg-rose-50 dark:bg-rose-950/20 p-3 rounded-xl border border-rose-100 dark:border-rose-900/40 mb-6">
+                <AlertTriangle size={14} className="shrink-0" />
+                <span>{uploadError}</span>
               </div>
+            )}
 
-              {uploadError && (
-                <div className="flex items-center gap-2 text-xs font-bold text-rose-500 bg-rose-50 dark:bg-rose-950/20 p-3 rounded-xl border border-rose-100 dark:border-rose-900/40">
-                  <AlertTriangle size={14} className="shrink-0" />
-                  <span>{uploadError}</span>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              {/* Light Theme Logo Card */}
+              <div className="p-6 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
+                  <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">Light Theme Logo</span>
+                  <span className="text-[9px] px-2 py-0.5 rounded bg-amber-500/10 text-amber-600 dark:text-amber-400 font-extrabold uppercase">Bright Backgrounds</span>
                 </div>
-              )}
 
-              <div className="relative">
-                <label className="block text-[10px] font-black uppercase text-[var(--text-muted)] mb-1">Or Logo Image URL</label>
-                <div className="flex gap-2">
+                {/* Drag and Drop Upload Zone */}
+                <div
+                  onDragOver={(e) => handleDragOver(e, 'light')}
+                  onDragLeave={() => handleDragLeave('light')}
+                  onDrop={(e) => handleDrop(e, 'light')}
+                  className={`p-5 rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center text-center cursor-pointer ${
+                    isDraggingLight 
+                      ? 'border-[var(--primary-gold)] bg-[var(--card-bg)] shadow-inner' 
+                      : 'border-[var(--border-color)] hover:border-[var(--primary-gold)] bg-[var(--card-bg)]'
+                  }`}
+                  onClick={() => document.getElementById('logo-light-upload-input')?.click()}
+                >
                   <input
-                    type="text"
-                    placeholder="https://example.com/logo.png"
-                    value={logoUrl}
-                    onChange={(e) => {
-                      setLogoUrl(e.target.value);
-                      setUploadError(null);
-                    }}
-                    className="crm-input flex-1"
+                    id="logo-light-upload-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFileChange(e, 'light')}
+                    className="hidden"
                   />
-                  {logoUrl && (
-                    <button
-                      type="button"
-                      onClick={() => setLogoUrl('')}
-                      className="p-2.5 crm-btn-secondary hover:text-rose-500"
-                      title="Clear logo"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  )}
+                  <Upload size={20} className={`mb-2 text-[var(--primary-gold)] ${isDraggingLight ? 'animate-bounce' : ''}`} />
+                  <span className="text-xs font-bold text-[var(--text-primary)]">
+                    Drag & drop Light Logo here
+                  </span>
+                  <span className="text-[9px] text-[var(--text-muted)] mt-0.5">
+                    or click to browse files (max 500KB)
+                  </span>
                 </div>
-              </div>
-              
-              {logoUrl.trim() && (
-                <div className="pt-2 flex flex-col items-center gap-1.5 border-t border-[var(--border-color)]">
-                  <span className="text-[10px] font-black uppercase text-[var(--text-muted)]">Live Preview</span>
-                  <div className="p-3 bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)] max-w-full flex items-center justify-center">
-                    <img 
-                      src={logoUrl} 
-                      alt="Logo preview" 
-                      className="max-h-12 max-w-[200px] object-contain"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg';
+
+                <div className="relative">
+                  <label className="block text-[9px] font-black uppercase text-[var(--text-muted)] mb-1">Or Light Logo URL</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="https://example.com/logo-light.png"
+                      value={logoUrlLight}
+                      onChange={(e) => {
+                        setLogoUrlLight(e.target.value);
+                        setUploadError(null);
                       }}
-                      referrerPolicy="no-referrer"
+                      className="crm-input flex-1 text-xs"
                     />
+                    {logoUrlLight && (
+                      <button
+                        type="button"
+                        onClick={() => setLogoUrlLight('')}
+                        className="p-2.5 crm-btn-secondary hover:text-rose-500"
+                        title="Clear Light Logo"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
                   </div>
                 </div>
-              )}
+
+                {logoUrlLight.trim() && (
+                  <div className="pt-3 border-t border-[var(--border-color)] flex flex-col items-center gap-2">
+                    <span className="text-[9px] font-black uppercase text-[var(--text-muted)]">Light Theme Preview (White Canvas)</span>
+                    <div className="w-full p-4 bg-white rounded-xl border border-slate-200 flex items-center justify-center min-h-[72px]">
+                      <img 
+                        src={logoUrlLight} 
+                        alt="Light Logo Preview" 
+                        className="max-h-12 max-w-full object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg';
+                        }}
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Dark Theme Logo Card */}
+              <div className="p-6 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-4">
+                <div className="flex items-center justify-between pb-3 border-b border-[var(--border-color)]">
+                  <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">Dark Theme Logo</span>
+                  <span className="text-[9px] px-2 py-0.5 rounded bg-indigo-500/10 text-indigo-400 font-extrabold uppercase">Dark Backgrounds</span>
+                </div>
+
+                {/* Drag and Drop Upload Zone */}
+                <div
+                  onDragOver={(e) => handleDragOver(e, 'dark')}
+                  onDragLeave={() => handleDragLeave('dark')}
+                  onDrop={(e) => handleDrop(e, 'dark')}
+                  className={`p-5 rounded-xl border-2 border-dashed transition-all flex flex-col items-center justify-center text-center cursor-pointer ${
+                    isDraggingDark 
+                      ? 'border-[var(--primary-gold)] bg-[var(--card-bg)] shadow-inner' 
+                      : 'border-[var(--border-color)] hover:border-[var(--primary-gold)] bg-[var(--card-bg)]'
+                  }`}
+                  onClick={() => document.getElementById('logo-dark-upload-input')?.click()}
+                >
+                  <input
+                    id="logo-dark-upload-input"
+                    type="file"
+                    accept="image/*"
+                    onChange={(e) => handleFileChange(e, 'dark')}
+                    className="hidden"
+                  />
+                  <Upload size={20} className={`mb-2 text-[var(--primary-gold)] ${isDraggingDark ? 'animate-bounce' : ''}`} />
+                  <span className="text-xs font-bold text-[var(--text-primary)]">
+                    Drag & drop Dark Logo here
+                  </span>
+                  <span className="text-[9px] text-[var(--text-muted)] mt-0.5">
+                    or click to browse files (max 500KB)
+                  </span>
+                </div>
+
+                <div className="relative">
+                  <label className="block text-[9px] font-black uppercase text-[var(--text-muted)] mb-1">Or Dark Logo URL</label>
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="https://example.com/logo-dark.png"
+                      value={logoUrlDark}
+                      onChange={(e) => {
+                        setLogoUrlDark(e.target.value);
+                        setUploadError(null);
+                      }}
+                      className="crm-input flex-1 text-xs"
+                    />
+                    {logoUrlDark && (
+                      <button
+                        type="button"
+                        onClick={() => setLogoUrlDark('')}
+                        className="p-2.5 crm-btn-secondary hover:text-rose-500"
+                        title="Clear Dark Logo"
+                      >
+                        <Trash2 size={14} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {logoUrlDark.trim() && (
+                  <div className="pt-3 border-t border-[var(--border-color)] flex flex-col items-center gap-2">
+                    <span className="text-[9px] font-black uppercase text-[var(--text-muted)]">Dark Theme Preview (Navy Canvas)</span>
+                    <div className="w-full p-4 bg-[#002D38] rounded-xl border border-slate-800 flex items-center justify-center min-h-[72px]">
+                      <img 
+                        src={logoUrlDark} 
+                        alt="Dark Logo Preview" 
+                        className="max-h-12 max-w-full object-contain"
+                        onError={(e) => {
+                          (e.target as HTMLImageElement).src = 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-white-logo.svg';
+                        }}
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
 

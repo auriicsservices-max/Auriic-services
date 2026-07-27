@@ -170,7 +170,7 @@ service cloud.firestore {
 
     // Global Settings Rules
     match /settings/global {
-      allow read: if isSignedIn();
+      allow read: if true;
       allow write: if isAdmin();
     }
   }

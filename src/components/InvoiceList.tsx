@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { db } from '../lib/firebase';
 import { collection, query, onSnapshot, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
+import Logo from './Logo';
 import { 
   FileText, Loader2, Plus, Calendar, User, DollarSign, ArrowLeft, 
   Printer, CheckCircle, Trash2, Check, X, ShieldAlert, Users, ChevronRight, 
@@ -54,7 +55,8 @@ export const InvoiceList = () => {
   const [flatSubtotalVal, setFlatSubtotalVal] = useState<number>(0);
 
   // Global branding state
-  const [logoUrl, setLogoUrl] = useState<string>('');
+  const [logoUrlLight, setLogoUrlLight] = useState<string>('');
+  const [logoUrlDark, setLogoUrlDark] = useState<string>('');
 
   // Search and Filter States for Invoices
   const [searchInvoiceQuery, setSearchInvoiceQuery] = useState<string>('');
@@ -100,7 +102,9 @@ export const InvoiceList = () => {
     // 4. Load Global Settings (Branding logo URL)
     const unsubLogo = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
       if (docSnap.exists()) {
-        setLogoUrl(docSnap.data().logoUrl || '');
+        const data = docSnap.data();
+        setLogoUrlLight(data.logoUrlLight || data.logoUrl || '');
+        setLogoUrlDark(data.logoUrlDark || data.logoUrl || '');
       }
     }, (error) => {
       console.error("Error loading global settings logo URL:", error);
@@ -373,7 +377,7 @@ export const InvoiceList = () => {
 
     const formattedDate = inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : (inv.createdAt?.toDate ? inv.createdAt.toDate().toLocaleDateString() : new Date().toLocaleDateString());
     const formattedDueDate = inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : 'N/A';
-    const activeLogoUrl = inv.customLogoUrl || '';
+    const activeLogoUrl = logoUrlLight || logoUrlDark || '';
     const activeSenderName = inv.senderName || '';
     const activeSenderTagline = inv.senderTagline || '';
     const activeSenderEmail = inv.senderEmail || '';
@@ -489,23 +493,38 @@ export const InvoiceList = () => {
           </style>
         </head>
         <body>
-          <div class="header-container" style="${(!activeLogoUrl && !activeSenderName && !activeSenderTagline && !activeSenderEmail && !activeSenderWeb) ? 'border-bottom: none; padding-bottom: 0; margin-bottom: 20px;' : ''}">
-            ${(activeLogoUrl || activeSenderName || activeSenderTagline || activeSenderEmail || activeSenderWeb) ? `
+          <div class="header-container" style="border-bottom: 2px solid #cbd5e1; padding-bottom: 16px; margin-bottom: 20px;">
             <div class="company-details" style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px;">
-              ${activeLogoUrl ? `<img src="${activeLogoUrl}" alt="Logo" style="max-height: 45px; max-width: 150px; object-fit: contain; margin-bottom: 4px;" referrerPolicy="no-referrer" />` : ''}
+              ${activeLogoUrl ? `
+                <img src="${activeLogoUrl}" alt="Logo" style="max-height: 45px; max-width: 150px; object-fit: contain; margin-bottom: 4px;" referrerPolicy="no-referrer" />
+              ` : `
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
+                  <div style="width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #A98B56 0%, #BC9B66 100%); display: flex; align-items: center; justify-content: center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
+                      <path d="m5 3 1 2.5L8.5 6 6 7 5 9.5 4 7 1.5 6 4 5.5 5 3Z"/>
+                      <path d="m19 17 1 2.5 2.5.5-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1 1-2.5Z"/>
+                    </svg>
+                  </div>
+                  <div style="display: flex; flex-direction: column; text-align: left; line-height: 1;">
+                    <span style="font-weight: 800; font-size: 16px; color: #002D38; font-family: 'Inter', sans-serif;">
+                      Aurrum <span style="color: #BC9B66; font-size: 11px; font-weight: 400;">CRM</span>
+                    </span>
+                    <span style="font-size: 9px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #005472; margin-top: 2px; font-family: 'Inter', sans-serif;">
+                      Talent Insights
+                    </span>
+                  </div>
+                </div>
+              `}
               <div style="display: flex; flex-direction: column; gap: 2px;">
-                ${activeSenderName ? `<h1 style="margin: 0; font-size: 22px; font-weight: 800; color: #4f46e5;">${activeSenderName}</h1>` : ''}
-                ${activeSenderTagline ? `<p style="margin: 1px 0; color: #64748b; font-size: 12px;">${activeSenderTagline}</p>` : ''}
-                ${(activeSenderEmail || activeSenderWeb) ? `
-                  <p style="margin: 1px 0; color: #64748b; font-size: 12px;">
-                    ${activeSenderEmail ? `Email: ${activeSenderEmail}` : ''}
-                    ${(activeSenderEmail && activeSenderWeb) ? ' | ' : ''}
-                    ${activeSenderWeb ? `Web: ${activeSenderWeb}` : ''}
-                  </p>
-                ` : ''}
+                <h1 style="margin: 0; font-size: 20px; font-weight: 800; color: #002D38;">${activeSenderName || 'Aurrum Services'}</h1>
+                <p style="margin: 1px 0; color: #64748b; font-size: 12px;">${activeSenderTagline || 'Premium Recruitment & Talent Intelligence Services'}</p>
+                <p style="margin: 1px 0; color: #64748b; font-size: 12px;">
+                  ${activeSenderEmail ? `Email: ${activeSenderEmail}` : 'Email: billing@aurrum.co'}
+                  ${activeSenderWeb ? ` | Web: ${activeSenderWeb}` : ' | Web: www.aurrum.co'}
+                </p>
               </div>
             </div>
-            ` : '<div style="flex: 1;"></div>'}
             <div class="invoice-title-block">
               <h2>INVOICE</h2>
               <div class="stamp stamp-${inv.status}">${inv.status}</div>
@@ -1108,22 +1127,7 @@ export const InvoiceList = () => {
                 />
               </div>
 
-              {/* Custom Logo URL */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Custom Logo URL Override</label>
-                <input
-                  type="text"
-                  placeholder="e.g. https://example.com/logo.png"
-                  value={customLogoUrl}
-                  onChange={(e) => setCustomLogoUrl(e.target.value)}
-                  className="crm-input w-full py-2"
-                />
-                {customLogoUrl && (
-                  <div className="mt-2 p-3 bg-[var(--bg-secondary)] rounded-xl flex items-center justify-center border border-[var(--border-color)]">
-                    <img src={customLogoUrl} alt="Logo preview" className="max-h-12 object-contain" />
-                  </div>
-                )}
-              </div>
+
             </div>
 
             {/* Calculations Summary Card */}
@@ -1240,14 +1244,7 @@ export const InvoiceList = () => {
             <div className="p-8 space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b border-[var(--border-color)]">
                 <div className="flex flex-col items-start gap-3">
-                  {viewingInvoice.customLogoUrl ? (
-                    <img 
-                      src={viewingInvoice.customLogoUrl} 
-                      alt="Company Logo" 
-                      className="max-h-12 max-w-[150px] object-contain rounded-lg bg-[var(--card-bg)] p-1 border border-[var(--border-color)]" 
-                      referrerPolicy="no-referrer"
-                    />
-                  ) : null}
+                  <Logo variant="invoice" size="lg" className="mb-1" />
                   <div>
                     {viewingInvoice.senderName && (
                       <h3 className="text-xl font-black text-[var(--primary-gold)] tracking-tight">{viewingInvoice.senderName}</h3>
