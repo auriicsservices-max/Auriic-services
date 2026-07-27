@@ -30,34 +30,34 @@ export default function AccessDenied({ userIp, onRetry }: AccessDeniedProps) {
   };
 
   return (
-    <div className="min-h-screen w-full flex items-center justify-center bg-slate-50 dark:bg-slate-950 p-6 font-sans select-none transition-colors duration-300">
-      <div className="w-full max-w-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-xl overflow-hidden transition-all duration-300">
+    <div className="min-h-screen w-full flex items-center justify-center bg-[var(--bg-primary)] p-6 font-sans select-none transition-colors duration-300">
+      <div className="w-full max-w-lg bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl shadow-xl overflow-hidden transition-all duration-300">
         
         {/* Top Accent Strip */}
-        <div className="h-2 bg-gradient-to-r from-red-500 via-amber-500 to-red-600 w-full" />
+        <div className="h-2 bg-gradient-to-r from-red-500 via-[#A98B56] to-red-600 w-full" />
         
         <div className="p-8">
           {/* Main Icon Indicator */}
           <div className="flex justify-center mb-6">
-            <div className="p-4 bg-red-50 dark:bg-red-950/40 rounded-full border border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 animate-pulse">
+            <div className="p-4 bg-red-500/10 rounded-full border border-red-500/20 text-red-600 dark:text-red-400 animate-pulse">
               <ShieldAlert size={48} strokeWidth={1.5} id="gatekeeper-error-icon" />
             </div>
           </div>
 
           {/* Title Headers */}
           <div className="text-center space-y-2 mb-8">
-            <h1 className="text-2xl font-serif text-slate-900 dark:text-slate-50 tracking-tight font-medium">
+            <h1 className="text-2xl font-serif text-[var(--text-primary)] tracking-tight font-medium">
               Access Restricted
             </h1>
-            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+            <p className="text-sm text-[var(--text-muted)] max-w-md mx-auto">
               Your connection has been blocked by our automated IP security policies. Only registered client networks can access the CRM control center.
             </p>
           </div>
 
           {/* Security details section */}
-          <div className="bg-slate-50 dark:bg-slate-950/60 rounded-xl border border-slate-100 dark:border-slate-800 p-5 space-y-4 mb-8">
-            <div className="flex items-center justify-between text-xs font-mono border-b border-slate-100 dark:border-slate-800/80 pb-2">
-              <span className="text-slate-400 dark:text-slate-500 uppercase tracking-widest">Gatekeeper Status</span>
+          <div className="bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)] p-5 space-y-4 mb-8">
+            <div className="flex items-center justify-between text-xs font-mono border-b border-[var(--border-color)] pb-2">
+              <span className="text-[var(--text-muted)] uppercase tracking-widest">Gatekeeper Status</span>
               <span className="text-red-600 dark:text-red-400 font-medium flex items-center gap-1">
                 <Lock size={12} /> BLOCKED
               </span>
@@ -65,23 +65,23 @@ export default function AccessDenied({ userIp, onRetry }: AccessDeniedProps) {
 
             <div className="grid grid-cols-1 gap-3">
               <div>
-                <dt className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wider font-medium mb-1">Your Detected IP Address</dt>
-                <dd className="text-sm font-mono text-slate-800 dark:text-slate-200 bg-white dark:bg-slate-900 px-3 py-2 rounded border border-slate-200 dark:border-slate-800/60 flex items-center justify-between">
+                <dt className="text-xs text-[var(--text-muted)] uppercase tracking-wider font-medium mb-1">Your Detected IP Address</dt>
+                <dd className="text-sm font-mono text-[var(--text-primary)] bg-[var(--card-bg)] px-3 py-2 rounded border border-[var(--border-color)] flex items-center justify-between">
                   <span>{userIp || 'Detecting...'}</span>
                   <button 
                     onClick={handleCopy}
-                    className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors cursor-pointer"
+                    className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
                     title="Copy request details"
                     id="copy-ip-info-btn"
                   >
-                    {copied ? <Check size={14} className="text-green-500" /> : <Copy size={14} />}
+                    {copied ? <Check size={14} className="text-emerald-500" /> : <Copy size={14} />}
                   </button>
                 </dd>
               </div>
 
               <div>
-                <dt className="text-xs text-slate-400 dark:text-slate-500 uppercase tracking-wider font-medium mb-1">Timestamp (UTC)</dt>
-                <dd className="text-xs font-mono text-slate-500 dark:text-slate-400 px-3 py-1 bg-slate-100/50 dark:bg-slate-900/50 rounded">
+                <dt className="text-xs text-[var(--text-muted)] uppercase tracking-wider font-medium mb-1">Timestamp (UTC)</dt>
+                <dd className="text-xs font-mono text-[var(--text-secondary)] px-3 py-1 bg-[var(--card-bg)] rounded border border-[var(--border-color)]/50">
                   {timestamp}
                 </dd>
               </div>
@@ -93,21 +93,21 @@ export default function AccessDenied({ userIp, onRetry }: AccessDeniedProps) {
             <button 
               onClick={handleRetryClick}
               disabled={isRetrying}
-              className="w-full flex items-center justify-center gap-2 py-3 px-4 bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 hover:bg-slate-800 dark:hover:bg-white rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-50 cursor-pointer shadow-sm active:scale-[0.98]"
+              className="w-full flex items-center justify-center gap-2 py-3 px-4 crm-btn-gold rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-50 cursor-pointer shadow-sm active:scale-[0.98]"
               id="retry-ip-auth-btn"
             >
               <RefreshCw size={16} className={isRetrying ? 'animate-spin' : ''} />
               {isRetrying ? 'Verifying Network...' : 'Re-verify My Address'}
             </button>
 
-            <div className="flex items-center justify-between gap-4 text-xs text-slate-400 dark:text-slate-500 px-1 pt-2">
+            <div className="flex items-center justify-between gap-4 text-xs text-[var(--text-muted)] px-1 pt-2">
               <span className="flex items-center gap-1">
                 <Mail size={12} />
                 Contact System Lead
               </span>
               <a 
                 href="mailto:support@aurrum.co" 
-                className="text-indigo-600 dark:text-indigo-400 hover:underline font-medium"
+                className="text-[var(--primary-gold)] hover:underline font-medium"
               >
                 support@aurrum.co
               </a>

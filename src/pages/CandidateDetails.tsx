@@ -16,21 +16,9 @@ import { logActivity } from '../services/activityService';
 import { createNotification, formatNotificationMessage } from '../services/notificationService';
 import ConfirmModal from '../components/ConfirmModal';
 import { fetchCvList } from '../services/cvApiService';
+import { STAGES, getStageConfig } from '../lib/pipelineStages';
 
-const STAGES_LIST = [
-  { id: 'cv_upload', label: 'CV Upload', parentLabel: 'Inflow' },
-  { id: 'telephone_screening', label: 'Telephone Screening', parentLabel: 'Screening' },
-  { id: 'video_screening', label: 'Video Screening', parentLabel: 'Screening' },
-  { id: 'technical_screening', label: 'Technical Screening', parentLabel: 'Interviews' },
-  { id: 'assessment', label: 'Assessment', parentLabel: 'Interviews' },
-  { id: 'client_interview_round_1', label: 'Client Interview R1', parentLabel: 'Interviews' },
-  { id: 'client_interview_round_2', label: 'Client Interview R2', parentLabel: 'Interviews' },
-  { id: 'final_interview', label: 'Final Interview', parentLabel: 'Interviews' },
-  { id: 'offer_received', label: 'Offer Received', parentLabel: 'Offer' },
-  { id: 'offer_accepted_declined', label: 'Offer Accepted/Declined', parentLabel: 'Offer Decision' },
-  { id: 'joining', label: 'Joining', parentLabel: 'Placement' },
-  { id: 'invoice_generated', label: 'Invoice Generated', parentLabel: 'Invoice' }
-];
+const STAGES_LIST = STAGES;
 
 const getLinkIcon = (label: string) => {
   const l = label.toLowerCase();
@@ -808,12 +796,12 @@ export default function CandidateDetailsPage() {
   if (!candidate) {
     return (
       <div className="min-h-screen bg-[var(--bg-primary)] flex items-center justify-center p-10">
-        <div className="text-center bg-white dark:bg-slate-900 border border-[var(--border-color)] p-8 rounded-3xl max-w-md shadow-lg">
+        <div className="text-center crm-card p-8 rounded-3xl max-w-md shadow-lg">
           <p className="text-lg font-bold text-rose-500 mb-4">Profile Not Found</p>
           <p className="text-sm text-[var(--text-secondary)] mb-6">This candidate may have been removed or index is corrupt.</p>
           <button 
             onClick={() => navigate('/dashboard')}
-            className="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white font-bold rounded-2xl transition-all"
+            className="crm-btn-gold"
           >
             Return to Dashboard
           </button>
@@ -826,11 +814,11 @@ export default function CandidateDetailsPage() {
     <div className="min-h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] transition-colors duration-300 font-sans pb-16">
       
       {/* Dynamic Sub-header Navigation bar */}
-      <div className="border-b border-[var(--border-color)]/80 bg-white/60 dark:bg-slate-900/40 backdrop-blur-md sticky top-0 z-40 transition-colors">
+      <div className="border-b border-[var(--border-color)] bg-[var(--card-bg)]/80 backdrop-blur-md sticky top-0 z-40 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
           <button 
             onClick={() => navigate(-1)}
-            className="group flex items-center gap-2.5 text-xs font-black text-slate-500 hover:text-indigo-600 dark:hover:text-indigo-400 uppercase tracking-widest transition-colors duration-200"
+            className="group flex items-center gap-2.5 text-xs font-black text-[var(--text-muted)] hover:text-[var(--primary-gold)] uppercase tracking-widest transition-colors duration-200"
           >
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
             <span>Back to candidates</span>
@@ -838,8 +826,8 @@ export default function CandidateDetailsPage() {
           
           <div className="flex items-center gap-3">
             {/* Quick Boolean Search bar */}
-            <div className="bg-slate-100/80 dark:bg-slate-900/90 border border-[var(--border-color)] rounded-xl px-4 py-2 flex items-center gap-3 w-64 md:w-80 transition-all focus-within:ring-2 focus-within:ring-indigo-500/20 focus-within:border-indigo-500/50">
-              <Search size={13} className="text-indigo-500" />
+            <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-4 py-2 flex items-center gap-3 w-64 md:w-80 transition-all focus-within:ring-2 focus-within:ring-[var(--primary-gold)]/20 focus-within:border-[var(--primary-gold)]">
+              <Search size={13} className="text-[var(--primary-gold)]" />
               <input 
                 type="text" 
                 placeholder="Live keyword highlighting..."
@@ -848,7 +836,7 @@ export default function CandidateDetailsPage() {
                 onChange={(e) => setSearchTerm(e.target.value)}
               />
               {searchTerm && (
-                <button onClick={() => setSearchTerm('')} className="text-[var(--text-muted)] hover:text-indigo-600">
+                <button onClick={() => setSearchTerm('')} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
                   <Plus size={12} className="rotate-45" />
                 </button>
               )}
@@ -859,9 +847,9 @@ export default function CandidateDetailsPage() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mt-6">
         {/* Main Workspace Header Card */}
-        <header className="bg-white dark:bg-slate-900 border border-[var(--border-color)]/70 p-6 sm:p-8 rounded-[2.5rem] shadow-sm mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <header className="crm-card p-6 sm:p-8 mb-8 flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
           <div className="flex items-center gap-5 min-w-0 flex-1">
-            <div className="w-16 h-16 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white text-xl sm:text-2xl font-black shadow-md uppercase shrink-0">
+            <div className="w-16 h-16 crm-btn-gold rounded-2xl flex items-center justify-center text-white text-xl sm:text-2xl font-black shadow-md uppercase shrink-0">
               {(candidate.fullName || '??').slice(0, 2)}
             </div>
             <div className="min-w-0">
@@ -871,7 +859,7 @@ export default function CandidateDetailsPage() {
                     type="text" 
                     value={editedFullName} 
                     onChange={(e) => setEditedFullName(e.target.value)} 
-                    className="bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-lg focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-black shadow-sm"
+                    className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-lg focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-black shadow-sm"
                     placeholder="Candidate Name"
                   />
                 ) : (
@@ -881,7 +869,7 @@ export default function CandidateDetailsPage() {
                   <button 
                     onClick={handleShortlistClick}
                     disabled={!isPrivileged && role !== 'recruiter'}
-                    className={`p-1.5 rounded-xl transition-all shrink-0 ${!isPrivileged && role !== 'recruiter' ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105 active:scale-95'} ${candidate.isShortlisted ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/40' : 'text-slate-300 dark:text-slate-700 hover:text-amber-500'}`}
+                    className={`p-1.5 rounded-xl transition-all shrink-0 ${!isPrivileged && role !== 'recruiter' ? 'opacity-40 cursor-not-allowed' : 'hover:scale-105 active:scale-95'} ${candidate.isShortlisted ? 'text-amber-500 bg-amber-50 dark:bg-amber-950/40' : 'text-[var(--text-muted)] hover:text-amber-500'}`}
                   >
                     {candidate.isShortlisted ? <Star fill="currentColor" size={20} /> : <StarOff size={20} />}
                   </button>
@@ -894,26 +882,35 @@ export default function CandidateDetailsPage() {
                       type="text" 
                       value={editedDomainFocus} 
                       onChange={(e) => setEditedDomainFocus(e.target.value)} 
-                      className="bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-lg px-2.5 py-1 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)]"
+                      className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg px-2.5 py-1 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)]"
                       placeholder="e.g. Full-Stack Engineer"
                     />
                     <input 
                       type="text" 
                       value={editedDomain} 
                       onChange={(e) => setEditedDomain(e.target.value)} 
-                      className="bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-lg px-2.5 py-1 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)]"
+                      className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-lg px-2.5 py-1 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)]"
                       placeholder="e.g. Technology"
                     />
                   </div>
                 ) : (
                   <>
-                    <span className="text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-0.5 rounded-md">
+                    <span className="crm-badge-gold text-xs uppercase tracking-widest">
                       {candidate.domainFocus || candidate.domain || 'Uncategorized'}
                     </span>
                     <span className="text-[var(--text-muted)]">•</span>
                     <span className="text-[var(--text-muted)] uppercase tracking-wider">
                       {candidate.domain || 'General'}
                     </span>
+                    {candidate.pipelineStage && (
+                      <>
+                        <span className="text-[var(--text-muted)]">•</span>
+                        <span className={getStageConfig(candidate.pipelineStage).badgeClass}>
+                          <span className={`w-1.5 h-1.5 rounded-full ${getStageConfig(candidate.pipelineStage).dotClass}`} />
+                          {getStageConfig(candidate.pipelineStage).label}
+                        </span>
+                      </>
+                    )}
                   </>
                 )}
               </div>
@@ -929,7 +926,7 @@ export default function CandidateDetailsPage() {
                     <button
                       onClick={handleSaveCandidateProfile}
                       disabled={isSaving}
-                      className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md active:scale-95 disabled:opacity-50 animate-in slide-in-from-right-3 duration-200"
+                      className="crm-btn-gold"
                     >
                       {isSaving ? <Loader2 size={13} className="animate-spin" /> : <Save size={13} />}
                       <span>Save Workspace</span>
@@ -937,7 +934,7 @@ export default function CandidateDetailsPage() {
                     <button
                       onClick={() => setIsEditing(false)}
                       disabled={isSaving}
-                      className="px-4 py-2.5 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all border border-[var(--border-color)]"
+                      className="crm-btn-secondary"
                     >
                       <span>Cancel</span>
                     </button>
@@ -945,7 +942,7 @@ export default function CandidateDetailsPage() {
                 ) : (
                   <button
                     onClick={() => setIsEditing(true)}
-                    className="px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                    className="crm-btn-gold"
                   >
                     <Code size={13} />
                     <span>{role === 'developer' ? 'Edit Profile' : 'Edit Name'}</span>
@@ -959,7 +956,7 @@ export default function CandidateDetailsPage() {
                 <button 
                   onClick={handleView}
                   disabled={isFetchingCV}
-                  className="px-4 py-2.5 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 hover:bg-indigo-100 dark:hover:bg-indigo-950/80 transition-all border border-indigo-100/30 dark:border-indigo-900/30"
+                  className="crm-btn-gold"
                 >
                   {isFetchingCV ? <Loader2 size={13} className="animate-spin" /> : <Globe size={13} />}
                   <span>{isFetchingCV ? 'Syncing...' : 'View Original'}</span>
@@ -967,7 +964,7 @@ export default function CandidateDetailsPage() {
                 <button 
                   onClick={handleDownload}
                   disabled={isFetchingCV}
-                  className="px-4 py-2.5 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border border-[var(--border-color)]"
+                  className="crm-btn-secondary"
                 >
                   {isFetchingCV ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                   <span>Download CV</span>
@@ -996,36 +993,36 @@ export default function CandidateDetailsPage() {
           <div className="lg:col-span-2 space-y-8">
             
             {/* Professional Summary */}
-            <section className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[2.5rem] border border-[var(--border-color)]/70 shadow-sm transition-all duration-300">
+            <section className="crm-card p-6 sm:p-8">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
-                  <Globe size={14} className="text-indigo-500" /> Executive Summary
+                  <Globe size={14} className="text-[var(--primary-gold)]" /> Executive Summary
                 </h3>
               </div>
               {isEditing && role === 'developer' ? (
                 <textarea
                   value={editedSummary}
                   onChange={(e) => setEditedSummary(e.target.value)}
-                  className="w-full h-36 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-2xl p-4 text-sm focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-medium leading-relaxed"
+                  className="w-full h-36 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl p-4 text-sm focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-medium leading-relaxed"
                   placeholder="Enter executive summary..."
                 />
               ) : (
-                <p className="text-[var(--text-secondary)] leading-relaxed text-sm italic border-l-2 border-indigo-500 pl-4 select-text">
+                <p className="text-[var(--text-secondary)] leading-relaxed text-sm italic border-l-2 border-[var(--primary-gold)] pl-4 select-text">
                   "{renderHighlightedText(candidate.summary || 'No executive summary extracted.')}"
                 </p>
               )}
             </section>
 
             {/* Work History timeline */}
-            <section className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[2.5rem] border border-[var(--border-color)]/70 shadow-sm transition-all duration-300">
+            <section className="crm-card p-6 sm:p-8">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
-                  <Briefcase size={14} className="text-indigo-500" /> Professional timeline
+                  <Briefcase size={14} className="text-[var(--primary-gold)]" /> Professional timeline
                 </h3>
                 {isEditing && role === 'developer' && (
                   <button
                     onClick={handleAddExperience}
-                    className="text-[10px] font-black text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 uppercase tracking-widest transition-colors flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 rounded-xl border border-indigo-100/30"
+                    className="crm-btn-secondary text-[10px]"
                   >
                     <Plus size={11} /> Add Experience
                   </button>
@@ -1035,7 +1032,7 @@ export default function CandidateDetailsPage() {
               {isEditing && role === 'developer' ? (
                 <div className="space-y-4 max-h-[600px] overflow-y-auto pr-1">
                   {editedExperience.map((exp: any, i: number) => (
-                    <div key={i} className="p-4 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-2xl relative flex flex-col gap-3">
+                    <div key={i} className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl relative flex flex-col gap-3">
                       <button
                         onClick={() => handleRemoveExperience(i)}
                         className="absolute top-3 right-3 text-rose-500 hover:text-rose-600 transition-colors p-1"
@@ -1050,7 +1047,7 @@ export default function CandidateDetailsPage() {
                             type="text"
                             value={exp.role || ''}
                             onChange={(e) => handleUpdateExperience(i, 'role', e.target.value)}
-                            className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                            className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                             placeholder="e.g. Senior Frontend Engineer"
                           />
                         </div>
@@ -1060,7 +1057,7 @@ export default function CandidateDetailsPage() {
                             type="text"
                             value={exp.company || ''}
                             onChange={(e) => handleUpdateExperience(i, 'company', e.target.value)}
-                            className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                            className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                             placeholder="e.g. Google"
                           />
                         </div>
@@ -1070,7 +1067,7 @@ export default function CandidateDetailsPage() {
                             type="text"
                             value={exp.duration || ''}
                             onChange={(e) => handleUpdateExperience(i, 'duration', e.target.value)}
-                            className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                            className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                             placeholder="e.g. Jan 2021 - Present"
                           />
                         </div>
@@ -1080,7 +1077,7 @@ export default function CandidateDetailsPage() {
                         <textarea
                           value={exp.description || ''}
                           onChange={(e) => handleUpdateExperience(i, 'description', e.target.value)}
-                          className="w-full bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] h-24"
+                          className="w-full bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] h-24"
                           placeholder="Describe responsibilities and achievements..."
                         />
                       </div>
@@ -1093,10 +1090,10 @@ export default function CandidateDetailsPage() {
               ) : (
                 <div className="space-y-6">
                   {candidate.experience?.map((exp: any, i: number) => (
-                    <div key={i} className="relative pl-6 border-l-2 border-[var(--border-color)]/70 hover:border-indigo-500/50 transition-all duration-300">
-                      <div className="absolute -left-1.5 top-1.5 w-3 h-3 rounded-full bg-indigo-500 border-2 border-white dark:border-slate-900 shadow-sm" />
+                    <div key={i} className="relative pl-6 border-l-2 border-[var(--border-color)] hover:border-[var(--primary-gold)] transition-all duration-300">
+                      <div className="absolute -left-1.5 top-1.5 w-3 h-3 rounded-full bg-[var(--primary-gold)] border-2 border-[var(--card-bg)] shadow-sm" />
                       <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">{renderHighlightedText(exp.role)}</h4>
-                      <p className="text-indigo-600 dark:text-indigo-400 text-xs font-bold mt-0.5">{renderHighlightedText(exp.company)} • {renderHighlightedText(exp.duration)}</p>
+                      <p className="text-[var(--primary-gold)] text-xs font-bold mt-0.5">{renderHighlightedText(exp.company)} • {renderHighlightedText(exp.duration)}</p>
                       <p className="text-[var(--text-secondary)] text-xs mt-2 leading-relaxed select-text">{renderHighlightedText(exp.description)}</p>
                     </div>
                   ))}
@@ -1108,15 +1105,15 @@ export default function CandidateDetailsPage() {
             </section>
 
             {/* Academic Credentials */}
-            <section className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[2.5rem] border border-[var(--border-color)]/70 shadow-sm transition-all duration-300">
+            <section className="crm-card p-6 sm:p-8 rounded-[2.5rem]">
               <div className="flex items-center justify-between mb-6">
                 <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
-                  <GraduationCap size={14} className="text-indigo-500" /> Academic Credentials
+                  <GraduationCap size={14} className="text-[var(--primary-gold)]" /> Academic Credentials
                 </h3>
                 {isEditing && role === 'developer' && (
                   <button
                     onClick={handleAddEducation}
-                    className="text-[10px] font-black text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 uppercase tracking-widest transition-colors flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 rounded-xl border border-indigo-100/30"
+                    className="text-[10px] font-black text-[var(--primary-gold)] uppercase tracking-widest transition-colors flex items-center gap-1 bg-[var(--bg-secondary)] px-3 py-1.5 rounded-xl border border-[var(--border-color)]"
                   >
                     <Plus size={11} /> Add Education
                   </button>
@@ -1126,7 +1123,7 @@ export default function CandidateDetailsPage() {
               {isEditing && role === 'developer' ? (
                 <div className="space-y-4">
                   {editedEducation.map((edu: any, i: number) => (
-                    <div key={i} className="p-4 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-2xl relative flex flex-col gap-2.5">
+                    <div key={i} className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl relative flex flex-col gap-2.5">
                       <button
                         onClick={() => handleRemoveEducation(i)}
                         className="absolute top-3 right-3 text-rose-500 hover:text-rose-600 transition-colors p-1"
@@ -1141,7 +1138,7 @@ export default function CandidateDetailsPage() {
                             type="text"
                             value={edu.degree || ''}
                             onChange={(e) => handleUpdateEducation(i, 'degree', e.target.value)}
-                            className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                            className="crm-input text-xs"
                             placeholder="e.g. B.S. Computer Science"
                           />
                         </div>
@@ -1151,7 +1148,7 @@ export default function CandidateDetailsPage() {
                             type="text"
                             value={edu.school || ''}
                             onChange={(e) => handleUpdateEducation(i, 'school', e.target.value)}
-                            className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                            className="crm-input text-xs"
                             placeholder="e.g. Stanford University"
                           />
                         </div>
@@ -1161,7 +1158,7 @@ export default function CandidateDetailsPage() {
                             type="text"
                             value={edu.year || ''}
                             onChange={(e) => handleUpdateEducation(i, 'year', e.target.value)}
-                            className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                            className="crm-input text-xs"
                             placeholder="e.g. 2018 - 2022"
                           />
                         </div>
@@ -1176,7 +1173,7 @@ export default function CandidateDetailsPage() {
                 <div className="space-y-6">
                   {candidate.education?.map((edu: any, i: number) => (
                     <div key={i} className="relative pl-6 border-l-2 border-[var(--border-color)]/70 hover:border-emerald-500/50 transition-all duration-300">
-                      <div className="absolute -left-1.5 top-1.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-white dark:border-slate-900 shadow-sm" />
+                      <div className="absolute -left-1.5 top-1.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[var(--bg-primary)] shadow-sm" />
                       <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">{edu.degree}</h4>
                       <p className="text-emerald-600 dark:text-emerald-400 text-xs font-bold mt-0.5">{edu.school} • {edu.year}</p>
                     </div>
@@ -1190,15 +1187,15 @@ export default function CandidateDetailsPage() {
 
             {/* Key Projects */}
             {((candidate.projects && candidate.projects.length > 0) || (isEditing && role === 'developer')) && (
-              <section className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[2.5rem] border border-[var(--border-color)]/70 shadow-sm transition-all duration-300">
+              <section className="crm-card p-6 sm:p-8 rounded-[2.5rem]">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
-                    <Star size={14} className="text-indigo-500" /> Key Projects
+                    <Star size={14} className="text-[var(--primary-gold)]" /> Key Projects
                   </h3>
                   {isEditing && role === 'developer' && (
                     <button
                       onClick={handleAddProject}
-                      className="text-[10px] font-black text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 uppercase tracking-widest transition-colors flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 px-3 py-1.5 rounded-xl border border-indigo-100/30"
+                      className="text-[10px] font-black text-[var(--primary-gold)] uppercase tracking-widest transition-colors flex items-center gap-1 bg-[var(--bg-secondary)] px-3 py-1.5 rounded-xl border border-[var(--border-color)]"
                     >
                       <Plus size={11} /> Add Project
                     </button>
@@ -1207,7 +1204,7 @@ export default function CandidateDetailsPage() {
                 {isEditing && role === 'developer' ? (
                   <div className="space-y-4">
                     {editedProjects.map((project: any, i: number) => (
-                      <div key={i} className="p-4 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-2xl relative flex flex-col gap-2.5">
+                      <div key={i} className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl relative flex flex-col gap-2.5">
                         <button
                           onClick={() => handleRemoveProject(i)}
                           className="absolute top-3 right-3 text-rose-500 hover:text-rose-600 transition-colors p-1"
@@ -1222,7 +1219,7 @@ export default function CandidateDetailsPage() {
                               type="text"
                               value={project.title || ''}
                               onChange={(e) => handleUpdateProject(i, 'title', e.target.value)}
-                              className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                              className="crm-input text-xs"
                               placeholder="e.g. ATS Platform Rewrite"
                             />
                           </div>
@@ -1232,7 +1229,7 @@ export default function CandidateDetailsPage() {
                               type="text"
                               value={project.link || ''}
                               onChange={(e) => handleUpdateProject(i, 'link', e.target.value)}
-                              className="bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                              className="crm-input text-xs"
                               placeholder="e.g. https://github.com/..."
                             />
                           </div>
@@ -1242,7 +1239,7 @@ export default function CandidateDetailsPage() {
                           <textarea
                             value={project.description || ''}
                             onChange={(e) => handleUpdateProject(i, 'description', e.target.value)}
-                            className="w-full bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] h-16"
+                            className="crm-input text-xs h-16"
                             placeholder="Describe project details..."
                           />
                         </div>
@@ -1252,11 +1249,11 @@ export default function CandidateDetailsPage() {
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     {candidate.projects?.map((project: any, i: number) => (
-                      <div key={i} className="p-4 bg-slate-50/50 dark:bg-slate-900/40 border border-[var(--border-color)]/70 rounded-2xl hover:border-indigo-500/20 transition-all">
+                      <div key={i} className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl transition-all">
                         <div className="flex items-center justify-between mb-2">
                           <h4 className="font-extrabold text-[var(--text-primary)] text-xs tracking-tight">{project.title}</h4>
                           {project.link && (
-                            <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-indigo-500 hover:underline flex items-center gap-1">
+                            <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-[var(--primary-gold)] hover:underline flex items-center gap-1">
                               View Project <ExternalLink size={10} />
                             </a>
                           )}
@@ -1274,7 +1271,7 @@ export default function CandidateDetailsPage() {
             {/* Certifications and Achievements */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               {((candidate.certifications && candidate.certifications.length > 0) || (isEditing && role === 'developer')) && (
-                <section className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[2.5rem] border border-[var(--border-color)]/70 shadow-sm transition-all duration-300">
+                <section className="crm-card p-6 sm:p-8 rounded-[2.5rem]">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
                       <Star size={14} className="text-amber-500" /> Certifications
@@ -1282,7 +1279,7 @@ export default function CandidateDetailsPage() {
                     {isEditing && role === 'developer' && (
                       <button
                         onClick={handleAddCert}
-                        className="text-[9px] font-black text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 uppercase tracking-widest transition-colors flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-lg border border-indigo-100/30"
+                        className="text-[9px] font-black text-[var(--primary-gold)] uppercase tracking-widest transition-colors flex items-center gap-1 bg-[var(--bg-secondary)] px-2.5 py-1 rounded-lg border border-[var(--border-color)]"
                       >
                         <Plus size={10} /> Add Cert
                       </button>
@@ -1296,7 +1293,7 @@ export default function CandidateDetailsPage() {
                             type="text"
                             value={cert}
                             onChange={(e) => handleUpdateCert(i, e.target.value)}
-                            className="flex-1 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold shadow-sm"
+                            className="flex-1 crm-input text-xs"
                             placeholder="e.g. AWS Certified Solutions Architect"
                           />
                           <button
@@ -1311,7 +1308,7 @@ export default function CandidateDetailsPage() {
                   ) : (
                     <div className="space-y-2">
                       {candidate.certifications?.map((cert: string, i: number) => (
-                        <div key={i} className="p-3 bg-amber-50/20 dark:bg-amber-950/20 border border-amber-100/10 rounded-xl text-xs font-bold text-amber-900 dark:text-amber-300">
+                        <div key={i} className="p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl text-xs font-bold text-[var(--text-primary)]">
                           {cert}
                         </div>
                       ))}
@@ -1321,7 +1318,7 @@ export default function CandidateDetailsPage() {
               )}
 
               {((candidate.achievements && candidate.achievements.length > 0) || (isEditing && role === 'developer')) && (
-                <section className="bg-white dark:bg-slate-900 p-6 sm:p-8 rounded-[2.5rem] border border-[var(--border-color)]/70 shadow-sm transition-all duration-300">
+                <section className="crm-card p-6 sm:p-8 rounded-[2.5rem]">
                   <div className="flex items-center justify-between mb-4">
                     <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
                       <Globe size={14} className="text-emerald-500" /> Key Achievements
@@ -1329,7 +1326,7 @@ export default function CandidateDetailsPage() {
                     {isEditing && role === 'developer' && (
                       <button
                         onClick={handleAddAchievement}
-                        className="text-[9px] font-black text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 uppercase tracking-widest transition-colors flex items-center gap-1 bg-indigo-50 dark:bg-indigo-950/40 px-2.5 py-1 rounded-lg border border-indigo-100/30"
+                        className="text-[9px] font-black text-[var(--primary-gold)] uppercase tracking-widest transition-colors flex items-center gap-1 bg-[var(--bg-secondary)] px-2.5 py-1 rounded-lg border border-[var(--border-color)]"
                       >
                         <Plus size={10} /> Add
                       </button>
@@ -1343,7 +1340,7 @@ export default function CandidateDetailsPage() {
                             type="text"
                             value={ach}
                             onChange={(e) => handleUpdateAchievement(i, e.target.value)}
-                            className="flex-1 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-medium shadow-sm"
+                            className="flex-1 crm-input text-xs"
                             placeholder="e.g. Reduced latency by 45%"
                           />
                           <button
@@ -1376,16 +1373,16 @@ export default function CandidateDetailsPage() {
             
             {/* Pipeline Stage Selector */}
             {(isPrivileged || role === 'recruiter') && (
-              <section className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+              <section className="crm-card p-6">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                  <Layers size={14} className="text-indigo-500" /> Pipeline Stage
+                  <Layers size={14} className="text-[var(--primary-gold)]" /> Pipeline Stage
                 </h3>
                 <div className="space-y-3">
                   <div className="relative">
                     <select 
                       value={assignedStage}
                       onChange={(e) => setAssignedStage(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl pl-4 pr-10 py-2.5 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] appearance-none cursor-pointer font-bold"
+                      className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl pl-4 pr-10 py-2.5 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] appearance-none cursor-pointer font-bold"
                     >
                       {STAGES_LIST.map((stage) => (
                         <option key={stage.id} value={stage.id}>{stage.label} ({stage.parentLabel})</option>
@@ -1396,7 +1393,7 @@ export default function CandidateDetailsPage() {
                   <button 
                     onClick={handleUpdateStage}
                     disabled={isSavingStage}
-                    className="w-full py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="crm-btn-gold w-full text-[10px]"
                   >
                     {isSavingStage ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />} 
                     Update Pipeline Stage
@@ -1407,16 +1404,16 @@ export default function CandidateDetailsPage() {
 
             {/* Recruiter Assignment Panel */}
             {isPrivileged && (
-              <section className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+              <section className="crm-card p-6">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                  <Users size={14} className="text-indigo-500" /> Recruiter Assignee
+                  <Users size={14} className="text-[var(--primary-gold)]" /> Recruiter Assignee
                 </h3>
                 <div className="space-y-3">
                   <div className="relative">
                     <select 
                       value={assignedTo}
                       onChange={(e) => setAssignedTo(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl pl-4 pr-10 py-2.5 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] appearance-none cursor-pointer font-bold"
+                      className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl pl-4 pr-10 py-2.5 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] appearance-none cursor-pointer font-bold"
                     >
                       <option value="">Unassigned</option>
                       {Object.entries(teamMembers).map(([id, name]) => (
@@ -1428,7 +1425,7 @@ export default function CandidateDetailsPage() {
                   <button 
                     onClick={handleUpdateAssignee}
                     disabled={isSavingAssignee}
-                    className="w-full py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="crm-btn-gold w-full text-[10px]"
                   >
                     {isSavingAssignee ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />} 
                     Update Assignee
@@ -1439,16 +1436,16 @@ export default function CandidateDetailsPage() {
 
             {/* Client Assignment Panel */}
             {(isPrivileged || role === 'recruiter') && (
-              <section className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+              <section className="crm-card p-6">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                  <Briefcase size={14} className="text-indigo-500" /> Client Assignment
+                  <Briefcase size={14} className="text-[var(--primary-gold)]" /> Client Assignment
                 </h3>
                 <div className="space-y-3">
                   <div className="relative">
                     <select 
                       value={assignedClientId}
                       onChange={(e) => setAssignedClientId(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl pl-4 pr-10 py-2.5 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] appearance-none cursor-pointer font-bold"
+                      className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl pl-4 pr-10 py-2.5 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] appearance-none cursor-pointer font-bold"
                     >
                       <option value="">No Client Assigned</option>
                       {fullTeamList.filter(u => u.role === 'client').map((client) => (
@@ -1460,7 +1457,7 @@ export default function CandidateDetailsPage() {
                   <button 
                     onClick={handleUpdateClient}
                     disabled={isSavingClient}
-                    className="w-full py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="crm-btn-gold w-full text-[10px]"
                   >
                     {isSavingClient ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />} 
                     Assign Client
@@ -1470,23 +1467,23 @@ export default function CandidateDetailsPage() {
             )}
 
             {/* Skills Profile */}
-            <section className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+            <section className="crm-card p-6">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                <Code size={14} className="text-indigo-500" /> Skills Profile
+                <Code size={14} className="text-[var(--primary-gold)]" /> Skills Profile
               </h3>
               {isEditing && role === 'developer' ? (
                 <div className="flex flex-col gap-1.5">
                   <textarea
                     value={editedSkills.join(', ')}
                     onChange={(e) => setEditedSkills(e.target.value.split(',').map(s => s.trim()))}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold h-24"
+                    className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold h-24"
                     placeholder="e.g. React, TypeScript, Node.js"
                   />
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-1.5 max-h-[160px] overflow-y-auto pr-1">
                   {skills.map((skill: string) => (
-                    <span key={skill} className="px-2.5 py-1 bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)]/70 text-[var(--text-secondary)] rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                    <span key={skill} className="px-2.5 py-1 bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-secondary)] rounded-lg text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
                       {skill}
                     </span>
                   ))}
@@ -1498,9 +1495,9 @@ export default function CandidateDetailsPage() {
             </section>
 
             {/* Direct Contact info */}
-            <section className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+            <section className="crm-card p-6">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                <Mail size={14} className="text-indigo-500" /> Contact Channels
+                <Mail size={14} className="text-[var(--primary-gold)]" /> Contact Channels
               </h3>
               <div className="space-y-3">
                 {isEditing && role === 'developer' ? (
@@ -1511,7 +1508,7 @@ export default function CandidateDetailsPage() {
                         type="email"
                         value={editedEmail}
                         onChange={(e) => setEditedEmail(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                        className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
@@ -1520,25 +1517,25 @@ export default function CandidateDetailsPage() {
                         type="text"
                         value={editedPhone}
                         onChange={(e) => setEditedPhone(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                        className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                       />
                     </div>
                   </div>
                 ) : (
                   <>
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 border border-[var(--border-color)] rounded-xl">
-                      <Mail className="text-indigo-500 shrink-0" size={14} />
+                    <div className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
+                      <Mail className="text-[var(--primary-gold)] shrink-0" size={14} />
                       <p className="text-xs font-bold text-[var(--text-secondary)] truncate select-all">{candidate.email}</p>
                     </div>
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 border border-[var(--border-color)] rounded-xl">
-                      <Phone className="text-indigo-500 shrink-0" size={14} />
+                    <div className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
+                      <Phone className="text-[var(--primary-gold)] shrink-0" size={14} />
                       <p className="text-xs font-bold text-[var(--text-secondary)] select-all">{candidate.phone || 'N/A'}</p>
                     </div>
                   </>
                 )}
                 
-                <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 border border-[var(--border-color)] rounded-xl">
-                  <MapPin className="text-indigo-500 shrink-0" size={14} />
+                <div className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
+                  <MapPin className="text-[var(--primary-gold)] shrink-0" size={14} />
                   <p className="text-xs font-bold text-[var(--text-secondary)] truncate">
                     { (candidate.locationInfo && (candidate.locationInfo.city || candidate.locationInfo.state)) ? 
                       `${candidate.locationInfo.city ? candidate.locationInfo.city + ', ' : ''}${candidate.locationInfo.state || ''}${candidate.locationInfo.country ? ', ' + candidate.locationInfo.country : ''}` 
@@ -1547,20 +1544,20 @@ export default function CandidateDetailsPage() {
                 </div>
 
                 {!isEditing && candidate.links?.map((link: any, i: number) => (
-                  <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100/30 rounded-xl transition-all hover:scale-[1.01]">
-                    <div className="text-indigo-500 shrink-0">
+                  <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl transition-all hover:scale-[1.01]">
+                    <div className="text-[var(--primary-gold)] shrink-0">
                       {getLinkIcon(link.label || 'Link')}
                     </div>
-                    <p className="text-xs font-black text-indigo-600 dark:text-indigo-400 truncate uppercase tracking-wider">{link.label || 'Reference Link'}</p>
+                    <p className="text-xs font-black text-[var(--primary-gold)] truncate uppercase tracking-wider">{link.label || 'Reference Link'}</p>
                   </a>
                 ))}
               </div>
             </section>
 
             {/* Geographic Details Customizer */}
-            <section className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+            <section className="crm-card p-6">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                <MapPin size={14} className="text-indigo-500" /> Geographic profile
+                <MapPin size={14} className="text-[var(--primary-gold)]" /> Geographic profile
               </h3>
               <div className="space-y-3">
                 <div>
@@ -1570,7 +1567,7 @@ export default function CandidateDetailsPage() {
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     placeholder="e.g. San Francisco"
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                    className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -1581,7 +1578,7 @@ export default function CandidateDetailsPage() {
                       value={state}
                       onChange={(e) => setState(e.target.value)}
                       placeholder="e.g. CA"
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                      className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                     />
                   </div>
                   <div>
@@ -1591,7 +1588,7 @@ export default function CandidateDetailsPage() {
                       value={postalCode}
                       onChange={(e) => setPostalCode(e.target.value)}
                       placeholder="e.g. 94105"
-                      className="w-full bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                      className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                     />
                   </div>
                 </div>
@@ -1602,13 +1599,13 @@ export default function CandidateDetailsPage() {
                     value={country}
                     onChange={(e) => setCountry(e.target.value)}
                     placeholder="e.g. United States"
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                    className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                   />
                 </div>
                 <button
                   onClick={handleSaveLocation}
                   disabled={isSavingLoc}
-                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-1"
+                  className="crm-btn-gold w-full text-[10px] mt-1"
                 >
                   {isSavingLoc ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />}
                   Save Location
@@ -1617,43 +1614,43 @@ export default function CandidateDetailsPage() {
             </section>
 
             {/* Follow-Up Scheduler */}
-            <section className="bg-indigo-50/50 dark:bg-indigo-950/20 p-6 rounded-[2rem] border border-indigo-100/40 dark:border-indigo-900/40 shadow-sm">
+            <section className="crm-card p-6">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-400 flex items-center gap-2">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--primary-gold)] flex items-center gap-2">
                   <Clock size={14} /> Follow-Up Scheduler
                 </h3>
                 {candidate.followUpUpdatedBy && (
-                  <span className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-100/30 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded-md">
+                  <span className="text-[9px] font-black text-[var(--primary-gold)] uppercase tracking-widest bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded-md border border-[var(--border-color)]">
                     By: {teamMembers?.[candidate.followUpUpdatedBy] || 'Sourcing'}
                   </span>
                 )}
               </div>
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black uppercase text-indigo-800 dark:text-indigo-300 ml-1">Next reminder date</label>
+                  <label className="text-[9px] font-black uppercase text-[var(--text-muted)] ml-1">Next reminder date</label>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-2.5 text-indigo-600 dark:text-indigo-400" size={13} />
+                    <Calendar className="absolute left-3 top-2.5 text-[var(--primary-gold)]" size={13} />
                     <input 
                       type="datetime-local" 
                       value={followUpDate}
                       onChange={(e) => setFollowUpDate(e.target.value)}
-                      className="w-full bg-white dark:bg-indigo-900 border border-indigo-200/50 rounded-xl pl-9 pr-4 py-2 text-xs focus:ring-1 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 font-bold"
+                      className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl pl-9 pr-4 py-2 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                     />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[9px] font-black uppercase text-indigo-800 dark:text-indigo-300 ml-1">Task notes / Reminders</label>
+                  <label className="text-[9px] font-black uppercase text-[var(--text-muted)] ml-1">Task notes / Reminders</label>
                   <textarea 
                     value={followUpNote}
                     onChange={(e) => setFollowUpNote(e.target.value)}
                     placeholder="e.g. Discussed experience gap..."
-                    className="w-full bg-white dark:bg-indigo-900 border border-indigo-200/50 rounded-xl px-4 py-2 text-xs h-24 focus:ring-1 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 font-medium"
+                    className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-4 py-2 text-xs h-24 focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-medium"
                   />
                 </div>
                 <button 
                   onClick={handleSaveFollowUp}
                   disabled={isSaving}
-                  className="w-full py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  className="crm-btn-gold w-full text-[10px]"
                 >
                   {isSaving ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />} 
                   Update Follow-Up
@@ -1661,7 +1658,7 @@ export default function CandidateDetailsPage() {
                 <button 
                   onClick={handleCompleteFollowUp}
                   disabled={isCompleting}
-                  className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5"
+                  className="crm-btn-secondary w-full text-[10px]"
                 >
                   {isCompleting ? <Loader2 className="animate-spin" size={12} /> : <CheckCircle2 size={12} />} 
                   Mark Completed
@@ -1669,8 +1666,8 @@ export default function CandidateDetailsPage() {
               </div>
 
               {/* Scheduler Logs */}
-              <div className="mt-5 pt-4 border-t border-indigo-200/40 dark:border-indigo-900/40">
-                <h4 className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-400 mb-3 flex items-center gap-1.5">
+              <div className="mt-5 pt-4 border-t border-[var(--border-color)]">
+                <h4 className="text-[10px] font-black uppercase tracking-widest text-[var(--primary-gold)] mb-3 flex items-center gap-1.5">
                   <StickyNote size={11} /> Scheduler Logs
                 </h4>
                 {candidate.internalNotesLog && candidate.internalNotesLog.filter((log: any) => log.type === 'follow_up' || log.type === 'follow_up_completed' || log.noteContent?.includes('⏰') || log.noteContent?.includes('✅')).length > 0 ? (
@@ -1680,52 +1677,52 @@ export default function CandidateDetailsPage() {
                       .slice()
                       .reverse()
                       .map((log: any, i: number) => (
-                        <div key={i} className="text-[10px] text-slate-700 dark:text-indigo-200 space-y-1 bg-white/40 dark:bg-indigo-900/20 p-2.5 rounded-xl border border-indigo-200/20 dark:border-indigo-900/20">
+                        <div key={i} className="text-[10px] text-[var(--text-secondary)] space-y-1 bg-[var(--bg-secondary)] p-2.5 rounded-xl border border-[var(--border-color)]">
                           <div className="flex justify-between items-center text-[8px]">
-                            <span className="font-bold text-indigo-600">{log.author}</span>
-                            <span className="text-slate-400 font-mono">{new Date(log.timestamp).toLocaleString()}</span>
+                            <span className="font-bold text-[var(--primary-gold)]">{log.author}</span>
+                            <span className="text-[var(--text-muted)] font-mono">{new Date(log.timestamp).toLocaleString()}</span>
                           </div>
                           <p className="text-[10px] leading-relaxed font-medium">{log.noteContent}</p>
                         </div>
                       ))}
                   </div>
                 ) : (
-                  <p className="text-[10px] text-indigo-400/50 italic font-medium">No reminder history logged.</p>
+                  <p className="text-[10px] text-[var(--text-muted)] italic font-medium">No reminder history logged.</p>
                 )}
               </div>
             </section>
 
             {/* Recruiter Notes / Comments */}
-            <section className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+            <section className="crm-card p-6">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                <StickyNote size={14} className="text-indigo-500" /> Recruiter Notes
+                <StickyNote size={14} className="text-[var(--primary-gold)]" /> Recruiter Notes
               </h3>
               <div className="space-y-3">
                 <textarea 
                   value={generalNotes}
                   onChange={(e) => setGeneralNotes(e.target.value)}
                   placeholder="Type a new feedback comment or recruiter assessment..."
-                  className="w-full bg-slate-50 dark:bg-slate-850 border border-[var(--border-color)] rounded-2xl p-4 text-xs h-24 focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] font-medium"
+                  className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl p-4 text-xs h-24 focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] font-medium"
                 />
                 <button 
                   onClick={handleSaveNotes}
                   disabled={isSavingNotes}
-                  className="w-full py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  className="crm-btn-gold w-full text-[10px]"
                 >
                   {isSavingNotes ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />} 
                   Add Note
                 </button>
               </div>
-              <div className="mt-5 space-y-3 pt-4 border-t border-[var(--border-color)]/70 max-h-[300px] overflow-y-auto pr-1">
+              <div className="mt-5 space-y-3 pt-4 border-t border-[var(--border-color)] max-h-[300px] overflow-y-auto pr-1">
                 {candidate.internalNotesLog && candidate.internalNotesLog.filter((log: any) => !(log.type === 'follow_up' || log.type === 'follow_up_completed' || log.noteContent?.includes('⏰') || log.noteContent?.includes('✅'))).length > 0 ? (
                   candidate.internalNotesLog
                     .filter((log: any) => !(log.type === 'follow_up' || log.type === 'follow_up_completed' || log.noteContent?.includes('⏰') || log.noteContent?.includes('✅')))
                     .slice()
                     .reverse()
                     .map((log: any, i: number) => (
-                      <div key={i} className="text-[10px] text-[var(--text-secondary)] space-y-1 p-3 rounded-xl border bg-slate-50 dark:bg-slate-800/50 border-[var(--border-color)]">
+                      <div key={i} className="text-[10px] text-[var(--text-secondary)] space-y-1 p-3 rounded-xl border bg-[var(--bg-secondary)] border-[var(--border-color)]">
                         <div className="flex justify-between items-center">
-                          <span className="font-extrabold text-indigo-500">{log.author}</span>
+                          <span className="font-extrabold text-[var(--primary-gold)]">{log.author}</span>
                           <span className="text-[var(--text-muted)] font-mono text-[8px]">{new Date(log.timestamp).toLocaleString()}</span>
                         </div>
                         <p className="leading-relaxed font-medium select-text">{log.noteContent}</p>
@@ -1738,27 +1735,27 @@ export default function CandidateDetailsPage() {
             </section>
 
             {/* Candidate Metadata profile audit logs */}
-            <section className="bg-white dark:bg-slate-900 p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm text-xs font-bold">
+            <section className="crm-card p-6 text-xs font-bold">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4">Metadata Audit Logs</h3>
               <div className="space-y-3">
-                <div className="flex justify-between items-center border-b border-[var(--border-color)]/50 pb-2">
+                <div className="flex justify-between items-center border-b border-[var(--border-color)] pb-2">
                   <span className="text-[var(--text-muted)]">Indexed on</span>
                   <span className="font-mono text-[var(--text-secondary)]">{formatDate(candidate.createdAt)}</span>
                 </div>
                 {candidate.uploadedBy && candidate.uploadedBy !== user?.uid && (
-                  <div className="flex justify-between items-center border-b border-[var(--border-color)]/50 pb-2">
+                  <div className="flex justify-between items-center border-b border-[var(--border-color)] pb-2">
                     <span className="text-[var(--text-muted)]">Uploaded by</span>
-                    <span className="text-indigo-500 font-black uppercase text-[10px] tracking-wider">
+                    <span className="text-[var(--primary-gold)] font-black uppercase text-[10px] tracking-wider">
                       {teamMembers?.[candidate.uploadedBy] || 'AI Sourcing'}
                     </span>
                   </div>
                 )}
                 {candidate.assignedTo && (
-                  <div className="flex justify-between items-center border-b border-[var(--border-color)]/50 pb-2">
+                  <div className="flex justify-between items-center border-b border-[var(--border-color)] pb-2">
                     <span className="text-[var(--text-muted)]">
                       {isPrivileged ? 'Assigned recruiter' : 'Assigned manager'}
                     </span>
-                    <span className="font-black text-indigo-500 dark:text-indigo-400 uppercase tracking-wide">
+                    <span className="font-black text-[var(--primary-gold)] uppercase tracking-wide">
                       {isPrivileged 
                         ? `${teamMembers?.[candidate.assignedTo] || 'Recruiter'}` 
                         : `${teamMembers?.[candidate.assignedBy] || 'Admin'}`}

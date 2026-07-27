@@ -64,25 +64,29 @@ export class ResumeParserService {
   }
 
   private async fillMissingFieldsWithGemini(text: string, currentJson: JSONResumeData, missingFields: string[]): Promise<JSONResumeData> {
-      const prompt = `
-        The following resume data is incomplete. Please fill in ONLY the missing fields specified below, based on the provided resume text.
-        Missing fields: ${missingFields.join(", ")}
-        
-        Current JSON:
-        ${JSON.stringify(currentJson)}
-        
-        Resume text:
-        ${text.slice(0, 30000)}
-        
-        Respond ONLY in the same JSON format.
-      `;
-      const response = await this.genAI!.models.generateContent({
-          model: "gemini-3-flash-preview",
-          contents: prompt,
-      });
-      const resultText = response.text;
-      if (!resultText) return currentJson;
-      return { ...currentJson, ...JSON.parse(resultText) };
+      try {
+        const prompt = `
+          The following resume data is incomplete. Please fill in ONLY the missing fields specified below, based on the provided resume text.
+          Missing fields: ${missingFields.join(", ")}
+          
+          Current JSON:
+          ${JSON.stringify(currentJson)}
+          
+          Resume text:
+          ${text.slice(0, 30000)}
+          
+          Respond ONLY in the same JSON format.
+        `;
+        const response = await this.genAI!.models.generateContent({
+            model: "gemini-3.5-flash",
+            contents: prompt,
+        });
+        const resultText = response.text;
+        if (!resultText) return currentJson;
+        return { ...currentJson, ...JSON.parse(resultText) };
+      } catch (err) {
+        return currentJson;
+      }
   }
 
   /**

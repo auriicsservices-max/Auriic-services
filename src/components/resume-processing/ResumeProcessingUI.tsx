@@ -31,37 +31,37 @@ export const ResumeProcessingUI: React.FC<Props> = ({ jobs, onClose }) => {
       <motion.div 
         initial={{ scale: 0.95, opacity: 0 }}
         animate={{ scale: 1, opacity: 1 }}
-        className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-xl border border-white/20 dark:border-slate-800 rounded-3xl p-8 w-full max-w-4xl shadow-2xl relative"
+        className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-[var(--radius-modal)] p-8 w-full max-w-4xl shadow-2xl relative"
       >
-        <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors"><X size={20}/></button>
+        <button onClick={onClose} className="absolute top-6 right-6 p-2 rounded-full text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-primary)] transition-colors"><X size={20}/></button>
         
-        <h2 className="text-2xl font-bold mb-8 text-slate-900 dark:text-white">Resume Processing</h2>
+        <h2 className="text-2xl font-bold mb-8 text-[var(--text-primary)]">Resume Processing</h2>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto max-h-[60vh]">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6 overflow-y-auto max-h-[60vh] custom-scrollbar">
           {jobs.map((job) => (
-            <div key={job.id} className="bg-slate-50/50 dark:bg-slate-800/50 rounded-2xl p-6 border border-slate-200 dark:border-slate-700">
+            <div key={job.id} className="bg-[var(--bg-primary)] rounded-2xl p-6 border border-[var(--border-color)]">
                 <div className="flex justify-between items-start mb-4">
                     <div className="flex items-center gap-3">
-                        <FileText className="text-indigo-500" />
-                        <span className="font-semibold text-slate-900 dark:text-white truncate max-w-[150px]">{job.filename}</span>
+                        <FileText className="text-[var(--primary-gold)]" />
+                        <span className="font-semibold text-[var(--text-primary)] truncate max-w-[150px]">{job.filename}</span>
                     </div>
-                    <span className="text-2xl font-bold text-slate-900 dark:text-white">{Math.round(job.progress)}%</span>
+                    <span className="text-2xl font-bold text-[var(--text-primary)]">{Math.round(job.progress)}%</span>
                 </div>
                 
-                <div className="w-full bg-slate-200 dark:bg-slate-700 rounded-full h-2 mb-4">
+                <div className="w-full bg-[var(--bg-tertiary)] rounded-full h-2 mb-4 overflow-hidden">
                     <motion.div 
-                        className="bg-gradient-to-r from-indigo-500 to-purple-500 h-2 rounded-full"
+                        className="bg-[var(--gold-gradient)] h-2 rounded-full"
                         initial={{ width: 0 }}
                         animate={{ width: `${job.progress}%` }}
                         transition={{ duration: 0.5 }}
                     />
                 </div>
                 
-                <div className="flex items-center gap-2 text-sm text-slate-600 dark:text-slate-400 mb-2">
-                    <Loader2 className="animate-spin" size={14}/>
+                <div className="flex items-center gap-2 text-sm text-[var(--text-muted)] mb-2">
+                    <Loader2 className="animate-spin text-[var(--accent-color)]" size={14}/>
                     {job.currentStep || 'Initializing...'}
                 </div>
-                <div className="flex items-center gap-2 text-xs text-slate-500">
+                <div className="flex items-center gap-2 text-xs text-[var(--text-muted)]">
                     <Clock size={12}/>
                     ETA: {job.estimatedTimeRemaining}s
                 </div>

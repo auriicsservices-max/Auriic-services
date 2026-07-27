@@ -38,11 +38,12 @@ export default function ConfirmModal({
           bg: 'bg-amber-50 dark:bg-amber-900/20',
           button: 'bg-amber-600 hover:bg-amber-700 text-white'
         };
+      case 'info':
       default:
         return {
-          icon: <AlertTriangle className="text-indigo-600" size={24} />,
-          bg: 'bg-indigo-50 dark:bg-indigo-900/20',
-          button: 'bg-indigo-600 hover:bg-indigo-700 text-white'
+          icon: <AlertTriangle className="text-[var(--primary-gold)]" size={24} />,
+          bg: 'bg-[var(--bg-secondary)]',
+          button: 'crm-btn-gold'
         };
     }
   };
@@ -50,14 +51,14 @@ export default function ConfirmModal({
   const styles = getVariantStyles();
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-[var(--bg-primary)] text-[var(--text-primary)] w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 transition-colors duration-300">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm animate-in fade-in duration-200">
+      <div className="bg-[var(--card-bg)] border border-[var(--border-color)] text-[var(--text-primary)] w-full max-w-md rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300 transition-colors duration-300">
         <div className="p-8">
           <div className="flex justify-between items-start mb-6">
-            <div className={`w-12 h-12 ${styles.bg} rounded-2xl flex items-center justify-center mb-4`}>
+            <div className={`w-12 h-12 ${styles.bg} border border-[var(--border-color)] rounded-2xl flex items-center justify-center mb-4`}>
               {styles.icon}
             </div>
-            <button onClick={onCancel} className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--sidebar-bg)] rounded-full transition-all">
+            <button onClick={onCancel} className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded-full transition-all">
               <X size={20} />
             </button>
           </div>
@@ -70,7 +71,7 @@ export default function ConfirmModal({
           <div className="flex gap-3">
             <button 
               onClick={onCancel}
-              className="flex-1 py-3 bg-[var(--bg-primary)] text-[var(--text-secondary)] rounded-2xl text-xs font-bold uppercase tracking-widest hover:bg-[var(--sidebar-bg)] transition-all border border-[var(--border-color)]"
+              className="crm-btn-secondary flex-1 text-xs"
             >
               {cancelText}
             </button>
@@ -79,7 +80,7 @@ export default function ConfirmModal({
                 onConfirm();
                 onCancel();
               }}
-              className={`flex-1 py-3 ${styles.button} rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg shadow-indigo-100 dark:shadow-none transition-all active:scale-95`}
+              className={`flex-1 ${styles.button} rounded-2xl text-xs font-bold uppercase tracking-widest shadow-lg transition-all active:scale-95 py-3`}
             >
               {confirmText}
             </button>

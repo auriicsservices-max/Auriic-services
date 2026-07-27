@@ -39,7 +39,7 @@ export const ClientInvoiceGenerator = ({ clientId, clientName, candidates }: { c
     <button
       onClick={generateInvoice}
       disabled={loading}
-      className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition font-black text-xs uppercase tracking-widest disabled:opacity-50"
+      className="crm-btn-gold flex items-center gap-2 text-xs uppercase tracking-widest disabled:opacity-50"
     >
       {loading ? <Loader2 className="animate-spin" size={16} /> : <FileText size={16} />}
       Generate Consolidated Invoice

@@ -59,32 +59,35 @@ export default function BulkUpload({ onUpload, isProcessing }: BulkUploadProps) 
         {...getRootProps()}
         className={`relative group border-2 border-dashed rounded-[2rem] p-12 flex flex-col items-center justify-center gap-4 transition-all cursor-pointer ${
           isDragActive 
-            ? 'border-indigo-500 bg-indigo-500/5' 
-            : 'border-[var(--border-color)] bg-[var(--card-bg)] hover:border-indigo-500/50 hover:bg-[var(--bg-secondary)]'
+            ? 'border-[var(--primary-gold)] bg-[var(--bg-secondary)] ring-4 ring-[var(--primary-gold)]/20' 
+            : 'border-[var(--border-color)] bg-[var(--card-bg)] hover:border-[var(--primary-gold)] hover:bg-[var(--card-hover-bg)] shadow-sm'
         }`}
       >
         <input {...getInputProps()} />
-        <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${isDragActive ? 'bg-indigo-500/20' : 'bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)]'}`}>
-          <Upload className={`w-10 h-10 ${isDragActive ? 'text-indigo-400' : 'text-[var(--text-muted)]'}`} />
+        <div className={`w-20 h-20 rounded-full flex items-center justify-center transition-all ${isDragActive ? 'bg-[var(--primary-gold)]/20 text-[var(--primary-gold)]' : 'bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--primary-gold)] shadow-sm'}`}>
+          <Upload className={`w-10 h-10 ${isDragActive ? 'text-[var(--primary-gold)]' : 'text-[var(--text-muted)] group-hover:text-[var(--primary-gold)] transition-colors'}`} />
         </div>
         <div className="text-center">
             <h3 className="text-lg font-bold text-[var(--text-primary)] mb-1">Click or drag files here</h3>
-            <p className="text-xs text-[var(--text-muted)]">Support for PDF, DOCX, TXT • Max size 1MB per file</p>
+            <p className="text-xs text-[var(--text-muted)] font-medium">Support for PDF, DOCX, TXT • Max size 1MB per file</p>
         </div>
       </div>
 
       {isProcessing && (
-          <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-3xl p-6 flex items-center justify-between">
+          <div className="crm-card p-6 flex items-center justify-between shadow-sm">
               <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-slate-500/10 flex items-center justify-center text-slate-500 animate-pulse">
+                  <div className="w-12 h-12 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-center text-[var(--primary-gold)] animate-pulse shadow-sm">
                       <FileText size={24} />
                   </div>
                   <div>
                       <h4 className="font-bold text-[var(--text-primary)]">Parsing CVs</h4>
-                      <p className="text-xs text-[var(--text-muted)]">Our AI is extracting candidate data...</p>
+                      <p className="text-xs text-[var(--text-muted)] font-medium">Our AI is extracting candidate data...</p>
                   </div>
               </div>
-              <div className="text-slate-500 font-black text-xl">Processing...</div>
+              <div className="text-[var(--primary-gold)] font-black text-sm uppercase tracking-wider flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-full bg-[var(--primary-gold)] animate-ping" />
+                Processing...
+              </div>
           </div>
       )}
 

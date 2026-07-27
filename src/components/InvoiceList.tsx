@@ -621,26 +621,26 @@ export const InvoiceList = () => {
   return (
     <div className="flex-1 max-w-7xl mx-auto space-y-6">
       {/* Header with quick statistics and active tab triggers */}
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-100 dark:border-slate-800 shadow-sm">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 crm-card p-6">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <div className="p-2 bg-indigo-50 dark:bg-indigo-950/40 rounded-xl text-indigo-600 dark:text-indigo-400">
+            <div className="p-2 bg-[var(--bg-secondary)] rounded-xl text-[var(--primary-gold)] border border-[var(--border-color)]">
               <FileText className="w-5 h-5" />
             </div>
-            <h2 className="text-xl font-bold text-slate-800 dark:text-slate-100">Combined & Bulk Candidate Billing</h2>
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">Combined & Bulk Candidate Billing</h2>
           </div>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
+          <p className="text-xs text-[var(--text-muted)]">
             Generate and manage consolidated bills for contract-to-hire, bulk hires, and placement agreements.
           </p>
         </div>
 
-        <div className="flex bg-slate-100 dark:bg-slate-800 p-1.5 rounded-2xl border border-slate-200/50 dark:border-slate-700/50">
+        <div className="flex bg-[var(--bg-secondary)] p-1.5 rounded-2xl border border-[var(--border-color)]">
           <button
             onClick={() => setActiveTab('history')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-tight transition-all duration-300 ${
               activeTab === 'history'
-                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                ? 'crm-btn-gold text-white shadow-sm'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
             }`}
           >
             <FileText className="w-4 h-4" />
@@ -651,13 +651,13 @@ export const InvoiceList = () => {
             onClick={() => setActiveTab('builder')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-tight transition-all duration-300 ${
               activeTab === 'builder'
-                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+                ? 'crm-btn-gold text-white shadow-sm'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
             }`}
           >
             {editingInvoiceId ? (
               <>
-                <Pencil className="w-4 h-4 text-amber-500" />
+                <Pencil className="w-4 h-4 text-[var(--primary-gold)]" />
                 Edit Combined Bill
               </>
             ) : (
@@ -671,21 +671,21 @@ export const InvoiceList = () => {
       </div>
 
       {activeTab === 'history' ? (
-        <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-sm overflow-hidden">
-          <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-slate-50/50 dark:bg-slate-800/20">
+        <div className="crm-card p-0 overflow-hidden">
+          <div className="p-6 border-b border-[var(--border-color)] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[var(--bg-primary)]">
             <div>
-              <span className="text-xs font-black uppercase text-slate-400 tracking-wider">All Consolidated Invoices</span>
-              <p className="text-[10px] text-slate-500 mt-0.5">Filter, search, print, or manage billing statements.</p>
+              <span className="text-xs font-bold uppercase text-[var(--text-muted)] tracking-wider">All Consolidated Invoices</span>
+              <p className="text-xs text-[var(--text-primary)] mt-0.5">Filter, search, print, or manage billing statements.</p>
             </div>
-            <span className="text-xs text-indigo-600 font-bold bg-indigo-50 dark:bg-indigo-950/30 px-3 py-1.5 rounded-full">
+            <span className="crm-badge-gold text-xs px-3.5 py-1.5">
               Total Statement Amount: ${invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
             </span>
           </div>
 
           {invoices.length > 0 && (
-            <div className="p-4 bg-slate-50/50 dark:bg-slate-800/10 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row gap-3 items-center justify-between">
-              <div className="relative w-full md:max-w-md font-sans">
-                <span className="absolute left-3.5 top-2.5 text-slate-400">
+            <div className="p-4 bg-[var(--card-bg)] border-b border-[var(--border-color)] flex flex-col md:flex-row gap-3 items-center justify-between">
+              <div className="relative w-full md:max-w-md">
+                <span className="absolute left-3.5 top-2.5 text-[var(--text-muted)]">
                   <Search size={16} />
                 </span>
                 <input
@@ -693,28 +693,28 @@ export const InvoiceList = () => {
                   placeholder="Search by invoice #, client name, or candidate..."
                   value={searchInvoiceQuery}
                   onChange={(e) => setSearchInvoiceQuery(e.target.value)}
-                  className="w-full pl-9 pr-8 py-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl text-xs text-slate-800 dark:text-slate-100 focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-slate-400"
+                  className="crm-input pl-9 pr-8"
                 />
                 {searchInvoiceQuery && (
                   <button 
                     onClick={() => setSearchInvoiceQuery('')}
-                    className="absolute right-3 top-2.5 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200"
+                    className="absolute right-3 top-2.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                   >
                     <X size={14} />
                   </button>
                 )}
               </div>
 
-              <div className="flex gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0 font-sans">
+              <div className="flex gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
                 {['all', 'Draft', 'Sent', 'Paid', 'Overdue'].map((status) => (
                   <button
                     key={status}
                     type="button"
                     onClick={() => setFilterInvoiceStatus(status)}
-                    className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition shrink-0 ${
+                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition shrink-0 cursor-pointer ${
                       filterInvoiceStatus === status
-                        ? 'bg-indigo-600 text-white shadow-sm'
-                        : 'bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700'
+                        ? 'crm-btn-gold text-white shadow-sm'
+                        : 'crm-btn-secondary text-xs'
                     }`}
                   >
                     {status}
@@ -726,79 +726,79 @@ export const InvoiceList = () => {
 
           {invoices.length === 0 ? (
             <div className="flex flex-col items-center justify-center p-16 text-center font-sans">
-              <div className="w-16 h-16 bg-slate-50 dark:bg-slate-800 rounded-3xl flex items-center justify-center text-slate-400 dark:text-slate-500 mb-4 border border-slate-100 dark:border-slate-700">
+              <div className="w-16 h-16 bg-[var(--bg-primary)] rounded-3xl flex items-center justify-center text-[var(--primary-gold)] mb-4 border border-[var(--border-color)]">
                 <FileText className="w-8 h-8" />
               </div>
-              <h3 className="font-bold text-slate-800 dark:text-slate-200">No consolidated invoices yet</h3>
-              <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 max-w-sm">
+              <h3 className="font-bold text-[var(--text-primary)] text-lg">No consolidated invoices yet</h3>
+              <p className="text-sm text-[var(--text-primary)] mt-1 max-w-sm">
                 Create your first combined bill for a company's hired candidates, contract-to-hire, or permanent placement contract.
               </p>
               <button
                 onClick={() => setActiveTab('builder')}
-                className="mt-6 flex items-center gap-2 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-extrabold tracking-tight transition"
+                className="mt-6 crm-btn-gold"
               >
                 <Plus className="w-4 h-4" /> Build Combined Invoice
               </button>
             </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse">
+            <div className="crm-table-container border-0 rounded-none">
+              <table className="crm-table">
                 <thead>
-                  <tr className="border-b border-slate-100 dark:border-slate-800">
-                    <th className="p-4 pl-6 text-xs font-black uppercase text-slate-400 tracking-wider">Invoice #</th>
-                    <th className="p-4 text-xs font-black uppercase text-slate-400 tracking-wider">Client / Company</th>
-                    <th className="p-4 text-xs font-black uppercase text-slate-400 tracking-wider">Candidates</th>
-                    <th className="p-4 text-xs font-black uppercase text-slate-400 tracking-wider">Total Amount</th>
-                    <th className="p-4 text-xs font-black uppercase text-slate-400 tracking-wider">Due Date</th>
-                    <th className="p-4 text-xs font-black uppercase text-slate-400 tracking-wider text-center">Status</th>
-                    <th className="p-4 pr-6 text-xs font-black uppercase text-slate-400 tracking-wider text-right">Actions</th>
+                  <tr>
+                    <th className="pl-6">Invoice #</th>
+                    <th>Client / Company</th>
+                    <th>Candidates</th>
+                    <th>Total Amount</th>
+                    <th>Due Date</th>
+                    <th className="text-center">Status</th>
+                    <th className="pr-6 text-right">Actions</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+                <tbody>
                   {filteredInvoices.length === 0 ? (
                     <tr>
-                      <td colSpan={7} className="p-16 text-center text-slate-500 font-sans">
-                        <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                        <p className="text-xs font-medium">No invoices match your search query or status filter.</p>
-                        <p className="text-[10px] text-slate-400 mt-1">Try resetting the invoice search or choosing a different status filter.</p>
+                      <td colSpan={7} className="p-16 text-center text-[var(--text-primary)] font-sans">
+                        <Users className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
+                        <p className="text-sm font-bold">No invoices match your search query or status filter.</p>
+                        <p className="text-xs text-[var(--text-muted)] mt-1">Try resetting the invoice search or choosing a different status filter.</p>
                       </td>
                     </tr>
                   ) : (
                     filteredInvoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                    <tr key={inv.id} className="hover:bg-[var(--card-hover-bg)] transition-colors">
                       <td className="p-4 pl-6">
-                        <span className="font-mono text-xs font-bold text-slate-800 dark:text-slate-200">{inv.invoiceNumber}</span>
+                        <span className="font-mono text-xs font-bold text-[var(--text-primary)]">{inv.invoiceNumber}</span>
                       </td>
                       <td className="p-4">
-                        <div className="font-bold text-slate-800 dark:text-slate-100 text-xs">{inv.clientName}</div>
-                        <div className="text-[10px] text-slate-400">{inv.paymentTerms || 'Net 30'}</div>
+                        <div className="font-bold text-[var(--text-primary)] text-xs">{inv.clientName}</div>
+                        <div className="text-[10px] text-[var(--text-muted)]">{inv.paymentTerms || 'Net 30'}</div>
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5 text-slate-400" />
-                          <span className="text-xs font-extrabold text-indigo-600 dark:text-indigo-400">{inv.candidates?.length || 0} Placements</span>
+                          <Users className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                          <span className="text-xs font-extrabold text-[var(--primary-gold)]">{inv.candidates?.length || 0} Placements</span>
                         </div>
-                        <div className="text-[10px] text-slate-400 truncate max-w-[200px]">
+                        <div className="text-[10px] text-[var(--text-muted)] truncate max-w-[200px]">
                           {inv.candidates?.map((c: any) => c.candidateName).join(', ')}
                         </div>
                       </td>
                       <td className="p-4">
-                        <span className="font-mono text-xs font-black text-slate-800 dark:text-slate-100">
+                        <span className="font-mono text-xs font-black text-[var(--text-primary)]">
                           ${inv.totalAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </span>
                       </td>
                       <td className="p-4">
-                        <span className="text-xs text-slate-600 dark:text-slate-300">
+                        <span className="text-xs text-[var(--text-secondary)]">
                           {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : 'N/A'}
                         </span>
                       </td>
                       <td className="p-4 text-center">
-                        <span className={`inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider ${
-                          inv.status === 'Paid' ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-800 dark:text-emerald-400' :
-                          inv.status === 'Sent' ? 'bg-blue-100 dark:bg-blue-950/50 text-blue-800 dark:text-blue-400' :
-                          inv.status === 'Overdue' ? 'bg-red-100 dark:bg-red-950/50 text-red-800 dark:text-red-400' :
-                          'bg-amber-100 dark:bg-amber-950/50 text-amber-800 dark:text-amber-400'
-                        }`}>
+                        <span className={
+                          inv.status === 'Paid' ? 'crm-badge-success text-[10px] uppercase' :
+                          inv.status === 'Sent' ? 'crm-badge-info text-[10px] uppercase' :
+                          inv.status === 'Overdue' ? 'crm-badge-error text-[10px] uppercase' :
+                          'crm-badge-warning text-[10px] uppercase'
+                        }>
                           {inv.status}
                         </span>
                       </td>
@@ -806,7 +806,7 @@ export const InvoiceList = () => {
                         <div className="flex justify-end gap-2">
                           <button
                             onClick={() => setViewingInvoice(inv)}
-                            className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-600 dark:text-slate-300 transition"
+                            className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
                             title="View statement & print"
                           >
                             <Eye className="w-4 h-4" />
@@ -814,7 +814,7 @@ export const InvoiceList = () => {
                           
                           <button
                             onClick={() => handlePrintInvoice(inv)}
-                            className="p-1.5 hover:bg-indigo-50 dark:hover:bg-indigo-950 rounded-lg text-indigo-600 dark:text-indigo-400 transition"
+                            className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--primary-gold)] transition"
                             title="Direct print"
                           >
                             <Printer className="w-4 h-4" />
@@ -824,7 +824,7 @@ export const InvoiceList = () => {
                             <>
                               <button
                                 onClick={() => handleStartEditInvoice(inv)}
-                                className="p-1.5 hover:bg-amber-50 dark:hover:bg-amber-950 rounded-lg text-amber-600 dark:text-amber-400 transition"
+                                className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-amber-500 transition"
                                 title="Edit bill details"
                               >
                                 <Pencil className="w-4 h-4" />
@@ -832,7 +832,7 @@ export const InvoiceList = () => {
 
                               <button
                                 onClick={() => handleDeleteInvoice(inv.id)}
-                                className="p-1.5 hover:bg-rose-50 dark:hover:bg-rose-950 rounded-lg text-rose-600 dark:text-rose-400 transition"
+                                className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-rose-500 transition"
                                 title="Delete bill"
                               >
                                 <Trash2 className="w-4 h-4" />
@@ -872,25 +872,25 @@ export const InvoiceList = () => {
           )}
 
           {/* Builder Step 1 & 2: Client & Candidate Selection */}
-          <div className="lg:col-span-2 bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-6">
-            <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-4">
-              <Users className="w-5 h-5 text-indigo-600" />
+          <div className="lg:col-span-2 crm-card p-6 space-y-6">
+            <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-4">
+              <Users className="w-5 h-5 text-[var(--primary-gold)]" />
               <div>
-                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-sm">Select Client & Candidates</h3>
-                <p className="text-[10px] text-slate-400">Choose which company to bill and select the candidates placed or working.</p>
+                <h3 className="font-bold text-[var(--text-primary)] text-sm">Select Client & Candidates</h3>
+                <p className="text-[10px] text-[var(--text-muted)]">Choose which company to bill and select the candidates placed or working.</p>
               </div>
             </div>
 
             {/* Client Picker */}
             <div className="space-y-2">
-              <label className="block text-xs font-black uppercase text-slate-400 tracking-wider">Client Company / Account</label>
+              <label className="block text-xs font-black uppercase text-[var(--text-muted)] tracking-wider">Client Company / Account</label>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <select
                   value={selectedClientId}
                   onChange={(e) => {
                     setSelectedClientId(e.target.value);
                     }}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  className="crm-input w-full py-2.5"
                 >
                   <option value="">-- Choose a Registered Client --</option>
                   {clients.map(client => (
@@ -905,7 +905,7 @@ export const InvoiceList = () => {
                     placeholder="Enter Custom Client Company Name (e.g. Aurrum Company)"
                     value={manualClientName}
                     onChange={(e) => setManualClientName(e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2.5 text-xs text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                    className="crm-input w-full py-2.5"
                   />
                 )}
               </div>
@@ -915,7 +915,7 @@ export const InvoiceList = () => {
             {selectedClientId ? (
               <div className="space-y-4">
                 {/* Billing Model Selector */}
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-3xl border border-[var(--border-color)] space-y-4">
+                <div className="crm-card bg-[var(--bg-secondary)] p-5 border border-[var(--border-color)] space-y-4">
                   <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-color)] pb-4">
                     <div>
                       <h4 className="text-xs font-black uppercase text-[var(--text-muted)] tracking-wider">Billing Model</h4>
@@ -931,7 +931,7 @@ export const InvoiceList = () => {
                         placeholder="e.g. 15000"
                         value={flatSubtotalVal || ''}
                         onChange={(e) => setFlatSubtotalVal(e.target.value === '' ? 0 : Number(e.target.value))}
-                        className="w-full pl-7 pr-3 py-2.5 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl text-xs font-mono font-bold text-[var(--text-primary)] focus:outline-none focus:ring-1 focus:ring-[var(--brand-color)]"
+                        className="crm-input pl-7 pr-3 py-2.5 font-mono font-bold"
                       />
                     </div>
                   </div>
@@ -954,7 +954,7 @@ export const InvoiceList = () => {
                       return (
                         <div 
                           key={c.id} 
-                          className="p-5 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-3xl"
+                          className="p-5 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-3xl"
                         >
                           <div className="flex justify-between items-center w-full">
                             <div className="text-xs font-black text-[var(--text-primary)]">
@@ -974,52 +974,52 @@ export const InvoiceList = () => {
                 </div>
               </div>
             ) : (
-              <div className="text-center p-8 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
-                <ShieldAlert className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs text-slate-500">Choose a client company above to load the eligible candidates for bulk billing.</p>
+              <div className="text-center p-8 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)]">
+                <ShieldAlert className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
+                <p className="text-xs text-[var(--text-muted)]">Choose a client company above to load the eligible candidates for bulk billing.</p>
               </div>
             )}
           </div>
 
           {/* Builder Step 3: Billing Info, Invoice Meta & Calculations */}
           <div className="space-y-6">
-            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
-              <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-                <FileText className="w-4.5 h-4.5 text-indigo-600" />
-                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs">Billing Details</h3>
+            <div className="crm-card p-6 space-y-4">
+              <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-3">
+                <FileText className="w-4.5 h-4.5 text-[var(--primary-gold)]" />
+                <h3 className="font-bold text-[var(--text-primary)] text-xs">Billing Details</h3>
               </div>
 
               {/* Invoice Number */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Invoice # (Editable)</label>
+                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Invoice # (Editable)</label>
                 <input
                   type="text"
                   required
                   value={invoiceNumber}
                   onChange={(e) => setInvoiceNumber(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs font-mono text-slate-800 dark:text-slate-200 focus:outline-none"
+                  className="crm-input w-full py-2 font-mono"
                 />
               </div>
 
               {/* Due Date */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Due Date</label>
+                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Due Date</label>
                 <input
                   type="date"
                   required
                   value={dueDate}
                   onChange={(e) => setDueDate(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                  className="crm-input w-full py-2"
                 />
               </div>
 
               {/* Terms */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Payment Terms</label>
+                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Payment Terms</label>
                 <select
                   value={paymentTerms}
                   onChange={(e) => setPaymentTerms(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                  className="crm-input w-full py-2"
                 >
                   <option value="Net 15">Net 15</option>
                   <option value="Net 30">Net 30</option>
@@ -1030,96 +1030,96 @@ export const InvoiceList = () => {
 
               {/* Notes */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Notes & Special Terms</label>
+                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Notes & Special Terms</label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
                   rows={2}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none resize-none"
+                  className="crm-input w-full py-2 resize-none"
                   placeholder="Billing terms, bank detail info..."
                 />
               </div>
             </div>
 
             {/* Brand, Logo & Sender Customization Overrides */}
-            <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl p-6 shadow-sm space-y-4">
-              <div className="flex items-center gap-2 border-b border-slate-100 dark:border-slate-800 pb-3">
-                <Layers className="w-4.5 h-4.5 text-indigo-600" />
-                <h3 className="font-bold text-slate-800 dark:text-slate-100 text-xs">Print Brand & Sender Info</h3>
+            <div className="crm-card p-6 space-y-4">
+              <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-3">
+                <Layers className="w-4.5 h-4.5 text-[var(--primary-gold)]" />
+                <h3 className="font-bold text-[var(--text-primary)] text-xs">Print Brand & Sender Info</h3>
               </div>
 
               {/* Custom Issue Date */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Invoice Issue Date</label>
+                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Invoice Issue Date</label>
                 <input
                   type="date"
                   required
                   value={issueDate}
                   onChange={(e) => setIssueDate(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                  className="crm-input w-full py-2"
                 />
               </div>
 
               {/* Sender Company Name */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Sender Company Name Override</label>
+                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Sender Company Name Override</label>
                 <input
                   type="text"
                   placeholder="e.g. AURRUM RECRUITMENT"
                   value={senderName}
                   onChange={(e) => setSenderName(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                  className="crm-input w-full py-2"
                 />
               </div>
 
               {/* Tagline */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Tagline / Subtitle Override</label>
+                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Tagline / Subtitle Override</label>
                 <input
                   type="text"
                   placeholder="e.g. Core Contract-to-Hire & Bulk Placements"
                   value={senderTagline}
                   onChange={(e) => setSenderTagline(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                  className="crm-input w-full py-2"
                 />
               </div>
 
               {/* Sender Email */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Contact Email Override</label>
+                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Contact Email Override</label>
                 <input
                   type="email"
                   placeholder="info@aurrum.co"
                   value={senderEmail}
                   onChange={(e) => setSenderEmail(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                  className="crm-input w-full py-2"
                 />
               </div>
 
               {/* Sender Web */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Website URL Override</label>
+                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Website URL Override</label>
                 <input
                   type="text"
                   placeholder="aurrum.co"
                   value={senderWeb}
                   onChange={(e) => setSenderWeb(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                  className="crm-input w-full py-2"
                 />
               </div>
 
               {/* Custom Logo URL */}
               <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Custom Logo URL Override</label>
+                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Custom Logo URL Override</label>
                 <input
                   type="text"
                   placeholder="e.g. https://example.com/logo.png"
                   value={customLogoUrl}
                   onChange={(e) => setCustomLogoUrl(e.target.value)}
-                  className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-3 py-2 text-xs text-slate-800 dark:text-slate-200 focus:outline-none"
+                  className="crm-input w-full py-2"
                 />
                 {customLogoUrl && (
-                  <div className="mt-2 p-3 bg-slate-50 dark:bg-slate-800 rounded-xl flex items-center justify-center border border-slate-100 dark:border-slate-700">
+                  <div className="mt-2 p-3 bg-[var(--bg-secondary)] rounded-xl flex items-center justify-center border border-[var(--border-color)]">
                     <img src={customLogoUrl} alt="Logo preview" className="max-h-12 object-contain" />
                   </div>
                 )}
@@ -1127,7 +1127,7 @@ export const InvoiceList = () => {
             </div>
 
             {/* Calculations Summary Card */}
-            <div className="bg-white dark:bg-slate-900 border border-[var(--border-color)] p-6 rounded-3xl space-y-4">
+            <div className="crm-card p-6 space-y-4">
               <h4 className="text-xs font-black uppercase text-[var(--text-muted)] tracking-wider">Subtotal Summary</h4>
 
               <div className="space-y-3 text-xs text-[var(--text-secondary)]">
@@ -1156,7 +1156,7 @@ export const InvoiceList = () => {
                     max="100"
                     value={taxRate}
                     onChange={(e) => setTaxRate(Number(e.target.value))}
-                    className="w-16 px-2 py-1 text-center bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg font-mono font-bold text-[var(--text-primary)]"
+                    className="w-16 px-2 py-1 text-center crm-input font-mono font-bold"
                   />
                 </div>
 
@@ -1170,14 +1170,14 @@ export const InvoiceList = () => {
                     min="0"
                     value={discountAmount}
                     onChange={(e) => setDiscountAmount(Number(e.target.value))}
-                    className="w-24 px-2 py-1 text-right bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg font-mono font-bold text-[var(--text-primary)]"
+                    className="w-24 px-2 py-1 text-right crm-input font-mono font-bold"
                   />
                 </div>
 
                 {/* Total */}
                 <div className="flex justify-between pt-3 text-sm font-black text-[var(--text-primary)]">
                   <span>GRAND TOTAL DUE:</span>
-                  <span className="font-mono text-[var(--accent-color)]">
+                  <span className="font-mono text-[var(--primary-gold)]">
                     ${(() => {
                       const subtotal = useFlatSubtotal ? flatSubtotalVal : activeClientCandidates
                         .reduce((sum, item) => sum + getCandidateFeeAmount(item), 0);
@@ -1191,7 +1191,7 @@ export const InvoiceList = () => {
 
               <button
                 type="submit"
-                className="w-full flex items-center justify-center gap-2 px-5 py-3.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-xs font-black uppercase tracking-wider rounded-2xl transition duration-200 shadow-md hover:shadow-lg shadow-indigo-600/10"
+                className="crm-btn-gold w-full flex items-center justify-center gap-2 text-xs py-3.5"
               >
                 <FileCheck className="w-4 h-4" /> {editingInvoiceId ? 'Update Combined Bill' : 'Save & Generate Combined Bill'}
               </button>
@@ -1200,7 +1200,7 @@ export const InvoiceList = () => {
                 <button
                   type="button"
                   onClick={handleCancelEdit}
-                  className="w-full mt-2 flex items-center justify-center gap-2 px-5 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 text-xs font-black uppercase tracking-wider rounded-2xl transition duration-200"
+                  className="crm-btn-secondary w-full mt-2 flex items-center justify-center gap-2 text-xs py-3"
                 >
                   <X className="w-4 h-4" /> Cancel Edit Mode
                 </button>
@@ -1212,51 +1212,51 @@ export const InvoiceList = () => {
 
       {/* Invoice Detail Modal / Statement View */}
       {viewingInvoice && (
-        <div className="fixed inset-0 bg-slate-900/65 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800 rounded-3xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
+          <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-[24px] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Actions Header */}
-            <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center bg-slate-50 dark:bg-slate-800/40">
-              <div className="flex items-center gap-2 text-slate-800 dark:text-slate-100">
-                <FileText className="w-4.5 h-4.5 text-indigo-500" />
+            <div className="p-5 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--bg-primary)]">
+              <div className="flex items-center gap-2 text-[var(--text-primary)]">
+                <FileText className="w-4.5 h-4.5 text-[var(--primary-gold)]" />
                 <span className="font-mono text-xs font-bold uppercase tracking-tight">Invoice Details ({viewingInvoice.invoiceNumber})</span>
               </div>
               <div className="flex items-center gap-2">
                 <button
                   onClick={() => handlePrintInvoice(viewingInvoice)}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-bold transition"
+                  className="flex items-center gap-1.5 px-3 py-1.5 crm-btn-gold text-xs font-bold transition"
                 >
                   <Printer className="w-3.5 h-3.5" /> Print Statement
                 </button>
                 <button
                   onClick={() => setViewingInvoice(null)}
-                  className="p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl text-slate-500 transition"
+                  className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"
                 >
                   <X className="w-4.5 h-4.5" />
                 </button>
               </div>
             </div>
 
-            {/* Simulated Printed Letterhead */}
+            {/* Statement details */}
             <div className="p-8 space-y-6">
-              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b border-slate-100 dark:border-slate-800">
+              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b border-[var(--border-color)]">
                 <div className="flex flex-col items-start gap-3">
                   {viewingInvoice.customLogoUrl ? (
                     <img 
                       src={viewingInvoice.customLogoUrl} 
                       alt="Company Logo" 
-                      className="max-h-12 max-w-[150px] object-contain rounded-lg bg-white p-1 border border-slate-100 dark:border-slate-800" 
+                      className="max-h-12 max-w-[150px] object-contain rounded-lg bg-[var(--card-bg)] p-1 border border-[var(--border-color)]" 
                       referrerPolicy="no-referrer"
                     />
                   ) : null}
                   <div>
                     {viewingInvoice.senderName && (
-                      <h3 className="text-xl font-black text-indigo-600 dark:text-indigo-400 tracking-tight">{viewingInvoice.senderName}</h3>
+                      <h3 className="text-xl font-black text-[var(--primary-gold)] tracking-tight">{viewingInvoice.senderName}</h3>
                     )}
                     {viewingInvoice.senderTagline && (
-                      <p className="text-[10px] text-slate-400 mt-1">{viewingInvoice.senderTagline}</p>
+                      <p className="text-[10px] text-[var(--text-muted)] mt-1">{viewingInvoice.senderTagline}</p>
                     )}
                     {(viewingInvoice.senderEmail || viewingInvoice.senderWeb) && (
-                      <p className="text-[10px] text-slate-400 mt-0.5">
+                      <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
                         {viewingInvoice.senderEmail && <span>{viewingInvoice.senderEmail}</span>}
                         {viewingInvoice.senderEmail && viewingInvoice.senderWeb && <span className="mx-1.5">|</span>}
                         {viewingInvoice.senderWeb && <span>{viewingInvoice.senderWeb}</span>}
@@ -1265,15 +1265,15 @@ export const InvoiceList = () => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <div className="text-xs text-slate-400 font-bold uppercase tracking-wider">Statement of Account</div>
-                  <div className="text-lg font-mono font-black text-slate-800 dark:text-slate-100 mt-0.5">{viewingInvoice.invoiceNumber}</div>
+                  <div className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider">Statement of Account</div>
+                  <div className="text-lg font-mono font-black text-[var(--text-primary)] mt-0.5">{viewingInvoice.invoiceNumber}</div>
                   <div className="mt-2">
-                    <span className={`px-2.5 py-0.5 rounded text-[10px] font-black uppercase tracking-wider ${
-                      viewingInvoice.status === 'Paid' ? 'bg-emerald-100 text-emerald-800' :
-                      viewingInvoice.status === 'Sent' ? 'bg-blue-100 text-blue-800' :
-                      viewingInvoice.status === 'Overdue' ? 'bg-red-100 text-red-800' :
-                      'bg-amber-100 text-amber-800'
-                    }`}>
+                    <span className={
+                      viewingInvoice.status === 'Paid' ? 'crm-badge-success text-[10px] uppercase' :
+                      viewingInvoice.status === 'Sent' ? 'crm-badge-info text-[10px] uppercase' :
+                      viewingInvoice.status === 'Overdue' ? 'crm-badge-error text-[10px] uppercase' :
+                      'crm-badge-warning text-[10px] uppercase'
+                    }>
                       {viewingInvoice.status}
                     </span>
                   </div>
@@ -1283,21 +1283,21 @@ export const InvoiceList = () => {
               {/* Metagrid */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
                 <div className="space-y-1">
-                  <div className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">Bill To Client</div>
-                  <div className="text-sm font-black text-slate-800 dark:text-slate-100">{viewingInvoice.clientName}</div>
-                  <div className="text-slate-500">Contract Agreement: {viewingInvoice.paymentTerms || 'Net 30'}</div>
+                  <div className="font-bold text-[var(--text-muted)] uppercase tracking-wide text-[10px]">Bill To Client</div>
+                  <div className="text-sm font-black text-[var(--text-primary)]">{viewingInvoice.clientName}</div>
+                  <div className="text-[var(--text-secondary)]">Contract Agreement: {viewingInvoice.paymentTerms || 'Net 30'}</div>
                 </div>
                 <div className="sm:text-right space-y-1">
-                  <div className="font-bold text-slate-400 uppercase tracking-wide text-[10px]">Invoice Details</div>
-                  <div><strong>Issue Date:</strong> {viewingInvoice.issueDate ? new Date(viewingInvoice.issueDate + 'T12:00:00').toLocaleDateString() : (viewingInvoice.createdAt?.toDate ? viewingInvoice.createdAt.toDate().toLocaleDateString() : 'N/A')}</div>
-                  <div><strong>Due Date:</strong> {viewingInvoice.dueDate ? new Date(viewingInvoice.dueDate + 'T12:00:00').toLocaleDateString() : 'N/A'}</div>
+                  <div className="font-bold text-[var(--text-muted)] uppercase tracking-wide text-[10px]">Invoice Details</div>
+                  <div className="text-[var(--text-primary)]"><strong>Issue Date:</strong> {viewingInvoice.issueDate ? new Date(viewingInvoice.issueDate + 'T12:00:00').toLocaleDateString() : (viewingInvoice.createdAt?.toDate ? viewingInvoice.createdAt.toDate().toLocaleDateString() : 'N/A')}</div>
+                  <div className="text-[var(--text-primary)]"><strong>Due Date:</strong> {viewingInvoice.dueDate ? new Date(viewingInvoice.dueDate + 'T12:00:00').toLocaleDateString() : 'N/A'}</div>
                 </div>
               </div>
 
               {/* Billed Candidates Table */}
-              <div className="border border-slate-100 dark:border-slate-800 rounded-2xl overflow-hidden">
+              <div className="border border-[var(--border-color)] rounded-2xl overflow-hidden">
                 <table className="w-full text-left">
-                  <thead className="bg-slate-50 dark:bg-slate-800/60 text-[10px] font-black uppercase text-slate-400 tracking-wider">
+                  <thead className="bg-[var(--bg-secondary)] text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">
                     <tr>
                       <th className="p-3 pl-4">#</th>
                       <th className="p-3">Placed Candidate</th>
@@ -1306,20 +1306,20 @@ export const InvoiceList = () => {
                       <th className="p-3 pr-4 text-right">Fee/Amount</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800 text-xs">
+                  <tbody className="divide-y divide-[var(--border-color)] text-xs">
                     {viewingInvoice.candidates?.map((c: any, index: number) => (
-                      <tr key={c.candidateId || index} className="text-slate-700 dark:text-slate-300">
-                        <td className="p-3 pl-4 font-mono text-slate-400">{index + 1}</td>
-                        <td className="p-3 font-semibold text-slate-900 dark:text-slate-100">{c.candidateName}</td>
+                      <tr key={c.candidateId || index} className="text-[var(--text-secondary)] hover:bg-[var(--card-hover-bg)]">
+                        <td className="p-3 pl-4 font-mono text-[var(--text-muted)]">{index + 1}</td>
+                        <td className="p-3 font-semibold text-[var(--text-primary)]">{c.candidateName}</td>
                         <td className="p-3">{c.position}</td>
                         <td className="p-3">
-                          <span className="px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-slate-500 text-[10px]">
+                          <span className="px-1.5 py-0.5 rounded bg-[var(--bg-secondary)] text-[var(--text-muted)] text-[10px] border border-[var(--border-color)]">
                             {c.billingType}
                           </span>
                         </td>
-                        <td className="p-3 pr-4 text-right font-mono font-bold text-slate-900 dark:text-slate-100">
+                        <td className="p-3 pr-4 text-right font-mono font-bold text-[var(--text-primary)]">
                           {Number(c.fee || 0) > 0 ? `$${Number(c.fee).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : (
-                            <span className="text-xs font-normal text-slate-400 dark:text-slate-500">Included</span>
+                            <span className="text-xs font-normal text-[var(--text-muted)]">Included</span>
                           )}
                         </td>
                       </tr>
@@ -1331,48 +1331,48 @@ export const InvoiceList = () => {
               {/* Totals Summary */}
               <div className="flex justify-end pt-2">
                 <div className="w-72 space-y-2 text-xs">
-                  <div className="flex justify-between text-slate-500">
+                  <div className="flex justify-between text-[var(--text-muted)]">
                     <span>Subtotal:</span>
-                    <span className="font-mono font-semibold">${Number(viewingInvoice.subtotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    <span className="font-mono font-semibold text-[var(--text-primary)]">${Number(viewingInvoice.subtotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
                   {viewingInvoice.taxRate > 0 && (
-                    <div className="flex justify-between text-slate-500">
+                    <div className="flex justify-between text-[var(--text-muted)]">
                       <span>Tax ({viewingInvoice.taxRate}%):</span>
-                      <span className="font-mono font-semibold">+$${Number(viewingInvoice.taxAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      <span className="font-mono font-semibold text-[var(--text-primary)]">+$${Number(viewingInvoice.taxAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                     </div>
                   )}
                   {viewingInvoice.discountAmount > 0 && (
-                    <div className="flex justify-between text-slate-500">
+                    <div className="flex justify-between text-[var(--text-muted)]">
                       <span>Discount Amount:</span>
-                      <span className="font-mono font-semibold text-red-500">-${Number(viewingInvoice.discountAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                      <span className="font-mono font-semibold text-rose-500">-${Number(viewingInvoice.discountAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-sm font-black border-t border-slate-200 dark:border-slate-700 pt-2 text-slate-900 dark:text-slate-100">
+                  <div className="flex justify-between text-sm font-black border-t border-[var(--border-color)] pt-2 text-[var(--text-primary)]">
                     <span>Total statement due:</span>
-                    <span className="font-mono text-indigo-600 dark:text-indigo-400">${Number(viewingInvoice.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                    <span className="font-mono text-[var(--primary-gold)]">${Number(viewingInvoice.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                   </div>
                 </div>
               </div>
 
               {/* Notes Field */}
-              <div className="p-4 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
-                <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider mb-1">Contract / Terms Notes:</div>
-                <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed margin-0">{viewingInvoice.notes || 'No special terms stated.'}</p>
+              <div className="p-4 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)]">
+                <div className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider mb-1">Contract / Terms Notes:</div>
+                <p className="text-xs text-[var(--text-primary)] leading-relaxed margin-0">{viewingInvoice.notes || 'No special terms stated.'}</p>
               </div>
 
               {/* Admin Actions Status controls */}
               {(role === 'admin' || role === 'developer' || role === 'team_leader') && (
-                <div className="pt-6 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-2 items-center justify-between">
-                  <div className="text-[10px] font-black uppercase text-slate-400 tracking-wider">Update Settlement Status</div>
+                <div className="pt-6 border-t border-[var(--border-color)] flex flex-wrap gap-2 items-center justify-between">
+                  <div className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Update Settlement Status</div>
                   <div className="flex gap-1">
                     {['Draft', 'Sent', 'Paid', 'Overdue'].map((status) => (
                       <button
                         key={status}
                         onClick={() => handleUpdateStatus(viewingInvoice.id, status)}
-                        className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition ${
+                        className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition cursor-pointer ${
                           viewingInvoice.status === status
-                            ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900'
-                            : 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 hover:bg-slate-200'
+                            ? 'crm-btn-gold text-white shadow-sm'
+                            : 'crm-btn-secondary text-[10px]'
                         }`}
                       >
                         {status}

@@ -82,49 +82,62 @@ export default function UserProfile() {
     }
   };
 
-  if (loading) return <div className="p-8 flex items-center justify-center"><Loader2 className="animate-spin text-indigo-600" /></div>;
+  if (loading) return <div className="p-8 flex items-center justify-center"><Loader2 className="animate-spin text-[var(--accent-color)]" /></div>;
 
   return (
-    <div className="max-w-2xl bg-[var(--card-bg)] p-8 rounded-[2rem] border border-[var(--border-color)] shadow-sm transition-colors duration-300">
-      <h2 className="text-3xl font-serif text-[var(--text-primary)] mb-8">My Profile</h2>
-      
-      {error && <div className="mb-6 p-4 bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 rounded-xl flex items-center gap-2"><AlertCircle size={16} /> {error}</div>}
-      {success && <div className="mb-6 p-4 bg-emerald-50 dark:bg-emerald-950 text-emerald-600 dark:text-emerald-400 rounded-xl">Profile updated successfully!</div>}
-      
-      <form onSubmit={handleUpdateProfile} className="space-y-6">
-        <div className="flex items-center gap-4 mb-6">
-          <div className="w-20 h-20 rounded-full bg-[var(--sidebar-bg)] border border-[var(--border-color)] flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-bold text-2xl">
+    <div className="max-w-3xl mx-auto crm-card p-8 space-y-8">
+      {/* Header Profile Section */}
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pb-6 border-b border-[var(--border-color)]">
+        <div className="flex items-center gap-5">
+          <div className="w-20 h-20 rounded-2xl bg-[var(--bg-secondary)] border-2 border-[var(--primary-gold)] flex items-center justify-center text-[var(--primary-gold)] font-extrabold text-2xl shadow-sm relative overflow-hidden">
             {profile?.name?.slice(0, 2).toUpperCase() || user?.email?.slice(0, 2).toUpperCase()}
           </div>
-          <div>
-            <p className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-widest">Email Address</p>
-            <p className="text-[var(--text-secondary)] font-medium">{user?.email}</p>
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <h2 className="text-xl font-black text-[var(--text-primary)]">{profile?.name || 'User Profile'}</h2>
+              <span className="crm-badge-gold text-[10px] font-bold px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+                {profile?.role || 'Recruiter'}
+              </span>
+            </div>
+            <p className="text-xs text-[var(--text-muted)] flex items-center gap-1.5 font-medium">
+              <Mail size={13} className="text-[var(--primary-gold)]" />
+              {user?.email}
+            </p>
           </div>
         </div>
-
-        <div className="space-y-1.5">
-          <label className="text-[10px] font-bold text-[var(--text-muted)] uppercase tracking-widest ml-1">Full Name</label>
-          <input 
-            type="text" 
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            className="w-full px-4 py-3 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500/10 text-sm text-[var(--text-primary)]"
-          />
+      </div>
+      
+      {error && <div className="p-4 crm-badge-error rounded-xl flex items-center gap-2 text-xs"><AlertCircle size={16} /> {error}</div>}
+      {success && <div className="p-4 crm-badge-success rounded-xl text-xs font-bold">Profile settings updated successfully!</div>}
+      
+      <form onSubmit={handleUpdateProfile} className="space-y-6">
+        <div className="space-y-2">
+          <label className="crm-label">Full Name</label>
+          <div className="relative">
+            <UserIcon size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" />
+            <input 
+              type="text" 
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="crm-input pl-10"
+              placeholder="Enter your full name"
+            />
+          </div>
         </div>
 
         <div className="border-t border-[var(--border-color)] pt-6 space-y-4">
-          <h3 className="text-sm font-bold text-[var(--text-primary)] uppercase tracking-widest">Notification Settings</h3>
+          <h3 className="text-xs font-black text-[var(--text-muted)] uppercase tracking-widest">Notification Preferences</h3>
           
-          <div className="flex items-center justify-between p-4 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-2xl">
+          <div className="flex items-center justify-between p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl">
             <div className="space-y-0.5">
               <p className="text-xs font-bold text-[var(--text-primary)]">Push Notifications</p>
-              <p className="text-[10px] text-[var(--text-muted)]">Receive alerts for new chat messages</p>
+              <p className="text-[10px] text-[var(--text-muted)]">Receive real-time browser alerts for chats and candidate updates</p>
             </div>
             {Notification.permission !== 'granted' ? (
               <button 
                 type="button"
                 onClick={requestNotificationPermission}
-                className="text-[10px] bg-indigo-600 text-white px-3 py-1.5 rounded-lg font-bold hover:bg-indigo-700 transition-all uppercase tracking-tighter"
+                className="crm-btn-gold text-[10px] px-3.5 py-2 uppercase tracking-wider font-bold"
               >
                 Enable in Browser
               </button>
@@ -136,26 +149,26 @@ export default function UserProfile() {
                   onChange={(e) => setNotificationsEnabled(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+                <div className="w-11 h-6 bg-[var(--border-color)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--primary-gold)]"></div>
               </label>
             )}
           </div>
 
-          <div className="flex items-center justify-between p-4 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-2xl">
+          <div className="flex items-center justify-between p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl">
             <div className="space-y-0.5">
               <p className="text-xs font-bold text-[var(--text-primary)]">Notification Sound</p>
-              <p className="text-[10px] text-[var(--text-muted)]">Play a sound when a message arrives</p>
+              <p className="text-[10px] text-[var(--text-muted)]">Play an audible chime when new notifications arrive</p>
             </div>
             <div className="flex items-center gap-3">
               <button 
                 type="button"
                 onClick={() => {
                   const audio = new Audio(notificationAudioSrc);
-                  audio.play().catch(e => setError('Audio failed to play. Please click the lock/settings icon in your browser address bar and enable Sound.'));
+                  audio.play().catch(e => setError('Audio failed to play. Please check your browser sound permissions.'));
                 }}
-                className="text-[10px] text-indigo-600 dark:text-indigo-400 font-bold hover:underline px-2"
+                className="text-[10px] text-[var(--primary-gold)] font-bold hover:underline px-2 uppercase tracking-wider"
               >
-                Test
+                Test Sound
               </button>
               <label className="relative inline-flex items-center cursor-pointer">
                 <input 
@@ -164,26 +177,28 @@ export default function UserProfile() {
                   onChange={(e) => setNotificationSound(e.target.checked)}
                   className="sr-only peer"
                 />
-                <div className="w-11 h-6 bg-slate-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-indigo-300 dark:peer-focus:ring-indigo-800 rounded-full peer dark:bg-slate-700 peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all dark:border-gray-600 peer-checked:bg-indigo-600"></div>
+                <div className="w-11 h-6 bg-[var(--border-color)] rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-[var(--primary-gold)]"></div>
               </label>
             </div>
           </div>
           
-          <div className="p-4 bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-2xl">
-            <p className="text-[10px] text-[var(--text-muted)]">
-              <strong>Troubleshooting:</strong> If notifications or sound are not working, click the <span className="font-bold">lock icon</span> or <span className="font-bold">settings icon</span> in your Chrome address bar. Ensure 'Sound' and 'Notifications' are set to 'Allow', then reload the page.
+          <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl">
+            <p className="text-[10px] text-[var(--text-muted)] leading-relaxed">
+              <strong className="text-[var(--text-primary)]">Browser Setup Note:</strong> If notifications or chime sounds do not fire, click the lock icon in your browser address bar and verify that <span className="font-bold text-[var(--text-primary)]">'Notifications'</span> and <span className="font-bold text-[var(--text-primary)]">'Sound'</span> permissions are granted for this origin.
             </p>
           </div>
         </div>
 
-        <button 
-          type="submit"
-          disabled={saving}
-          className="bg-indigo-600 text-white px-6 py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 hover:bg-indigo-700 disabled:opacity-50"
-        >
-          {saving ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
-          Save Changes
-        </button>
+        <div className="pt-4 border-t border-[var(--border-color)] flex justify-end">
+          <button 
+            type="submit"
+            disabled={saving}
+            className="crm-btn-gold text-xs font-bold px-6 py-3 flex items-center justify-center gap-2 disabled:opacity-50"
+          >
+            {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Save Profile
+          </button>
+        </div>
       </form>
     </div>
   );

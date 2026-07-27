@@ -30,11 +30,11 @@ export const ResumeUpload = () => {
     return (
         <div 
             {...getRootProps()}
-            className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${isDragActive ? 'border-indigo-500 bg-indigo-50 dark:bg-indigo-900/10' : 'border-gray-200 dark:border-gray-700 hover:border-gray-400'}`}
+            className={`border-2 border-dashed rounded-[var(--radius-card)] p-8 text-center cursor-pointer transition-all ${isDragActive ? 'border-[var(--primary-gold)] bg-[var(--bg-secondary)]' : 'border-[var(--border-color)] bg-[var(--card-bg)] hover:border-[var(--primary-gold)]'}`}
         >
             <input {...getInputProps()} />
-            <Upload className="mx-auto h-12 w-12 text-gray-400" />
-            <p className="mt-4 text-sm text-gray-600 dark:text-gray-400">
+            <Upload className="mx-auto h-12 w-12 text-[var(--text-muted)]" />
+            <p className="mt-4 text-sm font-medium text-[var(--text-primary)]">
              {isDragActive ? 'Drop your resume here' : 'Drag & drop or click to upload resume'}
             </p>
         </div>

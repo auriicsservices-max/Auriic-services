@@ -22,21 +22,9 @@ import ConfirmModal from './ConfirmModal';
 import { fetchCvList } from '../services/cvApiService';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
+import { STAGES, getStageConfig } from '../lib/pipelineStages';
 
-const STAGES_LIST = [
-  { id: 'cv_upload', label: 'CV Upload', parentLabel: 'Inflow' },
-  { id: 'telephone_screening', label: 'Telephone Screening', parentLabel: 'Screening' },
-  { id: 'video_screening', label: 'Video Screening', parentLabel: 'Screening' },
-  { id: 'technical_screening', label: 'Technical Screening', parentLabel: 'Interviews' },
-  { id: 'assessment', label: 'Assessment', parentLabel: 'Interviews' },
-  { id: 'client_interview_round_1', label: 'Client Interview R1', parentLabel: 'Interviews' },
-  { id: 'client_interview_round_2', label: 'Client Interview R2', parentLabel: 'Interviews' },
-  { id: 'final_interview', label: 'Final Interview', parentLabel: 'Interviews' },
-  { id: 'offer_received', label: 'Offer Received', parentLabel: 'Offer' },
-  { id: 'offer_accepted_declined', label: 'Offer Accepted/Declined', parentLabel: 'Offer Decision' },
-  { id: 'joining', label: 'Joining', parentLabel: 'Placement' },
-  { id: 'invoice_generated', label: 'Invoice Generated', parentLabel: 'Invoice' }
-];
+const STAGES_LIST = STAGES;
 
 interface CandidateModalProps {
   candidate: any;
@@ -691,11 +679,11 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       <div className="bg-[var(--bg-primary)] text-[var(--text-primary)] w-full max-w-5xl h-[94vh] sm:h-auto max-h-[92vh] overflow-hidden rounded-[2.5rem] shadow-[0_25px_60px_-15px_rgba(0,0,0,0.3)] flex flex-col animate-in zoom-in-95 duration-300 transition-colors duration-300 border border-[var(--border-color)]/70">
         
         {/* Modal Top Banner Header */}
-        <header className="p-6 sm:p-8 border-b border-[var(--border-color)]/80 flex flex-col gap-5 shrink-0 bg-slate-50/40 dark:bg-slate-900/10">
+        <header className="p-6 sm:p-8 border-b border-[var(--border-color)]/80 flex flex-col gap-5 shrink-0 bg-[var(--bg-secondary)]">
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
             <div className="flex items-center gap-4 sm:gap-5">
               {/* Dynamic Gradients Initial Avatar Circle */}
-              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-tr from-indigo-500 via-purple-500 to-pink-500 rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl font-black shadow-md uppercase shrink-0">
+              <div className="w-14 h-14 sm:w-16 sm:h-16 bg-gradient-to-tr from-[#004564] via-[#005472] to-[#A98B56] rounded-2xl flex items-center justify-center text-white text-lg sm:text-2xl font-black shadow-md uppercase shrink-0">
                 {(candidate.fullName || '??').slice(0, 2)}
               </div>
               <div className="min-w-0 flex-1">
@@ -707,7 +695,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                         type="text" 
                         value={editedFullName} 
                         onChange={(e) => setEditedFullName(e.target.value)} 
-                        className="w-full bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-base focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold shadow-sm"
+                        className="w-full bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-base focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold shadow-xs"
                         placeholder="Candidate Full Name"
                       />
                     </div>
@@ -757,6 +745,15 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                       <span className="text-[var(--text-muted)] uppercase tracking-wider">
                         {candidate.domain || 'General Talent'}
                       </span>
+                      {candidate.pipelineStage && (
+                        <>
+                          <span className="text-[var(--text-muted)]">•</span>
+                          <span className={getStageConfig(candidate.pipelineStage).badgeClass}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${getStageConfig(candidate.pipelineStage).dotClass}`} />
+                            {getStageConfig(candidate.pipelineStage).label}
+                          </span>
+                        </>
+                      )}
                     </>
                   )}
                 </div>
@@ -781,7 +778,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                       <button
                         onClick={() => setIsEditing(false)}
                         disabled={isSaving}
-                        className="px-3.5 py-2 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all border border-[var(--border-color)]"
+                        className="px-3.5 py-2 crm-btn-secondary text-xs flex items-center gap-1.5"
                       >
                         <span>Cancel</span>
                       </button>
@@ -789,7 +786,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   ) : (
                     <button
                       onClick={() => setIsEditing(true)}
-                      className="px-3.5 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 transition-all shadow-md active:scale-95"
+                      className="px-3.5 py-2 crm-btn-gold text-xs flex items-center gap-1.5"
                     >
                       <Code size={13} />
                       <span>{role === 'developer' ? 'Edit Profile' : 'Edit Name'}</span>
@@ -801,7 +798,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                 <button 
                   onClick={handleView}
                   disabled={isFetchingCV}
-                  className={`px-3.5 py-2 bg-indigo-50 dark:bg-indigo-950/40 text-indigo-600 dark:text-indigo-400 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 hover:bg-indigo-100 dark:hover:bg-indigo-950/80 transition-all border border-indigo-100/30 dark:border-indigo-900/30 ${isFetchingCV ? 'opacity-70 cursor-wait' : ''}`}
+                  className={`px-3.5 py-2 bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 hover:bg-[var(--card-hover-bg)] transition-all border border-[var(--border-color)] ${isFetchingCV ? 'opacity-70 cursor-wait' : ''}`}
                 >
                   {isFetchingCV ? <Loader2 size={13} className="animate-spin" /> : <Globe size={13} />}
                   <span>{isFetchingCV ? 'Syncing...' : 'View Original'}</span>
@@ -811,7 +808,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                 <button 
                   onClick={handleDownload}
                   disabled={isFetchingCV}
-                  className={`px-3.5 py-2 bg-slate-50 dark:bg-slate-900 text-slate-700 dark:text-slate-300 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all border border-[var(--border-color)] ${isFetchingCV ? 'opacity-70 cursor-wait' : ''}`}
+                  className={`px-3.5 py-2 bg-[var(--bg-secondary)] text-[var(--text-primary)] rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-1.5 hover:bg-[var(--card-hover-bg)] transition-all border border-[var(--border-color)] ${isFetchingCV ? 'opacity-70 cursor-wait' : ''}`}
                 >
                   {isFetchingCV ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                   <span>{isFetchingCV ? 'Syncing...' : 'Download'}</span>
@@ -819,7 +816,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               )}
               <button 
                 onClick={onClose}
-                className="p-2 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all"
+                className="p-2 text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:bg-[var(--bg-secondary)] rounded-xl transition-all"
               >
                 <X size={18} />
               </button>
@@ -827,8 +824,8 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
           </div>
 
           {/* Quick Boolean Filter bar within modal */}
-          <div className="bg-slate-50 dark:bg-slate-900/60 border border-[var(--border-color)] rounded-2xl px-4 py-2.5 flex items-center gap-3 ring-2 ring-transparent focus-within:ring-indigo-500/10 focus-within:border-indigo-500/50 transition-all">
-            <Search size={13} className="text-indigo-500" />
+          <div className="bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl px-4 py-2.5 flex items-center gap-3 transition-all">
+            <Search size={13} className="text-[var(--primary-gold)]" />
             <input 
               type="text" 
               placeholder="Query expression or text keyword search..."
@@ -1255,9 +1252,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
           <div className="space-y-6 sm:space-y-8">
             
             {/* Competency tags */}
-            <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+            <section className="bg-[var(--card-bg)] p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                <Code size={12} className="text-indigo-500" /> Skills Profile
+                <Code size={12} className="text-[var(--primary-gold)]" /> Skills Profile
               </h3>
               {isEditing && role === 'developer' ? (
                 <div className="flex flex-col gap-1.5">
@@ -1265,14 +1262,14 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   <textarea
                     value={editedSkills.join(', ')}
                     onChange={(e) => setEditedSkills(e.target.value.split(',').map(s => s.trim()))}
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold h-20 shadow-sm"
+                    className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold h-20 shadow-sm"
                     placeholder="e.g. React, TypeScript, Node.js"
                   />
                 </div>
               ) : (
                 <div className="flex flex-wrap gap-2 max-h-[140px] overflow-y-auto custom-scrollbar pr-2">
                   {skills.map((skill: string) => (
-                    <span key={skill} className="px-3 py-1.5 bg-slate-100 dark:bg-slate-900 border border-[var(--border-color)]/70 text-[var(--text-secondary)] rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
+                    <span key={skill} className="px-3 py-1.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-secondary)] rounded-xl text-[10px] font-black uppercase tracking-wider flex items-center gap-1.5 shadow-sm">
                       {skill}
                     </span>
                   ))}
@@ -1281,9 +1278,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             </section>
 
             {/* Direct Contact info */}
-            <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+            <section className="bg-[var(--card-bg)] p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                <Mail size={12} className="text-indigo-500" /> Contact channels
+                <Mail size={12} className="text-[var(--primary-gold)]" /> Contact channels
               </h3>
               <div className="space-y-3">
                 {isEditing && role === 'developer' ? (
@@ -1294,7 +1291,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                         type="email"
                         value={editedEmail}
                         onChange={(e) => setEditedEmail(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold shadow-sm"
+                        className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold shadow-sm"
                         placeholder="email@example.com"
                       />
                     </div>
@@ -1304,25 +1301,25 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                         type="text"
                         value={editedPhone}
                         onChange={(e) => setEditedPhone(e.target.value)}
-                        className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold shadow-sm"
+                        className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold shadow-sm"
                         placeholder="+1 (555) 019-2834"
                       />
                     </div>
                   </>
                 ) : (
                   <>
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl">
-                      <Mail className="text-indigo-500 shrink-0" size={14} />
+                    <div className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
+                      <Mail className="text-[var(--primary-gold)] shrink-0" size={14} />
                       <p className="text-xs font-bold text-[var(--text-secondary)] truncate select-all">{candidate.email}</p>
                     </div>
-                    <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl">
-                      <Phone className="text-indigo-500 shrink-0" size={14} />
+                    <div className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
+                      <Phone className="text-[var(--primary-gold)] shrink-0" size={14} />
                       <p className="text-xs font-bold text-[var(--text-secondary)] select-all">{candidate.phone || 'N/A'}</p>
                     </div>
                   </>
                 )}
-                <div className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl">
-                  <MapPin className="text-indigo-500 shrink-0" size={14} />
+                <div className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
+                  <MapPin className="text-[var(--primary-gold)] shrink-0" size={14} />
                   <p className="text-xs font-bold text-[var(--text-secondary)] truncate">
                       { (candidate.locationInfo && (candidate.locationInfo.city || candidate.locationInfo.state)) ? 
                         `${candidate.locationInfo.city ? candidate.locationInfo.city + ', ' : ''}${candidate.locationInfo.state || ''}${candidate.locationInfo.country ? ', ' + candidate.locationInfo.country : ''}` 
@@ -1330,20 +1327,20 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   </p>
                 </div>
                 {!isEditing && candidate.links?.map((link: any, i: number) => (
-                    <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100/30 dark:border-indigo-900/20 rounded-xl transition-all hover:border-indigo-500/40 hover:scale-[1.01]">
-                        <div className="text-indigo-500 shrink-0">
+                    <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl transition-all hover:border-[var(--primary-gold)] hover:scale-[1.01]">
+                        <div className="text-[var(--primary-gold)] shrink-0">
                             {getLinkIcon(link.label || 'Link')}
                         </div>
-                        <p className="text-xs font-black text-indigo-600 dark:text-indigo-400 truncate uppercase tracking-wider">{link.label || 'Reference Link'}</p>
+                        <p className="text-xs font-black text-[var(--primary-gold)] truncate uppercase tracking-wider">{link.label || 'Reference Link'}</p>
                     </a>
                 ))}
               </div>
             </section>
 
             {/* Geographic Details Customizer */}
-            <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+            <section className="bg-[var(--card-bg)] p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                <MapPin size={12} className="text-indigo-500" /> Geographic profile
+                <MapPin size={12} className="text-[var(--primary-gold)]" /> Geographic profile
               </h3>
               <div className="space-y-3.5">
                 <div>
@@ -1353,7 +1350,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                     value={city}
                     onChange={(e) => setCity(e.target.value)}
                     placeholder="e.g. San Francisco"
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                    className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                   />
                 </div>
                 <div className="grid grid-cols-2 gap-2">
@@ -1364,7 +1361,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                       value={state}
                       onChange={(e) => setState(e.target.value)}
                       placeholder="e.g. CA"
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                      className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                     />
                   </div>
                   <div>
@@ -1374,7 +1371,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                       value={postalCode}
                       onChange={(e) => setPostalCode(e.target.value)}
                       placeholder="e.g. 94105"
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                      className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                     />
                   </div>
                 </div>
@@ -1385,13 +1382,13 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                     value={country}
                     onChange={(e) => setCountry(e.target.value)}
                     placeholder="e.g. United States"
-                    className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
+                    className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                   />
                 </div>
                 <button
                   onClick={handleSaveLocation}
                   disabled={isSavingLoc}
-                  className="w-full py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 disabled:opacity-50 mt-1"
+                  className="w-full py-2 crm-btn-gold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50 mt-1"
                 >
                   {isSavingLoc ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />}
                   Save Location
@@ -1401,16 +1398,16 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
 
             {/* Recruiter Assignment Panel */}
             {isPrivileged && (
-              <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+              <section className="bg-[var(--card-bg)] p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                  <Users size={12} /> Sourcing Assignee
+                  <Users size={12} className="text-[var(--primary-gold)]" /> Sourcing Assignee
                 </h3>
                 <div className="space-y-3.5">
                   <div className="relative">
                     <select 
                       value={assignedTo}
                       onChange={(e) => setAssignedTo(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl pl-4 pr-10 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] appearance-none cursor-pointer hover:border-indigo-400 transition-colors font-bold"
+                      className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl pl-4 pr-10 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] appearance-none cursor-pointer font-bold"
                     >
                       <option value="">Unassigned</option>
                       {teamMembers && Object.entries(teamMembers).map(([id, name]) => (
@@ -1433,16 +1430,16 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
 
             {/* Client Assignment Panel */}
             {(isPrivileged || role === 'recruiter') && (
-              <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+              <section className="bg-[var(--card-bg)] p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                  <Briefcase size={12} /> Assign to Client
+                  <Briefcase size={12} className="text-[var(--primary-gold)]" /> Assign to Client
                 </h3>
                 <div className="space-y-3.5">
                   <div className="relative">
                     <select 
                       value={assignedClientId}
                       onChange={(e) => setAssignedClientId(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl pl-4 pr-10 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] appearance-none cursor-pointer hover:border-indigo-400 transition-colors font-bold"
+                      className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl pl-4 pr-10 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] appearance-none cursor-pointer font-bold"
                     >
                       <option value="">No Client Assigned</option>
                       {fullTeamList && fullTeamList.filter(u => u.role === 'client').map((client) => (
@@ -1454,7 +1451,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   <button 
                     onClick={handleUpdateClient}
                     disabled={isSavingClient}
-                    className="w-full py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full py-2 crm-btn-gold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {isSavingClient ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />} 
                     Update Client Assignment
@@ -1465,16 +1462,16 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
 
             {/* Pipeline Stage Panel */}
             {(isPrivileged || role === 'recruiter') && (
-              <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+              <section className="bg-[var(--card-bg)] p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                  <Layers size={12} /> Pipeline Stage
+                  <Layers size={12} className="text-[var(--primary-gold)]" /> Pipeline Stage
                 </h3>
                 <div className="space-y-3.5">
                   <div className="relative">
                     <select 
                       value={assignedStage}
                       onChange={(e) => setAssignedStage(e.target.value)}
-                      className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl pl-4 pr-10 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] appearance-none cursor-pointer hover:border-indigo-400 transition-colors font-bold"
+                      className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl pl-4 pr-10 py-2.5 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] appearance-none cursor-pointer font-bold"
                     >
                       {STAGES_LIST.map((stage) => (
                         <option key={stage.id} value={stage.id}>{stage.label} ({stage.parentLabel})</option>
@@ -1485,7 +1482,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   <button 
                     onClick={handleUpdateStage}
                     disabled={isSavingStage}
-                    className="w-full py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-2 disabled:opacity-50"
+                    className="w-full py-2 crm-btn-gold text-[10px] uppercase tracking-widest flex items-center justify-center gap-2 disabled:opacity-50"
                   >
                     {isSavingStage ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />} 
                     Update Pipeline Stage
@@ -1494,44 +1491,44 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               </section>
             )}
 
-            {/* Beautiful Custom Follow-Up reminder module */}
-            <section className="bg-indigo-50/50 dark:bg-indigo-950/20 p-5 sm:p-6 rounded-[2rem] text-slate-900 dark:text-indigo-100 border border-indigo-100/40 dark:border-indigo-900/40 shadow-sm">
+            {/* Follow-Up reminder module */}
+            <section className="bg-[var(--card-bg)] p-5 sm:p-6 rounded-[2rem] text-[var(--text-primary)] border border-[var(--border-color)] shadow-sm">
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-[10px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-400 flex items-center gap-2">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--primary-gold)] flex items-center gap-2">
                   <Clock size={12} /> Follow-Up Scheduler
                 </h3>
                 {candidate.followUpUpdatedBy && (
-                  <span className="text-[8px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-100/30 dark:bg-indigo-900/30 px-1.5 py-0.5 rounded-md shrink-0">
+                  <span className="text-[8px] font-black text-[var(--primary-gold)] uppercase tracking-widest bg-[var(--bg-secondary)] px-1.5 py-0.5 rounded-md shrink-0 border border-[var(--border-color)]">
                     By: {teamMembers?.[candidate.followUpUpdatedBy] || 'Sourcing'}
                   </span>
                 )}
               </div>
               <div className="space-y-4">
                 <div className="space-y-1">
-                  <label className="text-[8px] font-black uppercase text-indigo-800 dark:text-indigo-300 ml-1 tracking-wider">Next reminder date</label>
+                  <label className="text-[8px] font-black uppercase text-[var(--text-muted)] ml-1 tracking-wider">Next reminder date</label>
                   <div className="relative">
-                    <Calendar className="absolute left-3 top-2.5 text-indigo-600 dark:text-indigo-400" size={13} />
+                    <Calendar className="absolute left-3 top-2.5 text-[var(--primary-gold)]" size={13} />
                     <input 
                       type="datetime-local" 
                       value={followUpDate}
                       onChange={(e) => setFollowUpDate(e.target.value)}
-                      className="w-full bg-white dark:bg-indigo-900 border border-indigo-200/50 dark:border-indigo-850 rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-slate-900 dark:text-slate-100 font-bold"
+                      className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl pl-9 pr-4 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                     />
                   </div>
                 </div>
                 <div className="space-y-1">
-                  <label className="text-[8px] font-black uppercase text-indigo-800 dark:text-indigo-300 ml-1 tracking-wider">Task notes / Reminders</label>
+                  <label className="text-[8px] font-black uppercase text-[var(--text-muted)] ml-1 tracking-wider">Task notes / Reminders</label>
                   <textarea 
                      value={followUpNote}
                      onChange={(e) => setFollowUpNote(e.target.value)}
                      placeholder="e.g. Discussed experience gap; schedule next step interview..."
-                     className="w-full bg-white dark:bg-indigo-900 border border-indigo-200/50 dark:border-indigo-850 rounded-xl px-4 py-2 text-xs h-24 focus:outline-none focus:ring-1 focus:ring-indigo-500 placeholder:text-indigo-400/40 text-slate-900 dark:text-slate-100 font-medium"
+                     className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl px-4 py-2 text-xs h-24 focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] placeholder:text-[var(--text-muted)] text-[var(--text-primary)] font-medium"
                   />
                 </div>
                 <button 
                   onClick={handleSaveFollowUp}
                   disabled={isSaving}
-                  className="w-full py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  className="w-full py-2 crm-btn-gold text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50"
                 >
                   {isSaving ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />} 
                   Update Task
@@ -1547,8 +1544,8 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
               </div>
 
               {/* Follow-Up Communication history timeline */}
-              <div className="mt-5 pt-4 border-t border-indigo-200/40 dark:border-indigo-900/40">
-                <h4 className="text-[9px] font-black uppercase tracking-widest text-indigo-700 dark:text-indigo-400 mb-3 flex items-center gap-1.5">
+              <div className="mt-5 pt-4 border-t border-[var(--border-color)]">
+                <h4 className="text-[9px] font-black uppercase tracking-widest text-[var(--primary-gold)] mb-3 flex items-center gap-1.5">
                   <StickyNote size={10} /> Scheduler logs
                 </h4>
                 {candidate.internalNotesLog && candidate.internalNotesLog.filter((log: any) => log.type === 'follow_up' || log.type === 'follow_up_completed' || log.noteContent?.includes('⏰') || log.noteContent?.includes('✅')).length > 0 ? (
@@ -1559,38 +1556,38 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                       .reverse()
                       .map((log: any, i: number) => {
                         return (
-                          <div key={i} className="text-[10px] text-slate-700 dark:text-indigo-200 space-y-1 bg-white/40 dark:bg-indigo-900/20 p-2.5 rounded-xl border border-indigo-200/20 dark:border-indigo-900/20">
+                          <div key={i} className="text-[10px] text-[var(--text-secondary)] space-y-1 bg-[var(--bg-secondary)] p-2.5 rounded-xl border border-[var(--border-color)]">
                             <div className="flex justify-between items-center text-[8px]">
-                              <span className="font-bold text-indigo-600 dark:text-indigo-400">{log.author}</span>
-                              <span className="text-slate-400 dark:text-indigo-500/40 font-mono">{new Date(log.timestamp).toLocaleString()}</span>
+                              <span className="font-bold text-[var(--primary-gold)]">{log.author}</span>
+                              <span className="text-[var(--text-muted)] font-mono">{new Date(log.timestamp).toLocaleString()}</span>
                             </div>
-                            <p className="text-[10px] leading-relaxed select-text font-medium">{log.noteContent}</p>
+                            <p className="text-[10px] leading-relaxed select-text font-medium text-[var(--text-primary)]">{log.noteContent}</p>
                           </div>
                         );
                       })}
                   </div>
                 ) : (
-                  <p className="text-[9px] text-indigo-400/50 italic font-medium">No reminder history logged.</p>
+                  <p className="text-[9px] text-[var(--text-muted)] italic font-medium">No reminder history logged.</p>
                 )}
               </div>
             </section>
 
             {/* Recruiter Activity / Communication log panel */}
-            <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm">
+            <section className="bg-[var(--card-bg)] p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm">
               <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                <StickyNote size={12} /> Recruiter notes
+                <StickyNote size={12} className="text-[var(--primary-gold)]" /> Recruiter notes
               </h3>
               <div className="space-y-3">
                 <textarea 
                   value={generalNotes}
                   onChange={(e) => setGeneralNotes(e.target.value)}
                   placeholder="Type a new comment or assessment here..."
-                  className="w-full bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl p-4 text-xs h-24 focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] placeholder:text-[var(--text-muted)] font-medium"
+                  className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-2xl p-4 text-xs h-24 focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] font-medium"
                 />
                 <button 
                   onClick={handleSaveNotes}
                   disabled={isSavingNotes}
-                  className="w-full py-2 bg-indigo-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-all flex items-center justify-center gap-1.5 disabled:opacity-50"
+                  className="w-full py-2 crm-btn-gold text-[10px] uppercase tracking-widest flex items-center justify-center gap-1.5 disabled:opacity-50"
                 >
                   {isSavingNotes ? <Loader2 className="animate-spin" size={12} /> : <Save size={12} />} 
                   Add Note

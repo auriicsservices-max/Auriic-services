@@ -1,34 +1,40 @@
 import React from 'react';
-import { Search, Bell, MessageSquare, Sun, Moon } from 'lucide-react';
-import { useTheme } from '../../contexts/ThemeContext';
+import { Search, Bell, MessageSquare } from 'lucide-react';
+import ThemeToggle from '../ThemeToggle';
 
 export default function Header() {
-  const { theme, toggleTheme } = useTheme();
 
   return (
-    <header className="h-16 bg-[var(--card-bg)] border-b border-[var(--border-color)] px-8 flex items-center justify-between sticky top-0 z-10">
+    <header className="h-20 bg-[var(--card-bg)] border-b border-[var(--border-color)] px-8 flex items-center justify-between sticky top-0 z-20 shadow-xs transition-colors duration-200">
       <div className="relative w-96">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--text-muted)]" size={18} />
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] shrink-0" size={18} />
         <input 
           type="text" 
-          placeholder="Search candidates, jobs..." 
-          className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl py-2 pl-10 pr-4 text-sm focus:ring-2 focus:ring-[var(--brand-color)] outline-none"
+          placeholder="Search candidates, CVs, jobs..." 
+          className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] rounded-xl py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-[var(--primary-gold)] focus:border-[var(--primary-gold)] outline-none transition-all"
         />
       </div>
 
-      <div className="flex items-center gap-4">
-        <button onClick={toggleTheme} className="p-2 rounded-xl hover:bg-[var(--bg-secondary)]">
-          {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
+      <div className="flex items-center gap-3">
+        <ThemeToggle variant="header" />
+        <button 
+          title="Notifications"
+          className="p-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] hover:border-[var(--primary-gold)] hover:text-[var(--primary-gold)] relative transition-all cursor-pointer"
+        >
+          <Bell size={18} />
+          <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
         </button>
-        <button className="p-2 rounded-xl hover:bg-[var(--bg-secondary)] relative">
-          <Bell size={20} />
-          <span className="absolute top-2 right-2 w-2 h-2 bg-[var(--danger-color)] rounded-full"></span>
+        <button 
+          title="Internal Messages"
+          className="p-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] hover:border-[var(--primary-gold)] hover:text-[var(--primary-gold)] transition-all cursor-pointer"
+        >
+          <MessageSquare size={18} />
         </button>
-        <button className="p-2 rounded-xl hover:bg-[var(--bg-secondary)]">
-          <MessageSquare size={20} />
-        </button>
-        <div className="w-8 h-8 rounded-full bg-[var(--brand-color)] text-white flex items-center justify-center font-bold text-sm">A</div>
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#004564] to-[#005472] text-white flex items-center justify-center font-bold text-sm shadow-sm border border-[var(--border-color)]">
+          A
+        </div>
       </div>
     </header>
   );
 }
+

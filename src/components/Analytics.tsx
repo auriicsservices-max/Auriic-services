@@ -295,14 +295,14 @@ export default function Analytics({
       {/* Top Cards */}
       <div className="grid grid-cols-1 md:grid-cols-5 gap-6">
         {[
-          { label: 'Total Candidates', value: candidates.length, icon: Users, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
-          { label: 'Shortlisted', value: candidates.filter(c => c.isShortlisted).length, icon: Target, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-900/40' },
-          { label: 'Unique Domains', value: Object.keys(domainDataMap).length, icon: Briefcase, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-900/40' },
-          { label: 'Total Actions', value: activityLogs.length, icon: Activity, color: 'text-slate-600', bg: 'bg-slate-100 dark:bg-slate-800' },
-          { label: 'Avg Skills/CV', value: (candidates.reduce((acc, c) => acc + (c.skills?.length || 0), 0) / (candidates.length || 1)).toFixed(1), icon: TrendingUp, color: 'text-indigo-600', bg: 'bg-indigo-50 dark:bg-indigo-900/20' },
+          { label: 'Total Candidates', value: candidates.length, icon: Users, color: 'text-[#004564] dark:text-[#A98B56]', bg: 'bg-[var(--bg-secondary)]' },
+          { label: 'Shortlisted', value: candidates.filter(c => c.isShortlisted).length, icon: Target, color: 'text-emerald-600', bg: 'bg-emerald-50 dark:bg-emerald-950/40' },
+          { label: 'Unique Domains', value: Object.keys(domainDataMap).length, icon: Briefcase, color: 'text-amber-600', bg: 'bg-amber-50 dark:bg-amber-950/40' },
+          { label: 'Total Actions', value: activityLogs.length, icon: Activity, color: 'text-[var(--text-secondary)]', bg: 'bg-[var(--bg-secondary)]' },
+          { label: 'Avg Skills/CV', value: (candidates.reduce((acc, c) => acc + (c.skills?.length || 0), 0) / (candidates.length || 1)).toFixed(1), icon: TrendingUp, color: 'text-[#A98B56]', bg: 'bg-[var(--bg-secondary)]' },
         ].map((item, idx) => (
           <div key={idx} className="bg-[var(--card-bg)] p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm hover:shadow-md transition-all duration-300">
-            <div className={`w-10 h-10 ${item.bg} rounded-xl flex items-center justify-center ${item.color} mb-4`}>
+            <div className={`w-10 h-10 ${item.bg} rounded-xl flex items-center justify-center ${item.color} mb-4 border border-[var(--border-color)]`}>
               <item.icon size={20} />
             </div>
             <p className="text-[10px] text-[var(--text-muted)] uppercase font-bold tracking-widest">{item.label}</p>
@@ -370,7 +370,7 @@ export default function Analytics({
                 placeholder="Filter standings roster..." 
                 value={domainSearch} 
                 onChange={(e) => setDomainSearch(e.target.value)} 
-                className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-2.5 text-xs font-bold text-[var(--text-primary)] shadow-sm" 
+                className="crm-input text-xs" 
               />
             </div>
             
@@ -382,14 +382,14 @@ export default function Analytics({
                   <button 
                     key={name} 
                     onClick={() => handleDomainClick(name)} 
-                    className="flex items-center justify-between p-4 bg-[var(--sidebar-bg)] border border-[var(--border-color)]/60 rounded-2xl shadow-xs hover:border-indigo-400/50 hover:bg-slate-100/50 dark:hover:bg-slate-800/50 transition-all text-left w-full"
+                    className="flex items-center justify-between p-4 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl shadow-xs hover:border-[var(--primary-gold)] hover:bg-[var(--card-hover-bg)] transition-all text-left w-full cursor-pointer"
                   >
                     <div className="flex flex-col min-w-0">
                       <span className="font-extrabold text-xs text-[var(--text-primary)] truncate">{name}</span>
                       <span className="text-[10px] font-medium text-[var(--text-muted)] mt-0.5">{percentage}% of candidates</span>
                     </div>
                     <div className="flex items-center gap-2 shrink-0">
-                      <span className="px-3 py-1 bg-indigo-50 dark:bg-indigo-950/50 border border-indigo-100 dark:border-indigo-900 rounded-xl text-xs font-black text-indigo-600 dark:text-indigo-400 shadow-sm">{value}</span>
+                      <span className="px-3 py-1 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl text-xs font-black text-[var(--primary-gold)] shadow-xs">{value}</span>
                     </div>
                   </button>
                 );
@@ -420,12 +420,12 @@ export default function Analytics({
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             <div className="lg:col-span-1 space-y-6">
                 <Select options={skillOptions} onChange={(opt) => opt && handleSkillClick(opt.value)} styles={customSelectStyles} placeholder="Search skill..." isClearable />
-                <input type="text" placeholder="Search skills overview..." value={skillSearch} onChange={(e) => setSkillSearch(e.target.value)} className="w-full bg-slate-50 dark:bg-slate-800 border-none rounded-xl px-4 py-3 text-xs font-bold text-[var(--text-primary)] shadow-sm" />
+                <input type="text" placeholder="Search skills overview..." value={skillSearch} onChange={(e) => setSkillSearch(e.target.value)} className="crm-input text-xs" />
                 <div className="grid grid-cols-2 gap-3 max-h-[300px] overflow-y-auto">
                     {filteredSkills.map(({ name, count }: any) => (
-                        <button key={name} title={`Skill: ${name} (${count} candidates)`} onClick={() => handleSkillClick(name)} className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-700 rounded-xl hover:bg-gold-bc9b/15 dark:hover:bg-blue-3e51/30 transition-all border border-transparent hover:border-gold-bc9b dark:hover:border-gold-a98b">
+                        <button key={name} title={`Skill: ${name} (${count} candidates)`} onClick={() => handleSkillClick(name)} className="flex items-center justify-between p-3 bg-[var(--card-bg)] rounded-xl hover:bg-[var(--card-hover-bg)] transition-all border border-[var(--border-color)] hover:border-[var(--primary-gold)] cursor-pointer">
                             <span className="font-bold text-xs truncate mr-2 text-[var(--text-primary)]">{name}</span>
-                            <span className="px-2 py-1 bg-white dark:bg-slate-800 rounded-md text-[10px] font-bold text-gold-a98b shadow-sm">{count}</span>
+                            <span className="px-2 py-1 bg-[var(--bg-secondary)] rounded-md text-[10px] font-bold text-[var(--primary-gold)] border border-[var(--border-color)]">{count}</span>
                         </button>
                     ))}
                 </div>
@@ -445,11 +445,11 @@ export default function Analytics({
       
       {/* Skill Candidates Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-[var(--bg-primary)] text-[var(--text-primary)] w-full max-w-2xl max-h-[80vh] rounded-[2rem] shadow-2xl flex flex-col p-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-[var(--card-bg)] text-[var(--text-primary)] border border-[var(--border-color)] w-full max-w-2xl max-h-[80vh] rounded-[2rem] shadow-2xl flex flex-col p-8">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-serif text-[var(--text-primary)]">Candidates with <span className="text-indigo-600">{selectedSkill}</span> ({filteredCandidates.length})</h2>
-              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full font-sans transition-colors duration-300"><X size={20} /></button>
+              <h2 className="text-xl font-serif text-[var(--text-primary)]">Candidates with <span className="text-[var(--primary-gold)] font-bold">{selectedSkill}</span> ({filteredCandidates.length})</h2>
+              <button onClick={() => setShowModal(false)} className="p-2 hover:bg-[var(--card-hover-bg)] rounded-full font-sans transition-colors duration-300 cursor-pointer"><X size={20} /></button>
             </div>
             <div className="overflow-y-auto space-y-4 font-sans">
               {filteredCandidates.map(c => (
@@ -459,12 +459,12 @@ export default function Analytics({
                     navigate(`/candidate/${c.id}`);
                     setShowModal(false);
                   }} 
-                  className="w-full p-4 border border-[var(--border-color)] rounded-xl flex items-center gap-4 hover:bg-[var(--sidebar-bg)] transition-all"
+                  className="w-full p-4 border border-[var(--border-color)] rounded-xl flex items-center gap-4 hover:bg-[var(--card-hover-bg)] transition-all cursor-pointer"
                 >
-                  <div className="w-10 h-10 bg-[var(--sidebar-bg)] rounded-full flex items-center justify-center font-bold text-sm text-white">{c.fullName.slice(0,2).toUpperCase()}</div>
+                  <div className="w-10 h-10 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-full flex items-center justify-center font-bold text-sm text-[var(--primary-gold)]">{c.fullName.slice(0,2).toUpperCase()}</div>
                   <div className="flex-1 text-left">
                     <p className="font-bold text-sm text-[var(--text-primary)]">{c.fullName}</p>
-                    <p className="text-xs text-[#334155]">{c.domain}</p>
+                    <p className="text-xs text-[var(--text-muted)]">{c.domain}</p>
                   </div>
                 </button>
               ))}
@@ -475,13 +475,13 @@ export default function Analytics({
 
       {/* Domain Candidates Modal */}
       {showDomainModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in">
-          <div className="bg-[var(--bg-primary)] text-[var(--text-primary)] w-full max-w-2xl max-h-[80vh] rounded-[2rem] shadow-2xl flex flex-col p-8">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in">
+          <div className="bg-[var(--card-bg)] text-[var(--text-primary)] border border-[var(--border-color)] w-full max-w-2xl max-h-[80vh] rounded-[2rem] shadow-2xl flex flex-col p-8">
             <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-serif text-[var(--text-primary)]">Candidates in <span className="text-indigo-600">{selectedDomain}</span> ({domainCandidates.length})</h2>
+              <h2 className="text-xl font-serif text-[var(--text-primary)]">Candidates in <span className="text-[var(--primary-gold)] font-bold">{selectedDomain}</span> ({domainCandidates.length})</h2>
               <button 
                 onClick={() => setShowDomainModal(false)} 
-                className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full font-sans transition-colors duration-300"
+                className="p-2 hover:bg-[var(--card-hover-bg)] rounded-full font-sans transition-colors duration-300 cursor-pointer"
               >
                 <X size={20} />
               </button>

@@ -29,7 +29,7 @@ export default function Shortlist({ candidates, onCandidateSelect, onArchive, ro
                 </div>
             ) : (
                 <table className="w-full text-left border-collapse">
-                    <thead className="bg-slate-50 dark:bg-slate-900/50 text-[10px] uppercase font-black text-[var(--text-muted)] border-b border-[var(--border-color)] tracking-wider">
+                    <thead className="bg-[var(--sidebar-bg)] text-[10px] uppercase font-black text-[var(--text-muted)] border-b border-[var(--border-color)] tracking-wider">
                         <tr>
                             <th className="px-6 py-4">Candidate</th>
                             <th className="px-6 py-4">Domain</th>
@@ -38,7 +38,7 @@ export default function Shortlist({ candidates, onCandidateSelect, onArchive, ro
                     </thead>
                     <tbody className="divide-y divide-[var(--border-color)]">
                         {shortlisted.map(candidate => (
-                            <tr key={candidate.id} className="hover:bg-indigo-50/20 dark:hover:bg-indigo-900/10 cursor-pointer" onClick={() => onCandidateSelect(candidate)}>
+                            <tr key={candidate.id} className="hover:bg-[var(--card-hover-bg)] cursor-pointer transition-colors" onClick={() => onCandidateSelect(candidate)}>
                                 <td className="px-6 py-4">
                                     <div className="font-bold text-[var(--text-primary)]">{candidate.fullName}</div>
                                     <div className="text-xs text-[var(--text-muted)]">{candidate.email}</div>

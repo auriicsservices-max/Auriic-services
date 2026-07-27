@@ -18,20 +18,23 @@ export interface ChatMessage {
 }
 
 export class GeminiSearchAssistant {
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
 
   constructor() {
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY is not defined');
-    }
-    this.ai = new GoogleGenAI({ 
-      apiKey: process.env.GEMINI_API_KEY,
-      httpOptions: {
-        headers: {
-          'User-Agent': 'aistudio-build',
-        }
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        this.ai = new GoogleGenAI({ 
+          apiKey: process.env.GEMINI_API_KEY,
+          httpOptions: {
+            headers: {
+              'User-Agent': 'aistudio-build',
+            }
+          }
+        });
+      } catch (e) {
+        this.ai = null;
       }
-    });
+    }
   }
 
   async search(
@@ -58,6 +61,10 @@ export class GeminiSearchAssistant {
         skills: flatSkills
       };
     });
+
+    if (!this.ai || !process.env.GEMINI_API_KEY) {
+      return this.fallbackFilter(query, sanitizedCandidates);
+    }
 
     // Format conversation history to feed to Gemini
     const formattedHistory = history.map(msg => {
@@ -146,7 +153,13 @@ export class GeminiSearchAssistant {
       const text = response.text || '{}';
       return JSON.parse(text);
     } catch (err: any) {
-      console.warn('[GeminiSearchAssistant] gemini-3.5-flash failed or rate-limited. Error details:', err?.message || err);
+      const errMsg = err?.message || String(err);
+      if (errMsg.includes('API key not valid') || errMsg.includes('API_KEY_INVALID')) {
+        console.log('[GeminiSearchAssistant] API key invalid or unconfigured. Using rule-based search.');
+        return this.fallbackFilter(query, sanitizedCandidates);
+      }
+      
+      console.warn('[GeminiSearchAssistant] gemini-3.5-flash failed or rate-limited. Error details:', errMsg);
       
       // Retry with gemini-3.1-flash-lite
       try {
@@ -173,8 +186,7 @@ export class GeminiSearchAssistant {
         const text = response.text || '{}';
         return JSON.parse(text);
       } catch (fallbackErr: any) {
-        console.error('[GeminiSearchAssistant] Fallback model gemini-3.1-flash-lite also failed:', fallbackErr?.message || fallbackErr);
-        console.log('[GeminiSearchAssistant] Invoking offline rule-based heuristic search fallback...');
+        console.log('[GeminiSearchAssistant] Fallback search offline rule-based heuristic search.');
         return this.fallbackFilter(query, sanitizedCandidates);
       }
     }

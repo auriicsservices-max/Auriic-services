@@ -181,7 +181,7 @@ export default function DashboardHome({
       case 'Notes/Feedback': return 'bg-blue-50 dark:bg-blue-950/30 text-blue-600 dark:text-blue-400 border-blue-100/50 dark:border-blue-900/30';
       case 'Assignments': return 'bg-fuchsia-50 dark:bg-fuchsia-950/30 text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-100/50 dark:border-fuchsia-900/30';
       case 'Chat Messages': return 'bg-violet-50 dark:bg-violet-950/30 text-violet-600 dark:text-violet-400 border-violet-100/50 dark:border-violet-900/30';
-      default: return 'bg-indigo-50 dark:bg-indigo-950/30 text-indigo-600 dark:text-indigo-400 border-indigo-100/50 dark:border-indigo-900/30';
+      default: return 'bg-[var(--bg-secondary)] text-[var(--primary-gold)] border border-[var(--border-color)]';
     }
   };
 
@@ -282,23 +282,23 @@ export default function DashboardHome({
     if (active && payload && payload.length) {
       const activeItems = payload.filter((p: any) => (p.value || 0) > 0);
       return (
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-2xl shadow-xl space-y-2.5 max-w-sm">
-          <p className="text-[10px] font-black text-slate-800 dark:text-slate-100 border-b border-slate-100 dark:border-slate-800 pb-1.5 w-full flex items-center gap-1.5 uppercase tracking-wider">
-            <Calendar size={12} className="text-indigo-500" /> {label}
+        <div className="bg-[var(--card-bg)] border border-[var(--border-color)] p-3.5 rounded-2xl shadow-xl space-y-2.5 max-w-sm">
+          <p className="text-[10px] font-black text-[var(--text-primary)] border-b border-[var(--border-color)] pb-1.5 w-full flex items-center gap-1.5 uppercase tracking-wider">
+            <Calendar size={12} className="text-[var(--primary-gold)]" /> {label}
           </p>
           <div className="space-y-1">
             {activeItems.length > 0 ? (
               activeItems.map((p: any) => (
                 <div key={p.name} className="flex items-center gap-6 text-xs justify-between">
-                  <span className="flex items-center gap-1.5 font-semibold text-slate-500 dark:text-slate-450 text-[11px]">
+                  <span className="flex items-center gap-1.5 font-semibold text-[var(--text-muted)] text-[11px]">
                     <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: p.color }} />
                     {p.name}:
                   </span>
-                  <span className="font-mono font-black text-indigo-600 dark:text-indigo-400 text-xs">{p.value}</span>
+                  <span className="font-mono font-black text-[var(--primary-gold)] text-xs">{p.value}</span>
                 </div>
               ))
             ) : (
-              <p className="text-[10px] text-slate-400 italic">No actions registered</p>
+              <p className="text-[10px] text-[var(--text-muted)] italic">No actions registered</p>
             )}
           </div>
         </div>
@@ -402,7 +402,7 @@ export default function DashboardHome({
               <select 
                 value={activeRange} 
                 onChange={(e) => setActiveRange(e.target.value as any)} 
-                className="px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] text-xs font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-gold-a98b cursor-pointer text-slate-700 dark:text-slate-300"
+                className="px-3 py-1.5 bg-[var(--card-bg)] border border-[var(--border-color)] text-xs font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-[var(--primary-gold)] cursor-pointer text-[var(--text-primary)]"
               >
                 <option value="7days">Last 7 Days</option>
                 <option value="30days">Last 30 Days</option>
@@ -414,7 +414,7 @@ export default function DashboardHome({
 
           {/* Conditional Custom Date pickers */}
           {activeRange === 'custom' && (
-            <div className="flex flex-wrap gap-4 items-center bg-slate-50 dark:bg-slate-900/45 p-4 rounded-2xl border border-[var(--border-color)] mb-4 animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex flex-wrap gap-4 items-center bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] mb-4 animate-in fade-in zoom-in-95 duration-200">
               <div className="flex flex-col min-w-[120px]">
                 <label className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider mb-1">Start Date</label>
                 <input 
@@ -463,10 +463,10 @@ export default function DashboardHome({
                 </LineChart>
               </ResponsiveContainer>
             ) : (
-              <div className="h-full w-full flex flex-col items-center justify-center border-2 border-dashed border-[var(--border-color)] rounded-[2rem] bg-slate-50/50 dark:bg-slate-900/10 px-4 py-12 text-center">
-                <TrendingUp size={32} className="text-slate-400 opacity-20 mb-3 animate-pulse" />
-                <p className="text-xs font-black uppercase tracking-wider text-slate-500">No activity data registered</p>
-                <p className="text-[10px] text-slate-400/80 max-w-[240px] mt-1.5 font-medium">
+              <div className="h-full w-full flex flex-col items-center justify-center border-2 border-dashed border-[var(--border-color)] rounded-[2rem] bg-[var(--bg-secondary)]/50 px-4 py-12 text-center">
+                <TrendingUp size={32} className="text-[var(--text-muted)] opacity-30 mb-3 animate-pulse" />
+                <p className="text-xs font-black uppercase tracking-wider text-[var(--text-primary)]">No activity data registered</p>
+                <p className="text-[10px] text-[var(--text-muted)] max-w-[240px] mt-1.5 font-medium">
                   We did not detect actions matching your filters. Try selecting a broader reporting timeline.
                 </p>
               </div>

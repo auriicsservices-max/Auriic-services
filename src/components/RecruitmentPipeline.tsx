@@ -36,153 +36,9 @@ interface Props {
   fullTeamList?: any[];
 }
 
-// Stage configuration defining the workflow columns
-export interface Stage {
-  id: string;
-  label: string;
-  parentStage: 'cv_upload' | 'screening' | 'interview_stage' | 'offer_received' | 'offer_accepted_declined' | 'joining' | 'invoice_generated';
-  parentLabel: string;
-  color: string; // border and icon text color
-  bgColor: string; // light theme bg color
-  darkBgColor: string; // dark theme bg color
-  accentColor: string; // badge/pill bg color
-  darkAccentColor: string; // dark badge/pill bg color
-}
-
-export const STAGES: Stage[] = [
-  {
-    id: 'cv_upload',
-    label: 'CV Upload',
-    parentStage: 'cv_upload',
-    parentLabel: 'Inflow',
-    color: 'text-[#004564] dark:text-[#A98B56] border-[#A98B56]/50 dark:border-[#A98B56]/30',
-    bgColor: 'bg-white',
-    darkBgColor: 'dark:bg-[#002D38]',
-    accentColor: 'bg-slate-100 text-slate-800',
-    darkAccentColor: 'dark:bg-slate-800 dark:text-slate-200'
-  },
-  {
-    id: 'telephone_screening',
-    label: 'Telephone Screening',
-    parentStage: 'screening',
-    parentLabel: 'Screening',
-    color: 'text-sky-600 dark:text-sky-400 border-sky-300 dark:border-sky-800',
-    bgColor: 'bg-sky-50/40',
-    darkBgColor: 'dark:bg-sky-950/20',
-    accentColor: 'bg-sky-100 text-sky-800',
-    darkAccentColor: 'dark:bg-sky-900/40 dark:text-sky-200'
-  },
-  {
-    id: 'video_screening',
-    label: 'Video Screening',
-    parentStage: 'screening',
-    parentLabel: 'Screening',
-    color: 'text-indigo-600 dark:text-indigo-400 border-indigo-300 dark:border-indigo-800',
-    bgColor: 'bg-indigo-50/40',
-    darkBgColor: 'dark:bg-indigo-950/20',
-    accentColor: 'bg-indigo-100 text-indigo-800',
-    darkAccentColor: 'dark:bg-indigo-900/40 dark:text-indigo-200'
-  },
-  {
-    id: 'technical_screening',
-    label: 'Technical Screening',
-    parentStage: 'interview_stage',
-    parentLabel: 'Interviews',
-    color: 'text-purple-600 dark:text-purple-400 border-purple-300 dark:border-purple-800',
-    bgColor: 'bg-purple-50/40',
-    darkBgColor: 'dark:bg-purple-950/20',
-    accentColor: 'bg-purple-100 text-purple-800',
-    darkAccentColor: 'dark:bg-purple-900/40 dark:text-purple-200'
-  },
-  {
-    id: 'assessment',
-    label: 'Assessment',
-    parentStage: 'interview_stage',
-    parentLabel: 'Interviews',
-    color: 'text-violet-600 dark:text-violet-400 border-violet-300 dark:border-violet-800',
-    bgColor: 'bg-violet-50/40',
-    darkBgColor: 'dark:bg-violet-950/20',
-    accentColor: 'bg-violet-100 text-violet-800',
-    darkAccentColor: 'dark:bg-violet-900/40 dark:text-violet-200'
-  },
-  {
-    id: 'client_interview_round_1',
-    label: 'Client Interview R1',
-    parentStage: 'interview_stage',
-    parentLabel: 'Interviews',
-    color: 'text-fuchsia-600 dark:text-fuchsia-400 border-fuchsia-300 dark:border-fuchsia-800',
-    bgColor: 'bg-fuchsia-50/40',
-    darkBgColor: 'dark:bg-fuchsia-950/20',
-    accentColor: 'bg-fuchsia-100 text-fuchsia-800',
-    darkAccentColor: 'dark:bg-fuchsia-900/40 dark:text-fuchsia-200'
-  },
-  {
-    id: 'client_interview_round_2',
-    label: 'Client Interview R2',
-    parentStage: 'interview_stage',
-    parentLabel: 'Interviews',
-    color: 'text-pink-600 dark:text-pink-400 border-pink-300 dark:border-pink-800',
-    bgColor: 'bg-pink-50/40',
-    darkBgColor: 'dark:bg-pink-950/20',
-    accentColor: 'bg-pink-100 text-pink-800',
-    darkAccentColor: 'dark:bg-pink-900/40 dark:text-pink-200'
-  },
-  {
-    id: 'final_interview',
-    label: 'Final Interview',
-    parentStage: 'interview_stage',
-    parentLabel: 'Interviews',
-    color: 'text-rose-600 dark:text-rose-400 border-rose-300 dark:border-rose-800',
-    bgColor: 'bg-rose-50/40',
-    darkBgColor: 'dark:bg-rose-950/20',
-    accentColor: 'bg-rose-100 text-rose-800',
-    darkAccentColor: 'dark:bg-rose-900/40 dark:text-rose-200'
-  },
-  {
-    id: 'offer_received',
-    label: 'Offer Received',
-    parentStage: 'offer_received',
-    parentLabel: 'Offer',
-    color: 'text-amber-600 dark:text-amber-400 border-amber-300 dark:border-amber-800',
-    bgColor: 'bg-amber-50/40',
-    darkBgColor: 'dark:bg-amber-950/20',
-    accentColor: 'bg-amber-100 text-amber-800',
-    darkAccentColor: 'dark:bg-amber-900/40 dark:text-amber-200'
-  },
-  {
-    id: 'offer_accepted_declined',
-    label: 'Offer Accepted/Declined',
-    parentStage: 'offer_accepted_declined',
-    parentLabel: 'Offer Decision',
-    color: 'text-orange-600 dark:text-orange-400 border-orange-300 dark:border-orange-800',
-    bgColor: 'bg-orange-50/40',
-    darkBgColor: 'dark:bg-orange-950/20',
-    accentColor: 'bg-orange-100 text-orange-800',
-    darkAccentColor: 'dark:bg-orange-900/40 dark:text-orange-200'
-  },
-  {
-    id: 'joining',
-    label: 'Joining',
-    parentStage: 'joining',
-    parentLabel: 'Placement',
-    color: 'text-gold-a98b dark:text-gold-bc9b border-gold-bc9b/30 dark:border-gold-bc9b/20',
-    bgColor: 'bg-gold-bc9b/5',
-    darkBgColor: 'dark:bg-gold-a98b/10',
-    accentColor: 'bg-gold-bc9b/10 text-gold-8c6e',
-    darkAccentColor: 'dark:bg-gold-a98b/20 dark:text-gold-bc9b'
-  },
-  {
-    id: 'invoice_generated',
-    label: 'Invoice Generated',
-    parentStage: 'invoice_generated',
-    parentLabel: 'Invoice',
-    color: 'text-emerald-600 dark:text-emerald-400 border-emerald-300 dark:border-emerald-800',
-    bgColor: 'bg-emerald-50/40',
-    darkBgColor: 'dark:bg-emerald-950/20',
-    accentColor: 'bg-emerald-100 text-emerald-800',
-    darkAccentColor: 'dark:bg-emerald-900/40 dark:text-emerald-200'
-  }
-];
+import { STAGES, PARENT_STAGES, Stage, getStageConfig } from '../lib/pipelineStages';
+export type { Stage };
+export { STAGES };
 
 export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = {}, fullTeamList = [] }: Props) {
   const { user, getUserDisplayName, getUserRole } = useAuth();
@@ -535,24 +391,16 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
     }
   };
 
-  const parentStagesList = [
-    { id: 'cv_upload', label: 'Inflow', colSpan: 1, color: 'border-slate-300 bg-slate-100/80 text-slate-700 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700' },
-    { id: 'screening', label: 'Screening Round', colSpan: 2, color: 'border-sky-300 bg-sky-100/80 text-sky-700 dark:bg-sky-950/40 dark:text-sky-350 dark:border-sky-900' },
-    { id: 'interview_stage', label: 'Interview Process', colSpan: 5, color: 'border-purple-300 bg-purple-100/80 text-purple-700 dark:bg-purple-950/40 dark:text-purple-350 dark:border-purple-900' },
-    { id: 'offer_received', label: 'Offer Sent', colSpan: 1, color: 'border-amber-300 bg-amber-100/80 text-amber-700 dark:bg-amber-950/40 dark:text-amber-350 dark:border-amber-900' },
-    { id: 'offer_accepted_declined', label: 'Closing Choice', colSpan: 1, color: 'border-orange-300 bg-orange-100/80 text-orange-700 dark:bg-orange-950/40 dark:text-orange-350 dark:border-orange-900' },
-    { id: 'joining', label: 'Placement', colSpan: 1, color: 'border-gold-bc9b bg-gold-bc9b/10 text-gold-a98b dark:bg-gold-bc9b/5 dark:text-gold-bc9b dark:border-gold-a98b/40' },
-    { id: 'invoice_generated', label: 'Billing/Invoice', colSpan: 1, color: 'border-emerald-300 bg-emerald-100/80 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-350 dark:border-emerald-900' }
-  ];
+  const parentStagesList = PARENT_STAGES;
 
   return (
     <div className="flex flex-col gap-6 w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
       
       {/* Search & Filters Controls */}
-      <div className="bg-[var(--card-bg)] p-5 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex flex-col gap-5">
+      <div className="crm-card p-5 shadow-sm flex flex-col gap-5">
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100/30 rounded-xl flex items-center justify-center text-indigo-600 dark:text-indigo-400">
+            <div className="w-10 h-10 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl flex items-center justify-center text-[var(--primary-gold)] shadow-sm">
               <Sliders size={18} />
             </div>
             <div>
@@ -563,8 +411,8 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
           
           {/* Quick Stats */}
           <div className="flex flex-wrap gap-2">
-            <span className="px-3 py-1.5 bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl text-xs font-bold text-[var(--text-secondary)]">
-              Total candidates: <span className="text-indigo-600 dark:text-indigo-400 font-extrabold">{filteredCandidates.length}</span>
+            <span className="px-3 py-1.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl text-xs font-bold text-[var(--text-secondary)]">
+              Total candidates: <span className="text-[var(--primary-gold)] font-extrabold">{filteredCandidates.length}</span>
             </span>
             <span className="px-3 py-1.5 bg-emerald-50 dark:bg-emerald-950/20 border border-emerald-100/20 rounded-xl text-xs font-bold text-emerald-700 dark:text-emerald-400">
               Placed & Billed: <span className="font-extrabold">{candidates.filter(c => getCandidateStage(c) === 'invoice_generated' || getCandidateStage(c) === 'joining').length}</span>
@@ -573,14 +421,14 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
         </div>
 
         {/* Real Dynamic Filtering Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 pt-1.5 border-t border-[var(--border-color)]/50">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 pt-1.5 border-t border-[var(--border-color)]">
           
           {/* Search Input */}
           <div className="flex flex-col gap-1.5">
             <label className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-1">
               <Search size={10} /> Search Candidate
             </label>
-            <div className="flex items-center gap-2 bg-slate-50 dark:bg-slate-900/60 border border-[var(--border-color)] rounded-xl px-3 py-2 w-full focus-within:ring-2 focus-within:ring-indigo-500/10 focus-within:border-indigo-500/50 transition-all duration-300">
+            <div className="flex items-center gap-2 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 w-full transition-all duration-300">
               <input 
                 type="text" 
                 value={searchQuery}
@@ -589,7 +437,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                 className="bg-transparent border-none focus:outline-none text-xs flex-1 text-[var(--text-primary)] font-semibold"
               />
               {searchQuery && (
-                <button onClick={() => setSearchQuery('')} className="text-slate-400 hover:text-red-500">
+                <button onClick={() => setSearchQuery('')} className="text-[var(--text-muted)] hover:text-red-500">
                   <X size={14} />
                 </button>
               )}
@@ -604,7 +452,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
             <select
               value={selectedClient}
               onChange={(e) => setSelectedClient(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+              className="crm-input text-xs font-semibold py-2"
             >
               <option value="all">All Clients ({uniqueClients.length - 1})</option>
               {uniqueClients.filter(c => c !== 'all').map(client => (
@@ -621,7 +469,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
             <select
               value={selectedRecruiter}
               onChange={(e) => setSelectedRecruiter(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+              className="crm-input text-xs font-semibold py-2"
             >
               <option value="all">All Recruiters ({uniqueRecruiters.length - 1})</option>
               {uniqueRecruiters.filter(r => r !== 'all').map(recruiter => (
@@ -638,7 +486,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
             <select
               value={selectedPosition}
               onChange={(e) => setSelectedPosition(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+              className="crm-input text-xs font-semibold py-2"
             >
               <option value="all">All Positions ({uniquePositions.length - 1})</option>
               {uniquePositions.filter(p => p !== 'all').map(pos => (
@@ -655,7 +503,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
             <select
               value={selectedPriority}
               onChange={(e) => setSelectedPriority(e.target.value)}
-              className="bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+              className="crm-input text-xs font-semibold py-2"
             >
               <option value="all">All Priorities</option>
               <option value="high">🔴 High Priority</option>
@@ -687,30 +535,10 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
       </div>
 
       {/* Main Kanban Board Container (Scrollable Horizontal Grid) */}
-      <div className="flex flex-col w-full overflow-hidden border border-[var(--border-color)] bg-slate-50/20 dark:bg-slate-950/10 rounded-[2.5rem] p-4 sm:p-6 shadow-inner">
+      <div className="flex flex-col w-full overflow-hidden border border-[var(--border-color)] bg-[var(--bg-primary)] rounded-2xl p-4 sm:p-5 shadow-sm">
         
-        {/* Parent Stage Group Titles Row */}
-        <div className="flex gap-4 select-none pb-3 border-b border-[var(--border-color)]/40 overflow-x-auto whitespace-nowrap scrollbar-thin">
-          <div className="flex gap-4 min-w-[2100px]">
-            {parentStagesList.map(parent => {
-              // Calculate column width depending on count of sub stages
-              const colWidth = parent.colSpan === 5 ? 'w-[1464px]' : parent.colSpan === 2 ? 'w-[576px]' : 'w-[280px]';
-              return (
-                <div 
-                  key={parent.id} 
-                  className={`px-4 py-2 border-b-2 rounded-t-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-1.5 ${parent.color} ${colWidth} transition-all`}
-                >
-                  <Sparkles size={11} className="opacity-75" />
-                  {parent.label}
-                  <span className="text-[9px] font-semibold opacity-80">({parent.colSpan} stage{parent.colSpan > 1 ? 's' : ''})</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
         {/* Columns Grid Row */}
-        <div className="flex gap-4 overflow-x-auto pt-4 scrollbar-thin pb-4 min-h-[640px]">
+        <div className="flex gap-4 overflow-x-auto scrollbar-thin pb-4 min-h-[640px]">
           <div className="flex gap-4 min-w-[2100px]">
             {STAGES.map(stage => {
               const columnCandidates = candidatesByStage[stage.id] || [];
@@ -721,33 +549,31 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                   key={stage.id}
                   onDragOver={(e) => handleDragOver(e, stage.id)}
                   onDrop={(e) => handleDrop(e, stage.id)}
-                  className={`w-[280px] shrink-0 rounded-3xl p-3 border-2 transition-all flex flex-col gap-3 min-h-[580px] ${stage.bgColor} ${stage.darkBgColor} ${
+                  className={`w-[280px] shrink-0 rounded-2xl p-3.5 border flex flex-col gap-3 min-h-[580px] transition-all bg-[var(--card-bg)] shadow-sm ${
                     isDragOver 
-                      ? 'border-indigo-500 scale-[1.01] bg-indigo-50/35 dark:bg-indigo-950/20 ring-4 ring-indigo-500/10 border-dashed' 
-                      : 'border-[var(--border-color)]/80'
+                      ? 'border-[var(--primary-gold)] scale-[1.01] bg-[var(--bg-secondary)] ring-4 ring-[var(--primary-gold)]/20 border-dashed' 
+                      : 'border-[var(--border-color)]'
                   }`}
                 >
                   
                   {/* Stage Header */}
-                  <div className="flex flex-col gap-1 border-b border-[var(--border-color)]/50 pb-2.5">
-                    <div className="flex items-center justify-between gap-2">
-                      <span className={`text-[10px] font-black uppercase tracking-wider truncate text-[var(--text-primary)]`}>
+                  <div className="flex items-center justify-between gap-2 border-b border-[var(--border-color)] pb-3">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className={`w-2.5 h-2.5 rounded-full shrink-0 ${stage.dotClass}`} />
+                      <h3 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider truncate">
                         {stage.label}
-                      </span>
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-black shrink-0 ${stage.accentColor} ${stage.darkAccentColor}`}>
-                        {columnCandidates.length}
-                      </span>
+                      </h3>
                     </div>
-                    <span className="text-[8px] text-[var(--text-muted)] uppercase tracking-widest font-bold">
-                      {stage.parentLabel}
+                    <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-[var(--bg-secondary)] text-[var(--text-secondary)] border border-[var(--border-color)] shrink-0">
+                      {columnCandidates.length}
                     </span>
                   </div>
 
                   {/* Candidate List inside Column */}
-                  <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto scrollbar-thin max-h-[520px] pr-0.5">
+                  <div className="flex-1 flex flex-col gap-2.5 overflow-y-auto scrollbar-thin max-h-[540px] pr-0.5">
                     {columnCandidates.length === 0 ? (
-                      <div className="flex flex-col items-center justify-center py-16 text-[var(--text-muted)] border border-dashed border-[var(--border-color)]/50 rounded-2xl bg-white/20 dark:bg-black/10">
-                        <AlertCircle size={24} className="opacity-20 mb-2" />
+                      <div className="flex flex-col items-center justify-center py-16 text-[var(--text-muted)] border border-dashed border-[var(--border-color)] rounded-xl bg-[var(--bg-secondary)]/40">
+                        <AlertCircle size={22} className="opacity-30 mb-2 text-[var(--text-muted)]" />
                         <span className="text-[9px] uppercase font-black tracking-wider text-center px-4">No candidates</span>
                       </div>
                     ) : (
@@ -771,7 +597,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                             draggable
                             onDragStart={(e) => handleDragStart(e, candidate.id)}
                             onDragEnd={handleDragEnd}
-                            className={`bg-[var(--card-bg)] border border-[var(--border-color)]/80 hover:border-indigo-400 dark:hover:border-indigo-500 p-4.5 rounded-2xl shadow-sm hover:shadow-md transition-all duration-300 flex flex-col gap-3 group relative cursor-grab active:cursor-grabbing ${
+                            className={`bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] border border-[var(--border-color)] hover:border-[var(--primary-gold)]/50 p-3.5 rounded-xl shadow-xs hover:shadow-md transition-all duration-200 flex flex-col gap-2.5 group relative cursor-grab active:cursor-grabbing ${
                               draggingId === candidate.id ? 'opacity-35 border-dashed border-slate-400' : ''
                             } ${isUpdating ? 'pointer-events-none opacity-50' : ''}`}
                           >
@@ -828,10 +654,10 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
 
                             {/* Follow-up date / Next Action details */}
                             {(candidate.followUpDate || candidate.nextAction) && (
-                              <div className="bg-slate-50 dark:bg-slate-900/40 rounded-xl p-2.5 flex flex-col gap-1.5 border border-[var(--border-color)]/30">
+                              <div className="bg-[var(--bg-secondary)] rounded-xl p-2.5 flex flex-col gap-1.5 border border-[var(--border-color)]">
                                 {candidate.followUpDate && (
                                   <div className="flex items-center gap-1.5">
-                                    <Calendar size={11} className={`shrink-0 ${isFollowUpDue ? 'text-rose-500' : 'text-slate-400'}`} />
+                                    <Calendar size={11} className={`shrink-0 ${isFollowUpDue ? 'text-rose-500' : 'text-[var(--text-muted)]'}`} />
                                     <span className={`text-[9px] font-black tracking-tight ${isFollowUpDue ? 'text-rose-600 dark:text-rose-400' : 'text-[var(--text-secondary)]'}`}>
                                       {candidate.followUpDate}
                                     </span>
@@ -846,15 +672,15 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                             )}
 
                             {/* Stage Selector Dropdown */}
-                            <div className="flex flex-col gap-1 border-t border-[var(--border-color)]/30 pt-2.5">
+                            <div className="flex flex-col gap-1 border-t border-[var(--border-color)] pt-2.5">
                               <label className="text-[8px] font-black uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1">
-                                <ArrowRight size={8} className="text-indigo-500 animate-pulse" /> Change Stage:
+                                <ArrowRight size={8} className="text-[var(--primary-gold)] animate-pulse" /> Change Stage:
                               </label>
                               <div className="relative">
                                 <select
                                   value={getCandidateStage(candidate)}
                                   onChange={(e) => moveCandidateStage(candidate.id, e.target.value)}
-                                  className="w-full bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[var(--border-color)] text-[10px] font-bold text-[var(--text-secondary)] rounded-xl px-2.5 py-1.5 appearance-none focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer pr-7 text-left leading-tight"
+                                  className="w-full bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] border border-[var(--border-color)] text-[10px] font-bold text-[var(--text-secondary)] rounded-xl px-2.5 py-1.5 appearance-none focus:outline-none cursor-pointer pr-7 text-left leading-tight"
                                 >
                                   {STAGES.map(s => (
                                     <option key={s.id} value={s.id}>
@@ -862,23 +688,23 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                                     </option>
                                   ))}
                                 </select>
-                                <div className="absolute right-2 top-2 pointer-events-none text-slate-400 dark:text-slate-500">
+                                <div className="absolute right-2 top-2 pointer-events-none text-[var(--text-muted)]">
                                   <ChevronRight size={10} className="rotate-90" />
                                 </div>
                               </div>
                             </div>
 
                             {/* Hover Controls (View & Edit Pipeline details) */}
-                            <div className="flex gap-1.5 pt-1 border-t border-[var(--border-color)]/30 opacity-80 group-hover:opacity-100 transition-opacity">
+                            <div className="flex gap-1.5 pt-1 border-t border-[var(--border-color)] opacity-80 group-hover:opacity-100 transition-opacity">
                               <button
                                 onClick={() => navigate(`/candidate/${candidate.id}`)}
-                                className="flex-1 px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[var(--border-color)] text-[var(--text-secondary)] rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
+                                className="flex-1 px-2.5 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] border border-[var(--border-color)] text-[var(--text-secondary)] rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
                               >
                                 <Eye size={10} /> Profile
                               </button>
                               <button
                                 onClick={() => openDetailsEditor(candidate)}
-                                className="px-2.5 py-1.5 bg-slate-50 dark:bg-slate-900 hover:bg-slate-100 dark:hover:bg-slate-800 border border-[var(--border-color)] text-[var(--text-secondary)] rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
+                                className="px-2.5 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] border border-[var(--border-color)] text-[var(--text-secondary)] rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
                                 title="Edit pipeline properties"
                               >
                                 <Edit2 size={10} />
@@ -931,15 +757,17 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                 </div>
                 <button 
                   onClick={() => setEditingCandidate(null)}
-                  className="p-1.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
+                  type="button"
+                  aria-label="Close configuration"
+                  className="w-8 h-8 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-muted)] hover:text-[var(--primary-gold)] hover:border-[var(--primary-gold)] hover:bg-[var(--card-hover-bg)] active:scale-95 transition-all flex items-center justify-center cursor-pointer shadow-xs focus:outline-none focus:ring-2 focus:ring-[var(--primary-gold)]/40"
                 >
                   <X size={16} />
                 </button>
               </div>
 
-              <div className="py-2.5 border-y border-[var(--border-color)]/50 flex items-center gap-2 mb-4">
+              <div className="py-2.5 border-y border-[var(--border-color)] flex items-center gap-2 mb-4">
                 <span className="text-[10px] font-black uppercase text-[var(--text-muted)]">Target Candidate:</span>
-                <span className="text-xs font-black text-indigo-600 dark:text-indigo-400">{editingCandidate.fullName}</span>
+                <span className="text-xs font-black text-[var(--primary-gold)]">{editingCandidate.fullName}</span>
               </div>
 
               {/* Form fields */}
@@ -959,7 +787,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                         client: selectedClientObj ? (selectedClientObj.name || selectedClientObj.company || selectedClientObj.email) : prev.client
                       }));
                     }}
-                    className="bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer"
+                    className="crm-input cursor-pointer"
                   >
                     <option value="">No Client User Assigned</option>
                     {fullTeamList && fullTeamList.filter((u: any) => u.role === 'client').map((client: any) => (
@@ -978,7 +806,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                     value={editFields.client}
                     onChange={(e) => setEditFields(prev => ({ ...prev, client: e.target.value }))}
                     placeholder="e.g. Acme Corporation, Meta, Stripe"
-                    className="bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+                    className="crm-input"
                   />
                 </div>
 
@@ -988,7 +816,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                   <select
                     value={editFields.stage}
                     onChange={(e) => setEditFields(prev => ({ ...prev, stage: e.target.value }))}
-                    className="bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 cursor-pointer"
+                    className="crm-input cursor-pointer"
                   >
                     {STAGES.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -1006,7 +834,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                     value={editFields.position}
                     onChange={(e) => setEditFields(prev => ({ ...prev, position: e.target.value }))}
                     placeholder="e.g. Senior Software Engineer"
-                    className="bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+                    className="crm-input"
                   />
                 </div>
 
@@ -1018,7 +846,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                     value={editFields.recruiter}
                     onChange={(e) => setEditFields(prev => ({ ...prev, recruiter: e.target.value }))}
                     placeholder="e.g. Darren Wala"
-                    className="bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+                    className="crm-input"
                   />
                 </div>
 
@@ -1029,7 +857,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                     <select
                       value={editFields.priority}
                       onChange={(e) => setEditFields(prev => ({ ...prev, priority: e.target.value }))}
-                      className="bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+                      className="crm-input cursor-pointer"
                     >
                       <option value="high">🔴 High</option>
                       <option value="medium">🟡 Medium</option>
@@ -1044,7 +872,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                       type="date"
                       value={editFields.followUpDate}
                       onChange={(e) => setEditFields(prev => ({ ...prev, followUpDate: e.target.value }))}
-                      className="bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500"
+                      className="crm-input"
                     />
                   </div>
                 </div>
@@ -1057,18 +885,18 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                     onChange={(e) => setEditFields(prev => ({ ...prev, nextAction: e.target.value }))}
                     placeholder="e.g. Arrange 30min video screening with Director"
                     rows={2}
-                    className="bg-slate-50 dark:bg-slate-900 border border-[var(--border-color)] rounded-xl px-3 py-2.5 text-xs font-semibold text-[var(--text-primary)] outline-none focus:ring-2 focus:ring-indigo-500/10 focus:border-indigo-500 resize-none"
+                    className="crm-input resize-none"
                   />
                 </div>
 
               </div>
 
               {/* Actions Footer */}
-              <div className="flex items-center justify-end gap-2.5 mt-6 border-t border-[var(--border-color)]/50 pt-4">
+              <div className="flex items-center justify-end gap-2.5 mt-6 border-t border-[var(--border-color)] pt-4">
                 <button
                   type="button"
                   onClick={() => setEditingCandidate(null)}
-                  className="px-4 py-2 text-xs font-bold text-[var(--text-secondary)] hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-all cursor-pointer"
+                  className="px-4 py-2 text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--card-hover-bg)] rounded-xl transition-all cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -1076,7 +904,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                   type="button"
                   disabled={isSavingDetails}
                   onClick={saveCandidateDetails}
-                  className="px-5 py-2 bg-[var(--primary-color)] hover:opacity-90 text-white font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  className="crm-btn-gold px-5 py-2 font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
                 >
                   {isSavingDetails ? (
                     <>
@@ -1176,7 +1004,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
 
               {/* Celebration Badge/Title */}
               <div className="flex flex-col gap-1.5">
-                <span className="text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/40 border border-indigo-100/20 px-3 py-1 rounded-full">
+                <span className="text-[10px] font-black uppercase tracking-widest text-[var(--primary-gold)] bg-[var(--bg-secondary)] border border-[var(--border-color)] px-3 py-1 rounded-full">
                   🎉 Pipeline Milestone Reached
                 </span>
                 <h2 className="text-3xl font-black tracking-tight text-[var(--text-primary)] mt-1">
@@ -1190,33 +1018,33 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
               </div>
 
               {/* Detail Box */}
-              <div className="w-full bg-slate-50 dark:bg-slate-900/60 border border-[var(--border-color)]/60 rounded-[2rem] p-6 flex flex-col gap-4 text-left shadow-inner relative">
+              <div className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-[2rem] p-6 flex flex-col gap-4 text-left shadow-inner relative">
                 
                 {/* Candidate and Position */}
                 <div className="flex items-start gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-950/40 border border-indigo-200/50 dark:border-indigo-900/50 flex items-center justify-center text-indigo-600 dark:text-indigo-400 font-black text-sm uppercase">
+                  <div className="w-12 h-12 rounded-2xl bg-[var(--card-bg)] border border-[var(--border-color)] flex items-center justify-center text-[var(--primary-gold)] font-black text-sm uppercase">
                     {(celebration.candidateName || 'C').slice(0, 2)}
                   </div>
                   <div>
                     <h4 className="text-sm font-extrabold text-[var(--text-primary)] tracking-tight">
                       {celebration.candidateName}
                     </h4>
-                    <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                    <p className="text-[11px] font-bold text-[var(--text-muted)]">
                       {celebration.position}
                     </p>
                   </div>
                 </div>
 
                 {/* Client Detail */}
-                <div className="grid grid-cols-2 gap-4 pt-3.5 border-t border-[var(--border-color)]/50 text-xs">
+                <div className="grid grid-cols-2 gap-4 pt-3.5 border-t border-[var(--border-color)] text-xs">
                   <div className="flex flex-col gap-1">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Client Partner</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">Client Partner</span>
                     <span className="font-bold text-[var(--text-primary)] flex items-center gap-1">
-                      <Building size={12} className="text-slate-400" /> {celebration.client}
+                      <Building size={12} className="text-[var(--text-muted)]" /> {celebration.client}
                     </span>
                   </div>
                   <div className="flex flex-col gap-1">
-                    <span className="text-[9px] font-black uppercase tracking-widest text-slate-400">Current Status</span>
+                    <span className="text-[9px] font-black uppercase tracking-widest text-[var(--text-muted)]">Current Status</span>
                     <span className="font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1">
                       <CheckCircle2 size={12} /> {celebration.stageLabel}
                     </span>
@@ -1234,7 +1062,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
               {/* Awesome Button */}
               <button
                 onClick={() => setCelebration(null)}
-                className="w-full sm:w-auto px-8 py-3 bg-indigo-600 hover:bg-indigo-500 text-white font-extrabold text-xs rounded-2xl shadow-lg hover:shadow-indigo-500/20 transition-all cursor-pointer transform hover:-translate-y-0.5 active:translate-y-0 uppercase tracking-widest"
+                className="w-full sm:w-auto px-8 py-3 crm-btn-gold font-extrabold text-xs rounded-2xl shadow-lg transition-all cursor-pointer uppercase tracking-widest"
               >
                 Awesome! Continue
               </button>

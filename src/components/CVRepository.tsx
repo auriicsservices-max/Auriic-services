@@ -281,17 +281,17 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
     <div className="flex flex-col gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="bg-[var(--card-bg)] p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex items-center gap-4">
-            <div className="w-14 h-14 bg-indigo-50 dark:bg-indigo-900/40 rounded-2xl flex items-center justify-center text-indigo-600 dark:text-indigo-300">
+        <div className="crm-card p-6 flex items-center gap-4">
+            <div className="w-14 h-14 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl flex items-center justify-center text-[var(--primary-gold)] shadow-sm">
                 <FileText size={28} />
             </div>
             <div>
-                <p className="text-[10px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-1">Total CVs</p>
+                <p className="text-[10px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-1">Total Candidate CVs</p>
                 <h3 className="text-3xl font-black text-[var(--text-primary)]">{stats.total}</h3>
             </div>
         </div>
-        <div className="bg-[var(--card-bg)] p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex items-center gap-4">
-            <div className="w-14 h-14 bg-emerald-50 dark:bg-emerald-900/40 rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-300">
+        <div className="crm-card p-6 flex items-center gap-4">
+            <div className="w-14 h-14 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-sm">
                 <FileText size={28} />
             </div>
             <div>
@@ -299,12 +299,12 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                 <h3 className="text-3xl font-black text-[var(--text-primary)]">{stats.recent}</h3>
             </div>
         </div>
-        <div className="bg-[var(--card-bg)] p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm flex items-center gap-4">
-            <div className="w-14 h-14 bg-amber-50 dark:bg-amber-900/40 rounded-2xl flex items-center justify-center text-amber-600 dark:text-amber-300">
+        <div className="crm-card p-6 flex items-center gap-4">
+            <div className="w-14 h-14 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl flex items-center justify-center text-[var(--primary-gold)] shadow-sm">
                 <Mail size={28} />
             </div>
             <div>
-                <p className="text-[10px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-1">Unique Emails</p>
+                <p className="text-[10px] text-[var(--text-muted)] uppercase font-black tracking-widest mb-1">Unique Contacts</p>
                 <h3 className="text-3xl font-black text-[var(--text-primary)]">{stats.uniqueEmails}</h3>
             </div>
         </div>
@@ -735,18 +735,18 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
             <div 
               key={c.id} 
               onClick={() => onSelect?.(c)}
-              className="bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-[2rem] p-6 flex flex-col gap-4 shadow-sm hover:border-indigo-300 transition-all cursor-pointer group justify-between"
+              className="crm-card p-6 flex flex-col gap-4 shadow-sm hover:border-[var(--primary-gold)] transition-all cursor-pointer group justify-between"
             >
               <div className="flex items-start gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 group-hover:bg-indigo-600 group-hover:text-white transition-colors">
+                <div className="w-16 h-16 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-center text-[var(--primary-gold)] shrink-0 group-hover:bg-[var(--primary-gold)] group-hover:text-white transition-colors">
                   <FileText size={32} />
                 </div>
                 
                 <div className="flex-1 min-w-0">
-                  <h4 className="font-black text-[var(--text-primary)] truncate transition-colors group-hover:text-indigo-600 dark:group-hover:text-indigo-400 leading-tight mb-1">{c.fullName}</h4>
+                  <h4 className="font-black text-[var(--text-primary)] truncate transition-colors group-hover:text-[var(--primary-gold)] leading-tight mb-1">{c.fullName}</h4>
                   
                   <div className="mb-2">
-                    <span className="inline-block px-2 py-0.5 bg-indigo-50 dark:bg-indigo-950/60 border border-indigo-105/30 text-indigo-600 dark:text-indigo-400 text-[9px] font-black uppercase tracking-wider rounded-md">
+                    <span className="inline-block px-2 py-0.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--primary-gold)] text-[9px] font-black uppercase tracking-wider rounded-md">
                       {normalizedDom}
                     </span>
                   </div>
@@ -755,14 +755,14 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                 </div>
               </div>
 
-              <div className="border-t border-[var(--border-color)]/50 pt-3 flex items-center justify-between mt-auto">
+              <div className="border-t border-[var(--border-color)] pt-3 flex items-center justify-between mt-auto">
                 <div className="flex flex-col gap-1 flex-1 min-w-0">
                   <div className="flex items-center gap-1.5 text-xs text-[var(--text-secondary)] min-w-0">
-                    <Mail size={12} className="shrink-0 text-indigo-500" />
+                    <Mail size={12} className="shrink-0 text-[var(--primary-gold)]" />
                     <span className="truncate">{c.email || 'Not Provided'}</span>
                   </div>
                   <div className="flex items-center gap-1.5 text-xs text-[var(--text-muted)]">
-                    <Calendar size={12} className="shrink-0 text-indigo-500" />
+                    <Calendar size={12} className="shrink-0 text-[var(--primary-gold)]" />
                     <span>{c.createdAt ? new Date(c.createdAt).toLocaleDateString() : 'N/A'}</span>
                   </div>
                 </div>
@@ -772,7 +772,7 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                       <div className="flex gap-1.5">
                         <button 
                           onClick={() => onSelect?.(c)}
-                          className="flex items-center justify-center p-2 rounded-xl bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-300 hover:bg-indigo-600 hover:text-white transition-all shadow-sm"
+                          className="flex items-center justify-center p-2 rounded-xl bg-[var(--bg-secondary)] text-[var(--primary-gold)] border border-[var(--border-color)] hover:bg-[var(--primary-gold)] hover:text-white transition-all shadow-sm"
                           title="View Candidate Detail"
                         >
                             <ExternalLink size={14} />

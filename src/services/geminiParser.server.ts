@@ -2,23 +2,29 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { ResumeData, ResumeSchema } from '../types/resume';
 
 export class GeminiResumeParser {
-  private ai: GoogleGenAI;
+  private ai: GoogleGenAI | null = null;
 
   constructor() {
-    if (!process.env.GEMINI_API_KEY) {
-      throw new Error('GEMINI_API_KEY is not defined');
-    }
-    this.ai = new GoogleGenAI({ 
-        apiKey: process.env.GEMINI_API_KEY,
-        httpOptions: {
-            headers: {
-              'User-Agent': 'aistudio-build',
+    if (process.env.GEMINI_API_KEY) {
+      try {
+        this.ai = new GoogleGenAI({ 
+            apiKey: process.env.GEMINI_API_KEY,
+            httpOptions: {
+                headers: {
+                  'User-Agent': 'aistudio-build',
+                }
             }
-        }
-    });
+        });
+      } catch (e) {
+        this.ai = null;
+      }
+    }
   }
 
   async parseText(text: string): Promise<ResumeData> {
+    if (!this.ai || !process.env.GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY is not defined or invalid');
+    }
     const prompt = `
       Extract structured resume data from the following text into a JSON object.
       Follow the schema strictly.
@@ -75,7 +81,13 @@ export class GeminiResumeParser {
       const data = JSON.parse(response.text || '{}');
       return ResumeSchema.parse(data);
     } catch (err: any) {
-      console.warn('[GeminiResumeParser] gemini-3.5-flash parsing failed. Error details:', err?.message || err);
+      const errMsg = err?.message || String(err);
+      if (errMsg.includes('API key not valid') || errMsg.includes('API_KEY_INVALID')) {
+        console.log('[GeminiResumeParser] Gemini API key invalid. Falling back to heuristic parser.');
+        throw new Error('Gemini API key invalid');
+      }
+
+      console.warn('[GeminiResumeParser] gemini-3.5-flash parsing failed. Error details:', errMsg);
       
       try {
         console.log('[GeminiResumeParser] Retrying resume parse with fallback model: gemini-3.1-flash-lite...');
@@ -88,7 +100,7 @@ export class GeminiResumeParser {
         const data = JSON.parse(response.text || '{}');
         return ResumeSchema.parse(data);
       } catch (fallbackErr: any) {
-        console.error('[GeminiResumeParser] Fallback model gemini-3.1-flash-lite also failed parsing:', fallbackErr?.message || fallbackErr);
+        console.log('[GeminiResumeParser] Fallback parsing error, using heuristic parser.');
         throw fallbackErr;
       }
     }

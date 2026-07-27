@@ -56,10 +56,10 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
   }, [rowsPerPage]);
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-lg shadow">
-      {/* Search and Filters here */}
-      <div className="p-4 border-b border-slate-200 dark:border-slate-700 flex justify-between items-center">
-          <h2 className="text-lg font-semibold text-slate-900 dark:text-white">Candidates ({totalCount} total)</h2>
+    <div className="crm-table-container">
+      {/* Search and Filters header */}
+      <div className="p-5 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--card-bg)]">
+          <h2 className="text-lg font-bold text-[var(--text-primary)]">Candidates ({totalCount} total)</h2>
           <Pagination 
             page={page}
             rowsPerPage={rowsPerPage}
@@ -71,29 +71,33 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
       </div>
       
       {loading ? (
-        <div className="p-8 text-center"><Loader2 className="animate-spin mx-auto text-gold-a98b" /></div>
+        <div className="p-12 text-center"><Loader2 className="animate-spin mx-auto text-[var(--primary-gold)]" size={28} /></div>
       ) : (
-        <table className="w-full text-left">
+        <table className="crm-table">
             <thead>
-                <tr className="border-b border-slate-200 dark:border-slate-700 text-xs text-slate-500 uppercase tracking-wider">
-                    <th className="p-4">Name</th>
-                    <th className="p-4">Created At</th>
-                    <th className="p-4">Domain</th>
+                <tr>
+                    <th>Name</th>
+                    <th>Created At</th>
+                    <th>Domain</th>
                 </tr>
             </thead>
             <tbody>
                 {candidates.map(c => (
-                    <tr key={c.id} className="border-b border-slate-100 dark:border-slate-800 hover:bg-slate-50 dark:hover:bg-slate-800">
-                        <td className="p-4 font-medium text-slate-900 dark:text-white">{c.fullName}</td>
-                        <td className="p-4">{c.createdAt?.toDate ? c.createdAt.toDate().toLocaleString() : (c.createdAt || 'N/A')}</td>
-                        <td className="p-4">{c.domainFocus || 'Other'}</td>
+                    <tr key={c.id}>
+                        <td className="font-semibold text-[var(--text-primary)]">{c.fullName}</td>
+                        <td className="text-[var(--text-primary)]">{c.createdAt?.toDate ? c.createdAt.toDate().toLocaleString() : (c.createdAt || 'N/A')}</td>
+                        <td>
+                          <span className="crm-badge-gold">
+                            {c.domainFocus || 'Other'}
+                          </span>
+                        </td>
                     </tr>
                 ))}
             </tbody>
         </table>
       )}
       
-      <div className="p-4 border-t border-slate-200 dark:border-slate-700">
+      <div className="p-4 border-t border-[var(--border-color)] bg-[var(--card-bg)]">
         <Pagination 
             page={page}
             rowsPerPage={rowsPerPage}

@@ -2,9 +2,10 @@ import React, { useState } from 'react';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { auth } from '../lib/firebase';
 import { useNavigate } from 'react-router-dom';
-import { LogIn, AlertCircle, Eye, EyeOff, Loader2, Sun, Moon } from 'lucide-react';
+import { LogIn, AlertCircle, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 import { useTheme } from '../contexts/ThemeContext';
+import ThemeToggle from '../components/ThemeToggle';
 
 export default function Login() {
   const [email, setEmail] = useState('');
@@ -34,14 +35,11 @@ export default function Login() {
 
   return (
     <div 
-      className="min-h-screen flex items-center justify-center p-4 font-sans transition-colors duration-300 bg-slate-50 dark:bg-slate-950"
+      className="min-h-screen flex items-center justify-center p-4 font-sans transition-colors duration-300 bg-[var(--bg-primary)]"
     >
-      <button
-        onClick={toggleTheme}
-        className="absolute top-4 right-4 p-2 rounded-full bg-white/50 dark:bg-slate-800/50 hover:bg-white dark:hover:bg-slate-700 transition-all text-[var(--text-secondary)] hover:text-[var(--brand-color)] shadow-sm"
-      >
-        {theme === 'dark' ? <Sun size={20} /> : <Moon size={20} />}
-      </button>
+      <div className="absolute top-4 right-4">
+        <ThemeToggle />
+      </div>
 
       <AnimatePresence>
         {isLoggingIn && (
@@ -49,13 +47,13 @@ export default function Login() {
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
                 exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-white/90 dark:bg-slate-950/90 flex flex-col items-center justify-center z-50 backdrop-blur-sm"
+                className="fixed inset-0 bg-[var(--bg-primary)]/90 flex flex-col items-center justify-center z-50 backdrop-blur-xs"
             >
                 <div className="flex flex-col items-center">
                     <motion.div 
                         animate={{ rotate: 360 }}
                         transition={{ duration: 1, repeat: Infinity, ease: "linear" }}
-                        className="w-12 h-12 border-4 border-[var(--brand-color)] border-t-transparent rounded-full mb-6"
+                        className="w-12 h-12 border-4 border-[var(--primary-gold)] border-t-transparent rounded-full mb-6"
                     />
                     <h2 className="text-2xl font-serif italic text-[var(--text-primary)]">Login Successful</h2>
                     <p className="text-[var(--text-secondary)] font-bold uppercase tracking-widest text-[9px] mt-2">Redirecting to Dashboard...</p>
@@ -64,7 +62,7 @@ export default function Login() {
         )}
       </AnimatePresence>
 
-      <div className="bg-white dark:bg-slate-900 p-10 rounded-[2rem] shadow-2xl shadow-slate-200/50 dark:shadow-slate-950 w-full max-w-sm border border-slate-200 dark:border-slate-800 transition-all duration-300">
+      <div className="bg-[var(--card-bg)] p-10 rounded-[2rem] shadow-2xl w-full max-w-sm border border-[var(--border-color)] transition-all duration-300">
         <div className="flex justify-center mb-8">
           <img 
             src={theme === 'dark' ? "https://aurrum.co/wp-content/uploads/2026/05/Rectech-white-logo.svg" : "https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg"} 
@@ -79,7 +77,7 @@ export default function Login() {
         </div>
         
         {error && (
-          <div className="text-red-500 bg-red-50 dark:bg-red-950/20 border border-red-200 dark:border-red-900 p-3 rounded-xl mb-6 text-xs flex items-center gap-2">
+          <div className="text-red-500 bg-red-500/10 border border-red-500/20 p-3 rounded-xl mb-6 text-xs flex items-center gap-2">
             <AlertCircle size={14} />
             {error}
           </div>
@@ -92,7 +90,7 @@ export default function Login() {
               type="email" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-[var(--brand-color)] transition-all text-sm text-[var(--text-primary)]"
+              className="w-full p-3 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] transition-all text-sm text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
               placeholder="name@aurrum.co"
               required
             />
@@ -103,7 +101,7 @@ export default function Login() {
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full p-3 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:outline-none focus:ring-1 focus:ring-[var(--brand-color)] transition-all text-sm text-[var(--text-primary)] pr-10"
+              className="w-full p-3 rounded-lg bg-[var(--bg-primary)] border border-[var(--border-color)] focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] transition-all text-sm text-[var(--text-primary)] pr-10 placeholder:text-[var(--text-muted)]"
               placeholder="••••••••"
               required
             />

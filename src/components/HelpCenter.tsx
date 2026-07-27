@@ -57,26 +57,30 @@ export default function HelpCenter() {
   return (
     <div className="flex flex-col lg:flex-row h-full w-full gap-6 p-6">
       <aside className="w-full lg:w-64 shrink-0 space-y-6">
-        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm">
-          <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider mb-4">Completed Guide</h2>
+        <div className="crm-card">
+          <h2 className="text-xs font-bold text-[var(--text-muted)] uppercase tracking-wider mb-4">Completed Guide</h2>
           <div className="flex items-center gap-4">
-            <div className="flex-1 bg-slate-100 h-2 rounded-full overflow-hidden">
-              <div className="bg-indigo-600 h-full rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
+            <div className="flex-1 bg-[var(--bg-tertiary)] h-2 rounded-full overflow-hidden">
+              <div className="bg-[var(--primary-gold)] h-full rounded-full transition-all duration-500" style={{ width: `${progress}%` }} />
             </div>
-            <span className="text-sm font-bold text-slate-700">{progress}%</span>
+            <span className="text-sm font-bold text-[var(--text-primary)]">{progress}%</span>
           </div>
         </div>
 
-        <nav className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-2 shadow-sm space-y-1">
+        <nav className="crm-card p-2 space-y-1">
           {filteredSections.map(s => {
             const Icon = SECTION_ICONS[s.id] || BookOpen;
             return (
               <button 
                 key={s.id}
                 onClick={() => setActiveId(s.id)}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors ${activeId === s.id ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl text-sm font-medium transition-colors cursor-pointer ${
+                  activeId === s.id 
+                    ? 'bg-[var(--bg-secondary)] text-[var(--primary-gold)] font-bold border border-[var(--primary-gold)]/30' 
+                    : 'text-[var(--text-primary)] hover:bg-[var(--card-hover-bg)]'
+                }`}
               >
-                <Icon size={18} />
+                <Icon size={18} className={activeId === s.id ? 'text-[var(--primary-gold)]' : 'text-[var(--text-muted)]'} />
                 {s.title}
               </button>
             )
@@ -85,17 +89,17 @@ export default function HelpCenter() {
       </aside>
 
       <main className="flex-1 min-w-0 space-y-6">
-        <header className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-6 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <header className="crm-card flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div>
-            <h1 className="text-2xl font-bold text-slate-900">User Guide</h1>
-            <p className="text-slate-500 text-sm">Last updated: May 21, 2026</p>
+            <h1 className="text-2xl font-bold text-[var(--text-primary)]">User Guide</h1>
+            <p className="text-[var(--text-muted)] text-sm">Last updated: May 21, 2026</p>
           </div>
           <div className="relative flex-1 md:max-w-xs">
-            <Search className="absolute left-3 top-2.5 text-slate-400" size={18} />
+            <Search className="absolute left-3 top-2.5 text-[var(--text-muted)]" size={18} />
             <input 
               type="text" 
-              placeholder="Search help..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl pl-10 pr-4 py-2 text-sm"
+              placeholder="Search help topics..."
+              className="crm-input pl-10"
               value={search}
               onChange={(e) => setSearch(e.target.value)}
             />
@@ -108,19 +112,19 @@ export default function HelpCenter() {
               <motion.div 
                 key={section.id}
                 layout
-                className="border border-slate-200 bg-white shadow-sm rounded-2xl overflow-hidden"
+                className="crm-card p-0 overflow-hidden"
               >
                 <button 
-                  className="w-full flex items-center justify-between p-6 hover:bg-slate-50 transition-colors"
+                  className="w-full flex items-center justify-between p-6 hover:bg-[var(--card-hover-bg)] transition-colors cursor-pointer text-left"
                   onClick={() => setActiveId(activeId === section.id ? null : section.id)}
                 >
-                  <span className="font-semibold text-slate-900 text-lg">{section.title}</span>
-                  {activeId === section.id ? <ChevronUp size={20} className="text-slate-400" /> : <ChevronDown size={20} className="text-slate-400" />}
+                  <span className="font-semibold text-[var(--text-primary)] text-lg">{section.title}</span>
+                  {activeId === section.id ? <ChevronUp size={20} className="text-[var(--primary-gold)]" /> : <ChevronDown size={20} className="text-[var(--text-muted)]" />}
                 </button>
                 <AnimatePresence>
                   {activeId === section.id && (
                     <motion.div 
-                      className="px-6 pb-6 text-slate-600 whitespace-pre-line leading-relaxed"
+                      className="px-6 pb-6 text-[var(--text-primary)] border-t border-[var(--border-subtle)] pt-4 whitespace-pre-line leading-relaxed text-sm font-medium"
                       initial={{ height: 0, opacity: 0 }}
                       animate={{ height: 'auto', opacity: 1 }}
                       exit={{ height: 0, opacity: 0 }}
@@ -135,14 +139,14 @@ export default function HelpCenter() {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <button className="flex items-center justify-center gap-2 p-4 bg-white border rounded-2xl text-sm font-semibold hover:bg-slate-50 transition-colors">
-            <Play size={16} /> Watch Tutorial
+          <button className="crm-btn-secondary py-3.5 flex items-center justify-center gap-2">
+            <Play size={16} className="text-[var(--primary-gold)]" /> Watch Tutorial
           </button>
-          <button className="flex items-center justify-center gap-2 p-4 bg-white border rounded-2xl text-sm font-semibold hover:bg-slate-50 transition-colors">
-            <LifeBuoy size={16} /> Contact Support
+          <button className="crm-btn-secondary py-3.5 flex items-center justify-center gap-2">
+            <LifeBuoy size={16} className="text-[var(--primary-gold)]" /> Contact Support
           </button>
-          <button className="flex items-center justify-center gap-2 p-4 bg-white border rounded-2xl text-sm font-semibold hover:bg-slate-50 transition-colors">
-            <AlertCircle size={16} /> Report Issue
+          <button className="crm-btn-secondary py-3.5 flex items-center justify-center gap-2">
+            <AlertCircle size={16} className="text-[var(--primary-gold)]" /> Report Issue
           </button>
         </div>
       </main>
