@@ -2,27 +2,27 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { ResumeData, ResumeSchema } from '../types/resume';
 
 export class GeminiResumeParser {
-  private ai: GoogleGenAI | null = null;
-
-  constructor() {
-    if (process.env.GEMINI_API_KEY) {
-      try {
-        this.ai = new GoogleGenAI({ 
-            apiKey: process.env.GEMINI_API_KEY,
-            httpOptions: {
-                headers: {
-                  'User-Agent': 'aistudio-build',
-                }
-            }
-        });
-      } catch (e) {
-        this.ai = null;
-      }
+  private getAiClient(): GoogleGenAI | null {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return null;
+    try {
+      return new GoogleGenAI({ 
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+    } catch (e) {
+      console.warn('[GeminiResumeParser] Failed to initialize GoogleGenAI:', e);
+      return null;
     }
   }
 
   async parseText(text: string): Promise<ResumeData> {
-    if (!this.ai || !process.env.GEMINI_API_KEY) {
+    const ai = this.getAiClient();
+    if (!ai || !process.env.GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not defined or invalid');
     }
     const prompt = `
@@ -71,14 +71,16 @@ export class GeminiResumeParser {
     };
 
     try {
-      console.log('[GeminiResumeParser] Attempting resume parse with gemini-3.5-flash...');
-      const response = await this.ai.models.generateContent({
-        model: "gemini-3.5-flash",
+      console.log('[GeminiResumeParser] Attempting resume parse with gemini-2.5-flash...');
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
         contents: prompt,
         config,
       });
 
-      const data = JSON.parse(response.text || '{}');
+      const rawText = response.text || '{}';
+      const cleanText = rawText.replace(/```json\s*/gi, '').replace(/```\s*$/gi, '').trim();
+      const data = JSON.parse(cleanText);
       return ResumeSchema.parse(data);
     } catch (err: any) {
       const errMsg = err?.message || String(err);
@@ -87,17 +89,19 @@ export class GeminiResumeParser {
         throw new Error('Gemini API key invalid');
       }
 
-      console.warn('[GeminiResumeParser] gemini-3.5-flash parsing failed. Error details:', errMsg);
+      console.warn('[GeminiResumeParser] gemini-2.5-flash parsing failed. Error details:', errMsg);
       
       try {
-        console.log('[GeminiResumeParser] Retrying resume parse with fallback model: gemini-3.1-flash-lite...');
-        const response = await this.ai.models.generateContent({
-          model: "gemini-3.1-flash-lite",
+        console.log('[GeminiResumeParser] Retrying resume parse with fallback model: gemini-2.0-flash...');
+        const response = await ai.models.generateContent({
+          model: "gemini-2.0-flash",
           contents: prompt,
           config,
         });
 
-        const data = JSON.parse(response.text || '{}');
+        const rawText = response.text || '{}';
+        const cleanText = rawText.replace(/```json\s*/gi, '').replace(/```\s*$/gi, '').trim();
+        const data = JSON.parse(cleanText);
         return ResumeSchema.parse(data);
       } catch (fallbackErr: any) {
         console.log('[GeminiResumeParser] Fallback parsing error, using heuristic parser.');
@@ -106,3 +110,4 @@ export class GeminiResumeParser {
     }
   }
 }
+

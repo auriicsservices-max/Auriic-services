@@ -1,4 +1,4 @@
-import { GoogleGenAI, Type, ThinkingLevel } from "@google/genai";
+import { GoogleGenAI, Type } from "@google/genai";
 
 export interface AIPreparedCandidate {
   id: string;
@@ -18,22 +18,21 @@ export interface ChatMessage {
 }
 
 export class GeminiSearchAssistant {
-  private ai: GoogleGenAI | null = null;
-
-  constructor() {
-    if (process.env.GEMINI_API_KEY) {
-      try {
-        this.ai = new GoogleGenAI({ 
-          apiKey: process.env.GEMINI_API_KEY,
-          httpOptions: {
-            headers: {
-              'User-Agent': 'aistudio-build',
-            }
+  private getAiClient(): GoogleGenAI | null {
+    const apiKey = process.env.GEMINI_API_KEY;
+    if (!apiKey) return null;
+    try {
+      return new GoogleGenAI({ 
+        apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
           }
-        });
-      } catch (e) {
-        this.ai = null;
-      }
+        }
+      });
+    } catch (e) {
+      console.warn('[GeminiSearchAssistant] Failed to initialize GoogleGenAI client:', e);
+      return null;
     }
   }
 
@@ -62,7 +61,10 @@ export class GeminiSearchAssistant {
       };
     });
 
-    if (!this.ai || !process.env.GEMINI_API_KEY) {
+    const ai = this.getAiClient();
+
+    if (!ai || !process.env.GEMINI_API_KEY) {
+      console.log('[GeminiSearchAssistant] GEMINI_API_KEY missing or invalid client. Using rule-based fallback filter.');
       return this.fallbackFilter(query, sanitizedCandidates);
     }
 
@@ -72,7 +74,7 @@ export class GeminiSearchAssistant {
     }).join('\n\n');
 
     const prompt = `
-      You are an ultra-fast, highly accurate AI Chat Assistant integrated into the Rectec CV Repository system.
+      You are an ultra-fast, highly accurate AI Chat Assistant integrated into the Aurrum CRM CV Repository system.
       Your primary job is to help users query, parse, and extract information from candidate resumes (CVs) instantly.
 
       ---
@@ -80,35 +82,35 @@ export class GeminiSearchAssistant {
 
       1. CHAT HISTORY & CONTEXT TRACKING:
          - Maintain a strict context window of the ongoing conversation.
-         - Refer back to previous candidates mentioned in the session when the user uses pronouns (e.g., "What are his Python skills?" or "Show her contact info" should reference the last discussed candidate from the history).
+         - Refer back to previous candidates mentioned in the session when the user uses pronouns (e.g., "What are his Python skills?" or "Show her contact info").
          - If the chat history contains a list of filtered candidates (indicated by the assistant's previous matches), allow the user to refine that specific list (e.g., "Now filter them by 3+ years of React experience").
          - If the query is a generic question or conversation (e.g., "hi", "how are you"), reply politely and explain how you can help them find candidates.
 
       2. SEARCH PRECISION MODE:
          - Currently in [${precision || 'semantic'}] precision mode.
-         - If in "exact" mode, you MUST require strict exact keyword matches for skills, titles, or locations. Do not use loose semantic expansion (e.g., if the user searches for "React", do NOT match a candidate who only has "Angular" or "Vue" unless they also explicitly list "React").
-         - If in "semantic" mode, you are free to find matches using conceptual relevance (e.g. matching "web developer" to "frontend engineer" or "React specialist").
+         - If in "exact" mode, require strict exact keyword matches for skills, titles, or locations. Do not use loose semantic expansion.
+         - If in "semantic" mode, find matches using conceptual relevance (e.g. matching "Healthcare" to healthcare professionals, or "web developer" to frontend engineer / React specialist).
 
       3. RESPONSE SPEED & SEARCH ACCURACY:
-         - Direct Key-Value Parsing: Treat CV metrics like Years of Experience, Tech Stack, and Location as structured data. Extract these with 100% accuracy.
-         - Semantic/Exact match execution: Only match candidates who fit the selected precision requirements above.
-         - Concise Summarization: Prioritize response speed by avoiding long paragraphs. Synthesize candidate profiles into scannable data points first.
+         - Direct Key-Value Parsing: Treat CV metrics like Years of Experience, Tech Stack, Domain Focus, and Location as structured data. Extract these accurately.
+         - Semantic/Exact match execution: Only match candidates who fit the query requirements.
+         - Concise Summarization: Prioritize response speed and clarity.
 
       4. FLEXIBLE UI & PRESENTATION DESIGN:
-         For ANY matching candidate, ALWAYS format their profile evaluation using clean Markdown with distinct structural wrappers exactly as follows:
+         For ANY matching candidate, format their profile evaluation using clean Markdown with distinct structural wrappers exactly as follows:
          
          ## [Candidate Name] | [Primary Title]
          * **Experience:** [X Years]
          * **Top Skills:** \`Skill 1\`, \`Skill 2\`, \`Skill 3\`
-         * **Quick Match Assessment:** [1-sentence summary of why they match or fail the query]
-         > **Key Highlight:** [Extract 1 major achievement or standout project from their CV]
+         * **Quick Match Assessment:** [1-sentence summary of why they match the query]
+         > **Key Highlight:** [Extract 1 major achievement or standout detail from their profile]
 
       5. EDGE CASES & GUARDRAILS:
-         - If no candidate matches the query, state it immediately and suggest alternative search terms to save user time.
-         - Do not hallucinate skills or metrics. If a CV doesn’t state a piece of information, label it as "Not specified in CV".
+         - If no candidate matches the query, state it clearly and suggest alternative search terms.
+         - Do not hallucinate skills or metrics.
 
       ---
-      # CANDIDATES DATA:
+      # CANDIDATES DATA (${sanitizedCandidates.length} Candidates Available):
       ${JSON.stringify(sanitizedCandidates, null, 2)}
 
       ---
@@ -121,79 +123,75 @@ export class GeminiSearchAssistant {
 
       Please generate a JSON response strictly following this schema:
       {
-        "matchedIds": Array of string IDs of the matched candidates in order of relevance (only include candidates that are relevant to the query/filter),
+        "matchedIds": Array of string IDs of the matched candidates in order of relevance,
         "explanation": "Your complete Markdown response conforming to the rules and presentation design."
       }
     `;
 
-    try {
-      console.log('[GeminiSearchAssistant] Attempting search with gemini-3.5-flash...');
-      const response = await this.ai.models.generateContent({
-        model: "gemini-3.5-flash",
-        contents: prompt,
-        config: {
-          thinkingConfig: {
-            thinkingLevel: ThinkingLevel.LOW
+    const config = {
+      responseMimeType: "application/json" as const,
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          matchedIds: {
+            type: Type.ARRAY,
+            items: { type: Type.STRING }
           },
-          responseMimeType: "application/json",
-          responseSchema: {
-            type: Type.OBJECT,
-            properties: {
-              matchedIds: {
-                type: Type.ARRAY,
-                items: { type: Type.STRING }
-              },
-              explanation: { type: Type.STRING }
-            },
-            required: ["matchedIds", "explanation"]
-          }
+          explanation: { type: Type.STRING }
         },
+        required: ["matchedIds", "explanation"]
+      }
+    };
+
+    try {
+      console.log('[GeminiSearchAssistant] Attempting search with gemini-2.5-flash...');
+      const response = await ai.models.generateContent({
+        model: "gemini-2.5-flash",
+        contents: prompt,
+        config
       });
 
-      const text = response.text || '{}';
-      return JSON.parse(text);
+      const rawText = response.text || '{}';
+      const cleanText = rawText.replace(/```json\s*/gi, '').replace(/```\s*$/gi, '').trim();
+      const parsed = JSON.parse(cleanText);
+      return {
+        matchedIds: Array.isArray(parsed.matchedIds) ? parsed.matchedIds : [],
+        explanation: parsed.explanation || 'Search complete.'
+      };
     } catch (err: any) {
       const errMsg = err?.message || String(err);
-      if (errMsg.includes('API key not valid') || errMsg.includes('API_KEY_INVALID')) {
-        console.log('[GeminiSearchAssistant] API key invalid or unconfigured. Using rule-based search.');
-        return this.fallbackFilter(query, sanitizedCandidates);
-      }
+      console.warn('[GeminiSearchAssistant] gemini-2.5-flash search error details:', errMsg);
       
-      console.warn('[GeminiSearchAssistant] gemini-3.5-flash failed or rate-limited. Error details:', errMsg);
-      
-      // Retry with gemini-3.1-flash-lite
+      // Retry with fallback model: gemini-2.0-flash
       try {
-        console.log('[GeminiSearchAssistant] Retrying search with fallback model: gemini-3.1-flash-lite...');
-        const response = await this.ai.models.generateContent({
-          model: "gemini-3.1-flash-lite",
+        console.log('[GeminiSearchAssistant] Retrying search with fallback model: gemini-2.0-flash...');
+        const response = await ai.models.generateContent({
+          model: "gemini-2.0-flash",
           contents: prompt,
-          config: {
-            responseMimeType: "application/json",
-            responseSchema: {
-              type: Type.OBJECT,
-              properties: {
-                matchedIds: {
-                  type: Type.ARRAY,
-                  items: { type: Type.STRING }
-                },
-                explanation: { type: Type.STRING }
-              },
-              required: ["matchedIds", "explanation"]
-            }
-          },
+          config
         });
 
-        const text = response.text || '{}';
-        return JSON.parse(text);
+        const rawText = response.text || '{}';
+        const cleanText = rawText.replace(/```json\s*/gi, '').replace(/```\s*$/gi, '').trim();
+        const parsed = JSON.parse(cleanText);
+        return {
+          matchedIds: Array.isArray(parsed.matchedIds) ? parsed.matchedIds : [],
+          explanation: parsed.explanation || 'Search complete.'
+        };
       } catch (fallbackErr: any) {
-        console.log('[GeminiSearchAssistant] Fallback search offline rule-based heuristic search.');
+        console.warn('[GeminiSearchAssistant] Gemini models unavailable or rate limited. Falling back to rule-based heuristic search.', fallbackErr?.message);
         return this.fallbackFilter(query, sanitizedCandidates);
       }
     }
   }
 
   private fallbackFilter(query: string, candidates: AIPreparedCandidate[]): { matchedIds: string[]; explanation: string } {
-    const q = query.toLowerCase();
+    const rawQuery = query.trim().toLowerCase();
+    
+    // Stopwords to ignore in multi-term search
+    const stopWords = new Set(['in', 'for', 'with', 'a', 'an', 'the', 'candidates', 'candidate', 'developer', 'developers', 'engineer', 'engineers', 'show', 'me', 'find', 'get', 'list']);
+    const queryTerms = rawQuery.split(/\s+/).filter(term => term.length > 1 && !stopWords.has(term));
+
     const matches = candidates.filter(c => {
       const name = (c.fullName || '').toLowerCase();
       const domain = (c.domainFocus || c.domain || '').toLowerCase();
@@ -208,22 +206,24 @@ export class GeminiSearchAssistant {
           .filter(Array.isArray)
           .flat() as string[];
       }
-      const skills = flatSkills.map(s => s.toLowerCase());
+      const skillsStr = flatSkills.map(s => s.toLowerCase()).join(' ');
+      const fullCandidateText = `${name} ${domain} ${pos} ${loc} ${skillsStr}`;
 
-      return name.includes(q) || 
-             domain.includes(q) || 
-             pos.includes(q) || 
-             loc.includes(q) || 
-             skills.some(s => s.includes(q));
+      // Check if candidate matches raw query or any key term
+      if (fullCandidateText.includes(rawQuery)) return true;
+      if (queryTerms.length > 0) {
+        return queryTerms.some(term => fullCandidateText.includes(term));
+      }
+      return false;
     });
 
     let explanation = `### Search Results for "${query}"\n\n`;
     if (matches.length === 0) {
-      explanation += `No candidates found matching the search criteria. Try searching for skills like 'React' or domains like 'IT'.`;
+      explanation += `No candidates found matching the search criteria **"${query}"**. Try searching for specific skills (e.g., 'React', 'Python'), location (e.g., 'Ahmedabad', 'Remote'), or domain focus (e.g., 'Healthcare', 'IT').`;
     } else {
       matches.forEach(c => {
-        explanation += `## ${c.fullName} | ${c.position || 'Professional'}\n`;
-        explanation += `* **Experience:** ${c.experience || 'Not specified in CV'}\n`;
+        explanation += `## ${c.fullName} | ${c.position || c.domainFocus || 'Professional'}\n`;
+        explanation += `* **Experience:** ${c.experience ? `${c.experience} Years` : 'Not specified in CV'}\n`;
         
         let flatSkills: string[] = [];
         if (Array.isArray(c.skills)) {
@@ -233,9 +233,9 @@ export class GeminiSearchAssistant {
             .filter(Array.isArray)
             .flat() as string[];
         }
-        explanation += `* **Top Skills:** ${flatSkills.length > 0 ? flatSkills.map(s => `\`${s}\``).join(', ') : 'Not specified in CV'}\n`;
-        explanation += `* **Quick Match Assessment:** Highly qualified professional matching query criteria.\n`;
-        explanation += `> **Key Highlight:** Standout background in ${c.domainFocus || 'industry Focus'}.\n\n`;
+        explanation += `* **Top Skills:** ${flatSkills.length > 0 ? flatSkills.slice(0, 8).map(s => `\`${s}\``).join(', ') : 'Not specified in CV'}\n`;
+        explanation += `* **Quick Match Assessment:** Matched candidate profile for query criteria **"${query}"**.\n`;
+        explanation += `> **Key Highlight:** Domain Focus: ${c.domainFocus || 'General Industry'} | Location: ${c.location || 'Not specified'}.\n\n`;
       });
     }
 
@@ -245,4 +245,5 @@ export class GeminiSearchAssistant {
     };
   }
 }
+
 

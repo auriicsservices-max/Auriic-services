@@ -79,12 +79,14 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
       }
       return {
         id: c.id,
-        fullName: c.fullName || '',
+        fullName: c.fullName || c.name || 'Unnamed Candidate',
         skills: flatSkills,
         domainFocus: c.domainFocus || c.domain || '',
-        position: c.position || '',
-        experience: c.experience || '',
-        location: c.location || ''
+        position: c.position || c.title || '',
+        experience: c.totalExperienceYears || c.experience || '',
+        location: typeof c.location === 'object' 
+          ? `${c.location?.city || ''} ${c.location?.state || ''} ${c.location?.country || ''}`.trim() 
+          : (c.location || '')
       };
     });
   }, [candidates]);
@@ -111,7 +113,8 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
       });
 
       if (!response.ok) {
-        throw new Error('Failed to fetch from search-ai');
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.details || errorData.error || `Server returned status ${response.status}`);
       }
 
       const result = await response.json();
@@ -133,11 +136,11 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
         setAiMatchedIds([]);
         setCurrentAiQuery('');
       }
-    } catch (err) {
+    } catch (err: any) {
       console.error('AI Search Error:', err);
       setChatMessages(prev => [...prev, { 
         role: 'assistant', 
-        text: 'Sorry, I encountered an error while searching for candidates. Please try again.' 
+        text: `Sorry, I encountered an error while searching for candidates: ${err?.message || 'Please try again.'}` 
       }]);
     } finally {
       setChatLoading(false);

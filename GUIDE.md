@@ -90,6 +90,13 @@ Generic light themes often fail because developers combine default off-white car
 
 ## 8. Operational Context & Technical Architecture
 - **Roles & Permissions:** Admin, Team Leader, Recruiter, Client, Developer.
-- **Key Modules:** Dashboard, Candidate Management, Candidate Profile Modal, CV Repository, Pipeline, Combined & Bulk Billing Invoices, Analytics, Notifications, System Settings, Activity Logs.
-- **AI Infrastructure:** `gemini-3.5-flash` primary model with `gemini-3.1-flash-lite` fallback for automated CV parsing.
+- **Key Modules:** Dashboard, Candidate List (Candidate Management), Candidate Profile Modal, CV Repository, Pipeline, Combined & Bulk Billing Invoices, Analytics, Notifications, System Settings, Activity Logs.
+- **AI Infrastructure & Search Architecture:**
+  - **AI Engines:** `gemini-2.5-flash` primary model with `gemini-2.0-flash` fallback for automated CV parsing and CV Repository AI Assistant Search.
+  - **AI Chat Assistant in CV Repository:**
+    - High-performance natural language search engine (`/api/cv/search-ai`).
+    - Supports semantic and exact match precision modes.
+    - Automatic candidate dataset fallback: If client candidate list is unpopulated, automatically queries active candidates from Firestore via Firebase Admin SDK (`adminDb`).
+    - Resilient Rule-Based Search Fallback: If Gemini API credentials are absent or rate-limited, seamless heuristic keyword and multi-term filter returns candidate matches with structured Markdown summaries.
 - **Production Deployment:** Single bundled CommonJS server (`dist/server.cjs`) served via Express on Port `3000` (Host `0.0.0.0`).
+

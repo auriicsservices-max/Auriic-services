@@ -173,14 +173,52 @@ app.post('/api/cv/parse-gemini', upload.single('file'), async (req, res) => {
 app.post('/api/cv/search-ai', async (req, res) => {
   const { query, candidates, history, precision } = req.body;
   if (!query) return res.status(400).json({ error: 'Query is required' });
-  if (!Array.isArray(candidates)) return res.status(400).json({ error: 'Candidates array is required' });
 
   try {
-    const result = await geminiSearchAssistant.search(query, candidates, history || [], precision);
+    let searchCandidates = Array.isArray(candidates) ? candidates : [];
+
+    // Fall back to querying Firestore candidates collection directly if candidates array is empty
+    if (searchCandidates.length === 0 && adminDb) {
+      console.log('[Server /api/cv/search-ai] Client candidate list empty. Querying Firestore candidates collection...');
+      try {
+        const snapshot = await adminDb.collection('candidates').get();
+        searchCandidates = snapshot.docs.map(doc => {
+          const c = doc.data();
+          let flatSkills: string[] = [];
+          if (Array.isArray(c.skills)) {
+            flatSkills = c.skills;
+          } else if (c.skills && typeof c.skills === 'object') {
+            flatSkills = Object.values(c.skills).filter(Array.isArray).flat() as string[];
+          }
+          return {
+            id: doc.id,
+            fullName: c.fullName || c.name || 'Unnamed Candidate',
+            skills: flatSkills,
+            domainFocus: c.domainFocus || c.domain || '',
+            position: c.position || c.title || '',
+            experience: c.totalExperienceYears || c.experience || '',
+            location: typeof c.location === 'object' 
+              ? `${c.location?.city || ''} ${c.location?.country || ''}`.trim() 
+              : (c.location || ''),
+            isArchived: c.isArchived || false
+          };
+        }).filter(c => !c.isArchived);
+        console.log(`[Server /api/cv/search-ai] Fetched ${searchCandidates.length} active candidates from Firestore.`);
+      } catch (dbErr: any) {
+        console.warn('[Server /api/cv/search-ai] Firestore read error:', dbErr?.message);
+      }
+    }
+
+    console.log(`[Server /api/cv/search-ai] Executing query "${query}" across ${searchCandidates.length} candidates (Precision: ${precision || 'semantic'}).`);
+    const result = await geminiSearchAssistant.search(query, searchCandidates, history || [], precision);
+    console.log(`[Server /api/cv/search-ai] Search completed successfully. Matched IDs count: ${result.matchedIds?.length || 0}`);
     res.json(result);
-  } catch (error) {
-    console.error('[Server] Gemini Search Error:', error);
-    res.status(500).json({ error: 'Failed to search candidates with Gemini' });
+  } catch (error: any) {
+    console.error('[Server] Gemini Search Exception:', error?.stack || error);
+    res.status(500).json({ 
+      error: 'Failed to search candidates with Gemini',
+      details: error?.message || String(error)
+    });
   }
 });
 
