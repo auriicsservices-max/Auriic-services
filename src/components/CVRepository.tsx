@@ -44,6 +44,14 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
   const [aiFilterActive, setAiFilterActive] = useState(false);
   const [aiMatchedIds, setAiMatchedIds] = useState<string[]>([]);
   const [currentAiQuery, setCurrentAiQuery] = useState('');
+  
+  const messagesEndRef = React.useRef<HTMLDivElement>(null);
+
+  React.useEffect(() => {
+    if (chatOpen && !chatMinimized) {
+      messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [chatMessages, chatLoading, chatOpen, chatMinimized]);
 
   const handleCopyMessage = (text: string, index: number) => {
     navigator.clipboard.writeText(text);
@@ -321,7 +329,7 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
               <button
                 type="button"
                 onClick={() => setChatMinimized(false)}
-                className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all border cursor-pointer uppercase tracking-wider bg-indigo-50 dark:bg-indigo-950/40 border-indigo-100 dark:border-indigo-900/60 text-indigo-600 dark:text-indigo-400"
+                className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all border cursor-pointer uppercase tracking-wider bg-[var(--bg-secondary)] border-[var(--border-color)] text-[var(--text-primary)] hover:border-[var(--primary-gold)] hover:text-[var(--primary-gold)]"
               >
                 <ChevronDown size={14} />
                 Restore AI Chat
@@ -337,8 +345,8 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
               }}
               className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all border cursor-pointer uppercase tracking-wider ${
                 chatOpen && !chatMinimized
-                  ? 'bg-indigo-600 border-indigo-600 text-white shadow-md shadow-indigo-600/15' 
-                  : 'bg-indigo-50 dark:bg-indigo-950/40 border-indigo-100 dark:border-indigo-900/60 text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-950/80'
+                  ? 'crm-btn-gold text-white shadow-sm' 
+                  : 'bg-[var(--bg-secondary)] border-[var(--border-color)] text-[var(--text-primary)] hover:border-[var(--primary-gold)] hover:text-[var(--primary-gold)]'
               }`}
             >
               <Sparkles size={14} className={chatOpen && !chatMinimized ? 'animate-pulse' : ''} />
@@ -349,36 +357,39 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
 
         {/* AI Chat Window Block */}
         {chatOpen && !chatMinimized && (
-          <div className={`border border-indigo-100 dark:border-indigo-950/60 bg-indigo-50/20 dark:bg-indigo-950/10 p-5 flex flex-col gap-4 transition-all duration-300 ${
+          <div className={`border border-[var(--border-color)] bg-[var(--card-bg)] p-5 sm:p-6 flex flex-col gap-4 transition-all duration-300 rounded-3xl shadow-sm ${
             chatFullscreen 
-              ? 'fixed inset-4 md:inset-10 z-50 bg-[var(--bg-primary)] dark:bg-slate-950 border-[var(--border-color)] shadow-2xl rounded-[2.5rem] flex flex-col justify-between overflow-hidden' 
-              : 'rounded-3xl'
+              ? 'fixed inset-4 md:inset-8 z-50 bg-[var(--bg-primary)] border border-[var(--border-color)] shadow-2xl rounded-3xl flex flex-col justify-between overflow-hidden p-6 animate-in fade-in zoom-in-95 duration-200' 
+              : ''
           }`}>
             
             {/* Header / Info / Controls */}
-            <div className="flex items-center justify-between gap-4 border-b border-[var(--border-color)]/60 pb-4">
-              <div className="flex items-start gap-3">
-                <div className="w-9 h-9 rounded-xl bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 shadow-sm">
+            <div className="flex items-center justify-between gap-4 border-b border-[var(--border-color)] pb-4 flex-wrap">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-[#A98B56] to-[#BC9B66] text-white flex items-center justify-center shrink-0 shadow-xs">
                   <Bot size={20} />
                 </div>
                 <div>
-                  <h4 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
-                    AI CV Finder Assistant <span className="px-1.5 py-0.5 bg-indigo-100 dark:bg-indigo-950 text-indigo-600 dark:text-indigo-400 text-[8px] font-black rounded uppercase tracking-widest">Gemini 2.5 Flash</span>
+                  <h4 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
+                    AI CV Finder Assistant 
+                    <span className="px-2 py-0.5 bg-[var(--primary-gold)]/10 text-[var(--primary-gold)] dark:text-gold-bc9b border border-[var(--primary-gold)]/20 text-[9px] font-black rounded-full uppercase tracking-widest">
+                      Gemini 2.5 Flash
+                    </span>
                   </h4>
-                  <p className="text-[11px] text-[var(--text-muted)] mt-0.5 font-medium">Chat with Gemini to find, rank and extract candidate CVs in your repository.</p>
+                  <p className="text-[11px] text-[var(--text-muted)] mt-0.5 font-medium">Chat with Gemini AI to search, rank, and extract talent CVs in real time.</p>
                 </div>
               </div>
 
               {/* Chat Window Operations Header */}
-              <div className="flex items-center gap-1.5">
+              <div className="flex items-center gap-2 flex-wrap">
                 {/* Search Precision Select */}
-                <div className="hidden sm:flex items-center bg-[var(--bg-primary)] border border-[var(--border-color)] p-0.5 rounded-xl mr-2">
+                <div className="flex items-center bg-[var(--bg-secondary)] border border-[var(--border-color)] p-1 rounded-xl">
                   <button
                     type="button"
                     onClick={() => setSearchPrecision('semantic')}
-                    className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                    className={`px-3 py-1 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
                       searchPrecision === 'semantic' 
-                        ? 'bg-indigo-600 text-white shadow-sm' 
+                        ? 'bg-[var(--primary-gold)] text-white shadow-xs' 
                         : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                     }`}
                   >
@@ -387,9 +398,9 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                   <button
                     type="button"
                     onClick={() => setSearchPrecision('exact')}
-                    className={`px-2.5 py-1 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
+                    className={`px-3 py-1 text-[9px] font-black uppercase tracking-wider rounded-lg transition-all cursor-pointer ${
                       searchPrecision === 'exact' 
-                        ? 'bg-indigo-600 text-white shadow-sm' 
+                        ? 'bg-[var(--primary-gold)] text-white shadow-xs' 
                         : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
                     }`}
                   >
@@ -407,9 +418,9 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                       alert('Chat transcript copied to clipboard!');
                     }}
                     title="Copy full chat transcript"
-                    className="p-2 rounded-xl bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
+                    className="p-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--primary-gold)]/50 transition-all cursor-pointer"
                   >
-                    <Copy size={12} />
+                    <Copy size={13} />
                   </button>
                 )}
 
@@ -419,9 +430,9 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                     type="button"
                     onClick={handleClearChat}
                     title="Reset Search and Conversation"
-                    className="p-2 rounded-xl bg-[var(--bg-primary)] border border-red-100 dark:border-red-950 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 transition-all cursor-pointer"
+                    className="p-2 rounded-xl bg-[var(--bg-secondary)] border border-red-200 dark:border-red-900/60 text-red-500 hover:bg-red-500 hover:text-white transition-all cursor-pointer"
                   >
-                    <Trash2 size={12} />
+                    <Trash2 size={13} />
                   </button>
                 )}
 
@@ -430,9 +441,9 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                   type="button"
                   onClick={() => setChatMinimized(true)}
                   title="Minimize Chat Window"
-                  className="p-2 rounded-xl bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
+                  className="p-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--primary-gold)]/50 transition-all cursor-pointer"
                 >
-                  <ChevronUp size={12} />
+                  <ChevronUp size={13} />
                 </button>
 
                 {/* Fullscreen Toggle */}
@@ -440,9 +451,9 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                   type="button"
                   onClick={() => setChatFullscreen(!chatFullscreen)}
                   title={chatFullscreen ? "Exit Fullscreen" : "Enter Fullscreen Workspace"}
-                  className="p-2 rounded-xl bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-all cursor-pointer"
+                  className="p-2 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-muted)] hover:text-[var(--text-primary)] hover:border-[var(--primary-gold)]/50 transition-all cursor-pointer"
                 >
-                  {chatFullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+                  {chatFullscreen ? <Minimize2 size={13} /> : <Maximize2 size={13} />}
                 </button>
 
                 {/* Close Button */}
@@ -453,58 +464,69 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                     setChatFullscreen(false);
                   }}
                   title="Close Assistant"
-                  className="p-2 rounded-xl bg-[var(--bg-primary)] border border-red-100 dark:border-red-950 text-red-500 hover:text-white hover:bg-red-500 transition-all cursor-pointer"
+                  className="p-2 rounded-xl bg-[var(--bg-secondary)] border border-red-200 dark:border-red-900/60 text-red-500 hover:text-white hover:bg-red-500 transition-all cursor-pointer"
                 >
-                  <X size={12} />
+                  <X size={13} />
                 </button>
               </div>
             </div>
 
             {/* Chat History View */}
-            <div className={`overflow-y-auto space-y-4 p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl ${
-              chatFullscreen ? 'flex-1 my-2 min-h-[45vh]' : 'max-h-64'
+            <div className={`overflow-y-auto space-y-4 p-4 sm:p-5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl ${
+              chatFullscreen ? 'flex-1 my-2 min-h-[50vh]' : 'max-h-72'
             }`}>
               {chatMessages.length === 0 ? (
-                <div className="text-center py-8 text-xs text-[var(--text-muted)] flex flex-col items-center gap-2">
-                  <Bot size={28} className="text-indigo-500/40" />
-                  <span className="font-bold">How can I help you search candidates today?</span>
-                  <p className="text-[10px] text-[var(--text-muted)] opacity-80 max-w-sm mx-auto">Try typing a request or click one of the quick suggestions below.</p>
+                <div className="text-center py-10 text-xs text-[var(--text-muted)] flex flex-col items-center justify-center gap-3">
+                  <div className="w-12 h-12 rounded-2xl bg-[var(--primary-gold)]/10 border border-[var(--primary-gold)]/20 text-[var(--primary-gold)] flex items-center justify-center shadow-xs">
+                    <Sparkles size={24} />
+                  </div>
+                  <div>
+                    <h5 className="font-black text-sm text-[var(--text-primary)] tracking-wide">How can I help you search candidates today?</h5>
+                    <p className="text-[11px] text-[var(--text-muted)] mt-1 max-w-md mx-auto">
+                      Type your request in natural language or click a suggested prompt below to query skills, experience, location, or domain focus.
+                    </p>
+                  </div>
                 </div>
               ) : (
                 chatMessages.map((msg, idx) => (
                   <div key={idx} className={`flex gap-3 ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
                     {msg.role === 'assistant' && (
-                      <div className="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5 shadow-sm">
-                        <Bot size={14} />
+                      <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#A98B56] to-[#BC9B66] text-white flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                        <Bot size={15} />
                       </div>
                     )}
-                    <div className="relative group max-w-[85%] rounded-2xl px-4 py-2.5 text-xs font-bold leading-relaxed shadow-sm bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-tl-none">
+                    
+                    <div className={`relative group max-w-[85%] rounded-2xl p-4 text-xs font-medium leading-relaxed shadow-xs ${
+                      msg.role === 'user'
+                        ? 'bg-[#004564] dark:bg-[#003649] text-white rounded-tr-none border border-[#005472] dark:border-[#002D38]'
+                        : 'bg-[var(--card-bg)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-tl-none'
+                    }`}>
                       {msg.role === 'user' ? (
-                        <p className="whitespace-pre-wrap text-indigo-600 dark:text-indigo-400">{msg.text}</p>
+                        <p className="whitespace-pre-wrap font-semibold text-white">{msg.text}</p>
                       ) : (
                         <>
                           {/* Individual Message Copy Control */}
                           <button
                             type="button"
                             onClick={() => handleCopyMessage(msg.text, idx)}
-                            className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 bg-[var(--bg-primary)] border border-[var(--border-color)] p-1 rounded-lg text-[10px] text-[var(--text-muted)] hover:text-indigo-600 dark:hover:text-indigo-400 transition-all cursor-pointer"
+                            className="absolute top-2.5 right-2.5 opacity-0 group-hover:opacity-100 bg-[var(--bg-secondary)] border border-[var(--border-color)] p-1.5 rounded-lg text-[10px] text-[var(--text-muted)] hover:text-[var(--primary-gold)] transition-all cursor-pointer shadow-2xs"
                             title="Copy message to clipboard"
                           >
-                            {copiedIndex === idx ? <Check size={10} className="text-emerald-500" /> : <Copy size={10} />}
+                            {copiedIndex === idx ? <Check size={11} className="text-emerald-500" /> : <Copy size={11} />}
                           </button>
                           
-                          <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed space-y-2 [&_h2]:text-sm [&_h2]:font-black [&_h2]:mt-3 [&_h2]:mb-1.5 [&_h2]:text-indigo-600 [&_h2]:dark:text-indigo-400 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1 [&_code]:bg-indigo-50 [&_code]:dark:bg-indigo-950/60 [&_code]:text-indigo-600 [&_code]:dark:text-indigo-400 [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_code]:font-mono [&_blockquote]:border-l-4 [&_blockquote]:border-indigo-500 [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-[var(--text-muted)]">
+                          <div className="prose prose-sm dark:prose-invert max-w-none text-xs leading-relaxed space-y-2 [&_h1]:text-sm [&_h1]:font-black [&_h1]:text-[var(--text-primary)] [&_h2]:text-xs [&_h2]:font-black [&_h2]:text-[var(--primary-gold)] [&_h2]:mt-3 [&_h2]:mb-1.5 [&_ul]:list-disc [&_ul]:pl-5 [&_ul]:space-y-1.5 [&_code]:bg-[var(--bg-secondary)] [&_code]:text-[var(--primary-gold)] [&_code]:border [&_code]:border-[var(--border-color)] [&_code]:px-1.5 [&_code]:py-0.5 [&_code]:rounded-md [&_code]:font-mono [&_blockquote]:border-l-4 [&_blockquote]:border-[var(--primary-gold)] [&_blockquote]:pl-3 [&_blockquote]:italic [&_blockquote]:my-2 [&_blockquote]:text-[var(--text-muted)]">
                             <ReactMarkdown>{msg.text}</ReactMarkdown>
                           </div>
                         </>
                       )}
                       
                       {msg.matchedIds && msg.matchedIds.length > 0 && (
-                        <div className="mt-3 pt-3 border-t border-[var(--border-color)]/50 flex flex-col gap-1.5">
-                          <span className="text-[10px] uppercase font-black text-indigo-600 dark:text-indigo-400 tracking-wider flex items-center gap-1">
-                            <Sparkles size={10} /> Found Matches ({msg.matchedIds.length}):
+                        <div className="mt-3 pt-3 border-t border-[var(--border-color)] flex flex-col gap-2">
+                          <span className="text-[10px] uppercase font-black text-[var(--primary-gold)] tracking-wider flex items-center gap-1.5">
+                            <Sparkles size={11} /> Found Candidate Matches ({msg.matchedIds.length}):
                           </span>
-                          <div className="flex flex-wrap gap-1.5">
+                          <div className="flex flex-wrap gap-2">
                             {candidates.filter(c => msg.matchedIds?.includes(c.id)).map(cand => (
                               <button
                                 type="button"
@@ -515,8 +537,9 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                                     setChatFullscreen(false);
                                   }
                                 }}
-                                className="px-2.5 py-1 bg-indigo-50 dark:bg-indigo-950/80 border border-indigo-100 dark:border-indigo-900/60 text-indigo-600 dark:text-indigo-400 rounded-lg hover:bg-indigo-600 hover:text-white dark:hover:bg-indigo-600 transition-all text-[10px] font-black uppercase tracking-wider cursor-pointer"
+                                className="px-3 py-1.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl hover:border-[var(--primary-gold)] hover:bg-[var(--primary-gold)] hover:text-white transition-all text-[10px] font-black uppercase tracking-wider cursor-pointer shadow-2xs flex items-center gap-1.5"
                               >
+                                <User size={10} />
                                 {cand.fullName}
                               </button>
                             ))}
@@ -524,34 +547,38 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                         </div>
                       )}
                     </div>
+
                     {msg.role === 'user' && (
-                      <div className="w-7 h-7 rounded-lg bg-emerald-100 dark:bg-emerald-950 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shrink-0 mt-0.5 shadow-sm">
-                        <User size={14} />
+                      <div className="w-8 h-8 rounded-xl bg-[var(--bg-secondary)] text-[var(--text-primary)] border border-[var(--border-color)] flex items-center justify-center shrink-0 shadow-xs mt-0.5">
+                        <User size={15} />
                       </div>
                     )}
                   </div>
                 ))
               )}
+
               {chatLoading && (
                 <div className="flex gap-3 justify-start">
-                  <div className="w-7 h-7 rounded-lg bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5 animate-pulse">
-                    <Bot size={14} />
+                  <div className="w-8 h-8 rounded-xl bg-[var(--primary-gold)]/20 text-[var(--primary-gold)] flex items-center justify-center shrink-0 mt-0.5 animate-pulse border border-[var(--primary-gold)]/30">
+                    <Bot size={15} />
                   </div>
-                  <div className="bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-2xl rounded-tl-none px-4 py-2.5 text-xs font-bold text-[var(--text-muted)] shadow-sm flex items-center gap-2">
-                    <RefreshCw size={12} className="animate-spin text-indigo-500" />
+                  <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl rounded-tl-none px-4 py-3 text-xs font-bold text-[var(--text-muted)] shadow-xs flex items-center gap-2.5">
+                    <RefreshCw size={13} className="animate-spin text-[var(--primary-gold)]" />
                     <span>Searching repository with Gemini AI ({searchPrecision === 'exact' ? 'Exact Mode' : 'Semantic Mode'})...</span>
                   </div>
                 </div>
               )}
+              
+              <div ref={messagesEndRef} />
             </div>
 
             {/* Quick Chips suggestions */}
             <div className="flex flex-wrap gap-2 items-center">
-              <span className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Suggestions:</span>
+              <span className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Suggested Queries:</span>
               {[
                 'Find React Developers',
                 'Candidates in Healthcare',
-                'React and TypeScript experts',
+                'React & TypeScript experts',
                 'Candidates in IT sector'
               ].map((chip) => (
                 <button
@@ -561,7 +588,7 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                   onClick={() => {
                     setChatInput(chip);
                   }}
-                  className="px-2.5 py-1.5 bg-indigo-50/50 dark:bg-indigo-950/20 border border-indigo-100 dark:border-indigo-900/50 text-indigo-600 dark:text-indigo-400 rounded-xl text-[10px] font-black hover:bg-indigo-600 hover:text-white hover:border-indigo-600 transition-all cursor-pointer"
+                  className="px-3 py-1.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl text-[10px] font-bold hover:border-[var(--primary-gold)] hover:text-[var(--primary-gold)] hover:bg-[var(--card-bg)] transition-all cursor-pointer shadow-2xs"
                 >
                   {chip}
                 </button>
@@ -569,21 +596,22 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
             </div>
 
             {/* Input Form area */}
-            <form onSubmit={handleChatSubmit} className="flex gap-2">
+            <form onSubmit={handleChatSubmit} className="flex gap-2 items-center bg-[var(--bg-secondary)] border border-[var(--border-color)] focus-within:border-[var(--primary-gold)] focus-within:ring-2 focus-within:ring-[var(--primary-gold)]/20 rounded-2xl p-1.5 transition-all">
               <input
                 type="text"
                 value={chatInput}
                 disabled={chatLoading}
                 onChange={(e) => setChatInput(e.target.value)}
                 placeholder={searchPrecision === 'exact' ? "Strict exact keyword search (e.g. 'React, TypeScript')..." : "Ask AI to find candidates (e.g. 'Show me candidates in IT with React skills')..."}
-                className="flex-1 bg-[var(--sidebar-bg)] border border-[var(--border-color)] rounded-2xl px-4 py-3 text-xs font-bold text-[var(--text-primary)] focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 outline-none transition-all placeholder:text-[var(--text-muted)]"
+                className="flex-1 bg-transparent border-none px-3 py-2 text-xs font-semibold text-[var(--text-primary)] placeholder:text-[var(--text-muted)] outline-none"
               />
               <button
                 type="submit"
                 disabled={chatLoading || !chatInput.trim()}
-                className="px-5 py-3 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white font-black rounded-2xl transition flex items-center justify-center shrink-0 cursor-pointer shadow-md shadow-indigo-600/10"
+                className="px-5 py-2.5 crm-btn-gold text-white font-black rounded-xl hover:opacity-90 disabled:opacity-40 transition-all flex items-center justify-center shrink-0 cursor-pointer shadow-xs gap-1.5 text-xs"
               >
-                <Send size={14} />
+                <Send size={13} />
+                <span>Send</span>
               </button>
             </form>
           </div>
@@ -591,13 +619,13 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
 
         {/* Minimized Dock Bar */}
         {chatOpen && chatMinimized && (
-          <div className="border border-indigo-100 dark:border-indigo-950/60 bg-indigo-50/20 dark:bg-indigo-950/10 rounded-2xl p-4 flex items-center justify-between gap-4 animate-in slide-in-from-bottom-4 duration-300">
+          <div className="border border-[var(--border-color)] bg-[var(--card-bg)] rounded-2xl p-4 flex items-center justify-between gap-4 shadow-sm animate-in slide-in-from-bottom-4 duration-300">
             <div className="flex items-center gap-3">
-              <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-950 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0 shadow-sm animate-pulse">
-                <Bot size={16} />
+              <div className="w-9 h-9 rounded-xl bg-[var(--primary-gold)]/15 border border-[var(--primary-gold)]/30 text-[var(--primary-gold)] flex items-center justify-center shrink-0 shadow-xs animate-pulse">
+                <Bot size={18} />
               </div>
               <div>
-                <h4 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-1.5">
+                <h4 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
                   AI CV Finder Assistant (Minimized)
                 </h4>
                 <p className="text-[10px] text-[var(--text-muted)] font-medium">
@@ -609,7 +637,7 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
               <button
                 type="button"
                 onClick={() => setChatMinimized(false)}
-                className="px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer"
+                className="px-3.5 py-1.5 crm-btn-gold text-white text-[10px] font-black uppercase tracking-wider rounded-xl transition cursor-pointer shadow-2xs"
               >
                 Restore Chat
               </button>
@@ -621,18 +649,18 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                 }}
                 className="p-2 text-[var(--text-muted)] hover:text-red-500 transition-all cursor-pointer"
               >
-                <X size={14} />
+                <X size={15} />
               </button>
             </div>
           </div>
         )}
 
         {aiFilterActive && (
-          <div className="bg-indigo-50/80 dark:bg-indigo-950/40 border border-indigo-100 dark:border-indigo-900/50 rounded-2xl p-4 flex items-center justify-between gap-4 animate-in fade-in duration-300">
+          <div className="bg-[var(--bg-secondary)] border border-[var(--primary-gold)]/30 rounded-2xl p-4 flex items-center justify-between gap-4 animate-in fade-in duration-300 shadow-2xs">
             <div className="flex items-center gap-2.5">
-              <Sparkles className="text-indigo-500 animate-pulse shrink-0" size={16} />
+              <Sparkles className="text-[var(--primary-gold)] animate-pulse shrink-0" size={16} />
               <p className="text-xs font-bold text-[var(--text-primary)]">
-                AI Filter Active: <span className="text-indigo-600 dark:text-indigo-400 italic">"{currentAiQuery}"</span> ({aiMatchedIds.length} matches found)
+                AI Filter Active: <span className="text-[var(--primary-gold)] italic font-semibold">"{currentAiQuery}"</span> ({aiMatchedIds.length} candidate matches found)
               </p>
             </div>
             <button
@@ -642,7 +670,7 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                 setAiMatchedIds([]);
                 setCurrentAiQuery('');
               }}
-              className="text-[10px] font-black uppercase text-red-500 hover:underline cursor-pointer tracking-wider"
+              className="text-[10px] font-black uppercase text-red-500 hover:text-red-600 hover:underline cursor-pointer tracking-wider px-2 py-1 rounded-lg hover:bg-red-50 dark:hover:bg-red-950/30 transition-all"
             >
               Clear AI Filter
             </button>

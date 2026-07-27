@@ -1689,7 +1689,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <ChevronRight className="hidden md:block w-3 h-3 text-[var(--text-muted)] opacity-60" />
             <span className="text-[var(--text-primary)] italic font-serif normal-case text-base tracking-tight font-black">
               {activeTab === 'candidates' 
-                ? 'Candidates Index' 
+                ? 'Candidate List' 
                 : activeTab === 'activity_logs' 
                 ? 'Activity Streams' 
                 : activeTab === 'analytics' 
@@ -1704,7 +1704,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 ? 'CV Parsing Engine' 
                 : activeTab === 'invoices'
                 ? 'Generated Invoices'
-                : 'Dashboard Hub'}
+                : 'Dashboard'}
             </span>
           </div>
           <div className="flex items-center gap-4">
@@ -1848,8 +1848,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                     })}
                   </div>
                   <div>
-                    <h2 className="text-lg font-black tracking-tight text-[var(--text-primary)]">Candidate Operations</h2>
-                    <p className="text-[var(--text-muted)] text-[9px] uppercase font-black tracking-[0.15em] mt-0.5">Unified Sourcing & Intelligence Matrix</p>
+                    <h2 className="text-lg font-black tracking-tight text-[var(--text-primary)]">Candidate List</h2>
                   </div>
                 </div>
                 {role === 'recruiter' && (
