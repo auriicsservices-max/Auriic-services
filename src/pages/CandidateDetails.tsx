@@ -66,6 +66,7 @@ export default function CandidateDetailsPage() {
   const [isSavingNotes, setIsSavingNotes] = useState(false);
   const [isSavingLoc, setIsSavingLoc] = useState(false);
   const [isSavingAssignee, setIsSavingAssignee] = useState(false);
+  const [isReParsing, setIsReParsing] = useState(false);
 
   const [isEditing, setIsEditing] = useState(false);
   const [editedFullName, setEditedFullName] = useState('');
@@ -714,7 +715,7 @@ export default function CandidateDetailsPage() {
   const handleAddProject = () => {
     setEditedProjects(prev => [...prev, { title: '', description: '', link: '' }]);
   };
-  const handleUpdateProject = (index: number, key: string, value: string) => {
+  const handleUpdateProject = (index: number, key: string, value: any) => {
     setEditedProjects(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [key]: value };
@@ -844,6 +845,207 @@ export default function CandidateDetailsPage() {
     } catch (e) {
       console.warn("Failed to log activity:", e);
     }
+  };
+
+  const handleReParseResume = async () => {
+    if (!candidate) return;
+    let text = candidate.rawResumeText || '';
+    if (!text && candidate.compressedText) {
+      try {
+        text = LZString.decompressFromUTF16(candidate.compressedText) || '';
+      } catch (e) {
+        console.warn('Decompression failed:', e);
+      }
+    }
+
+    if (!text) {
+      showAlert('Error', 'No raw resume text available for re-parsing.');
+      return;
+    }
+
+    setIsReParsing(true);
+    try {
+      const res = await fetch('/api/cv/parse-text', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text })
+      });
+
+      if (!res.ok) {
+        throw new Error(`Parse request failed with status ${res.status}`);
+      }
+
+      const parsed = await res.json();
+      
+      const normalizedExp = parsed.work_experience?.map((exp: any) => {
+        const durationStr = exp.duration 
+          || (exp.start_date ? `${exp.start_date} - ${exp.is_current ? 'Present' : (exp.end_date || 'Present')}` : (exp.end_date || ''));
+        const descriptionStr = Array.isArray(exp.responsibilities) && exp.responsibilities.length > 0
+          ? exp.responsibilities.map((r: string) => r.startsWith('•') || r.startsWith('-') ? r : `• ${r}`).join("\n")
+          : (typeof exp.responsibilities === 'string' ? exp.responsibilities : (Array.isArray(exp.achievements) ? exp.achievements.map((a: string) => `• ${a}`).join("\n") : ""));
+
+        return {
+          role: exp.job_title || exp.company || 'Role',
+          job_title: exp.job_title || '',
+          company: exp.company || '',
+          duration: durationStr,
+          start_date: exp.start_date || '',
+          end_date: exp.end_date || '',
+          is_current: exp.is_current || false,
+          description: descriptionStr,
+          responsibilities: Array.isArray(exp.responsibilities) ? exp.responsibilities : [],
+          technologies: Array.isArray(exp.technologies) ? exp.technologies : [],
+          location: exp.location || '',
+          achievements: Array.isArray(exp.achievements) ? exp.achievements : (exp.key_achievements || [])
+        };
+      }) || [];
+
+      const normalizedEdu = parsed.education?.map((edu: any) => {
+        const yearStr = edu.duration 
+          || (edu.start_year || edu.start_date ? `${edu.start_year || edu.start_date} - ${edu.end_year || edu.end_date || 'Present'}` : (edu.end_year || edu.end_date || ''));
+        const schoolName = edu.institution || edu.school || '';
+        const degreeName = edu.degree || edu.field_of_study || edu.field || 'Degree';
+
+        return {
+          degree: degreeName,
+          school: schoolName,
+          institution: schoolName,
+          year: yearStr,
+          duration: yearStr,
+          start_date: edu.start_date || edu.start_year || '',
+          end_date: edu.end_date || edu.end_year || '',
+          start_year: edu.start_year || edu.start_date || '',
+          end_year: edu.end_year || edu.end_date || '',
+          field: edu.field_of_study || edu.field || '',
+          field_of_study: edu.field_of_study || edu.field || '',
+          gpa: edu.grade || edu.gpa || '',
+          grade: edu.grade || edu.gpa || '',
+          location: edu.location || '',
+          honors: edu.honors || ''
+        };
+      }) || [];
+
+      const allSkills = parsed.all_skills || [];
+
+      const updateData: any = {
+        fullName: parsed.personal_info?.full_name || candidate.fullName,
+        email: (parsed.personal_info?.email || candidate.email || '').toLowerCase(),
+        phone: parsed.personal_info?.phone || candidate.phone || '',
+        summary: parsed.professional_summary || candidate.summary || '',
+        domainFocus: parsed.personal_info?.headline || parsed.primary_role || candidate.domainFocus || 'Other',
+        primaryRole: parsed.primary_role || candidate.primaryRole || '',
+        careerLevel: parsed.career_level || candidate.careerLevel || 'Mid-Level',
+        totalExperience: parsed.total_experience_years ?? candidate.totalExperience,
+        experience: normalizedExp,
+        education: normalizedEdu,
+        skills: allSkills.length ? allSkills : candidate.skills,
+        projects: ((parsed.key_projects && parsed.key_projects.length > 0) ? parsed.key_projects : parsed.projects)?.map((p: any) => ({
+          title: p.name || p.title || 'Project',
+          role: p.role || '',
+          description: p.description || '',
+          highlights: Array.isArray(p.highlights) ? p.highlights : [],
+          technologies: Array.isArray(p.tech_stack) && p.tech_stack.length > 0
+            ? p.tech_stack
+            : (Array.isArray(p.technologies) ? p.technologies : []),
+          duration: p.duration || '',
+          link: p.live_url || p.code_url || p.link || null
+        })) || candidate.projects || [],
+        certifications: parsed.certifications?.map((c: any) => typeof c === 'string' ? c : (c.name || '')).filter(Boolean) || candidate.certifications || [],
+        achievements: parsed.awards || candidate.achievements || [],
+        updatedAt: new Date().toISOString()
+      };
+
+      if (parsed.personal_info?.location) {
+        updateData.locationInfo = {
+          city: parsed.personal_info.location.city || candidate.locationInfo?.city || '',
+          state: parsed.personal_info.location.state || candidate.locationInfo?.state || '',
+          country: parsed.personal_info.location.country || candidate.locationInfo?.country || '',
+          postalCode: candidate.locationInfo?.postalCode || ''
+        };
+      }
+
+      if (id) {
+        const candidateRef = doc(db, 'candidates', id);
+        await updateDoc(candidateRef, updateData);
+      }
+
+      setCandidate((prev: any) => ({ ...prev, ...updateData }));
+      setEditedExperience(normalizedExp);
+      setEditedEducation(normalizedEdu);
+      if (allSkills.length) setSkills(allSkills);
+
+      await logActivity(
+        getUserDisplayName(),
+        user?.uid || '',
+        getUserRole(),
+        'AI Re-Parse Resume',
+        candidate?.fullName || 'Candidate',
+        null,
+        `Re-parsed candidate ${candidate.fullName} details using Gemini AI`,
+        'Candidates'
+      );
+
+      showAlert('Success', 'Candidate resume re-parsed and full details updated!');
+    } catch (err: any) {
+      console.error('Re-parse error:', err);
+      showAlert('Error', `Failed to re-parse resume: ${err.message || String(err)}`);
+    } finally {
+      setIsReParsing(false);
+    }
+  };
+
+  const extractProjectBullets = (project: any): string[] => {
+    if (!project) return [];
+    const points: string[] = [];
+
+    if (Array.isArray(project.highlights) && project.highlights.length > 0) {
+      project.highlights.forEach((h: any) => {
+        if (typeof h === 'string' && h.trim()) {
+          const clean = h.trim().replace(/^[•\-\*\d+\.]\s*/, '');
+          if (clean && !points.includes(clean)) points.push(clean);
+        }
+      });
+    }
+
+    const desc = typeof project.description === 'string' ? project.description.trim() : '';
+    if (desc) {
+      const rawLines = desc
+        .split(/\n|•|(?<=\s)[\-\*]\s+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      if (rawLines.length > 1) {
+        for (const line of rawLines) {
+          const clean = line.replace(/^[•\-\*\d+\.]\s*/, '').trim();
+          if (clean && !points.includes(clean)) {
+            points.push(clean);
+          }
+        }
+      } else if (rawLines.length === 1) {
+        const line = rawLines[0];
+        if (line.length > 80 && line.includes('. ')) {
+          const sentences = line.split(/(?<=\.)\s+/).map(s => s.trim()).filter(s => s.length > 8);
+          if (sentences.length > 1) {
+            sentences.forEach(s => {
+              const clean = s.replace(/^[•\-\*\d+\.]\s*/, '').trim();
+              if (clean && !points.includes(clean)) points.push(clean);
+            });
+          } else {
+            const clean = line.replace(/^[•\-\*\d+\.]\s*/, '').trim();
+            if (clean && !points.includes(clean)) points.push(clean);
+          }
+        } else {
+          const clean = line.replace(/^[•\-\*\d+\.]\s*/, '').trim();
+          if (clean && !points.includes(clean)) points.push(clean);
+        }
+      }
+    }
+
+    if (points.length === 0 && desc) {
+      points.push(desc);
+    }
+
+    return points;
   };
 
   const renderHighlightedText = (text: string) => {
@@ -1074,6 +1276,15 @@ export default function CandidateDetailsPage() {
                   <span>Download CV</span>
                 </button>
                 <button 
+                  onClick={handleReParseResume}
+                  disabled={isReParsing}
+                  className="crm-btn-gold flex items-center gap-1.5"
+                  title="Re-extract candidate details from raw resume using Gemini AI"
+                >
+                  {isReParsing ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
+                  <span>{isReParsing ? 'Extracting...' : 'AI Re-Extract'}</span>
+                </button>
+                <button 
                   onClick={handleExportJsonResume}
                   className="crm-btn-secondary flex items-center gap-1.5"
                   title="Export to JSON Resume standard (jsonresume.org)"
@@ -1201,14 +1412,51 @@ export default function CandidateDetailsPage() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {candidate.experience?.map((exp: any, i: number) => (
-                    <div key={i} className="relative pl-6 border-l-2 border-[var(--border-color)] hover:border-[var(--primary-gold)] transition-all duration-300">
-                      <div className="absolute -left-1.5 top-1.5 w-3 h-3 rounded-full bg-[var(--primary-gold)] border-2 border-[var(--card-bg)] shadow-sm" />
-                      <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">{renderHighlightedText(exp.role)}</h4>
-                      <p className="text-[var(--primary-gold)] text-xs font-bold mt-0.5">{renderHighlightedText(exp.company)} • {renderHighlightedText(exp.duration)}</p>
-                      <p className="text-[var(--text-secondary)] text-xs mt-2 leading-relaxed select-text">{renderHighlightedText(exp.description)}</p>
-                    </div>
-                  ))}
+                  {candidate.experience?.map((exp: any, i: number) => {
+                    const roleTitle = exp.role || exp.job_title || exp.title || 'Role';
+                    const compName = exp.company || '';
+                    const durText = exp.duration || (exp.start_date ? `${exp.start_date} - ${exp.is_current ? 'Present' : (exp.end_date || 'Present')}` : (exp.end_date || ''));
+                    const descText = exp.description || (Array.isArray(exp.responsibilities) ? exp.responsibilities.join('\n') : '');
+                    const bullets = Array.isArray(exp.responsibilities) && exp.responsibilities.length > 0
+                      ? exp.responsibilities
+                      : (typeof descText === 'string' && (descText.includes('•') || descText.includes('\n')) ? descText.split(/\n|•/).map((s: string) => s.trim()).filter(Boolean) : []);
+
+                    return (
+                      <div key={i} className="relative pl-6 border-l-2 border-[var(--border-color)] hover:border-[var(--primary-gold)] transition-all duration-300">
+                        <div className="absolute -left-1.5 top-1.5 w-3 h-3 rounded-full bg-[var(--primary-gold)] border-2 border-[var(--card-bg)] shadow-sm" />
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">{renderHighlightedText(roleTitle)}</h4>
+                          {exp.location && <span className="text-[10px] font-semibold text-[var(--text-muted)]">{exp.location}</span>}
+                        </div>
+                        <p className="text-[var(--primary-gold)] text-xs font-bold mt-0.5">
+                          {renderHighlightedText(compName)}{durText ? ` • ${renderHighlightedText(durText)}` : ''}
+                        </p>
+
+                        {bullets.length > 1 ? (
+                          <ul className="mt-2.5 space-y-1.5 select-text">
+                            {bullets.map((bullet: string, bIdx: number) => (
+                              <li key={bIdx} className="text-[var(--text-secondary)] text-xs leading-relaxed flex items-start gap-2">
+                                <span className="text-[var(--primary-gold)] font-bold shrink-0 mt-0.5">•</span>
+                                <span>{renderHighlightedText(bullet.replace(/^[•\-\*]\s*/, ''))}</span>
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          descText && <p className="text-[var(--text-secondary)] text-xs mt-2 leading-relaxed select-text whitespace-pre-line">{renderHighlightedText(descText)}</p>
+                        )}
+
+                        {Array.isArray(exp.technologies) && exp.technologies.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-2.5">
+                            {exp.technologies.map((tech: string, tIdx: number) => (
+                              <span key={tIdx} className="px-2 py-0.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-muted)] text-[9px] font-bold rounded-md">
+                                {tech}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                   {(!candidate.experience || candidate.experience.length === 0) && (
                     <p className="text-xs italic text-[var(--text-muted)] text-center py-4">No work history entries extracted.</p>
                   )}
@@ -1283,13 +1531,32 @@ export default function CandidateDetailsPage() {
                 </div>
               ) : (
                 <div className="space-y-6">
-                  {candidate.education?.map((edu: any, i: number) => (
-                    <div key={i} className="relative pl-6 border-l-2 border-[var(--border-color)]/70 hover:border-emerald-500/50 transition-all duration-300">
-                      <div className="absolute -left-1.5 top-1.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[var(--bg-primary)] shadow-sm" />
-                      <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">{edu.degree}</h4>
-                      <p className="text-emerald-600 dark:text-emerald-400 text-xs font-bold mt-0.5">{edu.school} • {edu.year}</p>
-                    </div>
-                  ))}
+                  {candidate.education?.map((edu: any, i: number) => {
+                    const deg = edu.degree || edu.field || edu.field_of_study || 'Degree';
+                    const sch = edu.school || edu.institution || edu.university || '';
+                    const yr = edu.year || edu.duration || (edu.start_year || edu.start_date ? `${edu.start_year || edu.start_date} - ${edu.end_year || edu.end_date || 'Present'}` : (edu.end_year || edu.end_date || ''));
+                    const fld = edu.field || edu.field_of_study || '';
+                    const gpa = edu.gpa || edu.grade || '';
+
+                    return (
+                      <div key={i} className="relative pl-6 border-l-2 border-[var(--border-color)]/70 hover:border-emerald-500/50 transition-all duration-300">
+                        <div className="absolute -left-1.5 top-1.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[var(--bg-primary)] shadow-sm" />
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">{deg}</h4>
+                          {gpa && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">Grade/GPA: {gpa}</span>}
+                        </div>
+                        <p className="text-emerald-600 dark:text-emerald-400 text-xs font-bold mt-0.5">
+                          {sch}{yr ? ` • ${yr}` : ''}
+                        </p>
+                        {fld && fld !== deg && (
+                          <p className="text-xs text-[var(--text-secondary)] mt-1 font-medium">Field: {fld}</p>
+                        )}
+                        {edu.honors && (
+                          <p className="text-[11px] text-[var(--primary-gold)] mt-0.5 font-semibold">Honors: {edu.honors}</p>
+                        )}
+                      </div>
+                    );
+                  })}
                   {(!candidate.education || candidate.education.length === 0) && (
                     <p className="text-xs italic text-[var(--text-muted)] text-center py-4">No academic credentials extracted.</p>
                   )}
@@ -1298,9 +1565,9 @@ export default function CandidateDetailsPage() {
             </section>
 
             {/* Key Projects */}
-            {((candidate.projects && candidate.projects.length > 0) || (isEditing && role === 'developer')) && (
+            {(((candidate.projects && candidate.projects.length > 0) || (candidate.keyProjects && candidate.keyProjects.length > 0)) || (isEditing && role === 'developer')) && (
               <section className="crm-card p-6 sm:p-8 rounded-[2.5rem]">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-6 pb-3 border-b border-[var(--border-color)]">
                   <h3 className="text-xs font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
                     <Star size={14} className="text-[var(--primary-gold)]" /> Key Projects
                   </h3>
@@ -1316,65 +1583,146 @@ export default function CandidateDetailsPage() {
                 {isEditing && role === 'developer' ? (
                   <div className="space-y-4">
                     {editedProjects.map((project: any, i: number) => (
-                      <div key={i} className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl relative flex flex-col gap-2.5">
+                      <div key={i} className="p-5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl relative flex flex-col gap-3">
                         <button
                           onClick={() => handleRemoveProject(i)}
-                          className="absolute top-3 right-3 text-rose-500 hover:text-rose-600 transition-colors p-1"
+                          className="absolute top-4 right-4 text-rose-500 hover:text-rose-600 transition-colors p-1"
                           title="Remove project"
                         >
                           <Trash2 size={16} />
                         </button>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pr-8">
                           <div className="flex flex-col gap-1">
                             <label className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider">Project Title</label>
                             <input
                               type="text"
-                              value={project.title || ''}
+                              value={project.title || project.name || ''}
                               onChange={(e) => handleUpdateProject(i, 'title', e.target.value)}
                               className="crm-input text-xs"
                               placeholder="e.g. ATS Platform Rewrite"
                             />
                           </div>
                           <div className="flex flex-col gap-1">
-                            <label className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider">Link / Repo</label>
+                            <label className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider">Link / Repo URL</label>
                             <input
                               type="text"
-                              value={project.link || ''}
+                              value={project.link || project.live_url || ''}
                               onChange={(e) => handleUpdateProject(i, 'link', e.target.value)}
                               className="crm-input text-xs"
                               placeholder="e.g. https://github.com/..."
                             />
                           </div>
                         </div>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider">Role in Project</label>
+                            <input
+                              type="text"
+                              value={project.role || ''}
+                              onChange={(e) => handleUpdateProject(i, 'role', e.target.value)}
+                              className="crm-input text-xs"
+                              placeholder="e.g. Lead Frontend Developer"
+                            />
+                          </div>
+                          <div className="flex flex-col gap-1">
+                            <label className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider">Technologies (comma separated)</label>
+                            <input
+                              type="text"
+                              value={Array.isArray(project.technologies) ? project.technologies.join(', ') : (project.technologies || project.tech_stack || '')}
+                              onChange={(e) => handleUpdateProject(i, 'technologies', e.target.value.split(',').map(s => s.trim()).filter(Boolean))}
+                              className="crm-input text-xs"
+                              placeholder="e.g. React, TypeScript, Tailwind"
+                            />
+                          </div>
+                        </div>
+
                         <div className="flex flex-col gap-1">
-                          <label className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider">Description</label>
+                          <label className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider">Description & Key Highlights</label>
                           <textarea
                             value={project.description || ''}
                             onChange={(e) => handleUpdateProject(i, 'description', e.target.value)}
-                            className="crm-input text-xs h-16"
-                            placeholder="Describe project details..."
+                            className="crm-input text-xs h-24"
+                            placeholder="• Feature details...\n• Bullet point details..."
                           />
                         </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    {candidate.projects?.map((project: any, i: number) => (
-                      <div key={i} className="p-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl transition-all">
-                        <div className="flex items-center justify-between mb-2">
-                          <h4 className="font-extrabold text-[var(--text-primary)] text-xs tracking-tight">{project.title}</h4>
-                          {project.link && (
-                            <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-[var(--primary-gold)] hover:underline flex items-center gap-1">
-                              View Project <ExternalLink size={10} />
-                            </a>
+                  <div className="space-y-5">
+                    {(candidate.projects?.length ? candidate.projects : (candidate.keyProjects || []))?.map((project: any, i: number) => {
+                      const title = project.title || project.name || 'Project';
+                      const role = project.role || '';
+                      const link = project.link || project.live_url || project.code_url || null;
+                      const techList = Array.isArray(project.technologies) && project.technologies.length > 0
+                        ? project.technologies
+                        : (Array.isArray(project.tech_stack) ? project.tech_stack : []);
+                      const bulletPoints = extractProjectBullets(project);
+
+                      return (
+                        <div key={i} className="p-5 bg-[var(--bg-secondary)] border border-[var(--border-color)] hover:border-[var(--primary-gold)]/50 rounded-2xl transition-all duration-300 shadow-xs">
+                          {/* Project Header */}
+                          <div className="flex flex-wrap items-start justify-between gap-2 mb-3 pb-2.5 border-b border-[var(--border-color)]/60">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">
+                                {renderHighlightedText(title)}
+                              </h4>
+                              {role && (
+                                <span className="text-[10px] font-bold text-[var(--primary-gold)] bg-[var(--bg-primary)] px-2.5 py-0.5 rounded-full border border-[var(--border-color)]">
+                                  {role}
+                                </span>
+                              )}
+                            </div>
+
+                            {link && (
+                              <a
+                                href={link.startsWith('http') ? link : `https://${link}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] font-black text-[var(--primary-gold)] hover:underline flex items-center gap-1 bg-[var(--bg-primary)] px-2.5 py-1 rounded-lg border border-[var(--border-color)] shadow-xs transition-colors hover:bg-[var(--bg-secondary)]"
+                              >
+                                <span>View Project</span>
+                                <ExternalLink size={11} />
+                              </a>
+                            )}
+                          </div>
+
+                          {/* Point-wise Project Details */}
+                          {bulletPoints.length > 0 ? (
+                            <ul className="space-y-2 select-text mb-3">
+                              {bulletPoints.map((pt, pIdx) => (
+                                <li key={pIdx} className="text-[var(--text-secondary)] text-xs leading-relaxed flex items-start gap-2.5">
+                                  <span className="text-[var(--primary-gold)] font-black shrink-0 mt-0.5">•</span>
+                                  <span>{renderHighlightedText(pt)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            project.description && (
+                              <p className="text-[var(--text-secondary)] text-xs leading-relaxed select-text mb-3 whitespace-pre-line">
+                                {renderHighlightedText(project.description)}
+                              </p>
+                            )
+                          )}
+
+                          {/* Tech Stack Pills */}
+                          {techList.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1.5 pt-2.5 border-t border-[var(--border-color)]/40">
+                              <span className="text-[9px] font-black uppercase tracking-wider text-[var(--text-muted)] mr-1">Stack:</span>
+                              {techList.map((tech: string, tIdx: number) => (
+                                <span
+                                  key={tIdx}
+                                  className="px-2 py-0.5 bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-muted)] text-[9px] font-bold rounded-md"
+                                >
+                                  {tech}
+                                </span>
+                              ))}
+                            </div>
                           )}
                         </div>
-                        <p className="text-[var(--text-secondary)] text-xs leading-relaxed select-text">
-                          {project.description}
-                        </p>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </section>

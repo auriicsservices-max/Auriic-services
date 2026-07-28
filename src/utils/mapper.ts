@@ -16,18 +16,21 @@ export const toInternalResumeData = (jsonResume: JSONResumeData): ResumeData => 
   ])).filter(Boolean);
 
   const workExperience = jsonResume.work.map(w => ({
-    job_title: w.position,
-    company: w.name,
+    job_title: w.position || '',
+    company: w.name || '',
     location: 'Remote',
     start_date: w.startDate || '',
     end_date: w.endDate || '',
+    duration: '',
     is_current: !w.endDate || /present|current|now/i.test(w.endDate),
     responsibilities: w.highlights || (w.summary ? [w.summary] : []),
-    technologies: []
+    technologies: [],
+    key_achievements: [],
+    achievements: []
   }));
 
   const projects = jsonResume.projects.map(p => ({
-    name: p.name,
+    name: p.name || '',
     description: p.description || '',
     technologies: p.keywords || [],
     role: p.roles?.[0] || '',
@@ -35,31 +38,60 @@ export const toInternalResumeData = (jsonResume: JSONResumeData): ResumeData => 
     code_url: ''
   }));
 
+  const keyProjects = jsonResume.projects.map(p => ({
+    name: p.name || '',
+    description: p.description || '',
+    tech_stack: p.keywords || [],
+    live_url: p.url || '',
+    code_url: '',
+    highlights: p.highlights || []
+  }));
+
   const education = jsonResume.education.map(e => ({
     degree: e.studyType || '',
     field_of_study: e.area || '',
-    institution: e.institution,
+    institution: e.institution || '',
     location: '',
     start_date: e.startDate || '',
     end_date: e.endDate || '',
-    grade: e.score || ''
+    start_year: e.startDate || '',
+    end_year: e.endDate || '',
+    grade: e.score || '',
+    gpa: e.score || '',
+    honors: ''
   }));
 
   const certifications = jsonResume.certificates.map(c => ({
-    name: c.name,
+    name: c.name || '',
     issuer: c.issuer || '',
     year: c.date || ''
   }));
+
+  const fullName = jsonResume.basics.name || '';
+  const email = jsonResume.basics.email || '';
+  const phone = jsonResume.basics.phone || '';
+  const headline = workExperience[0]?.job_title || 'Software Professional';
+  const locationStr = jsonResume.basics.location?.city 
+    ? `${jsonResume.basics.location.city}, ${jsonResume.basics.location.countryCode || ''}` 
+    : '';
 
   return {
     is_resume: true,
     parsing_confidence: 'high',
     detected_language: 'en',
+    contact: {
+      full_name: fullName,
+      email: email,
+      mobile: phone,
+      designation: headline,
+      location: locationStr,
+      address: locationStr
+    },
     personal_info: {
-      full_name: jsonResume.basics.name,
-      headline: workExperience[0]?.job_title || 'Software Professional',
-      email: jsonResume.basics.email || '',
-      phone: jsonResume.basics.phone || '',
+      full_name: fullName,
+      headline,
+      email: email,
+      phone: phone,
       location: {
         city: jsonResume.basics.location?.city || '',
         state: jsonResume.basics.location?.region || '',
@@ -75,14 +107,40 @@ export const toInternalResumeData = (jsonResume: JSONResumeData): ResumeData => 
           .map(p => p.url || '')
       }
     },
+    links: {
+      linkedin,
+      github,
+      portfolio,
+      website: jsonResume.basics.website || '',
+      other_urls: jsonResume.basics.profiles
+        .filter(p => !['linkedin', 'github'].includes(p.network.toLowerCase()))
+        .map(p => p.url || '')
+    },
     professional_summary: jsonResume.basics.summary || '',
     total_experience_years: 0,
+    career_level: 'Mid-Level',
+    primary_role: headline,
+    technical_skills: {
+      languages: [],
+      frontend: [],
+      backend: [],
+      databases: [],
+      cloud_devops: [],
+      tools: [],
+      cms_ecommerce: [],
+      other: allSkillsFlat
+    },
     skills: skillsGrouped,
     all_skills: allSkillsFlat,
     work_experience: workExperience,
     projects,
+    key_projects: keyProjects,
     education,
     certifications,
+    publications: [],
+    volunteer: [],
+    volunteering: [],
+    interests: [],
     languages: jsonResume.languages.map(l => ({ language: l.language, proficiency: l.fluency || '' })),
     awards: jsonResume.awards.map(a => a.title),
     warnings: [],

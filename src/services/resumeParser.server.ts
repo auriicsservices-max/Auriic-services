@@ -230,9 +230,12 @@ export class RobustResumeParser {
       location: 'Remote',
       start_date: e.duration ? e.duration.split('-')[0]?.trim() || '' : '',
       end_date: e.duration ? e.duration.split('-')[1]?.trim() || '' : '',
+      duration: e.duration || '',
       is_current: e.duration ? /present|current|now|active/i.test(e.duration) : false,
       responsibilities: e.responsibilities || [],
-      technologies: []
+      technologies: [],
+      key_achievements: [],
+      achievements: []
     }));
 
     const projParsed = this.parseProjects(sections.projects);
@@ -245,6 +248,15 @@ export class RobustResumeParser {
       code_url: ''
     }));
 
+    const keyProjects = projParsed.map(p => ({
+      name: p.name || '',
+      description: p.description ? p.description.join(' ') : '',
+      tech_stack: p.technologies || [],
+      live_url: p.links?.[0] || '',
+      code_url: '',
+      highlights: p.description || []
+    }));
+
     const eduParsed = this.parseEducation(sections.education);
     const education = eduParsed.map(edu => ({
       degree: edu.degree || '',
@@ -253,16 +265,30 @@ export class RobustResumeParser {
       location: edu.location || '',
       start_date: '',
       end_date: edu.duration || '',
-      grade: edu.gpa || ''
+      start_year: '',
+      end_year: edu.duration || '',
+      grade: edu.gpa || '',
+      gpa: edu.gpa || '',
+      honors: ''
     }));
+
+    const headline = workExperience[0]?.job_title || 'Software Professional';
 
     const data: ResumeData = {
       is_resume: true,
       parsing_confidence: 'medium',
       detected_language: 'en',
+      contact: {
+        full_name: name,
+        email: email,
+        mobile: phone,
+        designation: headline,
+        location: `${city}, ${country}`,
+        address: `${city}, ${country}`
+      },
       personal_info: {
         full_name: name,
-        headline: workExperience[0]?.job_title || 'Software Professional',
+        headline,
         email,
         phone,
         location: { city, state, country },
@@ -274,14 +300,38 @@ export class RobustResumeParser {
           other: []
         }
       },
+      links: {
+        linkedin,
+        github,
+        portfolio,
+        website: '',
+        other_urls: []
+      },
       professional_summary: sections.profile || '',
       total_experience_years: totalExperienceYears,
+      career_level: 'Mid-Level',
+      primary_role: headline,
+      technical_skills: {
+        languages: skillsParsed.languages || [],
+        frontend: skillsParsed.frameworks || [],
+        backend: skillsParsed.libraries || [],
+        databases: skillsParsed.databases || [],
+        cloud_devops: [],
+        tools: skillsParsed.tools || [],
+        cms_ecommerce: [],
+        other: skillsParsed.other || []
+      },
       skills: skillsGrouped,
       all_skills: allSkillsFlat,
       work_experience: workExperience,
       projects,
+      key_projects: keyProjects,
       education,
       certifications: [],
+      publications: [],
+      volunteer: [],
+      volunteering: [],
+      interests: [],
       languages: this.parseList(sections.languages).map(lang => ({ language: lang, proficiency: 'Fluent' })),
       awards: this.parseList(sections.achievements),
       warnings: [],

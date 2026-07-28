@@ -65,7 +65,7 @@ export default function Login() {
 
       <div className="bg-[var(--card-bg)] p-10 rounded-[2rem] shadow-2xl w-full max-w-sm border border-[var(--border-color)] transition-all duration-300">
         <div className="flex justify-center mb-8">
-          <Logo size="lg" className="justify-center" />
+          <Logo variant="login" size="lg" className="justify-center" />
         </div>
         
         <div className="text-center mb-8">

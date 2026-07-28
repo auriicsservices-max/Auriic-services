@@ -113,7 +113,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const handleAddProject = () => {
     setEditedProjects(prev => [...prev, { title: '', description: '', link: '' }]);
   };
-  const handleUpdateProject = (index: number, key: string, value: string) => {
+  const handleUpdateProject = (index: number, key: string, value: any) => {
     setEditedProjects(prev => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [key]: value };
@@ -458,6 +458,60 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     } else {
       showAlert('Download Unavailable', "No valid CV link, Base64, or text found for this candidate.");
     }
+  };
+
+  const extractProjectBullets = (project: any): string[] => {
+    if (!project) return [];
+    const points: string[] = [];
+
+    if (Array.isArray(project.highlights) && project.highlights.length > 0) {
+      project.highlights.forEach((h: any) => {
+        if (typeof h === 'string' && h.trim()) {
+          const clean = h.trim().replace(/^[•\-\*\d+\.]\s*/, '');
+          if (clean && !points.includes(clean)) points.push(clean);
+        }
+      });
+    }
+
+    const desc = typeof project.description === 'string' ? project.description.trim() : '';
+    if (desc) {
+      const rawLines = desc
+        .split(/\n|•|(?<=\s)[\-\*]\s+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+
+      if (rawLines.length > 1) {
+        for (const line of rawLines) {
+          const clean = line.replace(/^[•\-\*\d+\.]\s*/, '').trim();
+          if (clean && !points.includes(clean)) {
+            points.push(clean);
+          }
+        }
+      } else if (rawLines.length === 1) {
+        const line = rawLines[0];
+        if (line.length > 80 && line.includes('. ')) {
+          const sentences = line.split(/(?<=\.)\s+/).map(s => s.trim()).filter(s => s.length > 8);
+          if (sentences.length > 1) {
+            sentences.forEach(s => {
+              const clean = s.replace(/^[•\-\*\d+\.]\s*/, '').trim();
+              if (clean && !points.includes(clean)) points.push(clean);
+            });
+          } else {
+            const clean = line.replace(/^[•\-\*\d+\.]\s*/, '').trim();
+            if (clean && !points.includes(clean)) points.push(clean);
+          }
+        } else {
+          const clean = line.replace(/^[•\-\*\d+\.]\s*/, '').trim();
+          if (clean && !points.includes(clean)) points.push(clean);
+        }
+      }
+    }
+
+    if (points.length === 0 && desc) {
+      points.push(desc);
+    }
+
+    return points;
   };
 
   const handleView = () => {
@@ -1073,9 +1127,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
             </section>
 
             {/* Key Projects */}
-            {((candidate.projects && candidate.projects.length > 0) || (isEditing && role === 'developer')) && (
+            {(((candidate.projects && candidate.projects.length > 0) || (candidate.keyProjects && candidate.keyProjects.length > 0)) || (isEditing && role === 'developer')) && (
               <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm card-hover-effect">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center justify-between mb-4 pb-2.5 border-b border-[var(--border-color)]/60">
                   <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
                     <Star size={12} className="text-indigo-500" /> Key Projects
                   </h3>
@@ -1089,7 +1143,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   )}
                 </div>
                 {isEditing && role === 'developer' ? (
-                  <div className="space-y-4 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                  <div className="space-y-4 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
                     {editedProjects.map((project: any, i: number) => (
                       <div key={i} className="p-4 bg-white dark:bg-slate-900 border border-[var(--border-color)] rounded-2xl relative flex flex-col gap-2.5 shadow-sm">
                         <button
@@ -1099,12 +1153,12 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                         >
                           <Trash2 size={14} />
                         </button>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 pr-8">
                           <div className="flex flex-col gap-0.5">
                             <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Project Title</label>
                             <input
                               type="text"
-                              value={project.title || ''}
+                              value={project.title || project.name || ''}
                               onChange={(e) => handleUpdateProject(i, 'title', e.target.value)}
                               className="bg-slate-50 dark:bg-slate-950 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
                               placeholder="e.g. ATS Platform Rewrite"
@@ -1114,7 +1168,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                             <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Link / Repository (Optional)</label>
                             <input
                               type="text"
-                              value={project.link || ''}
+                              value={project.link || project.live_url || ''}
                               onChange={(e) => handleUpdateProject(i, 'link', e.target.value)}
                               className="bg-slate-50 dark:bg-slate-950 border border-[var(--border-color)] rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-bold"
                               placeholder="e.g. https://github.com/..."
@@ -1122,12 +1176,12 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                           </div>
                         </div>
                         <div className="flex flex-col gap-0.5">
-                          <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Project Description</label>
+                          <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Project Description & Highlights</label>
                           <textarea
                             value={project.description || ''}
                             onChange={(e) => handleUpdateProject(i, 'description', e.target.value)}
-                            className="w-full bg-slate-50 dark:bg-slate-950 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-medium leading-relaxed h-16"
-                            placeholder="Describe the project objective, technologies utilized, and contribution..."
+                            className="w-full bg-slate-50 dark:bg-slate-950 border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-indigo-500 text-[var(--text-primary)] font-medium leading-relaxed h-20"
+                            placeholder="• Feature details...\n• Bullet point details..."
                           />
                         </div>
                       </div>
@@ -1137,22 +1191,73 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                     )}
                   </div>
                 ) : (
-                  <div className="space-y-4 max-h-[250px] overflow-y-auto custom-scrollbar pr-2">
-                    {candidate.projects?.map((project: any, i: number) => (
-                       <div key={i} className="p-4 bg-slate-50/50 dark:bg-slate-900/40 border border-[var(--border-color)]/70 rounded-2xl transition-colors hover:border-indigo-500/20">
-                         <div className="flex items-center justify-between mb-2">
-                           <h4 className="font-extrabold text-[var(--text-primary)] text-xs tracking-tight">{project.title}</h4>
-                           {project.link && (
-                             <a href={project.link} target="_blank" rel="noopener noreferrer" className="text-[10px] font-black text-indigo-500 hover:underline">
-                               Link Target
-                             </a>
-                           )}
-                         </div>
-                         <p className="text-[var(--text-secondary)] text-[11px] leading-relaxed select-text">
-                           {project.description}
-                         </p>
-                       </div>
-                    ))}
+                  <div className="space-y-4 max-h-[350px] overflow-y-auto custom-scrollbar pr-2">
+                    {(candidate.projects?.length ? candidate.projects : (candidate.keyProjects || []))?.map((project: any, i: number) => {
+                      const title = project.title || project.name || 'Project';
+                      const role = project.role || '';
+                      const link = project.link || project.live_url || project.code_url || null;
+                      const techList = Array.isArray(project.technologies) && project.technologies.length > 0
+                        ? project.technologies
+                        : (Array.isArray(project.tech_stack) ? project.tech_stack : []);
+                      const bulletPoints = extractProjectBullets(project);
+
+                      return (
+                        <div key={i} className="p-4 bg-slate-50/50 dark:bg-slate-900/40 border border-[var(--border-color)]/70 rounded-2xl transition-colors hover:border-indigo-500/30">
+                          <div className="flex items-start justify-between gap-2 mb-2 pb-2 border-b border-[var(--border-color)]/40">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <h4 className="font-extrabold text-[var(--text-primary)] text-xs tracking-tight">{title}</h4>
+                              {role && (
+                                <span className="text-[9px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-950/50 px-2 py-0.5 rounded-full border border-indigo-200 dark:border-indigo-800">
+                                  {role}
+                                </span>
+                              )}
+                            </div>
+                            {link && (
+                              <a
+                                href={link.startsWith('http') ? link : `https://${link}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="text-[10px] font-bold text-indigo-500 hover:underline flex items-center gap-1 shrink-0"
+                              >
+                                <span>Link</span>
+                                <ExternalLink size={10} />
+                              </a>
+                            )}
+                          </div>
+
+                          {bulletPoints.length > 0 ? (
+                            <ul className="space-y-1.5 select-text my-2">
+                              {bulletPoints.map((pt, pIdx) => (
+                                <li key={pIdx} className="text-[var(--text-secondary)] text-[11px] leading-relaxed flex items-start gap-2">
+                                  <span className="text-indigo-500 font-extrabold shrink-0 mt-0.5">•</span>
+                                  <span>{pt}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          ) : (
+                            project.description && (
+                              <p className="text-[var(--text-secondary)] text-[11px] leading-relaxed select-text my-2 whitespace-pre-line">
+                                {project.description}
+                              </p>
+                            )
+                          )}
+
+                          {techList.length > 0 && (
+                            <div className="flex flex-wrap items-center gap-1 pt-2 border-t border-[var(--border-color)]/30 mt-2">
+                              <span className="text-[8px] font-bold text-[var(--text-muted)] uppercase tracking-wider mr-0.5">Stack:</span>
+                              {techList.map((tech: string, tIdx: number) => (
+                                <span
+                                  key={tIdx}
+                                  className="px-1.5 py-0.5 bg-slate-100 dark:bg-slate-800 text-[var(--text-muted)] text-[9px] font-semibold rounded"
+                                >
+                                  {tech}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </section>

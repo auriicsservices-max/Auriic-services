@@ -492,27 +492,110 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
   }
 
   const headline = experience[0]?.job_title || 'Software Professional';
+  const fullName = contact.fullName || 'Candidate';
+  const email = contact.email || '';
+  const phone = contact.phone || '';
+  const locationStr = contact.location ? `${contact.location.city}, ${contact.location.country}` : '';
+
+  const workExperienceNormalized = experience.map(exp => ({
+    job_title: exp.job_title || '',
+    company: exp.company || '',
+    location: exp.location || '',
+    start_date: exp.start_date || '',
+    end_date: exp.end_date || '',
+    duration: exp.start_date ? `${exp.start_date} - ${exp.is_current ? 'Present' : (exp.end_date || 'Present')}` : (exp.end_date || ''),
+    is_current: exp.is_current || false,
+    responsibilities: exp.responsibilities || [],
+    technologies: exp.technologies || [],
+    key_achievements: [],
+    achievements: []
+  }));
+
+  const educationNormalized = education.map(edu => ({
+    degree: edu.degree || '',
+    field_of_study: edu.field_of_study || '',
+    institution: edu.institution || '',
+    location: edu.location || '',
+    duration: edu.start_date ? `${edu.start_date} - ${edu.end_date || 'Present'}` : (edu.end_date || ''),
+    start_date: edu.start_date || '',
+    end_date: edu.end_date || '',
+    start_year: edu.start_date || '',
+    end_year: edu.end_date || '',
+    grade: edu.grade || '',
+    gpa: edu.grade || '',
+    honors: ''
+  }));
+
+  const projectsNormalized = projectsList.map(p => ({
+    name: p.name || '',
+    description: p.description || '',
+    technologies: p.technologies || [],
+    role: p.role || '',
+    live_url: p.live_url || '',
+    code_url: p.code_url || ''
+  }));
+
+  const keyProjectsNormalized = projectsList.map(p => ({
+    name: p.name || '',
+    description: p.description || '',
+    tech_stack: p.technologies || [],
+    live_url: p.live_url || '',
+    code_url: p.code_url || '',
+    highlights: p.description ? [p.description] : []
+  }));
 
   const resume: ParsedResume = {
     is_resume: true,
     parsing_confidence: 'medium',
     detected_language: 'en',
+    contact: {
+      full_name: fullName,
+      email: email,
+      mobile: phone,
+      designation: headline,
+      location: locationStr,
+      address: locationStr
+    },
     personal_info: {
-      full_name: contact.fullName || 'Candidate',
+      full_name: fullName,
       headline,
-      email: contact.email,
-      phone: contact.phone,
+      email: email,
+      phone: phone,
       location: contact.location,
       links: contact.links
     },
+    links: {
+      linkedin: contact.links?.linkedin || '',
+      github: contact.links?.github || '',
+      portfolio: contact.links?.portfolio || '',
+      website: contact.links?.website || '',
+      other_urls: contact.links?.other || []
+    },
     professional_summary: sections.summary.trim() || text.slice(0, 300),
     total_experience_years: experience.length > 0 ? Math.max(1, experience.length * 2) : 0,
+    career_level: 'Mid-Level',
+    primary_role: headline,
+    technical_skills: {
+      languages: categorizedSkills.find(s => s.category.toLowerCase() === 'languages')?.items || [],
+      frontend: categorizedSkills.find(s => s.category.toLowerCase() === 'frameworks' || s.category.toLowerCase() === 'frontend')?.items || [],
+      backend: categorizedSkills.find(s => s.category.toLowerCase() === 'backend')?.items || [],
+      databases: categorizedSkills.find(s => s.category.toLowerCase() === 'databases')?.items || [],
+      cloud_devops: categorizedSkills.find(s => s.category.toLowerCase() === 'cloud' || s.category.toLowerCase() === 'devops')?.items || [],
+      tools: categorizedSkills.find(s => s.category.toLowerCase() === 'tools')?.items || [],
+      cms_ecommerce: [],
+      other: categorizedSkills.find(s => !['languages', 'frameworks', 'frontend', 'backend', 'databases', 'cloud', 'devops', 'tools'].includes(s.category.toLowerCase()))?.items || []
+    },
     skills: categorizedSkills,
     all_skills: Array.from(new Set(allSkillsList)),
-    work_experience: experience,
-    projects: projectsList,
-    education,
+    work_experience: workExperienceNormalized,
+    projects: projectsNormalized,
+    key_projects: keyProjectsNormalized,
+    education: educationNormalized,
     certifications: certList,
+    publications: [],
+    volunteer: [],
+    volunteering: [],
+    interests: [],
     languages: [],
     awards: [],
     warnings: [],

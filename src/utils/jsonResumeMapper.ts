@@ -49,14 +49,17 @@ export const toJSONResumeData = (internal: ResumeData): JSONResumeData => {
       roles: p.role ? [p.role] : [],
       url: p.live_url || undefined
     })),
-    certificates: internal.certifications.map(c => ({
+    certificates: (internal.certifications || []).map(c => typeof c === 'string' ? { name: c, date: undefined, issuer: undefined } : {
       name: c.name || '',
       date: c.year || undefined,
       issuer: c.issuer || undefined
-    })),
+    }),
     publications: [],
-    awards: internal.awards.map(title => ({ title })),
-    languages: internal.languages.map(l => ({ language: l.language, fluency: l.proficiency || undefined })),
+    awards: (internal.awards || []).map(title => ({ title })),
+    languages: (internal.languages || []).map(l => typeof l === 'string' ? { language: l, fluency: undefined } : {
+      language: l.language,
+      fluency: l.proficiency || undefined
+    }),
     interests: [],
     references: [],
     volunteer: [],

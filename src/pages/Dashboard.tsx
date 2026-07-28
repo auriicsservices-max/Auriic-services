@@ -10,6 +10,7 @@ import { formatUKDate } from '../lib/dateUtils';
 import { GoogleGenAI, Type } from "@google/genai";
 import UserManagement from '../components/UserManagement';
 import DashboardHome from './DashboardHome';
+import Logo from '../components/Logo';
 import CandidateModal from '../components/CandidateModal';
 import ProcessingWidget from '../components/resume-processing/ProcessingWidget';
 import Analytics from '../components/Analytics';
@@ -647,22 +648,53 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         // Progress: 80-95% -> Saving Candidate Data
         setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'Saving Candidate Data', progress: 80 } }));
         
-        const normalizedExperience = parsed.work_experience?.map(exp => ({
-          role: exp.job_title || '',
-          company: exp.company || '',
-          duration: exp.start_date && exp.end_date ? `${exp.start_date} - ${exp.end_date}` : (exp.start_date || exp.end_date || ''),
-          description: exp.responsibilities?.join(". ") || "",
-          location: exp.location || ''
-        })) || [];
+        const normalizedExperience = parsed.work_experience?.map(exp => {
+          const durationStr = exp.duration 
+            || (exp.start_date ? `${exp.start_date} - ${exp.is_current ? 'Present' : (exp.end_date || 'Present')}` : (exp.end_date || ''));
+          const descriptionStr = Array.isArray(exp.responsibilities) && exp.responsibilities.length > 0
+            ? exp.responsibilities.map(r => r.startsWith('•') || r.startsWith('-') ? r : `• ${r}`).join("\n")
+            : (typeof exp.responsibilities === 'string' ? exp.responsibilities : (Array.isArray(exp.achievements) ? exp.achievements.map(a => `• ${a}`).join("\n") : ""));
 
-        const normalizedEducation = parsed.education?.map(edu => ({
-          degree: edu.degree || '',
-          school: edu.institution || '',
-          year: edu.start_date && edu.end_date ? `${edu.start_date} - ${edu.end_date}` : (edu.start_date || edu.end_date || ''),
-          field: edu.field_of_study || '',
-          gpa: edu.grade || '',
-          location: edu.location || ''
-        })) || [];
+          return {
+            role: exp.job_title || exp.company || 'Role',
+            job_title: exp.job_title || '',
+            company: exp.company || '',
+            duration: durationStr,
+            start_date: exp.start_date || '',
+            end_date: exp.end_date || '',
+            is_current: exp.is_current || false,
+            description: descriptionStr,
+            responsibilities: Array.isArray(exp.responsibilities) ? exp.responsibilities : [],
+            technologies: Array.isArray(exp.technologies) ? exp.technologies : [],
+            location: exp.location || '',
+            achievements: Array.isArray(exp.achievements) ? exp.achievements : (exp.key_achievements || [])
+          };
+        }) || [];
+
+        const normalizedEducation = parsed.education?.map((edu: any) => {
+          const yearStr = edu.duration 
+            || (edu.start_year || edu.start_date ? `${edu.start_year || edu.start_date} - ${edu.end_year || edu.end_date || 'Present'}` : (edu.end_year || edu.end_date || ''));
+          const schoolName = edu.institution || edu.school || '';
+          const degreeName = edu.degree || edu.field_of_study || edu.field || 'Degree';
+
+          return {
+            degree: degreeName,
+            school: schoolName,
+            institution: schoolName,
+            year: yearStr,
+            duration: yearStr,
+            start_date: edu.start_date || edu.start_year || '',
+            end_date: edu.end_date || edu.end_year || '',
+            start_year: edu.start_year || edu.start_date || '',
+            end_year: edu.end_year || edu.end_date || '',
+            field: edu.field_of_study || edu.field || '',
+            field_of_study: edu.field_of_study || edu.field || '',
+            gpa: edu.grade || edu.gpa || '',
+            grade: edu.grade || edu.gpa || '',
+            location: edu.location || '',
+            honors: edu.honors || ''
+          };
+        }) || [];
 
         const allSkills = parsed.all_skills || [];
 
@@ -686,15 +718,19 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             postalCode: ''
           },
           summary: parsed.professional_summary || '', 
-          domainFocus: parsed.personal_info.headline || 'Other',
+          domainFocus: parsed.personal_info.headline || parsed.primary_role || 'Other',
+          careerLevel: parsed.career_level || 'Mid-Level',
+          primaryRole: parsed.primary_role || parsed.personal_info.headline || '',
+          technicalSkills: parsed.technical_skills || null,
+          keyProjects: parsed.key_projects || [],
           skills: allSkills,
           categorizedSkills: {
-            languages: parsed.skills.find(s => s.category.toLowerCase() === 'languages')?.items || [],
-            frameworks: parsed.skills.find(s => s.category.toLowerCase() === 'frameworks')?.items || [],
-            databases: parsed.skills.find(s => s.category.toLowerCase() === 'databases')?.items || [],
-            tools: parsed.skills.find(s => s.category.toLowerCase() === 'tools')?.items || [],
-            libraries: parsed.skills.find(s => s.category.toLowerCase() === 'libraries')?.items || [],
-            other: parsed.skills.find(s => !['languages', 'frameworks', 'databases', 'tools', 'libraries'].includes(s.category.toLowerCase()))?.items || [],
+            languages: parsed.technical_skills?.languages?.length ? parsed.technical_skills.languages : (parsed.skills.find(s => s.category.toLowerCase() === 'languages')?.items || []),
+            frameworks: parsed.technical_skills?.frontend?.length ? parsed.technical_skills.frontend : (parsed.skills.find(s => s.category.toLowerCase() === 'frameworks' || s.category.toLowerCase() === 'frontend')?.items || []),
+            databases: parsed.technical_skills?.databases?.length ? parsed.technical_skills.databases : (parsed.skills.find(s => s.category.toLowerCase() === 'databases')?.items || []),
+            tools: parsed.technical_skills?.tools?.length ? parsed.technical_skills.tools : (parsed.skills.find(s => s.category.toLowerCase() === 'tools')?.items || []),
+            libraries: parsed.technical_skills?.backend?.length ? parsed.technical_skills.backend : (parsed.skills.find(s => s.category.toLowerCase() === 'libraries' || s.category.toLowerCase() === 'backend')?.items || []),
+            other: parsed.technical_skills?.other?.length ? parsed.technical_skills.other : (parsed.skills.find(s => !['languages', 'frameworks', 'frontend', 'databases', 'tools', 'libraries', 'backend'].includes(s.category.toLowerCase()))?.items || []),
           },
           experience: normalizedExperience,
           education: normalizedEducation,
@@ -705,14 +741,14 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             duration: '',
             link: p.live_url || p.code_url || null
           })) || [],
-          certifications: parsed.certifications?.map(c => c.name || '').filter(Boolean) || [],
+          certifications: parsed.certifications?.map(c => typeof c === 'string' ? c : (c.name || '')).filter(Boolean) || [],
           achievements: parsed.awards || [],
           salary: '',
           noticePeriod: '',
           workAuthorization: '',
           currentCompany: parsed.work_experience?.[0]?.company || '',
           currentJobTitle: parsed.work_experience?.[0]?.job_title || '',
-          languages: parsed.languages?.map(l => l.language) || [],
+          languages: parsed.languages?.map(l => typeof l === 'string' ? l : (l.language || '')).filter(Boolean) || [],
           interests: [],
           links: [
             ...(parsed.personal_info.links.linkedin ? [{ url: parsed.personal_info.links.linkedin, label: 'LinkedIn' }] : []),
@@ -1464,11 +1500,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           <div className="flex items-center gap-3">
             {!isSidebarCollapsed ? (
               <div className="flex items-center gap-2">
-                <img 
-                  src={theme === 'dark' ? "https://aurrum.co/wp-content/uploads/2026/05/Rectech-white-logo.svg" : "https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg"} 
-                  alt="Rectech Logo" 
-                  className="h-7 w-auto object-contain transition-all duration-300 hover:opacity-90"
-                />
+                <Logo variant="sidebar" size="md" />
               </div>
             ) : (
               <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-600 flex items-center justify-center text-white font-black text-base shadow-lg shadow-amber-500/20">
@@ -1698,12 +1730,12 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             >
               <Menu size={20} />
             </button>
-            <span 
-              className="hidden md:block cursor-pointer hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors font-extrabold" 
+            <div 
+              className="hidden md:flex items-center gap-2 cursor-pointer hover:opacity-90 transition-opacity" 
               onClick={() => setActiveTab('candidates')}
             >
-              AURRUM CRM
-            </span>
+              <Logo variant="header" size="sm" />
+            </div>
             <ChevronRight className="hidden md:block w-3 h-3 text-[var(--text-muted)] opacity-60" />
             <span className="text-[var(--text-primary)] italic font-serif normal-case text-base tracking-tight font-black">
               {activeTab === 'candidates' 

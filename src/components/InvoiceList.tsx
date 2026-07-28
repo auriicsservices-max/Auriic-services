@@ -32,8 +32,8 @@ export const InvoiceList = () => {
   const [dueDate, setDueDate] = useState<string>('');
   const [taxRate, setTaxRate] = useState<number>(0);
   const [discountAmount, setDiscountAmount] = useState<number>(0);
-  const [paymentTerms, setPaymentTerms] = useState<string>('Net 30');
-  const [notes, setNotes] = useState<string>('Contract to Hire & Permanent Placement Services combined billing.');
+  const [paymentTerms, setPaymentTerms] = useState<string>('');
+  const [notes, setNotes] = useState<string>('');
 
   // Sender info and print overrides
   const [senderName, setSenderName] = useState<string>('');
@@ -56,6 +56,8 @@ export const InvoiceList = () => {
   // Global branding state
   const [logoUrlLight, setLogoUrlLight] = useState<string>('');
   const [logoUrlDark, setLogoUrlDark] = useState<string>('');
+  const [invoiceLogoLight, setInvoiceLogoLight] = useState<string>('');
+  const [invoiceLogoDark, setInvoiceLogoDark] = useState<string>('');
 
   // Search and Filter States for Invoices
   const [searchInvoiceQuery, setSearchInvoiceQuery] = useState<string>('');
@@ -104,6 +106,8 @@ export const InvoiceList = () => {
         const data = docSnap.data();
         setLogoUrlLight(data.logoUrlLight || data.logoUrl || '');
         setLogoUrlDark(data.logoUrlDark || data.logoUrl || '');
+        setInvoiceLogoLight(data.invoiceLogoLight || '');
+        setInvoiceLogoDark(data.invoiceLogoDark || '');
       }
     }, (error) => {
       console.error("Error loading global settings logo URL:", error);
@@ -151,7 +155,7 @@ export const InvoiceList = () => {
     setDueDate(inv.dueDate || '');
     setTaxRate(inv.taxRate || 0);
     setDiscountAmount(inv.discountAmount || 0);
-    setPaymentTerms(inv.paymentTerms || 'Net 30');
+    setPaymentTerms(inv.paymentTerms || '');
     setNotes(inv.notes || '');
 
     // Set flat billing options if loaded from db
@@ -368,7 +372,7 @@ export const InvoiceList = () => {
 
     const formattedDate = inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : (inv.createdAt?.toDate ? inv.createdAt.toDate().toLocaleDateString() : new Date().toLocaleDateString());
     const formattedDueDate = inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : 'N/A';
-    const activeLogoUrl = logoUrlLight || logoUrlDark || '';
+    const activeLogoUrl = invoiceLogoLight || logoUrlLight || invoiceLogoDark || logoUrlDark || 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg';
     const activeSenderName = inv.senderName || '';
     const activeSenderTagline = inv.senderTagline || '';
     const activeSenderEmail = inv.senderEmail || '';
@@ -379,31 +383,34 @@ export const InvoiceList = () => {
         <head>
           <title>Invoice - ${inv.invoiceNumber}</title>
           <style>
-            @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
-            body { font-family: 'Inter', sans-serif; padding: 20px; color: #1e293b; line-height: 1.4; background: #fff; font-size: 12px; }
-            .header-container { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #6366f1; padding-bottom: 16px; margin-bottom: 20px; }
-            .company-details h1 { font-size: 24px; font-weight: 800; color: #4f46e5; margin: 0 0 4px 0; letter-spacing: -0.025em; }
-            .company-details p { margin: 2px 0; color: #64748b; font-size: 12px; }
+            @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
+            body { font-family: 'Poppins', sans-serif; padding: 20px; color: #002D38; line-height: 1.4; background: #fff; font-size: 12px; }
+            .header-container { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #004564; padding-bottom: 16px; margin-bottom: 20px; }
+            .company-details h1 { font-size: 20px; font-weight: 800; color: #002D38; margin: 0 0 4px 0; letter-spacing: -0.025em; }
+            .company-details p { margin: 2px 0; color: #005472; font-size: 12px; }
             .invoice-title-block { text-align: right; }
-            .invoice-title-block h2 { font-size: 28px; font-weight: 800; color: #1e293b; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.05em; }
-            .meta-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; margin-bottom: 25px; }
-            .meta-section h3 { font-size: 13px; font-weight: 700; text-transform: uppercase; color: #64748b; margin-bottom: 8px; border-bottom: 1px solid #e2e8f0; padding-bottom: 4px; letter-spacing: 0.05em; }
-            .meta-section p { margin: 3px 0; font-size: 13px; }
-            .meta-section strong { color: #0f172a; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 12px; }
-            th { background-color: #f8fafc; color: #475569; font-weight: 700; text-transform: uppercase; font-size: 11px; letter-spacing: 0.05em; padding: 8px 8px; border-bottom: 2px solid #cbd5e1; text-align: left; }
+            .invoice-title-block h2 { font-size: 26px; font-weight: 800; color: #002D38; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.05em; }
+            .meta-grid { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; margin-bottom: 25px; background: #f8fafc; }
+            .meta-section { padding: 16px; }
+            .meta-section:first-child { border-right: 1px solid #cbd5e1; }
+            .meta-section h3 { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #A98B56; margin-bottom: 8px; letter-spacing: 0.05em; }
+            .meta-section p { margin: 3px 0; font-size: 12px; }
+            .meta-section strong { color: #002D38; }
+            table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
+            th { background-color: #004564; color: #ffffff; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; padding: 10px 12px; text-align: left; }
+            td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
             tr { page-break-inside: avoid; }
             .summary-container { display: flex; justify-content: flex-end; margin-top: 15px; page-break-inside: avoid; }
-            .summary-table { width: 300px; font-size: 13px; }
+            .summary-table { width: 300px; font-size: 12px; border: none; }
             .summary-table tr { border-bottom: 1px solid #f1f5f9; }
-            .summary-table td { padding: 6px 0; }
-            .summary-table .total-row { border-top: 2px solid #4f46e5; font-size: 16px; font-weight: 800; color: #4f46e5; }
-            .notes-block { margin-top: 25px; padding: 12px; background-color: #f8fafc; border-radius: 8px; font-size: 12px; page-break-inside: avoid; }
-            .footer { margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 11px; color: #64748b; text-align: center; page-break-inside: avoid; }
+            .summary-table td { padding: 6px 0; border: none; }
+            .summary-table .total-row { border-top: 2px solid #A98B56; font-size: 15px; font-weight: 800; color: #A98B56; }
+            .notes-block { margin-top: 25px; padding: 12px; background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 12px; page-break-inside: avoid; }
+            .footer { margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 11px; color: #005472; text-align: center; page-break-inside: avoid; }
             .stamp { display: inline-block; padding: 4px 8px; border: 2px solid; border-radius: 6px; font-weight: 800; text-transform: uppercase; transform: rotate(-5deg); font-size: 12px; }
-            .stamp-Paid { border-color: #10b981; color: #10b981; }
+            .stamp-Paid { border-color: #22c55e; color: #22c55e; }
             .stamp-Sent { border-color: #3b82f6; color: #3b82f6; }
-            .stamp-Draft { border-color: #eab308; color: #eab308; }
+            .stamp-Draft { border-color: #f59e0b; color: #f59e0b; }
             .stamp-Overdue { border-color: #ef4444; color: #ef4444; }
 
             @page {
@@ -508,12 +515,15 @@ export const InvoiceList = () => {
                 </div>
               `}
               <div style="display: flex; flex-direction: column; gap: 2px;">
-                <h1 style="margin: 0; font-size: 20px; font-weight: 800; color: #002D38;">${activeSenderName || 'Aurrum Services'}</h1>
-                <p style="margin: 1px 0; color: #64748b; font-size: 12px;">${activeSenderTagline || 'Premium Recruitment & Talent Intelligence Services'}</p>
-                <p style="margin: 1px 0; color: #64748b; font-size: 12px;">
-                  ${activeSenderEmail ? `Email: ${activeSenderEmail}` : 'Email: billing@aurrum.co'}
-                  ${activeSenderWeb ? ` | Web: ${activeSenderWeb}` : ' | Web: www.aurrum.co'}
-                </p>
+                ${activeSenderName ? `<h1 style="margin: 0; font-size: 20px; font-weight: 800; color: #002D38;">${activeSenderName}</h1>` : ''}
+                ${activeSenderTagline ? `<p style="margin: 1px 0; color: #64748b; font-size: 12px;">${activeSenderTagline}</p>` : ''}
+                ${(activeSenderEmail || activeSenderWeb) ? `
+                  <p style="margin: 1px 0; color: #64748b; font-size: 12px;">
+                    ${activeSenderEmail ? `Email: ${activeSenderEmail}` : ''}
+                    ${(activeSenderEmail && activeSenderWeb) ? ' | ' : ''}
+                    ${activeSenderWeb ? `Web: ${activeSenderWeb}` : ''}
+                  </p>
+                ` : ''}
               </div>
             </div>
             <div class="invoice-title-block">
@@ -526,7 +536,7 @@ export const InvoiceList = () => {
             <div class="meta-section">
               <h3>Billed To</h3>
               <p><strong>Client:</strong> ${inv.clientName}</p>
-              <p><strong>Payment Terms:</strong> ${inv.paymentTerms || 'Net 30'}</p>
+              ${inv.paymentTerms ? `<p><strong>Payment Terms:</strong> ${inv.paymentTerms}</p>` : ''}
             </div>
             <div class="meta-section" style="text-align: right;">
               <h3>Invoice Info</h3>
@@ -576,10 +586,12 @@ export const InvoiceList = () => {
             </table>
           </div>
 
-          <div class="notes-block">
-            <strong style="display: block; margin-bottom: 4px; color: #1e293b;">Notes / Terms:</strong>
-            <p style="margin: 0; color: #475569;">${inv.notes || 'N/A'}</p>
-          </div>
+          ${inv.notes ? `
+            <div class="notes-block">
+              <strong style="display: block; margin-bottom: 4px; color: #1e293b;">Notes / Terms:</strong>
+              <p style="margin: 0; color: #475569;">${inv.notes}</p>
+            </div>
+          ` : ''}
 
           <div class="footer">
             <p>Thank you for partnering with Aurrum Company Recruitment Services.</p>
@@ -781,7 +793,7 @@ export const InvoiceList = () => {
                       </td>
                       <td className="p-4">
                         <div className="font-bold text-[var(--text-primary)] text-xs">{inv.clientName}</div>
-                        <div className="text-[10px] text-[var(--text-muted)]">{inv.paymentTerms || 'Net 30'}</div>
+                        {inv.paymentTerms ? <div className="text-[10px] text-[var(--text-muted)]">{inv.paymentTerms}</div> : null}
                       </td>
                       <td className="p-4">
                         <div className="flex items-center gap-1.5">
@@ -1262,7 +1274,7 @@ export const InvoiceList = () => {
                 <div className="space-y-1">
                   <div className="font-bold text-[var(--text-muted)] uppercase tracking-wide text-[10px]">Bill To Client</div>
                   <div className="text-sm font-black text-[var(--text-primary)]">{viewingInvoice.clientName}</div>
-                  <div className="text-[var(--text-secondary)]">Contract Agreement: {viewingInvoice.paymentTerms || 'Net 30'}</div>
+                  {viewingInvoice.paymentTerms ? <div className="text-[var(--text-secondary)]">Contract Agreement: {viewingInvoice.paymentTerms}</div> : null}
                 </div>
                 <div className="sm:text-right space-y-1">
                   <div className="font-bold text-[var(--text-muted)] uppercase tracking-wide text-[10px]">Invoice Details</div>
@@ -1272,9 +1284,9 @@ export const InvoiceList = () => {
               </div>
 
               {/* Billed Candidates Table */}
-              <div className="border border-[var(--border-color)] rounded-2xl overflow-hidden">
+              <div className="border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-2xs">
                 <table className="w-full text-left">
-                  <thead className="bg-[var(--bg-secondary)] text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">
+                  <thead className="bg-[#004564] dark:bg-[#002D38] text-white text-[10px] font-black uppercase tracking-wider">
                     <tr>
                       <th className="p-3 pl-4">#</th>
                       <th className="p-3">Placed Candidate</th>
@@ -1332,10 +1344,12 @@ export const InvoiceList = () => {
               </div>
 
               {/* Notes Field */}
-              <div className="p-4 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)]">
-                <div className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider mb-1">Contract / Terms Notes:</div>
-                <p className="text-xs text-[var(--text-primary)] leading-relaxed margin-0">{viewingInvoice.notes || 'No special terms stated.'}</p>
-              </div>
+              {viewingInvoice.notes ? (
+                <div className="p-4 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)]">
+                  <div className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider mb-1">Contract / Terms Notes:</div>
+                  <p className="text-xs text-[var(--text-primary)] leading-relaxed margin-0">{viewingInvoice.notes}</p>
+                </div>
+              ) : null}
 
               {/* Admin Actions Status controls */}
               {(role === 'admin' || role === 'developer' || role === 'team_leader') && (

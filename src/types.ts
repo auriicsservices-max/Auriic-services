@@ -24,4 +24,8 @@ export interface Invoice {
   signatoryTitle: string;
   status: 'draft' | 'finalized';
   candidateId?: string;
+  senderName?: string;
+  senderTagline?: string;
+  senderEmail?: string;
+  senderWeb?: string;
 }

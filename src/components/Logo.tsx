@@ -5,7 +5,7 @@ import { useBranding } from '../contexts/BrandingContext';
 
 interface LogoProps {
   collapsed?: boolean;
-  variant?: 'sidebar' | 'invoice' | 'theme';
+  variant?: 'sidebar' | 'invoice' | 'login' | 'header' | 'theme';
   className?: string;
   size?: 'sm' | 'md' | 'lg';
 }
@@ -17,22 +17,38 @@ export default function Logo({
   size = 'md',
 }: LogoProps) {
   const { theme } = useTheme();
-  const { logoUrlLight, logoUrlDark, activeLogoUrl } = useBranding();
+  const { 
+    activeLogoUrl, 
+    activeLoginLogoUrl, 
+    activeHeaderLogoUrl, 
+    activeInvoiceLogoUrl 
+  } = useBranding();
 
-  // The sidebar is always on a dark background in dark mode, or light background in light mode.
-  // Otherwise, the logo should adapt dynamically to the active theme.
-  const isDarkBg = variant === 'sidebar' ? theme === 'dark' : (variant === 'theme' ? theme === 'dark' : false);
+  const isDarkBg = theme === 'dark';
 
-  // Invoices are always on a light background (white paper/PDF canvas)
-  const logoSrc = variant === 'invoice' 
-    ? (logoUrlLight || logoUrlDark) 
-    : activeLogoUrl;
+  const defaultRectechLogo = isDarkBg 
+    ? 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-white-logo.svg' 
+    : 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg';
+
+  // Determine logo source based on requested variant
+  let logoSrc = activeLogoUrl;
+  if (variant === 'login') {
+    logoSrc = activeLoginLogoUrl || activeLogoUrl;
+  } else if (variant === 'header') {
+    logoSrc = activeHeaderLogoUrl || activeLogoUrl;
+  } else if (variant === 'invoice') {
+    logoSrc = activeInvoiceLogoUrl || activeLogoUrl;
+  } else if (variant === 'sidebar') {
+    logoSrc = activeLogoUrl;
+  }
+
+  logoSrc = logoSrc || defaultRectechLogo;
 
   // Determine sizing based on prop
   const sizeClasses = {
     sm: { box: 'w-8 h-8 rounded-lg', icon: 16, title: 'text-base', sub: 'text-[8px] mt-0.5', imgHeight: 'h-6' },
     md: { box: 'w-10 h-10 rounded-xl', icon: 20, title: 'text-lg', sub: 'text-[10px] mt-1', imgHeight: 'h-8' },
-    lg: { box: 'w-12 h-12 rounded-[14px]', icon: 24, title: 'text-xl', sub: 'text-[11px] mt-1', imgHeight: 'h-10' }
+    lg: { box: 'w-14 h-14 rounded-[14px]', icon: 28, title: 'text-2xl', sub: 'text-[12px] mt-1', imgHeight: 'h-12' }
   };
 
   const currentSize = sizeClasses[size] || sizeClasses.md;
@@ -42,8 +58,11 @@ export default function Logo({
       <div className={`flex items-center select-none ${className}`} id="aurrum-logo">
         <img 
           src={logoSrc} 
-          alt="Company Logo" 
-          className={`${collapsed ? 'h-8 w-8 rounded-lg' : currentSize.imgHeight} w-auto object-contain max-w-[180px] transition-all duration-300`}
+          alt="Rectech Logo" 
+          className={`${collapsed ? 'h-8 w-8 rounded-lg' : currentSize.imgHeight} w-auto object-contain max-w-[220px] transition-all duration-300`}
+          onError={(e) => {
+            (e.target as HTMLImageElement).src = defaultRectechLogo;
+          }}
           referrerPolicy="no-referrer"
         />
       </div>
