@@ -250,9 +250,9 @@ export class GeminiResumeParser {
     };
 
     try {
-      console.log('[GeminiResumeParser] Attempting resume parse with gemini-3.1-pro-preview...');
+      console.log('[GeminiResumeParser] Attempting resume parse with gemini-3.5-flash...');
       const response = await ai.models.generateContent({
-        model: "gemini-3.1-pro-preview",
+        model: "gemini-3.5-flash",
         contents: prompt,
         config,
       });
@@ -270,12 +270,12 @@ export class GeminiResumeParser {
         throw new Error('Gemini API key invalid');
       }
 
-      console.warn('[GeminiResumeParser] gemini-3.1-pro-preview parsing failed. Error details:', errMsg);
+      console.warn('[GeminiResumeParser] gemini-3.5-flash parsing failed. Error details:', errMsg);
       
       try {
-        console.log('[GeminiResumeParser] Retrying resume parse with fallback model: gemini-3.5-flash...');
+        console.log('[GeminiResumeParser] Retrying resume parse with fallback model: gemini-3.1-pro-preview...');
         const response = await ai.models.generateContent({
-          model: "gemini-3.5-flash",
+          model: "gemini-3.1-pro-preview",
           contents: prompt,
           config,
         });
