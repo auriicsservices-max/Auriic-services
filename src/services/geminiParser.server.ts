@@ -1,5 +1,6 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ResumeData, ResumeSchema } from '../types/resume';
+import { extractRawTextFromBuffer } from './resumeParserServer';
 
 export class GeminiResumeParser {
   private getAiClient(): GoogleGenAI | null {
@@ -20,111 +21,84 @@ export class GeminiResumeParser {
     }
   }
 
+  /**
+   * High-Precision Direct Multimodal Buffer Parsing (PDF, Images, DOCX)
+   */
+  async parseBuffer(buffer: Buffer, mimeType: string, filename?: string): Promise<ResumeData> {
+    const ai = this.getAiClient();
+    if (!ai || !process.env.GEMINI_API_KEY) {
+      throw new Error('GEMINI_API_KEY is not defined or invalid');
+    }
+
+    const isMultimodalSupported = mimeType === 'application/pdf' || mimeType.startsWith('image/');
+
+    if (isMultimodalSupported) {
+      try {
+        console.log(`[GeminiResumeParser] Executing multimodal Gemini parsing for ${filename || 'file'} (${mimeType})...`);
+        const base64Data = buffer.toString('base64');
+        const contents = [
+          {
+            inlineData: {
+              mimeType: mimeType,
+              data: base64Data
+            }
+          },
+          `You are an expert executive talent parser for Aurrum CRM. Extract ALL candidate data from this attached resume/CV document into the exact required JSON structure with 100% precision and zero missing fields. Extract every job responsibility, project, link, contact detail, and skill list completely without truncation.`
+        ];
+
+        return await this.executeGeminiParsing(ai, contents, '');
+      } catch (err: any) {
+        console.warn('[GeminiResumeParser] Multimodal direct parse failed, falling back to text extraction:', err?.message || err);
+      }
+    }
+
+    // Fallback or DOCX / TXT: Extract raw text first, then parse text
+    const extractedText = await extractRawTextFromBuffer(buffer, mimeType);
+    return await this.parseText(extractedText);
+  }
+
   async parseText(text: string): Promise<ResumeData> {
     const ai = this.getAiClient();
     if (!ai || !process.env.GEMINI_API_KEY) {
       throw new Error('GEMINI_API_KEY is not defined or invalid');
     }
 
-    const prompt = `
-You are an expert resume parser for the Aurrum CRM talent platform.
-Extract EVERY single piece of information from the resume text below completely.
-Return ONLY a valid JSON object — no prose, no explanation, no markdown formatting.
-
-Extract the following structure completely:
-{
-  "contact": {
-    "full_name": "",
-    "email": "",
-    "mobile": "",
-    "designation": "",
-    "location": "",
-    "address": ""
-  },
-  "links": {
-    "linkedin": "",
-    "github": "",
-    "portfolio": "",
-    "website": "",
-    "other_urls": []
-  },
-  "professional_summary": "",
-  "technical_skills": {
-    "languages": [],
-    "frontend": [],
-    "backend": [],
-    "databases": [],
-    "cloud_devops": [],
-    "tools": [],
-    "cms_ecommerce": [],
-    "other": []
-  },
-  "work_experience": [
-    {
-      "job_title": "",
-      "company": "",
-      "location": "",
-      "start_date": "",
-      "end_date": "",
-      "duration": "",
-      "is_current": false,
-      "responsibilities": [],
-      "achievements": []
-    }
-  ],
-  "education": [
-    {
-      "degree": "",
-      "field_of_study": "",
-      "institution": "",
-      "location": "",
-      "start_year": "",
-      "end_year": "",
-      "gpa": "",
-      "honors": ""
-    }
-  ],
-  "key_projects": [
-    {
-      "name": "",
-      "description": "",
-      "tech_stack": [],
-      "live_url": "",
-      "code_url": "",
-      "highlights": []
-    }
-  ],
-  "certifications": [],
-  "languages": [
-    {
-      "language": "",
-      "proficiency": ""
-    }
-  ],
-  "awards": [],
-  "volunteering": [],
-  "publications": [],
-  "interests": [],
-  "total_experience_years": 0,
-  "career_level": "",
-  "primary_role": ""
-}
-
-Rules:
-- Fill every field you can find. Use empty strings or empty arrays for missing fields.
-- For work_experience responsibilities: extract EVERY bullet point completely, do NOT truncate or merge.
-- For technical_skills: categorize skills properly into the subcategories (languages, frontend, backend, databases, cloud_devops, tools, cms_ecommerce, other).
-- For key_projects: extract every project with all details including live URLs and GitHub code links.
-- total_experience_years: calculate from job dates or explicit text.
-- career_level: "Junior", "Mid-Level", "Senior", or "Lead" based on experience.
-- primary_role: the main job title/role of the candidate.
+    const promptText = `
+You are an expert executive resume parser for the Aurrum CRM talent platform.
+Extract EVERY single piece of candidate information from the resume text below completely into the required JSON format.
+Do NOT omit or truncate any section, project, responsibility, link, or bullet point.
 
 RESUME TEXT TO PARSE:
 ${text}
 `;
 
+    return await this.executeGeminiParsing(ai, promptText, text);
+  }
+
+  private async executeGeminiParsing(ai: GoogleGenAI, contents: any, fallbackRawText: string): Promise<ResumeData> {
+    const promptInstructions = `
+You are an expert resume parser for the Aurrum CRM talent platform.
+Extract EVERY single piece of information from the resume completely.
+Return ONLY a valid JSON object matching the exact schema provided.
+
+Rules:
+- Fill every field you can find. Use empty strings or empty arrays for missing fields.
+- Contact Details: Extract full name, primary email, mobile number (including international dial code e.g. +44, +1, +91), primary job title/designation, location (city, state, country), address.
+- Links: Extract LinkedIn profile URL, GitHub profile URL, portfolio URL, personal website, and any other relevant links.
+- Professional Summary: Extract the full career summary or profile statement.
+- Work Experience: For every role, extract exact job_title, company name, location, start_date, end_date, duration, is_current boolean, and EVERY responsibility/bullet point as separate strings in responsibilities array. Do NOT combine or truncate bullet points. Extract technologies used and key achievements.
+- Key Projects: Extract all personal and professional projects with project name, description, tech_stack array, live demo URL, GitHub repository URL, and key highlights.
+- Technical Skills: Categorize all technical skills into languages, frontend, backend, databases, cloud_devops, tools, cms_ecommerce, and other.
+- Education: Extract degree, field_of_study, institution name, location, start_date/year, end_date/year, grade/GPA, honors.
+- Certifications: Extract name, issuer/organizer, year/date.
+- Total Experience: Calculate total_experience_years accurately from job history dates.
+- Career Level: Determine career_level as "Junior", "Mid-Level", "Senior", "Lead", or "Executive".
+- Primary Role: Identify the primary professional title or domain.
+`;
+
     const config = {
       responseMimeType: "application/json",
+      systemInstruction: promptInstructions,
       responseSchema: {
         type: Type.OBJECT,
         properties: {
@@ -301,17 +275,17 @@ ${text}
     };
 
     try {
-      console.log('[GeminiResumeParser] Attempting resume parse with gemini-3.5-flash...');
+      console.log('[GeminiResumeParser] Attempting resume parse with primary model: gemini-3.5-flash...');
       const response = await ai.models.generateContent({
         model: "gemini-3.5-flash",
-        contents: prompt,
+        contents,
         config,
       });
 
       const rawText = response.text || '{}';
       const cleanText = rawText.replace(/```json\s*/gi, '').replace(/```\s*$/gi, '').trim();
       const rawObj = JSON.parse(cleanText);
-      const normalizedData = normalizeParsedResume(rawObj, text);
+      const normalizedData = normalizeParsedResume(rawObj, fallbackRawText);
       const parsedData = ResumeSchema.parse(normalizedData);
       return parsedData;
     } catch (err: any) {
@@ -327,18 +301,18 @@ ${text}
         console.log('[GeminiResumeParser] Retrying resume parse with fallback model: gemini-3.1-pro-preview...');
         const response = await ai.models.generateContent({
           model: "gemini-3.1-pro-preview",
-          contents: prompt,
+          contents,
           config,
         });
 
         const rawText = response.text || '{}';
         const cleanText = rawText.replace(/```json\s*/gi, '').replace(/```\s*$/gi, '').trim();
         const rawObj = JSON.parse(cleanText);
-        const normalizedData = normalizeParsedResume(rawObj, text);
+        const normalizedData = normalizeParsedResume(rawObj, fallbackRawText);
         const parsedData = ResumeSchema.parse(normalizedData);
         return parsedData;
       } catch (fallbackErr: any) {
-        console.log('[GeminiResumeParser] Fallback parsing error.');
+        console.warn('[GeminiResumeParser] Fallback gemini-3.1-pro-preview error:', fallbackErr?.message || fallbackErr);
         throw fallbackErr;
       }
     }

@@ -53,19 +53,30 @@ async function getPDFParser(): Promise<any> {
   throw new Error("PDF parsing library (pdf-parse) not available or could not be loaded");
 }
 
-export async function parseResumeFromBuffer(buffer: Buffer, mimeType: string): Promise<any> {
+export async function extractRawTextFromBuffer(buffer: Buffer, mimeType: string): Promise<string> {
     let text = '';
-    
     if (mimeType === 'application/pdf') {
-        const pdfLib = await getPDFParser();
-        const data = await pdfLib(buffer);
-        text = data.text;
+        try {
+            const pdfLib = await getPDFParser();
+            const data = await pdfLib(buffer);
+            text = data.text || '';
+        } catch (e) {
+            console.warn('[resumeParserServer] PDF text extraction failed:', e);
+        }
     } else if (mimeType.includes('wordprocessingml') || mimeType.includes('msword')) {
-        const result = await mammoth.extractRawText({ buffer: buffer });
-        text = result.value;
+        try {
+            const result = await mammoth.extractRawText({ buffer: buffer });
+            text = result.value || '';
+        } catch (e) {
+            console.warn('[resumeParserServer] Docx text extraction failed:', e);
+        }
     } else {
         text = buffer.toString('utf-8');
     }
+    return text;
+}
 
+export async function parseResumeFromBuffer(buffer: Buffer, mimeType: string): Promise<any> {
+    const text = await extractRawTextFromBuffer(buffer, mimeType);
     return await parseResumeHeuristically(text);
 }
