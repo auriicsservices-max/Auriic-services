@@ -231,9 +231,9 @@ export class GeminiResumeParser {
       console.warn('[GeminiResumeParser] gemini-3.1-pro-preview parsing failed. Error details:', errMsg);
       
       try {
-        console.log('[GeminiResumeParser] Retrying resume parse with fallback model: gemini-3.6-flash...');
+        console.log('[GeminiResumeParser] Retrying resume parse with fallback model: gemini-3.5-flash...');
         const response = await ai.models.generateContent({
-          model: "gemini-3.6-flash",
+          model: "gemini-3.5-flash",
           contents: prompt,
           config,
         });

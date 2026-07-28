@@ -785,6 +785,67 @@ export default function CandidateDetailsPage() {
     });
   };
 
+  const handleExportJsonResume = () => {
+    if (!candidate) return;
+    const jsonResume = {
+      $schema: "https://raw.githubusercontent.com/jsonresume/resume-schema/v1.0.0/schema.json",
+      basics: {
+        name: candidate.fullName || candidate.name || '',
+        email: candidate.email || '',
+        phone: candidate.phone || '',
+        label: candidate.role || candidate.title || '',
+        summary: candidate.summary || candidate.compressedText || ''
+      },
+      work: (candidate.experience || []).map((exp: any) => ({
+        company: exp.company || '',
+        position: exp.role || exp.position || '',
+        startDate: exp.duration || '',
+        endDate: '',
+        summary: exp.description || ''
+      })),
+      education: (candidate.education || []).map((edu: any) => ({
+        institution: edu.institution || '',
+        area: edu.degree || edu.area || '',
+        studyType: edu.degree || '',
+        startDate: '',
+        endDate: edu.year || edu.duration || ''
+      })),
+      skills: (candidate.skills || []).map((skill: string) => ({
+        name: skill,
+        level: '',
+        keywords: []
+      })),
+      certificates: (candidate.certifications || []).map((cert: string) => ({
+        name: cert,
+        issuer: '',
+        date: ''
+      }))
+    };
+
+    const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(jsonResume, null, 2));
+    const downloadAnchor = document.createElement('a');
+    downloadAnchor.setAttribute("href", dataStr);
+    downloadAnchor.setAttribute("download", `${(candidate.fullName || 'candidate').replace(/\s+/g, '_')}_jsonresume.json`);
+    document.body.appendChild(downloadAnchor);
+    downloadAnchor.click();
+    downloadAnchor.remove();
+
+    try {
+      logActivity(
+        getUserDisplayName(),
+        user?.uid || '',
+        getUserRole(),
+        'Export JSON Resume',
+        candidate?.fullName || 'Candidate',
+        null,
+        `Exported JSON Resume (JSON Resume Standard) for ${candidate?.fullName || id}`,
+        'Candidates'
+      );
+    } catch (e) {
+      console.warn("Failed to log activity:", e);
+    }
+  };
+
   const renderHighlightedText = (text: string) => {
     if (!searchTerm.trim()) return text;
     const terms = searchTerm.toLowerCase().split(/\s+/).filter(t => t.length > 0);
@@ -1011,6 +1072,14 @@ export default function CandidateDetailsPage() {
                 >
                   {isFetchingCV ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                   <span>Download CV</span>
+                </button>
+                <button 
+                  onClick={handleExportJsonResume}
+                  className="crm-btn-secondary flex items-center gap-1.5"
+                  title="Export to JSON Resume standard (jsonresume.org)"
+                >
+                  <Code size={13} />
+                  <span>JSON Resume</span>
                 </button>
               </>
             )}

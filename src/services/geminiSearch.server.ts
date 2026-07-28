@@ -144,9 +144,9 @@ export class GeminiSearchAssistant {
     };
 
     try {
-      console.log('[GeminiSearchAssistant] Attempting search with gemini-3.6-flash...');
+      console.log('[GeminiSearchAssistant] Attempting search with gemini-3.5-flash...');
       const response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
+        model: "gemini-3.5-flash",
         contents: prompt,
         config
       });
@@ -160,7 +160,7 @@ export class GeminiSearchAssistant {
       };
     } catch (err: any) {
       const errMsg = err?.message || String(err);
-      console.warn('[GeminiSearchAssistant] gemini-3.6-flash search error details:', errMsg);
+      console.warn('[GeminiSearchAssistant] gemini-3.5-flash search error details:', errMsg);
       
       // Retry with fallback model: gemini-3.1-flash-lite
       try {
