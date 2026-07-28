@@ -131,9 +131,10 @@ export class GeminiResumeParser {
                 end_date: { type: Type.STRING, description: "Normalize to YYYY-MM or YYYY" },
                 is_current: { type: Type.BOOLEAN, description: "Is this their current role?" },
                 responsibilities: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Detailed, bulleted descriptions" },
-                technologies: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Tech/tools mentioned in this role" }
+                technologies: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Tech/tools mentioned in this role" },
+                key_achievements: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Key metrics, awards, or quantifiable impact bullets extracted" }
               },
-              required: ["job_title", "company", "start_date", "end_date", "is_current", "responsibilities", "technologies"]
+              required: ["job_title", "company", "start_date", "end_date", "is_current", "responsibilities", "technologies", "key_achievements"]
             },
             description: "Work history."
           },
@@ -183,6 +184,47 @@ export class GeminiResumeParser {
             },
             description: "Certifications obtained"
           },
+          publications: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                title: { type: Type.STRING, description: "Publication title" },
+                publisher: { type: Type.STRING, description: "Publisher or conference" },
+                release_date: { type: Type.STRING, description: "Release date" },
+                summary: { type: Type.STRING, description: "Summary or abstract" }
+              },
+              required: ["title", "publisher", "release_date", "summary"]
+            },
+            description: "Publications or research papers"
+          },
+          volunteer: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                organization: { type: Type.STRING, description: "Organization name" },
+                position: { type: Type.STRING, description: "Volunteer role" },
+                start_date: { type: Type.STRING, description: "Start date" },
+                end_date: { type: Type.STRING, description: "End date" },
+                summary: { type: Type.STRING, description: "Volunteer activities summary" }
+              },
+              required: ["organization", "position", "start_date", "end_date", "summary"]
+            },
+            description: "Volunteer experience"
+          },
+          interests: {
+            type: Type.ARRAY,
+            items: {
+              type: Type.OBJECT,
+              properties: {
+                name: { type: Type.STRING, description: "Interest or hobby category" },
+                keywords: { type: Type.ARRAY, items: { type: Type.STRING }, description: "Keywords or specific hobbies" }
+              },
+              required: ["name", "keywords"]
+            },
+            description: "Interests and hobbies"
+          },
           languages: {
             type: Type.ARRAY,
             items: {
@@ -201,8 +243,8 @@ export class GeminiResumeParser {
         required: [
           "is_resume", "parsing_confidence", "detected_language", "personal_info",
           "professional_summary", "total_experience_years", "skills", "all_skills",
-          "work_experience", "projects", "education", "certifications", "languages",
-          "awards", "warnings"
+          "work_experience", "projects", "education", "certifications", "publications",
+          "volunteer", "interests", "languages", "awards", "warnings"
         ]
       }
     };

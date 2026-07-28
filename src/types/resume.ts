@@ -51,7 +51,8 @@ export const ResumeSchema = z.object({
     end_date: z.string().nullable(),
     is_current: z.boolean(),
     responsibilities: z.array(z.string()).default([]),
-    technologies: z.array(z.string()).default([])
+    technologies: z.array(z.string()).default([]),
+    key_achievements: z.array(z.string()).optional()
   })).default([]),
   projects: z.array(z.object({
     name: z.string().nullable(),
@@ -75,6 +76,23 @@ export const ResumeSchema = z.object({
     issuer: z.string().nullable(),
     year: z.string().nullable()
   })).default([]),
+  publications: z.array(z.object({
+    title: z.string().nullable(),
+    publisher: z.string().nullable(),
+    release_date: z.string().nullable(),
+    summary: z.string().nullable()
+  })).optional(),
+  volunteer: z.array(z.object({
+    organization: z.string().nullable(),
+    position: z.string().nullable(),
+    start_date: z.string().nullable(),
+    end_date: z.string().nullable(),
+    summary: z.string().nullable()
+  })).optional(),
+  interests: z.array(z.object({
+    name: z.string().nullable(),
+    keywords: z.array(z.string()).default([])
+  })).optional(),
   languages: z.array(z.object({
     language: z.string(),
     proficiency: z.string().nullable()
@@ -85,3 +103,4 @@ export const ResumeSchema = z.object({
 });
 
 export type ResumeData = z.infer<typeof ResumeSchema>;
+
