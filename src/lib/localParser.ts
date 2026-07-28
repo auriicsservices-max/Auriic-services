@@ -70,99 +70,61 @@ export async function extractTextFromDocx(docxBuffer: ArrayBuffer): Promise<stri
 
 export async function parseResumeHeuristically(text: string): Promise<ParsedResume> {
   const resume: ParsedResume = {
-    name: '',
-    contact: {
+    is_resume: true,
+    parsing_confidence: 'low',
+    detected_language: 'en',
+    personal_info: {
+      full_name: '',
+      headline: '',
       email: '',
       phone: '',
-      linkedin: '',
-      github: '',
-      portfolio: ''
+      location: {
+        city: '',
+        state: '',
+        country: ''
+      },
+      links: {
+        linkedin: '',
+        github: '',
+        portfolio: '',
+        website: '',
+        other: []
+      }
     },
-    links: [],
-    location: '',
-    locationDetails: {
-      city: '',
-      state: '',
-      country: '',
-      postalCode: ''
-    },
-    profile: '',
-    totalExperienceYears: 0,
-    education: [],
-    experience: [],
+    professional_summary: '',
+    total_experience_years: 0,
+    skills: [],
+    all_skills: [],
+    work_experience: [],
     projects: [],
-    skills: {
-      languages: [],
-      frameworks: [],
-      databases: [],
-      tools: [],
-      libraries: [],
-      other: []
-    },
-    achievements: [],
+    education: [],
+    certifications: [],
     languages: [],
-    interests: [],
-    rawText: text,
-    domainFocus: 'Unknown Domain'
+    awards: [],
+    warnings: [],
+    rawText: text
   };
-
-  // 0. Domain Focus Heuristic
-  const domainKeywords: Record<string, RegExp[]> = {
-    'AI / Machine Learning': [/artificial intelligence/i, /machine learning/i, /deep learning/i, /neural network/i, /pytorch/i, /tensorflow/i, /nlp/i, /computer vision/i, /llm/i, /generative ai/i, /reinforcement learning/i],
-    'IT / Software': [/software/i, /developer/i, /programmer/i, /engineer/i, /backend/i, /frontend/i, /fullstack/i, /cloud/i, /devops/i, /cybersecurity/i, /data science/i, /it consultant/i, /web development/i, /systems administrator/i],
-    'Healthcare': [/doctor/i, /nurse/i, /medical/i, /healthcare/i, /clinician/i, /hospital/i, /pharmacy/i, /patient care/i, /pediatrician/i, /physician/i],
-    'Finance': [/accounting/i, /finance/i, /audit/i, /banking/i, /investment/i, /ledger/i, /tax/i, /cpa/i, /fintech/i, /portfolio manager/i, /financial analyst/i],
-    'Sales': [/sales/i, /account manager/i, /business development/i, /quota/i, /leads/i, /client acquisition/i, /account executive/i],
-    'Marketing': [/marketing/i, /seo/i, /content strategy/i, /social media/i, /branding/i, /digital marketing/i, /advertising/i, /public relations/i],
-    'HR': [/human resources/i, /talent acquisition/i, /recruitment/i, /payroll/i, /employee relations/i, /staffing/i, /hr generalist/i],
-    'Operations': [/operations manager/i, /supply chain/i, /logistics/i, /operational/i, /process improvement/i, /operations analyst/i],
-    'Engineering': [/mechanical/i, /civil/i, /electrical/i, /structural/i, /manufacturing/i, /industrial engineering/i, /chemical engineering/i, /hardware engineer/i],
-    'Design': [/ui\/ux/i, /ux\b/i, /ui\b/i, /graphic design/i, /figma/i, /product designer/i, /photoshop/i, /illustrator/i, /creative direction/i, /web design/i],
-    'Project Management': [/project manager/i, /project management/i, /scrum master/i, /agile/i, /pmp/i, /product manager/i, /program manager/i]
-  };
-
-  for (const [domain, patterns] of Object.entries(domainKeywords)) {
-    if (patterns.some(p => p.test(text))) {
-        resume.domainFocus = domain;
-        break;
-    }
-  }
 
   // 1. Extract Email
   const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/i);
-  if (emailMatch) resume.contact.email = emailMatch[0];
+  if (emailMatch) resume.personal_info.email = emailMatch[0];
 
-  // 2. Extract Phone (Improved)
+  // 2. Extract Phone
   const phoneMatch = text.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{4}/);
-  if (phoneMatch) resume.contact.phone = phoneMatch[0];
+  if (phoneMatch) resume.personal_info.phone = phoneMatch[0];
 
-  // 3. Extract Name (Heuristic refined: check first few lines for capitalized names)
+  // 3. Extract Name
   const lines = text.split(/\r?\n/).map(l => l.trim()).filter(l => l.length > 0);
   
-  // Improved location heuristic
-  for(let i=0; i<Math.min(20, lines.length); i++) {
+  // Location heuristic
+  for (let i = 0; i < Math.min(20, lines.length); i++) {
     const line = lines[i];
     const match = line.match(/([A-Za-z\s]+),\s*([A-Za-z\s]{2,})(?:\s+([\d\w-]+))?/);
     if (match && match[1].length < 40 && match[2].length < 30) {
-        resume.location = line.trim();
-        resume.locationDetails.city = match[1].trim();
-        resume.locationDetails.state = match[2].trim();
-        resume.locationDetails.country = 'USA'; 
-        if (match[3]) {
-            resume.locationDetails.postalCode = match[3].trim();
-        }
+        resume.personal_info.location.city = match[1].trim();
+        resume.personal_info.location.state = match[2].trim();
+        resume.personal_info.location.country = 'USA'; 
         break;
-    }
-  }
-
-  // Fallback postal code search in first 30 lines if not found
-  if (!resume.locationDetails.postalCode) {
-    for (let i = 0; i < Math.min(30, lines.length); i++) {
-      const pcMatch = lines[i].match(/\b\d{5}(?:-\d{4})?\b/);
-      if (pcMatch) {
-         resume.locationDetails.postalCode = pcMatch[0];
-         break;
-      }
     }
   }
 
@@ -175,16 +137,16 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
 
         const words = line.split(/\s+/);
         if (words.length >= 2 && words.length <= 4 && words.every(w => /^[A-Z]/.test(w))) {
-            resume.name = line;
+            resume.personal_info.full_name = line;
             break;
         }
     }
     
-    if (!resume.name) {
+    if (!resume.personal_info.full_name) {
         for (let i = 0; i < Math.min(5, lines.length); i++) {
             const line = lines[i];
             if (line.length > 3 && line.length < 35 && !line.includes('@') && !line.includes(':')) {
-                resume.name = line;
+                resume.personal_info.full_name = line;
                 break;
             }
         }
@@ -193,91 +155,76 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
 
   // 4. Extract Links
   const linkRegex = /https?:\/\/(?:www\.)?[-a-zA-Z0-9@:%._\+~#=]{1,256}\.[a-zA-Z0-9()]{1,6}\b(?:[-a-zA-Z0-9()@:%_\+.~#?&//=]*)/gi;
-  const allLinks = text.match(linkRegex) || [];
-  const uniqueLinks = Array.from(new Set(allLinks));
+  const matches = text.match(linkRegex) || [];
   
-  const extractedLinks: { type: string, url: string }[] = [];
-  const excluded = ['aistudio', 'googleusercontent', 'firebase', 'blob:', 'localhost', '.pdf', '.docx', 'resume'];
-
-  uniqueLinks.forEach(link => {
-    if (excluded.some(ex => link.toLowerCase().includes(ex))) return;
-
-    let url = link.toLowerCase();
-    if (!url.startsWith('http')) url = 'https://' + url;
-
-    // Validation
-    const isLinkedIn = /^(https?:\/\/)?(www\.)?linkedin\.com\//i.test(url);
-    const isGitHub = /^(https?:\/\/)?(www\.)?github\.com\//i.test(url);
-
-    if (isLinkedIn) {
-      extractedLinks.push({ type: 'LinkedIn', url: url });
-      resume.contact.linkedin = url;
-    } else if (isGitHub) {
-      extractedLinks.push({ type: 'GitHub', url: url });
-      resume.contact.github = url;
-    } else {
-      extractedLinks.push({ type: 'Personal Website', url: url });
+  matches.forEach(url => {
+    const lowerUrl = url.toLowerCase();
+    if (lowerUrl.includes('linkedin.com/')) {
+      resume.personal_info.links.linkedin = url;
+    } else if (lowerUrl.includes('github.com/')) {
+      resume.personal_info.links.github = url;
+    } else if (!lowerUrl.includes('google') && !lowerUrl.includes('mozilla') && !lowerUrl.includes('w3.org')) {
+      if (!resume.personal_info.links.portfolio) {
+        resume.personal_info.links.portfolio = url;
+      } else {
+        resume.personal_info.links.other.push(url);
+      }
     }
   });
 
-  resume.links = extractedLinks;
+  // Helper to find sections
+  const getSectionContent = (sectionType: string): string => {
+    const headers: Record<string, RegExp[]> = {
+      profile: [/\bSummary\b/i, /\bProfile\b/i, /\bObjective\b/i, /\bAbout Me\b/i],
+      experience: [/\bExperience\b/i, /\bWork History\b/i, /\bEmployment\b/i, /\bProfessional Experience\b/i],
+      education: [/\bEducation\b/i, /\bAcademic Background\b/i, /\bQualifications\b/i],
+      projects: [/\bProjects\b/i, /\bPersonal Projects\b/i, /\bAcademic Projects\b/i],
+      skills: [/\bSkills\b/i, /\bTechnologies\b/i, /\bTechnical Skills\b/i, /\bCore Competencies\b/i],
+    };
 
-  // 5. Section detection and localized extraction
-  const sections: Record<string, RegExp[]> = {
-    profile: [/\bSummary\b/i, /\bProfile\b/i, /\bObjective\b/i, /\bAbout Me\b/i, /\bProfessional Summary\b/i, /\bCareer Objective\b/i, /\bProfessional Profile\b/i],
-    experience: [/\bExperience\b/i, /\bWork History\b/i, /\bEmployment\b/i, /\bProfessional Experience\b/i, /\bCareer History\b/i, /\bRelevant Experience\b/i, /\bWork Experience\b/i, /\bProfessional Background\b/i],
-    education: [/\bEducation\b/i, /\bAcademic\b/i, /\bQualifications\b/i, /\bEducation Background\b/i, /\bEducational Qualifications\b/i, /\bAcademic Credentials\b/i],
-    skills: [/\bSkills\b/i, /\bCompetencies\b/i, /\bTechnologies\b/i, /\bCore Skills\b/i, /\bTechnical Competencies\b/i, /\bExpertise\b/i, /\bTechnical Skills\b/i, /\bCore Competencies\b/i, /\bSkills & Tools\b/i]
-  };
-
-  const getSectionContent = (sectionKey: string): string => {
-    const regexes = sections[sectionKey];
-    let startIdx = -1;
-
-    for (const regex of regexes) {
-      const match = text.match(regex);
-      if (match && match.index !== undefined) {
-        startIdx = match.index + match[0].length;
+    const targetRegexes = headers[sectionType] || [];
+    let startIndex = -1;
+    
+    for (let i = 0; i < lines.length; i++) {
+      if (targetRegexes.some(r => r.test(lines[i]))) {
+        startIndex = i;
         break;
       }
     }
 
-    if (startIdx === -1) return '';
+    if (startIndex === -1) return '';
 
-    let endIdx = text.length;
-    for (const key in sections) {
-      for (const regex of sections[key]) {
-        const subText = text.substring(startIdx);
-        const match = subText.match(regex);
-        if (match && match.index !== undefined) {
-          const absoluteIdx = startIdx + match.index;
-          if (absoluteIdx < endIdx && absoluteIdx > startIdx) {
-            endIdx = absoluteIdx;
-          }
-        }
+    // Capture until next section header
+    const allHeaders = Object.values(headers).flat();
+    let content = '';
+    for (let i = startIndex + 1; i < lines.length; i++) {
+      if (allHeaders.some(r => r.test(lines[i]))) {
+        break;
       }
+      content += lines[i] + '\n';
     }
 
-    return text.substring(startIdx, endIdx).trim();
+    return content;
   };
 
-  // Extract Profile/Summary
-  const profileContent = getSectionContent('profile');
-  resume.profile = profileContent.split('\n').filter(s => s.length > 20).slice(0, 5).join(' ') || profileContent.substring(0, 600);
+  // Extract Summary
+  resume.professional_summary = getSectionContent('profile');
 
   // Extract Education
   const eduContent = getSectionContent('education');
   if (eduContent) {
-    const eduBlocks = eduContent.split(/\n(?=[A-Z])/).filter(b => b.trim().length > 10);
-    resume.education = eduBlocks.slice(0, 5).map(block => {
-      const lines = block.split('\n').map(l => l.trim()).filter(l => l.length > 0);
-      const degreeMatch = block.match(/(?:Bachelor|Master|B\.S\.|M\.S\.|PhD|Associate|Degree|BSc|MSc|MBA|Engineering|Diploma|B\.A\.|M\.A\.)/i);
-      const yearMatch = block.match(/\b(19|20)\d{2}\b/);
-      
+    const eduLines = eduContent.split('\n').filter(l => l.trim().length > 5);
+    resume.education = eduLines.slice(0, 3).map(line => {
+      const yearMatch = line.match(/\b(19|20)\d{2}\b/);
+      const parts = line.split(/,|-|\|/);
       return {
-        degree: degreeMatch ? degreeMatch[0] : (lines[0] || 'Degree'),
-        institution: lines.find(l => !l.match(/(?:Bachelor|Master|B\.S\.|M\.S\.|PhD|Associate|Degree|BSc|MSc|MBA|Engineering|Diploma|B\.A\.|M\.A\.)/i) && l.length > 5) || lines[1] || 'Institution',
-        duration: yearMatch ? yearMatch[0] : 'N/A'
+        degree: line.includes('Bachelor') ? 'Bachelor' : line.includes('Master') ? 'Master' : 'Degree',
+        field_of_study: parts[2]?.trim() || '',
+        institution: parts[0]?.trim() || 'Institution',
+        location: '',
+        start_date: '',
+        end_date: yearMatch ? yearMatch[0] : '',
+        grade: ''
       };
     });
   }
@@ -288,7 +235,7 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
     const datePattern = /\b(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|[0-1][0-9])?[\/\s-]*\d{2,4}\s*[-–—to]+\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|[0-1][0-9]|Present|Current)?(?:[\/\s-]*\d{2,4})?/i;
     const blocks = expContent.split(/\n(?=[A-Z])/).filter(b => b.trim().length > 30);
     
-    resume.experience = blocks.slice(0, 10).map(block => {
+    resume.work_experience = blocks.slice(0, 10).map(block => {
       const lines = block.split('\n').map(l => l.trim()).filter(l => l.length > 0);
       const header = lines[0] || '';
       const subHeader = lines[1] || '';
@@ -312,22 +259,37 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
       });
 
       const dateMatch = block.match(datePattern);
+      const duration = dateMatch ? dateMatch[0] : '';
+      const startDate = duration.split(/[-–—to]+/i)[0]?.trim() || '';
+      const endDate = duration.split(/[-–—to]+/i)[1]?.trim() || '';
       
       return {
         company,
-        title,
-        duration: dateMatch ? dateMatch[0] : 'N/A',
-        responsibilities: lines.slice(found ? 1 : 1, 12)
+        job_title: title,
+        location: 'Remote',
+        start_date: startDate,
+        end_date: endDate,
+        is_current: /present|current|now/i.test(duration),
+        responsibilities: lines.slice(found ? 1 : 1, 12),
+        technologies: []
       };
     });
   }
 
   // Extract Skills
   const skillContent = getSectionContent('skills');
+  const skillsList: string[] = [];
   if (skillContent) {
      const manualSkills = skillContent.split(/[,\n•|]/).map(s => s.trim()).filter(s => s.length > 2 && s.length < 35);
-     resume.skills.other = Array.from(new Set(manualSkills)).slice(0, 20);
+     skillsList.push(...Array.from(new Set(manualSkills)).slice(0, 20));
+     resume.skills = [{
+       category: 'Skills',
+       items: skillsList
+     }];
   }
+
+  resume.all_skills = skillsList;
+  resume.personal_info.headline = resume.work_experience[0]?.job_title || 'Software Professional';
 
   return resume;
 }

@@ -4,52 +4,62 @@ import { JSONResumeData } from '../types/jsonResume';
 export const toJSONResumeData = (internal: ResumeData): JSONResumeData => {
   return {
     basics: {
-      name: internal.name || '',
-      email: internal.contact.email || '',
-      phone: internal.contact.phone || '',
-      website: internal.contact.portfolio || '',
-      summary: internal.profile || '',
+      name: internal.personal_info.full_name || '',
+      email: internal.personal_info.email || '',
+      phone: internal.personal_info.phone || '',
+      website: internal.personal_info.links.website || internal.personal_info.links.portfolio || '',
+      summary: internal.professional_summary || '',
       location: {
-        city: internal.locationDetails?.city,
-        region: internal.locationDetails?.state,
-        countryCode: internal.locationDetails?.country,
-        postalCode: internal.locationDetails?.postalCode,
+        city: internal.personal_info.location?.city || undefined,
+        region: internal.personal_info.location?.state || undefined,
+        countryCode: internal.personal_info.location?.country || undefined,
       },
-      profiles: internal.links.map(l => ({ network: l.type, username: '', url: l.url })),
+      profiles: [
+        ...(internal.personal_info.links.linkedin ? [{ network: 'LinkedIn', username: '', url: internal.personal_info.links.linkedin }] : []),
+        ...(internal.personal_info.links.github ? [{ network: 'GitHub', username: '', url: internal.personal_info.links.github }] : []),
+        ...(internal.personal_info.links.portfolio ? [{ network: 'Portfolio', username: '', url: internal.personal_info.links.portfolio }] : []),
+        ...(internal.personal_info.links.other ? internal.personal_info.links.other.map(url => ({ network: 'Other', username: '', url })) : [])
+      ],
     },
-    work: internal.experience.map(e => ({
-      name: e.company,
-      position: e.title,
-      startDate: e.duration.split(' - ')[0],
-      endDate: e.duration.split(' - ')[1],
-      summary: e.responsibilities.join('\n'),
-      highlights: e.responsibilities,
+    work: internal.work_experience.map(e => ({
+      name: e.company || '',
+      position: e.job_title || '',
+      startDate: e.start_date || '',
+      endDate: e.end_date || '',
+      summary: e.responsibilities?.join('\n') || '',
+      highlights: e.responsibilities || [],
     })),
     education: internal.education.map(e => ({
-      institution: e.institution,
-      area: e.field,
-      studyType: e.degree,
-      startDate: e.duration.split(' - ')[0],
-      endDate: e.duration.split(' - ')[1],
+      institution: e.institution || '',
+      area: e.field_of_study || '',
+      studyType: e.degree || '',
+      startDate: e.start_date || '',
+      endDate: e.end_date || '',
+      score: e.grade || undefined
     })),
-    skills: Object.entries(internal.skills).map(([category, keywords]) => ({
-      name: category,
-      keywords: keywords as string[],
+    skills: internal.skills.map(s => ({
+      name: s.category,
+      keywords: s.items,
     })),
     projects: internal.projects.map(p => ({
-      name: p.name,
-      description: p.description.join(' '),
-      keywords: p.technologies,
-      highlights: p.description,
-      roles: [],
+      name: p.name || '',
+      description: p.description || '',
+      keywords: p.technologies || [],
+      highlights: p.description ? [p.description] : [],
+      roles: p.role ? [p.role] : [],
+      url: p.live_url || undefined
     })),
-    certificates: [],
+    certificates: internal.certifications.map(c => ({
+      name: c.name || '',
+      date: c.year || undefined,
+      issuer: c.issuer || undefined
+    })),
     publications: [],
-    awards: [],
-    languages: internal.languages.map(l => ({ language: l })),
-    interests: internal.interests.map(i => ({ name: i, keywords: [] })),
+    awards: internal.awards.map(title => ({ title })),
+    languages: internal.languages.map(l => ({ language: l.language, fluency: l.proficiency || undefined })),
+    interests: [],
     references: [],
     volunteer: [],
-    rawText: internal.rawText,
+    rawText: internal.rawText || '',
   };
 };

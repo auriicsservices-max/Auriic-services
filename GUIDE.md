@@ -1,7 +1,7 @@
-# Talent Insights / Aurrum CRM - Enterprise Design System Documentation & Guide
+# Talent Insights / Aurrum CRM - Complete Enterprise Design System & Architecture Guide
 
 ## 1. Introduction
-This document serves as the primary Enterprise Design System Guide for the **Talent Insights / Aurrum CRM** application. It establishes visual standards, component patterns, theme specifications, and operational guidelines required for delivering a consistent, high-performance, and accessible enterprise SaaS experience across both **Light Theme** and **Dark Theme**.
+This document serves as the definitive Enterprise Design System and Technical Architecture Guide for the **Talent Insights / Aurrum CRM** platform. It establishes visual standards, component design patterns, theme parity rules, security invariants, high-performance AI resume parsing architecture (aligned with the [JSON Resume Schema Standard](https://jsonresume.org/schema)), and operational guidelines required for delivering a high-performance, accessible enterprise SaaS experience across both **Light Theme** and **Dark Theme**.
 
 ---
 
@@ -15,9 +15,6 @@ This document serves as the primary Enterprise Design System Guide for the **Tal
 ---
 
 ## 3. Light Theme vs Dark Theme Standards
-
-### Why Raw Light Themes Fail Without Design Systems
-Generic light themes often fail because developers combine default off-white cards with low-contrast gray text (`#94A3B8` or `#64748B`), leading to washed-out labels, illegible table text, and unappealing visual hierarchy. Furthermore, mixing default indigo/slate utility classes creates severe theme misalignment when switching between modes.
 
 ### Aurrum Light Theme Standards (Client-Ready & High Contrast)
 - **Backgrounds:** Pure white (`#FFFFFF`) cards and modal surfaces layered on a crisp, soft neutral canvas (`#F8FAFC`).
@@ -33,7 +30,7 @@ Generic light themes often fail because developers combine default off-white car
 ---
 
 ## 4. Typography Specifications (Font: Poppins)
-- **Primary Font Family:** **Poppins** across all modules.
+- **Primary Font Family:** **Poppins** across all modules (`font-sans`).
 - **Hierarchy Rules:**
   - **Headings (H1 - H3):** Poppins 700-800 weight, tight tracking, high-contrast brand tokens (`var(--text-primary)`).
   - **Body Text:** Poppins 400-500 weight, 1.5–1.6 line height for effortless long-session reading.
@@ -69,7 +66,7 @@ Generic light themes often fail because developers combine default off-white car
 
 ### Sidebar Navigation
 - Premium collapsible navigation with structured section headers (**Core Platform**, **Operations & Insights**, **Preferences**).
-- Featuring the Aurrum Gold Sparkle emblem, smooth collapse transitions, active tab left accent line (`#A98B56`), floating tooltips, and bottom user role card.
+- Featuring the Aurrum Gold Sparkle emblem, smooth collapse transitions, active tab left accent line (`#A98B56`), floating tooltips, and bottom user profile card.
 
 ### Buttons & Interactive Controls
 - **Primary Gold Button (`.crm-btn-gold`)**: High-contrast gold gradient button (`#A98B56` -> `#BC9B66`) with active scale feedback.
@@ -88,15 +85,26 @@ Generic light themes often fail because developers combine default off-white car
 
 ---
 
-## 8. Operational Context & Technical Architecture
-- **Roles & Permissions:** Admin, Team Leader, Recruiter, Client, Developer.
-- **Key Modules:** Dashboard, Candidate List (Candidate Management), Candidate Profile Modal, CV Repository, Pipeline, Combined & Bulk Billing Invoices, Analytics, Notifications, System Settings, Activity Logs.
-- **AI Infrastructure & Search Architecture:**
-  - **AI Engines:** `gemini-2.5-flash` primary model with `gemini-2.0-flash` fallback for automated CV parsing and CV Repository AI Assistant Search.
-  - **AI Chat Assistant in CV Repository:**
-    - High-performance natural language search engine (`/api/cv/search-ai`).
-    - Supports semantic and exact match precision modes.
-    - Automatic candidate dataset fallback: If client candidate list is unpopulated, automatically queries active candidates from Firestore via Firebase Admin SDK (`adminDb`).
-    - Resilient Rule-Based Search Fallback: If Gemini API credentials are absent or rate-limited, seamless heuristic keyword and multi-term filter returns candidate matches with structured Markdown summaries.
-- **Production Deployment:** Single bundled CommonJS server (`dist/server.cjs`) served via Express on Port `3000` (Host `0.0.0.0`).
+## 8. AI Resume Parsing Engine & JSON Resume Architecture
+- **High-Capability AI Models:** Uses `gemini-3.1-pro-preview` as the primary parsing engine (with automatic fallback to `gemini-3.6-flash`) via `@google/genai` to guarantee exhaustive, high-precision structured data extraction.
+- **JSON Resume Standard ([jsonresume.org/schema](https://jsonresume.org/schema)):**
+  - Fully implements the universal JSON Resume schema specifications across all 12 core sections: `basics`, `work`, `volunteer`, `education`, `awards`, `certificates`, `publications`, `skills`, `languages`, `interests`, `references`, and `projects`.
+  - **Exhaustive Data Capture:** Ensures zero information loss across multi-page resumes, capturing every bullet point verbatim, granular date normalizations (`YYYY-MM`), categorized skill arrays, social profiles, and project metrics.
+  - **Dual Mapping Engine:** Seamlessly bridges JSON Resume structures into Aurrum CRM internal candidate profiles (`ResumeData`) while retaining full backwards and forwards compatibility.
 
+---
+
+## 9. Global Logo & Branding Engine
+
+To ensure cohesive corporate identity across all customer touchpoints, the CRM implements a unified **Global Branding Engine**:
+
+### Centralized Management
+- **System Settings Integration:** Located under **System Settings → Global CRM Branding**, administrators can manage corporate identity assets globally.
+- **Light & Dark Theme Parity:** Upload distinct logos or supply direct URLs for both **Light Theme** (optimized for white backgrounds) and **Dark Theme** (optimized for navy/dark blue backgrounds).
+- **Format & Constraint Validation:** Supports drag-and-drop or file browsing (PNG, JPG, SVG, WebP up to 500KB) with instant preview frames of corresponding theme backgrounds.
+
+### Automated Multi-Surface Application
+Once configured globally in the database, the logos dynamically apply across all system surfaces with zero secondary configuration:
+1. **Sidebar Navigation:** Automatically displays the appropriate active branding logo adapting to the user's selected global theme.
+2. **Login Screen:** Welcomes users with the official global corporate branding in perfect high-contrast.
+3. **Invoices Module:** All invoice templates, print sheets, and generated PDF structures automatically inherit the Light Theme logo to match the crisp white paper canvas layout.

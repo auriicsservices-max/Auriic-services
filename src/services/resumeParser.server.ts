@@ -3,29 +3,79 @@ import nlp from 'compromise';
 import * as chrono from 'chrono-node';
 import { parsePhoneNumberFromString } from 'libphonenumber-js';
 import { ResumeData, ResumeSchema } from '../types/resume';
+import * as pdfParseModule from 'pdf-parse';
 
-// pdf-parse doesn't have good type definitions or ESM support
-// We'll use a dynamic require that works after bundling to CJS
-// @ts-ignore
-const pdf = typeof require !== 'undefined' ? require('pdf-parse') : undefined;
+// Resolve pdf-parse correctly in both ESM (dev) and CommonJS (prod bundle)
+async function getPDFParser(): Promise<any> {
+  // 1. Try checking the statically imported module namespace
+  const mod = pdfParseModule as any;
+  if (typeof mod === 'function' || (mod && typeof mod.PDFParse === 'function')) {
+    return mod;
+  }
+  if (mod && (typeof mod.default === 'function' || (mod.default && typeof mod.default.PDFParse === 'function'))) {
+    return mod.default;
+  }
+  if (mod && mod.default && (typeof mod.default.default === 'function' || (mod.default.default && typeof mod.default.default.PDFParse === 'function'))) {
+    return mod.default.default;
+  }
+
+  // 2. Try dynamic import
+  try {
+    const imported = (await import('pdf-parse')) as any;
+    if (typeof imported === 'function' || (imported && typeof imported.PDFParse === 'function')) return imported;
+    if (imported && (typeof imported.default === 'function' || (imported.default && typeof imported.default.PDFParse === 'function'))) return imported.default;
+    if (imported && imported.default && (typeof imported.default.default === 'function' || (imported.default.default && typeof imported.default.default.PDFParse === 'function'))) {
+      return imported.default.default;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // 3. Try dynamic require if in CommonJS environment or tsx
+  try {
+    if (typeof require !== 'undefined') {
+      const required = require('pdf-parse');
+      if (typeof required === 'function' || (required && typeof required.PDFParse === 'function')) return required;
+      if (required && (typeof required.default === 'function' || (required.default && typeof required.default.PDFParse === 'function'))) return required.default;
+    }
+  } catch (e) {
+    // ignore
+  }
+
+  // 4. Try node module bridge
+  try {
+    const { createRequire } = await import('module');
+    const requireBridge = createRequire(import.meta.url);
+    const required = requireBridge('pdf-parse');
+    if (typeof required === 'function' || (required && typeof required.PDFParse === 'function')) return required;
+    if (required && (typeof required.default === 'function' || (required.default && typeof required.default.PDFParse === 'function'))) return required.default;
+  } catch (e) {
+    // ignore
+  }
+
+  throw new Error("PDF parsing library (pdf-parse) not available or could not be loaded");
+}
 
 export class RobustResumeParser {
   async parseBuffer(buffer: Buffer, mimetype: string): Promise<ResumeData> {
     let text = '';
 
     if (mimetype === 'application/pdf') {
-      let pdfLib = pdf;
-      if (!pdfLib) {
-        try {
-          const { createRequire } = await import('module');
-          const requireBridge = createRequire(import.meta.url);
-          pdfLib = requireBridge('pdf-parse');
-        } catch (e) {
-          throw new Error("PDF parsing library (pdf-parse) not available");
-        }
+      const pdfLib = await getPDFParser();
+      if (pdfLib && typeof pdfLib.PDFParse === 'function') {
+        const u8 = new Uint8Array(buffer);
+        const parser = new pdfLib.PDFParse({ data: u8 });
+        const result = await parser.getText();
+        text = result.text;
+      } else if (typeof pdfLib === 'function') {
+        const data = await pdfLib(buffer);
+        text = data.text;
+      } else if (pdfLib && typeof pdfLib.default === 'function') {
+        const data = await pdfLib.default(buffer);
+        text = data.text;
+      } else {
+        throw new Error("PDF parsing library loaded but has unknown API structure");
       }
-      const data = await (typeof pdfLib === 'function' ? pdfLib(buffer) : (pdfLib.default ? pdfLib.default(buffer) : pdfLib(buffer)));
-      text = data.text;
     } else if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       const data = await mammoth.extractRawText({ buffer });
       text = data.value;
@@ -154,25 +204,88 @@ export class RobustResumeParser {
         }
     }
 
+    const skillsParsed = this.parseSkills(sections.skills, text);
+    const allSkillsFlat = Array.from(new Set([
+      ...(skillsParsed.languages || []),
+      ...(skillsParsed.frameworks || []),
+      ...(skillsParsed.databases || []),
+      ...(skillsParsed.tools || []),
+      ...(skillsParsed.libraries || []),
+      ...(skillsParsed.other || [])
+    ])).filter(Boolean);
+
+    const skillsGrouped = [
+      { category: 'Languages', items: skillsParsed.languages || [] },
+      { category: 'Frameworks', items: skillsParsed.frameworks || [] },
+      { category: 'Databases', items: skillsParsed.databases || [] },
+      { category: 'Tools', items: skillsParsed.tools || [] },
+      { category: 'Libraries', items: skillsParsed.libraries || [] },
+      { category: 'Other', items: skillsParsed.other || [] }
+    ].filter(g => g.items.length > 0);
+
+    const expParsed = this.parseExperience(sections.experience);
+    const workExperience = expParsed.map(e => ({
+      job_title: e.title || '',
+      company: e.company || '',
+      location: 'Remote',
+      start_date: e.duration ? e.duration.split('-')[0]?.trim() || '' : '',
+      end_date: e.duration ? e.duration.split('-')[1]?.trim() || '' : '',
+      is_current: e.duration ? /present|current|now|active/i.test(e.duration) : false,
+      responsibilities: e.responsibilities || [],
+      technologies: []
+    }));
+
+    const projParsed = this.parseProjects(sections.projects);
+    const projects = projParsed.map(p => ({
+      name: p.name || '',
+      description: p.description ? p.description.join(' ') : '',
+      technologies: p.technologies || [],
+      role: '',
+      live_url: p.links?.[0] || '',
+      code_url: ''
+    }));
+
+    const eduParsed = this.parseEducation(sections.education);
+    const education = eduParsed.map(edu => ({
+      degree: edu.degree || '',
+      field_of_study: edu.field || '',
+      institution: edu.institution || '',
+      location: edu.location || '',
+      start_date: '',
+      end_date: edu.duration || '',
+      grade: edu.gpa || ''
+    }));
+
     const data: ResumeData = {
-      name,
-      fullName: name,
-      company: '',
-      contact: { email, phone, linkedin, github, portfolio },
-      links: extractedLinks,
-      location: locationString,
-      locationDetails: { city, state, country, postalCode },
-      profile: sections.profile,
-      domainFocus,
-      totalExperienceYears,
-      education: this.parseEducation(sections.education),
-      experience: this.parseExperience(sections.experience),
-      projects: this.parseProjects(sections.projects),
-      skills: this.parseSkills(sections.skills, text),
-      achievements: this.parseList(sections.achievements),
-      languages: this.parseList(sections.languages),
-      interests: this.parseList(sections.interests),
-      rawText: text,
+      is_resume: true,
+      parsing_confidence: 'medium',
+      detected_language: 'en',
+      personal_info: {
+        full_name: name,
+        headline: workExperience[0]?.job_title || 'Software Professional',
+        email,
+        phone,
+        location: { city, state, country },
+        links: {
+          linkedin,
+          github,
+          portfolio,
+          website: '',
+          other: []
+        }
+      },
+      professional_summary: sections.profile || '',
+      total_experience_years: totalExperienceYears,
+      skills: skillsGrouped,
+      all_skills: allSkillsFlat,
+      work_experience: workExperience,
+      projects,
+      education,
+      certifications: [],
+      languages: this.parseList(sections.languages).map(lang => ({ language: lang, proficiency: 'Fluent' })),
+      awards: this.parseList(sections.achievements),
+      warnings: [],
+      rawText: text
     };
 
     return ResumeSchema.parse(data);
@@ -213,7 +326,7 @@ export class RobustResumeParser {
     return result;
   }
 
-  private parseExperience(text: string): ResumeData['experience'] {
+  private parseExperience(text: string): any[] {
     const blocks = text.split(/\n(?=[A-Z0-9].*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|\d{4}))/i);
     return blocks.filter(b => b.trim().length > 10).map(block => {
       const lines = block.trim().split('\n');
@@ -231,7 +344,7 @@ export class RobustResumeParser {
     });
   }
 
-  private parseEducation(text: string): ResumeData['education'] {
+  private parseEducation(text: string): any[] {
     const lines = text.split('\n').filter(l => l.trim().length > 5);
     return lines.map(line => {
       const yearMatch = line.match(/\d{4}/g);
@@ -243,7 +356,7 @@ export class RobustResumeParser {
     }).slice(0, 3);
   }
 
-  private parseProjects(text: string): ResumeData['projects'] {
+  private parseProjects(text: string): any[] {
     const blocks = text.split(/\n(?=[A-Z0-9])/).filter(b => b.trim().length > 10);
     return blocks.map(block => {
       const lines = block.trim().split('\n');
@@ -257,7 +370,7 @@ export class RobustResumeParser {
     }).slice(0, 5);
   }
 
-  private parseSkills(sectionText: string, fullText: string): ResumeData['skills'] {
+  private parseSkills(sectionText: string, fullText: string): any {
     const categories = {
       languages: ['JavaScript', 'TypeScript', 'Python', 'Java', 'C++', 'PHP', 'Ruby', 'Go', 'Rust', 'Swift', 'Kotlin'],
       frameworks: ['React', 'Angular', 'Vue', 'Next.js', 'Express', 'Django', 'Flask', 'Spring', 'Laravel', 'Rails'],

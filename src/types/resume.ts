@@ -15,64 +15,73 @@ export interface ResumeProcessingJob {
 }
 
 export const ResumeSchema = z.object({
-  name: z.string().default(''),
-  fullName: z.string().optional(),
-  company: z.string().optional(),
-  contact: z.object({
-    email: z.string().default(''),
-    phone: z.string().default(''),
-    linkedin: z.string().default(''),
-    github: z.string().default(''),
-    portfolio: z.string().default(''),
+  is_resume: z.boolean(),
+  parsing_confidence: z.enum(['high', 'medium', 'low']),
+  detected_language: z.string().nullable().default('en'),
+  personal_info: z.object({
+    full_name: z.string().nullable(),
+    headline: z.string().nullable(),
+    email: z.string().nullable(),
+    phone: z.string().nullable(),
+    location: z.object({
+      city: z.string().nullable(),
+      state: z.string().nullable(),
+      country: z.string().nullable()
+    }),
+    links: z.object({
+      linkedin: z.string().nullable(),
+      github: z.string().nullable(),
+      portfolio: z.string().nullable(),
+      website: z.string().nullable(),
+      other: z.array(z.string()).default([])
+    })
   }),
-  links: z.array(z.object({
-    type: z.string(),
-    url: z.string()
+  professional_summary: z.string().nullable(),
+  total_experience_years: z.number().nullable(),
+  skills: z.array(z.object({
+    category: z.string(),
+    items: z.array(z.string()).default([])
   })).default([]),
-  location: z.string().optional(),
-  locationDetails: z.object({
-    city: z.string().optional(),
-    state: z.string().optional(),
-    country: z.string().optional(),
-    postalCode: z.string().optional(),
-  }).optional(),
-  profile: z.string().default(''),
-  domainFocus: z.string().default(''),
-  totalExperienceYears: z.number().default(0),
-  education: z.array(z.object({
-    institution: z.string().default(''),
-    degree: z.string().default(''),
-    field: z.string().optional(),
-    duration: z.string().default(''),
-    gpa: z.string().optional(),
-    location: z.string().optional(),
-  })).default([]),
-  experience: z.array(z.object({
-    title: z.string().default(''),
-    company: z.string().default(''),
-    duration: z.string().default(''),
-    location: z.string().optional(),
+  all_skills: z.array(z.string()).default([]),
+  work_experience: z.array(z.object({
+    job_title: z.string().nullable(),
+    company: z.string().nullable(),
+    location: z.string().nullable(),
+    start_date: z.string().nullable(),
+    end_date: z.string().nullable(),
+    is_current: z.boolean(),
     responsibilities: z.array(z.string()).default([]),
+    technologies: z.array(z.string()).default([])
   })).default([]),
   projects: z.array(z.object({
-    name: z.string().default(''),
+    name: z.string().nullable(),
+    description: z.string().nullable(),
     technologies: z.array(z.string()).default([]),
-    duration: z.string().default(''),
-    description: z.array(z.string()).default([]),
-    links: z.array(z.string()).default([]),
+    role: z.string().nullable(),
+    live_url: z.string().nullable(),
+    code_url: z.string().nullable()
   })).default([]),
-  skills: z.object({
-    languages: z.array(z.string()).default([]),
-    frameworks: z.array(z.string()).default([]),
-    databases: z.array(z.string()).default([]),
-    tools: z.array(z.string()).default([]),
-    libraries: z.array(z.string()).default([]),
-    other: z.array(z.string()).default([]),
-  }),
-  achievements: z.array(z.string()).default([]),
-  languages: z.array(z.string()).default([]),
-  interests: z.array(z.string()).default([]),
-  rawText: z.string().default(''),
+  education: z.array(z.object({
+    degree: z.string().nullable(),
+    field_of_study: z.string().nullable(),
+    institution: z.string().nullable(),
+    location: z.string().nullable(),
+    start_date: z.string().nullable(),
+    end_date: z.string().nullable(),
+    grade: z.string().nullable()
+  })).default([]),
+  certifications: z.array(z.object({
+    name: z.string().nullable(),
+    issuer: z.string().nullable(),
+    year: z.string().nullable()
+  })).default([]),
+  languages: z.array(z.object({
+    language: z.string(),
+    proficiency: z.string().nullable()
+  })).default([]),
+  awards: z.array(z.string()).default([]),
+  warnings: z.array(z.string()).default([]),
+  rawText: z.string().default('')
 });
 
 export type ResumeData = z.infer<typeof ResumeSchema>;

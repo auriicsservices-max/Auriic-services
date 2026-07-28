@@ -18,5 +18,36 @@ export const getFirebaseStorage = () => {
     }
 };
 
-// Wrap in check for window/typeof navigator to avoid errors in node env
-export const messaging = typeof document !== 'undefined' ? getMessaging(app) : null;
+// Wrap in try/catch and browser checks to avoid errors in unsupported browsers/iframe environments
+let messagingInstance: any = null;
+
+const isMessagingSupported = () => {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') return false;
+    
+    try {
+        // Cross-origin safe iframe check
+        const isIframe = window.self !== window.top;
+        if (isIframe && !('serviceWorker' in navigator)) return false;
+    } catch (e) {
+        return false;
+    }
+
+    return (
+        'serviceWorker' in navigator &&
+        'PushManager' in window &&
+        'Notification' in window &&
+        typeof window.indexedDB !== 'undefined'
+    );
+};
+
+if (isMessagingSupported()) {
+    try {
+        messagingInstance = getMessaging(app);
+    } catch (err) {
+        console.warn('[Firebase] Messaging failed to initialize:', err);
+    }
+} else {
+    console.log('[Firebase] Messaging not supported in this environment/browser.');
+}
+
+export const messaging = messagingInstance;

@@ -27,7 +27,6 @@ export const InvoiceList = () => {
 
   // Builder Form State
   const [selectedClientId, setSelectedClientId] = useState<string>('');
-  const [manualClientName, setManualClientName] = useState<string>('');
   // REMOVED: selectedCandidateIds, candidateFees
   const [invoiceNumber, setInvoiceNumber] = useState<string>('');
   const [dueDate, setDueDate] = useState<string>('');
@@ -137,7 +136,6 @@ export const InvoiceList = () => {
 
 
   const getClientName = () => {
-    if (selectedClientId === 'manual') return manualClientName;
     const clientUser = clients.find(c => c.id === selectedClientId);
     return clientUser ? (clientUser.name || clientUser.email) : 'Direct Client';
   };
@@ -145,7 +143,6 @@ export const InvoiceList = () => {
   const handleStartEditInvoice = (inv: any) => {
     setEditingInvoiceId(inv.id);
     setSelectedClientId(inv.clientId);
-    setManualClientName(inv.clientId === 'manual' ? inv.clientName : '');
     
     // Set candidate selection and fees
     // NOTE: This now auto-populates for client based on the invoice content.
@@ -176,7 +173,6 @@ export const InvoiceList = () => {
   const handleCancelEdit = () => {
     setEditingInvoiceId(null);
     setSelectedClientId('');
-    setManualClientName('');
     
     // Regenerate invoice numbers
     const prefix = 'INV-' + new Date().getFullYear();
@@ -216,10 +212,6 @@ export const InvoiceList = () => {
       alert('Please select a client/company');
       return;
     }
-    if (selectedClientId === 'manual' && !manualClientName.trim()) {
-      alert('Please enter a custom client company name');
-      return;
-    }
 
     const selectedCandidatesList = activeClientCandidates
       .map(c => ({
@@ -241,7 +233,7 @@ export const InvoiceList = () => {
         // Edit mode - Update existing invoice
         const updatedInvoice = {
           invoiceNumber: invoiceNumber.trim() || `INV-${Math.floor(100000 + Math.random() * 900000)}`,
-          clientId: selectedClientId === 'manual' ? 'manual' : selectedClientId,
+          clientId: selectedClientId,
           clientName: getClientName(),
           candidates: selectedCandidatesList,
           subtotal,
@@ -265,12 +257,12 @@ export const InvoiceList = () => {
         };
         
         await updateDoc(doc(db, 'consolidated_invoices', editingInvoiceId), updatedInvoice);
-        alert('Combined/Bulk Invoice updated successfully!');
+        alert('Invoice updated successfully!');
       } else {
         // Create mode
         const newInvoice = {
           invoiceNumber: invoiceNumber.trim() || `INV-${Math.floor(100000 + Math.random() * 900000)}`,
-          clientId: selectedClientId === 'manual' ? 'manual' : selectedClientId,
+          clientId: selectedClientId,
           clientName: getClientName(),
           candidates: selectedCandidatesList,
           subtotal,
@@ -295,13 +287,12 @@ export const InvoiceList = () => {
         };
 
         await addDoc(collection(db, 'consolidated_invoices'), newInvoice);
-        alert('Combined/Bulk Invoice generated successfully!');
+        alert('Invoice generated successfully!');
       }
       
       // Reset form states
       setEditingInvoiceId(null);
       setSelectedClientId('');
-      setManualClientName('');
       setTaxRate(0);
       setDiscountAmount(0);
       setPaymentTerms('Net 30');
@@ -646,26 +637,14 @@ export const InvoiceList = () => {
             <div className="p-2 bg-[var(--bg-secondary)] rounded-xl text-[var(--primary-gold)] border border-[var(--border-color)]">
               <FileText className="w-5 h-5" />
             </div>
-            <h2 className="text-xl font-bold text-[var(--text-primary)]">Combined & Bulk Candidate Billing</h2>
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">Invoices</h2>
           </div>
           <p className="text-xs text-[var(--text-muted)]">
-            Generate and manage consolidated bills for contract-to-hire, bulk hires, and placement agreements.
+            Generate and manage invoices for client billing, candidate placements, and agreements.
           </p>
         </div>
 
         <div className="flex bg-[var(--bg-secondary)] p-1.5 rounded-2xl border border-[var(--border-color)]">
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-tight transition-all duration-300 ${
-              activeTab === 'history'
-                ? 'crm-btn-gold text-white shadow-sm'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            Invoice History ({invoices.length})
-          </button>
-          
           <button
             onClick={() => setActiveTab('builder')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-tight transition-all duration-300 ${
@@ -677,14 +656,26 @@ export const InvoiceList = () => {
             {editingInvoiceId ? (
               <>
                 <Pencil className="w-4 h-4 text-[var(--primary-gold)]" />
-                Edit Combined Bill
+                Edit Invoice
               </>
             ) : (
               <>
                 <Plus className="w-4 h-4" />
-                Create Combined Bill
+                Create Invoice
               </>
             )}
+          </button>
+
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-tight transition-all duration-300 ${
+              activeTab === 'history'
+                ? 'crm-btn-gold text-white shadow-sm'
+                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+            }`}
+          >
+            <FileText className="w-4 h-4" />
+            Invoice History ({invoices.length})
           </button>
         </div>
       </div>
@@ -748,15 +739,15 @@ export const InvoiceList = () => {
               <div className="w-16 h-16 bg-[var(--bg-primary)] rounded-3xl flex items-center justify-center text-[var(--primary-gold)] mb-4 border border-[var(--border-color)]">
                 <FileText className="w-8 h-8" />
               </div>
-              <h3 className="font-bold text-[var(--text-primary)] text-lg">No consolidated invoices yet</h3>
+              <h3 className="font-bold text-[var(--text-primary)] text-lg">No invoices yet</h3>
               <p className="text-sm text-[var(--text-primary)] mt-1 max-w-sm">
-                Create your first combined bill for a company's hired candidates, contract-to-hire, or permanent placement contract.
+                Create your first invoice for client billing, candidate placements, or contract services.
               </p>
               <button
                 onClick={() => setActiveTab('builder')}
                 className="mt-6 crm-btn-gold"
               >
-                <Plus className="w-4 h-4" /> Build Combined Invoice
+                <Plus className="w-4 h-4" /> Build Invoice
               </button>
             </div>
           ) : (
@@ -903,7 +894,7 @@ export const InvoiceList = () => {
             {/* Client Picker */}
             <div className="space-y-2">
               <label className="block text-xs font-black uppercase text-[var(--text-muted)] tracking-wider">Client Company / Account</label>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 gap-3">
                 <select
                   value={selectedClientId}
                   onChange={(e) => {
@@ -915,18 +906,7 @@ export const InvoiceList = () => {
                   {clients.map(client => (
                     <option key={client.id} value={client.id}>{client.name || client.email}</option>
                   ))}
-                  <option value="manual">Custom Client (Non-system account)</option>
                 </select>
-
-                {selectedClientId === 'manual' && (
-                  <input
-                    type="text"
-                    placeholder="Enter Custom Client Company Name (e.g. Aurrum Company)"
-                    value={manualClientName}
-                    onChange={(e) => setManualClientName(e.target.value)}
-                    className="crm-input w-full py-2.5"
-                  />
-                )}
               </div>
             </div>
 
@@ -1197,7 +1177,7 @@ export const InvoiceList = () => {
                 type="submit"
                 className="crm-btn-gold w-full flex items-center justify-center gap-2 text-xs py-3.5"
               >
-                <FileCheck className="w-4 h-4" /> {editingInvoiceId ? 'Update Combined Bill' : 'Save & Generate Combined Bill'}
+                <FileCheck className="w-4 h-4" /> {editingInvoiceId ? 'Update Invoice' : 'Save & Generate Invoice'}
               </button>
 
               {editingInvoiceId && (

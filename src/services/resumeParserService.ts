@@ -2,103 +2,93 @@ import { extractTextFromPDF, extractTextFromDocx, parseResumeHeuristically } fro
 import { ResumeData } from "../types/resume";
 import { toJSONResumeData } from "../utils/jsonResumeMapper";
 import { toInternalResumeData } from "../utils/mapper";
-import { GoogleGenAI } from "@google/genai";
-import { JSONResumeData } from "../types/jsonResume";
 
 /**
  * Robust Resume Parsing Service
- * High-performance, rule-based extraction engine using specialized libraries.
+ * Client-side interface that orchestrates high-quality server-side Gemini parsing 
+ * with automatic local client-side fallback for maximum uptime.
  */
 export class ResumeParserService {
-  private genAI: GoogleGenAI | null = null;
-
-  constructor() {
-    const geminiKey = process.env.GEMINI_API_KEY;
-    if (geminiKey) {
-      this.genAI = new GoogleGenAI({ apiKey: geminiKey });
-    }
-  }
   /**
    * Main entry point for parsing a CV file.
-   * Uses rule-based extraction in backend for high precision.
+   * Uploads file to the server for deep AI-based extraction using Gemini 3.6 Flash.
+   * Falls back to local rule-based parsing if offline or rate-limited.
    */
   async parse(file: File, onProgress?: (progress: number) => void): Promise<{ parsed: ResumeData; text: string }> {
     try {
-      // 1. Extract raw text
-      const text = await this.extractText(file, onProgress);
+      console.log("[ResumeParserService] Attempting high-precision server-side Gemini parsing...");
+      onProgress?.(15);
+      
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const response = await fetch('/api/cv/parse-gemini', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (response.ok) {
+        onProgress?.(85);
+        const parsed = await response.json() as ResumeData;
+        console.log("[ResumeParserService] Server-side Gemini parsing completed successfully!");
+        onProgress?.(100);
+        return { 
+          parsed, 
+          text: parsed.rawText || '' 
+        };
+      } else {
+        console.warn(`[ResumeParserService] Server parsing responded with status: ${response.status}. Falling back to client-side.`);
+      }
+    } catch (serverError) {
+      console.warn("[ResumeParserService] Server parsing failed or was unreachable. Falling back to client-side:", serverError);
+    }
+
+    // CLIENT-SIDE FALLBACK (Offline or server rate-limit/error)
+    try {
+      console.log("[ResumeParserService] Executing client-side heuristic parsing fallback...");
+      onProgress?.(30);
+      
+      // 1. Extract raw text from file
+      const text = await this.extractText(file, (p) => {
+        onProgress?.(30 + p * 0.4);
+      });
       
       // 2. Parse using local heuristics
-      let initialParsed = await parseResumeHeuristically(text);
+      onProgress?.(75);
+      const initialParsed = await parseResumeHeuristically(text);
       
-      // 3. Map to JSON Resume to check for missing fields
-      let jsonResume = toJSONResumeData(initialParsed);
+      // 3. Map to JSON Resume
+      const jsonResume = toJSONResumeData(initialParsed);
       
-      // Check for missing fields
-      const missingFields = this.getMissingFields(jsonResume);
-      
-      if (missingFields.length > 0 && this.genAI) {
-        // 4. Call Gemini only for missing fields
-        jsonResume = await this.fillMissingFieldsWithGemini(text, jsonResume, missingFields);
-      }
-      
-      // 5. Map back to internal ResumeData
+      // 4. Map back to internal ResumeData
       const parsed = toInternalResumeData(jsonResume);
+      parsed.rawText = text;
       
+      console.log("[ResumeParserService] Client-side heuristic parsing complete.");
+      onProgress?.(100);
       return { parsed, text };
     } catch (error) {
-      console.error("[ResumeParser] Critical parsing failure:", error);
-      // Fallback in case of failure
-      const text = await this.extractText(file, onProgress);
+      console.error("[ResumeParserService] Critical client-side parsing failure:", error);
+      // Absolute fallback: extract text and return simple heuristic result
+      const text = await this.extractText(file);
       const parsed = await parseResumeHeuristically(text);
+      parsed.rawText = text;
       return { parsed, text };
     }
   }
 
-  private getMissingFields(jsonResume: JSONResumeData): string[] {
-    const missing: string[] = [];
-    if (!jsonResume.basics.name) missing.push("basics.name");
-    if (!jsonResume.basics.email) missing.push("basics.email");
-    if (jsonResume.work.length === 0) missing.push("work");
-    if (jsonResume.skills.length === 0) missing.push("skills");
-    return missing;
-  }
-
-  private async fillMissingFieldsWithGemini(text: string, currentJson: JSONResumeData, missingFields: string[]): Promise<JSONResumeData> {
-      try {
-        const prompt = `
-          The following resume data is incomplete. Please fill in ONLY the missing fields specified below, based on the provided resume text.
-          Missing fields: ${missingFields.join(", ")}
-          
-          Current JSON:
-          ${JSON.stringify(currentJson)}
-          
-          Resume text:
-          ${text.slice(0, 30000)}
-          
-          Respond ONLY in the same JSON format.
-        `;
-        const response = await this.genAI!.models.generateContent({
-            model: "gemini-3.5-flash",
-            contents: prompt,
-        });
-        const resultText = response.text;
-        if (!resultText) return currentJson;
-        return { ...currentJson, ...JSON.parse(resultText) };
-      } catch (err) {
-        return currentJson;
-      }
-  }
-
   /**
-   * Analyze raw text using heuristic engine.
+   * Analyze raw text using client-side heuristic engine.
    */
   async analyzeText(text: string): Promise<{ parsed: ResumeData; text: string }> {
     try {
       const parsed = await parseResumeHeuristically(text);
+      parsed.rawText = text;
       return { parsed, text };
     } catch (error) {
-      console.error("[ResumeParser] Text analysis failed:", error);
+      console.error("[ResumeParserService] Text analysis failed:", error);
       const parsed = await parseResumeHeuristically(text);
+      parsed.rawText = text;
       return { parsed, text };
     }
   }

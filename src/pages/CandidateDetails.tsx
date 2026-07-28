@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { doc, getDoc, updateDoc, onSnapshot, collection, query, limit } from 'firebase/firestore';
+import { doc, getDoc, updateDoc, deleteDoc, onSnapshot, collection, query, limit } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { 
   ArrowLeft, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, 
@@ -753,6 +753,38 @@ export default function CandidateDetailsPage() {
     setEditedAchievements(prev => prev.filter((_, i) => i !== index));
   };
 
+  const handleDeleteCandidate = () => {
+    setConfirmConfig({
+      isOpen: true,
+      title: 'Delete Candidate',
+      message: `Are you sure you want to permanently delete ${candidate?.fullName || 'this candidate'}? This action cannot be undone.`,
+      variant: 'danger',
+      confirmText: 'Delete',
+      onConfirm: async () => {
+        try {
+          await deleteDoc(doc(db, 'candidates', id!));
+          try {
+            await logActivity(
+              getUserDisplayName(),
+              user?.uid || '',
+              getUserRole(),
+              'Delete Candidate',
+              candidate?.fullName || 'Candidate',
+              null,
+              `Deleted candidate record: ${candidate?.fullName || id}`,
+              'Candidates'
+            );
+          } catch (e) {
+            console.warn("Failed to log activity:", e);
+          }
+          navigate('/candidates');
+        } catch (err) {
+          console.error('Error deleting candidate:', err);
+        }
+      }
+    });
+  };
+
   const renderHighlightedText = (text: string) => {
     if (!searchTerm.trim()) return text;
     const terms = searchTerm.toLowerCase().split(/\s+/).filter(t => t.length > 0);
@@ -951,6 +983,17 @@ export default function CandidateDetailsPage() {
               </>
             )}
             
+            {(role === 'admin' || role === 'developer' || role === 'team_leader' || candidate.uploadedBy === user?.uid) && (
+              <button
+                onClick={handleDeleteCandidate}
+                className="px-3 py-2 bg-rose-50 dark:bg-rose-950/40 text-rose-600 dark:text-rose-400 hover:bg-rose-100 dark:hover:bg-rose-900/50 rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 border border-rose-200 dark:border-rose-900/50"
+                title="Delete Candidate"
+              >
+                <Trash2 size={13} />
+                <span>Delete</span>
+              </button>
+            )}
+
             {(role === 'admin' || role === 'developer' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid) && (
               <>
                 <button 

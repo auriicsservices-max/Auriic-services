@@ -372,7 +372,15 @@ cron.schedule('*/10 * * * * *', async () => {
         console.log(`[Worker] Processing resume: ${resume.fileName}`);
         const buffer = Buffer.from(resume.fileContent, 'base64');
         const mimeType = resume.fileName.endsWith('.pdf') ? 'application/pdf' : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
-        const parsedData = await parseResumeFromBuffer(buffer, mimeType);
+        
+        const result = await resumeParser.parseBuffer(buffer, mimeType);
+        let parsedData;
+        try {
+            parsedData = await geminiParser.parseText(result.rawText);
+        } catch (geminiError) {
+            console.warn('[Worker] Gemini parsing failed for bulk resume, falling back to heuristic parsed data.', geminiError);
+            parsedData = result;
+        }
         
         await resumeDoc.ref.update({ status: 'completed', data: parsedData });
         

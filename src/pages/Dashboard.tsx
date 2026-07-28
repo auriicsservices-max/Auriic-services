@@ -536,24 +536,26 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         if (!parsed) throw new Error("Parser returned empty data");
         
         // Use extracted name, normalize it
-        const candidateFullName = (parsed.fullName || parsed.name || file.name.split('.')[0]).trim();
-        parsed.name = candidateFullName;
-        parsed.contact.email = (parsed.contact.email || 'pending@aurrum.co').toLowerCase();
-        parsed.contact.phone = (parsed.contact.phone || '').trim();
-        parsed.contact.linkedin = (parsed.contact.linkedin || '').trim();
+        const candidateFullName = (parsed.personal_info.full_name || file.name.split('.')[0]).trim();
+        parsed.personal_info.full_name = candidateFullName;
+        parsed.personal_info.email = (parsed.personal_info.email || 'pending@aurrum.co').toLowerCase();
+        parsed.personal_info.phone = (parsed.personal_info.phone || '').trim();
+        parsed.personal_info.links.linkedin = (parsed.personal_info.links.linkedin || '').trim();
+
+        const firstCompany = parsed.work_experience?.[0]?.company || '';
 
         // CHECK FOR DUPLICATES
         // Note: This check uses the latest candidates state, but might have race conditions
         // if multiple uploads are processed in parallel.
         const isDuplicateInState = candidates.find(c => 
-          (c.email && c.email === parsed.contact.email) ||
-          (c.phone && c.phone === parsed.contact.phone) ||
-          (c.linkedin && c.linkedin === parsed.contact.linkedin) ||
-          (c.fullName && c.fullName === candidateFullName && c.company === parsed.company)
+          (c.email && c.email === parsed.personal_info.email) ||
+          (c.phone && c.phone === parsed.personal_info.phone) ||
+          (c.linkedin && c.linkedin === parsed.personal_info.links.linkedin) ||
+          (c.fullName && c.fullName === candidateFullName && c.company === firstCompany)
         );
         
         // Check duplicate within the batch
-        const isDuplicateInBatch = addedEmailsInBatch.has(parsed.contact.email);
+        const isDuplicateInBatch = addedEmailsInBatch.has(parsed.personal_info.email);
         
         if (isDuplicateInState || isDuplicateInBatch) {
           const workerId = isDuplicateInState ? (isDuplicateInState.assignedTo || isDuplicateInState.uploadedBy) : 'this batch';
@@ -580,7 +582,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         }
 
         // Add to batch tracking
-        addedEmailsInBatch.add(parsed.contact.email);
+        addedEmailsInBatch.add(parsed.personal_info.email);
 
         // Compress text to store in Firebase (saving space)
         // 1. Convert to Base64 to ensure the file is stored even if storage fails or is blocked by CORS
@@ -610,13 +612,13 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         
         // Aurrum API requirements: file (Required), name (Required), email (Required)
         formData.append('file', file);
-        formData.append('name', parsed.name || file.name);
-        formData.append('email', parsed.contact.email || 'pending@aurrum.co');
-        if (parsed.contact.phone) {
-          formData.append('phone', parsed.contact.phone);
+        formData.append('name', parsed.personal_info.full_name || file.name);
+        formData.append('email', parsed.personal_info.email || 'pending@aurrum.co');
+        if (parsed.personal_info.phone) {
+          formData.append('phone', parsed.personal_info.phone);
         }
 
-        let result = { status: false, data: { id: null, url: null as string | null, name: parsed.name || file.name }, message: '' };
+        let result = { status: false, data: { id: null, url: null as string | null, name: parsed.personal_info.full_name || file.name }, message: '' };
         
         // NOTE: Firebase Storage upload is skipped to avoid CORS errors reported by user.
         // We rely on cvBase64 in Firestore and Aurrum API URL instead.
@@ -645,10 +647,10 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         // Progress: 80-95% -> Saving Candidate Data
         setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'Saving Candidate Data', progress: 80 } }));
         
-        const normalizedExperience = parsed.experience?.map(exp => ({
-          role: exp.title || '',
+        const normalizedExperience = parsed.work_experience?.map(exp => ({
+          role: exp.job_title || '',
           company: exp.company || '',
-          duration: exp.duration || '',
+          duration: exp.start_date && exp.end_date ? `${exp.start_date} - ${exp.end_date}` : (exp.start_date || exp.end_date || ''),
           description: exp.responsibilities?.join(". ") || "",
           location: exp.location || ''
         })) || [];
@@ -656,54 +658,70 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         const normalizedEducation = parsed.education?.map(edu => ({
           degree: edu.degree || '',
           school: edu.institution || '',
-          year: edu.duration || '',
-          field: edu.field || '',
-          gpa: edu.gpa || '',
+          year: edu.start_date && edu.end_date ? `${edu.start_date} - ${edu.end_date}` : (edu.start_date || edu.end_date || ''),
+          field: edu.field_of_study || '',
+          gpa: edu.grade || '',
           location: edu.location || ''
         })) || [];
 
-        const allSkills = Array.from(new Set([
-          ...(parsed.skills.languages || []),
-          ...(parsed.skills.frameworks || []),
-          ...(parsed.skills.databases || []),
-          ...(parsed.skills.tools || []),
-          ...(parsed.skills.libraries || []),
-          ...(parsed.skills.other || [])
-        ])).filter(s => s && s.length > 0);
+        const allSkills = parsed.all_skills || [];
 
-        const projectLinks = parsed.projects?.flatMap(p => p.links.map(l => ({ url: l, label: `Project: ${p.name}` }))) || [];
+        const projectLinks = parsed.projects?.flatMap(p => {
+          const links: { url: string, label: string }[] = [];
+          if (p.live_url) links.push({ url: p.live_url, label: `Project: ${p.name} (Live)` });
+          if (p.code_url) links.push({ url: p.code_url, label: `Project: ${p.name} (Source)` });
+          return links;
+        }) || [];
         
         const newCandidateRef = await addDoc(collection(db, 'candidates'), {
-          fullName: result.data?.name || parsed.name || file.name,
+          fullName: result.data?.name || parsed.personal_info.full_name || file.name,
           cvBase64: cvBase64,
           originalFileName: file.name,
-          email: (parsed.contact.email || 'pending@aurrum.co').toLowerCase(),
-          phone: parsed.contact.phone || '',
-          locationInfo: parsed.locationDetails || { city: '', state: '', country: '', postalCode: '' },
-          summary: parsed.profile || '', 
-          domainFocus: parsed.domainFocus || 'Other',
+          email: (parsed.personal_info.email || 'pending@aurrum.co').toLowerCase(),
+          phone: parsed.personal_info.phone || '',
+          locationInfo: {
+            city: parsed.personal_info.location?.city || '',
+            state: parsed.personal_info.location?.state || '',
+            country: parsed.personal_info.location?.country || '',
+            postalCode: ''
+          },
+          summary: parsed.professional_summary || '', 
+          domainFocus: parsed.personal_info.headline || 'Other',
           skills: allSkills,
-          categorizedSkills: parsed.skills, // Full structured data
+          categorizedSkills: {
+            languages: parsed.skills.find(s => s.category.toLowerCase() === 'languages')?.items || [],
+            frameworks: parsed.skills.find(s => s.category.toLowerCase() === 'frameworks')?.items || [],
+            databases: parsed.skills.find(s => s.category.toLowerCase() === 'databases')?.items || [],
+            tools: parsed.skills.find(s => s.category.toLowerCase() === 'tools')?.items || [],
+            libraries: parsed.skills.find(s => s.category.toLowerCase() === 'libraries')?.items || [],
+            other: parsed.skills.find(s => !['languages', 'frameworks', 'databases', 'tools', 'libraries'].includes(s.category.toLowerCase()))?.items || [],
+          },
           experience: normalizedExperience,
           education: normalizedEducation,
           projects: parsed.projects?.map(p => ({
-            title: p.name,
-            description: p.description.join(". "),
-            technologies: p.technologies,
-            duration: p.duration,
-            link: p.links[0] || null
+            title: p.name || '',
+            description: p.description || '',
+            technologies: p.technologies || [],
+            duration: '',
+            link: p.live_url || p.code_url || null
           })) || [],
-          certifications: parsed.achievements || [], // Map achievements to certifications for UI
-          achievements: parsed.achievements || [],
-          languages: parsed.languages || [],
-          interests: parsed.interests || [],
+          certifications: parsed.certifications?.map(c => c.name || '').filter(Boolean) || [],
+          achievements: parsed.awards || [],
+          salary: '',
+          noticePeriod: '',
+          workAuthorization: '',
+          currentCompany: parsed.work_experience?.[0]?.company || '',
+          currentJobTitle: parsed.work_experience?.[0]?.job_title || '',
+          languages: parsed.languages?.map(l => l.language) || [],
+          interests: [],
           links: [
-            ...(parsed.contact.linkedin ? [{ url: parsed.contact.linkedin, label: 'LinkedIn' }] : []),
-            ...(parsed.contact.github ? [{ url: parsed.contact.github, label: 'GitHub' }] : []),
-            ...(parsed.contact.portfolio ? [{ url: parsed.contact.portfolio, label: 'Portfolio' }] : []),
+            ...(parsed.personal_info.links.linkedin ? [{ url: parsed.personal_info.links.linkedin, label: 'LinkedIn' }] : []),
+            ...(parsed.personal_info.links.github ? [{ url: parsed.personal_info.links.github, label: 'GitHub' }] : []),
+            ...(parsed.personal_info.links.portfolio ? [{ url: parsed.personal_info.links.portfolio, label: 'Portfolio' }] : []),
+            ...(parsed.personal_info.links.website ? [{ url: parsed.personal_info.links.website, label: 'Website' }] : []),
             ...projectLinks
           ],
-          totalExperience: parsed.totalExperienceYears || 0,
+          totalExperience: parsed.total_experience_years || 0,
           rawResumeText: text,
           compressedText,
           isLargeFile,
@@ -734,7 +752,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         const message = formatNotificationMessage(
             getUserName(),
             getUserRole(),
-            `Uploaded CV for ${parsed.name || file.name} — Resume parsing completed`
+            `Uploaded CV for ${parsed.personal_info.full_name || file.name} — Resume parsing completed`
         );
         await createNotification(
             message,
@@ -749,7 +767,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             user?.uid || 'System',
             getUserRole(),
             "uploaded CV",
-            parsed.name || file.name,
+            parsed.personal_info.full_name || file.name,
             null,
             "Resume parsing completed",
             "CV Parsing"

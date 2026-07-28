@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown, Linkedin, Github, Twitter, ExternalLink, CheckCircle2, MapPin, Trash, Trash2, Plus, Layers } from 'lucide-react';
+import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown, Linkedin, Github, Twitter, ExternalLink, CheckCircle2, MapPin, Trash, Trash2, Plus, Layers, Building, Coins, ShieldAlert } from 'lucide-react';
 import LZString from 'lz-string';
 
 // Helper to get icon for link
@@ -76,6 +76,11 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const [editedSkills, setEditedSkills] = useState<string[]>([]);
   const [editedEmail, setEditedEmail] = useState('');
   const [editedPhone, setEditedPhone] = useState('');
+  const [editedSalary, setEditedSalary] = useState('');
+  const [editedNoticePeriod, setEditedNoticePeriod] = useState('');
+  const [editedWorkAuthorization, setEditedWorkAuthorization] = useState('');
+  const [editedCurrentCompany, setEditedCurrentCompany] = useState('');
+  const [editedCurrentJobTitle, setEditedCurrentJobTitle] = useState('');
 
   const handleAddExperience = () => {
     setEditedExperience(prev => [...prev, { role: '', company: '', duration: '', description: '' }]);
@@ -166,6 +171,11 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
         updateData.skills = editedSkills.filter(Boolean);
         updateData.email = editedEmail.trim();
         updateData.phone = editedPhone.trim();
+        updateData.salary = editedSalary.trim();
+        updateData.noticePeriod = editedNoticePeriod.trim();
+        updateData.workAuthorization = editedWorkAuthorization.trim();
+        updateData.currentCompany = editedCurrentCompany.trim();
+        updateData.currentJobTitle = editedCurrentJobTitle.trim();
       } else if (role === 'admin' || role === 'team_leader') {
         updateData.fullName = editedFullName.trim();
       }
@@ -389,6 +399,11 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       setEditedSkills(candidate.skills || []);
       setEditedEmail(candidate.email || '');
       setEditedPhone(candidate.phone || '');
+      setEditedSalary(candidate.salary || '');
+      setEditedNoticePeriod(candidate.noticePeriod || '');
+      setEditedWorkAuthorization(candidate.workAuthorization || '');
+      setEditedCurrentCompany(candidate.currentCompany || candidate.company || '');
+      setEditedCurrentJobTitle(candidate.currentJobTitle || (candidate.experience?.[0]?.role) || '');
     }
   }, [candidate, isEditing]);
 
@@ -1334,6 +1349,107 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                         <p className="text-xs font-black text-[var(--primary-gold)] truncate uppercase tracking-wider">{link.label || 'Reference Link'}</p>
                     </a>
                 ))}
+              </div>
+            </section>
+
+            {/* Employment & Sourcing Details */}
+            <section className="bg-[var(--card-bg)] p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm">
+              <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
+                <Briefcase size={12} className="text-[var(--primary-gold)]" /> Sourcing Insights
+              </h3>
+              <div className="space-y-3">
+                {isEditing && role === 'developer' ? (
+                  <>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Current Company</label>
+                      <input
+                        type="text"
+                        value={editedCurrentCompany}
+                        onChange={(e) => setEditedCurrentCompany(e.target.value)}
+                        className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold shadow-sm"
+                        placeholder="Current Company"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Current Job Title</label>
+                      <input
+                        type="text"
+                        value={editedCurrentJobTitle}
+                        onChange={(e) => setEditedCurrentJobTitle(e.target.value)}
+                        className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold shadow-sm"
+                        placeholder="Current Job Title"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Salary Expectation</label>
+                      <input
+                        type="text"
+                        value={editedSalary}
+                        onChange={(e) => setEditedSalary(e.target.value)}
+                        className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold shadow-sm"
+                        placeholder="e.g. $120,000/yr"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Notice Period</label>
+                      <input
+                        type="text"
+                        value={editedNoticePeriod}
+                        onChange={(e) => setEditedNoticePeriod(e.target.value)}
+                        className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold shadow-sm"
+                        placeholder="e.g. 30 Days, Immediate"
+                      />
+                    </div>
+                    <div className="flex flex-col gap-1">
+                      <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Work Authorization</label>
+                      <input
+                        type="text"
+                        value={editedWorkAuthorization}
+                        onChange={(e) => setEditedWorkAuthorization(e.target.value)}
+                        className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold shadow-sm"
+                        placeholder="e.g. US Citizen, Green Card"
+                      />
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
+                      <Building className="text-[var(--primary-gold)] shrink-0" size={14} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider leading-none mb-1">Current Company</p>
+                        <p className="text-xs font-bold text-[var(--text-secondary)] select-all truncate">{candidate.currentCompany || candidate.company || 'N/A'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
+                      <Briefcase className="text-[var(--primary-gold)] shrink-0" size={14} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider leading-none mb-1">Current Role</p>
+                        <p className="text-xs font-bold text-[var(--text-secondary)] select-all truncate">{candidate.currentJobTitle || (candidate.experience?.[0]?.role) || 'N/A'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
+                      <Coins className="text-[var(--primary-gold)] shrink-0" size={14} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider leading-none mb-1">Salary Expectation</p>
+                        <p className="text-xs font-bold text-[var(--text-secondary)] select-all truncate">{candidate.salary || 'N/A'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
+                      <Calendar className="text-[var(--primary-gold)] shrink-0" size={14} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider leading-none mb-1">Notice Period</p>
+                        <p className="text-xs font-bold text-[var(--text-secondary)] select-all truncate">{candidate.noticePeriod || 'N/A'}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
+                      <ShieldAlert className="text-[var(--primary-gold)] shrink-0" size={14} />
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider leading-none mb-1">Work Auth Status</p>
+                        <p className="text-xs font-bold text-[var(--text-secondary)] select-all truncate">{candidate.workAuthorization || 'N/A'}</p>
+                      </div>
+                    </div>
+                  </>
+                )}
               </div>
             </section>
 
