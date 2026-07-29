@@ -16,6 +16,7 @@ import { RobustResumeParser } from './src/services/resumeParser.server';
 import { GeminiResumeParser } from './src/services/geminiParser.server';
 import { GeminiSearchAssistant } from './src/services/geminiSearch.server';
 import { parseResumeFromBuffer } from './src/services/resumeParserServer';
+import { parseResumeHeuristically } from './src/lib/localParser';
 import { GoogleGenAI } from '@google/genai';
 
 // Load environment variables immediately on startup
@@ -155,7 +156,7 @@ app.get('/api/gemini/status', async (req, res) => {
       status: 'missing_key',
       configured: false,
       message: 'GEMINI_API_KEY environment variable is not configured.',
-      primaryModel: 'gemini-2.5-flash',
+      primaryModel: 'gemini-3.6-flash',
       fallbackModel: 'gemini-3.1-pro-preview',
       quotaLimits: {
         requestsPerMinute: { limit: '15 RPM (Free Tier) / 1,000 RPM (Paid)', unit: 'RPM' },
@@ -175,7 +176,7 @@ app.get('/api/gemini/status', async (req, res) => {
     });
 
     const response = await ai.models.generateContent({
-      model: 'gemini-2.5-flash',
+      model: 'gemini-3.6-flash',
       contents: 'Ping test. Reply OK.',
     });
 
@@ -186,7 +187,7 @@ app.get('/api/gemini/status', async (req, res) => {
       configured: true,
       maskedKey,
       latencyMs,
-      primaryModel: 'gemini-2.5-flash',
+      primaryModel: 'gemini-3.6-flash',
       fallbackModel: 'gemini-3.1-pro-preview',
       tier: 'Google AI Studio Tier (Pay-As-You-Go / Active)',
       sampleResponse: response.text ? response.text.trim().slice(0, 50) : 'OK',
@@ -214,7 +215,7 @@ app.get('/api/gemini/status', async (req, res) => {
       maskedKey,
       latencyMs,
       error: errMsg,
-      primaryModel: 'gemini-2.5-flash',
+      primaryModel: 'gemini-3.6-flash',
       fallbackModel: 'gemini-3.1-pro-preview',
       tier: isRateLimited ? 'Quota Limit Reached (429 Rate Limit)' : 'Verification Failed',
       quotaLimits: {
@@ -258,8 +259,14 @@ app.post('/api/cv/parse-text', async (req, res) => {
     const parsed = await geminiParser.parseText(text);
     res.json(parsed);
   } catch (error: any) {
-    console.error('[Server] parse-text Error:', error);
-    res.status(500).json({ error: 'Failed to parse resume text', details: error?.message || String(error) });
+    console.warn('[Server] parse-text Gemini error, falling back to local heuristic parser:', error?.message || error);
+    try {
+      const fallbackResult = await parseResumeHeuristically(text);
+      res.json(fallbackResult);
+    } catch (fallbackError) {
+      console.error('[Server] parse-text Fallback Error:', fallbackError);
+      res.status(500).json({ error: 'Failed to parse resume text', details: error?.message || String(error) });
+    }
   }
 });
 

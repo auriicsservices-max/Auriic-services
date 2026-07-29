@@ -143,30 +143,18 @@ export class GeminiSearchAssistant {
       }
     };
 
-    try {
-      console.log('[GeminiSearchAssistant] Attempting search with gemini-3.6-flash...');
-      const response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
-        contents: prompt,
-        config
-      });
+    const modelsToTry = [
+      "gemini-3.6-flash",
+      "gemini-3.1-flash-lite",
+      "gemini-2.5-flash",
+      "gemini-3.1-pro-preview"
+    ];
 
-      const rawText = response.text || '{}';
-      const cleanText = rawText.replace(/```json\s*/gi, '').replace(/```\s*$/gi, '').trim();
-      const parsed = JSON.parse(cleanText);
-      return {
-        matchedIds: Array.isArray(parsed.matchedIds) ? parsed.matchedIds : [],
-        explanation: parsed.explanation || 'Search complete.'
-      };
-    } catch (err: any) {
-      const errMsg = err?.message || String(err);
-      console.warn('[GeminiSearchAssistant] gemini-3.6-flash search error details:', errMsg);
-      
-      // Retry with fallback model: gemini-3.1-flash-lite
+    for (const modelName of modelsToTry) {
       try {
-        console.log('[GeminiSearchAssistant] Retrying search with fallback model: gemini-3.1-flash-lite...');
+        console.log(`[GeminiSearchAssistant] Attempting candidate search with model: ${modelName}...`);
         const response = await ai.models.generateContent({
-          model: "gemini-3.1-flash-lite",
+          model: modelName,
           contents: prompt,
           config
         });
@@ -178,11 +166,14 @@ export class GeminiSearchAssistant {
           matchedIds: Array.isArray(parsed.matchedIds) ? parsed.matchedIds : [],
           explanation: parsed.explanation || 'Search complete.'
         };
-      } catch (fallbackErr: any) {
-        console.warn('[GeminiSearchAssistant] Gemini models unavailable or rate limited. Falling back to rule-based heuristic search.', fallbackErr?.message);
-        return this.fallbackFilter(query, sanitizedCandidates);
+      } catch (err: any) {
+        const errMsg = err?.message || String(err);
+        console.warn(`[GeminiSearchAssistant] ${modelName} search error:`, errMsg);
       }
     }
+
+    console.warn('[GeminiSearchAssistant] All Gemini models unavailable or rate limited. Falling back to rule-based heuristic search engine.');
+    return this.fallbackFilter(query, sanitizedCandidates);
   }
 
   private fallbackFilter(query: string, candidates: AIPreparedCandidate[]): { matchedIds: string[]; explanation: string } {

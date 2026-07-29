@@ -435,7 +435,7 @@ export default function SystemSettings() {
                       <span className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider">Primary AI Model</span>
                       <div className="font-black text-xs text-[var(--text-primary)] font-mono flex items-center gap-1.5">
                         <Zap size={14} className="text-[var(--primary-gold)]" />
-                        {geminiStatus.primaryModel || 'gemini-2.5-flash'}
+                        {geminiStatus.primaryModel || 'gemini-3.6-flash'}
                       </div>
                     </div>
                     <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">

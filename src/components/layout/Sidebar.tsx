@@ -44,7 +44,7 @@ export default function Sidebar({
       title: 'Preferences',
       items: [
         { icon: Bell, label: 'Notifications', id: 'notifications' },
-        { icon: Settings, label: 'Settings', id: 'settings' },
+        ...(role !== 'recruiter' && role !== 'client' ? [{ icon: Settings, label: 'Settings', id: 'settings' }] : []),
       ]
     }
   ];

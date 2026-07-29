@@ -16,6 +16,7 @@ import { logActivity } from '../services/activityService';
 import { createNotification, formatNotificationMessage } from '../services/notificationService';
 import ConfirmModal from '../components/ConfirmModal';
 import { fetchCvList } from '../services/cvApiService';
+import { parseResumeHeuristically } from '../lib/localParser';
 import { STAGES, getStageConfig } from '../lib/pipelineStages';
 
 const STAGES_LIST = STAGES;
@@ -955,17 +956,24 @@ export default function CandidateDetailsPage() {
 
     setIsReParsing(true);
     try {
-      const res = await fetch('/api/cv/parse-text', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ text })
-      });
+      let parsed: any;
+      try {
+        const res = await fetch('/api/cv/parse-text', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
 
-      if (!res.ok) {
-        throw new Error(`Parse request failed with status ${res.status}`);
+        if (res.ok) {
+          parsed = await res.json();
+        } else {
+          console.warn(`[CandidateDetails] Server parse-text returned status ${res.status}. Executing client-side heuristic fallback...`);
+          parsed = await parseResumeHeuristically(text);
+        }
+      } catch (networkErr) {
+        console.warn('[CandidateDetails] Server parse-text request failed. Executing client-side heuristic fallback:', networkErr);
+        parsed = await parseResumeHeuristically(text);
       }
-
-      const parsed = await res.json();
       
       const normalizedExp = parsed.work_experience?.map((exp: any) => {
         const durationStr = exp.duration 

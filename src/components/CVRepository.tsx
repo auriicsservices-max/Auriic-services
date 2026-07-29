@@ -383,7 +383,7 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
                   <h4 className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider flex items-center gap-2">
                     AI CV Finder Assistant 
                     <span className="px-2 py-0.5 bg-[var(--primary-gold)]/10 text-[var(--primary-gold)] dark:text-gold-bc9b border border-[var(--primary-gold)]/20 text-[9px] font-black rounded-full uppercase tracking-widest">
-                      Gemini 2.5 Flash
+                      Gemini 3.6 Flash Engine
                     </span>
                   </h4>
                   <p className="text-[11px] text-[var(--text-muted)] mt-0.5 font-medium">Chat with Gemini AI to search, rank, and extract talent CVs in real time.</p>

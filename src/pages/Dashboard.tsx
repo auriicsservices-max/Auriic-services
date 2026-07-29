@@ -216,6 +216,12 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     }
   }, [user?.uid]);
 
+  useEffect(() => {
+    if ((role === 'recruiter' || role === 'client') && activeTab === 'settings') {
+      setActiveTab('home');
+    }
+  }, [role, activeTab]);
+
   const [showNotifications, setShowNotifications] = useState(false);
   const [selectedCandidate, setSelectedCandidate] = useState<any>(null);
   const handleCandidateSelect = (cand: any) => {
@@ -1619,7 +1625,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <div className="space-y-1">
               {[
                 { id: 'profile', label: 'My Profile', icon: UserCircle },
-                { id: 'settings', label: 'System Settings', icon: Settings },
+                ...(role !== 'recruiter' && role !== 'client' ? [{ id: 'settings', label: 'System Settings', icon: Settings }] : []),
               ].map((item) => (
                 <button 
                   key={item.id}
@@ -2618,7 +2624,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <LogReview />
           ) : activeTab === 'custom_skills' ? (
             <CustomSkillsManager />
-          ) : activeTab === 'settings' ? (
+          ) : activeTab === 'settings' && role !== 'recruiter' && role !== 'client' ? (
             <div className="space-y-6">
                <SystemSettings />
             </div>

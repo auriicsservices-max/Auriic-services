@@ -1,6 +1,7 @@
 import { GoogleGenAI, Type } from "@google/genai";
 import { ResumeData, ResumeSchema } from '../types/resume';
 import { extractRawTextFromBuffer } from './resumeParserServer';
+import { parseResumeHeuristically } from '../lib/localParser';
 
 export class GeminiResumeParser {
   private getAiClient(): GoogleGenAI | null {
@@ -46,7 +47,8 @@ export class GeminiResumeParser {
           `You are an expert executive talent parser for Aurrum CRM. Extract ALL candidate data from this attached resume/CV document into the exact required JSON structure with 100% precision and zero missing fields. Extract every job responsibility, project, link, contact detail, and skill list completely without truncation.`
         ];
 
-        return await this.executeGeminiParsing(ai, contents, '');
+        const rawTextFallback = await extractRawTextFromBuffer(buffer, mimeType).catch(() => '');
+        return await this.executeGeminiParsing(ai, contents, rawTextFallback);
       } catch (err: any) {
         console.warn('[GeminiResumeParser] Multimodal direct parse failed, falling back to text extraction:', err?.message || err);
       }
@@ -296,33 +298,20 @@ CRITICAL INSTRUCTIONS FOR EDUCATION & SUMMARY EXTRACTION:
       }
     };
 
-    try {
-      console.log('[GeminiResumeParser] Attempting resume parse with primary model: gemini-3.6-flash...');
-      const response = await ai.models.generateContent({
-        model: "gemini-3.6-flash",
-        contents,
-        config,
-      });
+    const candidateModels = [
+      "gemini-3.6-flash",
+      "gemini-3.1-flash-lite",
+      "gemini-2.5-flash",
+      "gemini-3.1-pro-preview"
+    ];
 
-      const rawText = response.text || '{}';
-      const cleanText = rawText.replace(/```json\s*/gi, '').replace(/```\s*$/gi, '').trim();
-      const rawObj = JSON.parse(cleanText);
-      const normalizedData = normalizeParsedResume(rawObj, fallbackRawText);
-      const parsedData = ResumeSchema.parse(normalizedData);
-      return parsedData;
-    } catch (err: any) {
-      const errMsg = err?.message || String(err);
-      if (errMsg.includes('API key not valid') || errMsg.includes('API_KEY_INVALID')) {
-        console.log('[GeminiResumeParser] Gemini API key invalid.');
-        throw new Error('Gemini API key invalid');
-      }
+    let lastError: any = null;
 
-      console.warn('[GeminiResumeParser] gemini-3.6-flash parsing failed. Error details:', errMsg);
-      
+    for (const modelName of candidateModels) {
       try {
-        console.log('[GeminiResumeParser] Retrying resume parse with fallback model: gemini-3.1-pro-preview...');
+        console.log(`[GeminiResumeParser] Attempting resume parse with model: ${modelName}...`);
         const response = await ai.models.generateContent({
-          model: "gemini-3.1-pro-preview",
+          model: modelName,
           contents,
           config,
         });
@@ -333,11 +322,30 @@ CRITICAL INSTRUCTIONS FOR EDUCATION & SUMMARY EXTRACTION:
         const normalizedData = normalizeParsedResume(rawObj, fallbackRawText);
         const parsedData = ResumeSchema.parse(normalizedData);
         return parsedData;
-      } catch (fallbackErr: any) {
-        console.warn('[GeminiResumeParser] Fallback gemini-3.1-pro-preview error:', fallbackErr?.message || fallbackErr);
-        throw fallbackErr;
+      } catch (err: any) {
+        lastError = err;
+        const errMsg = err?.message || String(err);
+        if (errMsg.includes('API key not valid') || errMsg.includes('API_KEY_INVALID')) {
+          console.warn('[GeminiResumeParser] Gemini API key invalid.');
+          break;
+        }
+        console.warn(`[GeminiResumeParser] ${modelName} parse failed:`, errMsg);
       }
     }
+
+    // High availability fallback: If all AI models failed or rate-limited, use heuristic parser
+    console.warn('[GeminiResumeParser] All Gemini models failed or rate-limited. Falling back to local heuristic extraction engine...');
+    if (fallbackRawText && fallbackRawText.trim()) {
+      const fallbackResult = await parseResumeHeuristically(fallbackRawText);
+      fallbackResult.review_reasons = [
+        ...(fallbackResult.review_reasons || []),
+        'AI parsing temporarily rate-limited; extracted using high-precision local fallback engine.'
+      ];
+      fallbackResult.needs_review = true;
+      return fallbackResult;
+    }
+
+    throw lastError || new Error('All AI parsing attempts failed and no raw text was available for fallback.');
   }
 }
 
