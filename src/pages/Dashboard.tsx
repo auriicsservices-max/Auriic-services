@@ -144,6 +144,13 @@ export default function Dashboard() {
     newParsed: any;
     file: File | null;
   } | null>(null);
+  // Queue management
+  const [resumeQueue, setResumeQueue] = useState<{
+    file: File;
+    status: 'queued' | 'processing' | 'completed' | 'failed';
+    error?: string;
+  }[]>([]);
+
   const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills'>(() => {
     return (location.state as any)?.tab || 'home';
   });
@@ -518,8 +525,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     // Track emails in this batch to prevent duplicates if Firebase hasn't updated yet
     const addedEmailsInBatch = new Set<string>();
     
-    // Process files in parallel to improve performance
-    await Promise.all(acceptedFiles.map(async (file) => {
+    // Process files sequentially to ensure detailed analysis
+    for (const file of acceptedFiles) {
       if (file.size > fileSizeLimit * 1024 * 1024) {
         setDuplicateNotification({
           isOpen: true,
@@ -837,7 +844,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         setUploadStatus('error');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
       }
-    }));
+    }
 
     
     setTimeout(() => {
