@@ -144,12 +144,35 @@ export default function Dashboard() {
     newParsed: any;
     file: File | null;
   } | null>(null);
-  // Queue management
+    // Queue management
   const [resumeQueue, setResumeQueue] = useState<{
     file: File;
-    status: 'queued' | 'processing' | 'completed' | 'failed';
+    status: 'queued' | 'processing' | 'completed' | 'failed' | 'duplicate';
     error?: string;
+    reason?: string;
   }[]>([]);
+
+  const processingRef = React.useRef(false);
+
+  const processQueue = async () => {
+    if (processingRef.current) return;
+    
+    // Find next queued item
+    let nextIndex = -1;
+    setResumeQueue(prev => {
+        nextIndex = prev.findIndex(item => item.status === 'queued');
+        return prev;
+    });
+    
+    if (nextIndex === -1) return;
+
+    processingRef.current = true;
+    
+    // (Logic will be implemented next)
+    processingRef.current = false;
+    processQueue(); // Loop
+  };
+
 
   const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills'>(() => {
     return (location.state as any)?.tab || 'home';
