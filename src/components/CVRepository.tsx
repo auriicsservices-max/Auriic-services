@@ -116,9 +116,21 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
         })
       });
 
+      const contentType = response.headers.get('content-type');
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.details || errorData.error || `Server returned status ${response.status}`);
+        let errorMessage = `Server returned status ${response.status}`;
+        if (contentType && contentType.includes('application/json')) {
+          const errorData = await response.json().catch(() => ({}));
+          errorMessage = errorData.details || errorData.error || errorMessage;
+        } else {
+          const errorText = await response.text().catch(() => '');
+          console.error('Server returned non-JSON error:', errorText);
+        }
+        throw new Error(errorMessage);
+      }
+
+      if (!contentType || !contentType.includes('application/json')) {
+        throw new Error('Server returned an invalid response (not JSON)');
       }
 
       const result = await response.json();
