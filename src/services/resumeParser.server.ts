@@ -257,26 +257,62 @@ export class RobustResumeParser {
       highlights: p.description || []
     }));
 
-    const eduParsed = this.parseEducation(sections.education);
+    // Unlabeled Summary Fallback
+    let professionalSummary = (sections.profile || '').trim();
+    if (!professionalSummary || professionalSummary.length < 20) {
+      const topLines = text.split('\n').slice(0, 20);
+      for (const line of topLines) {
+        const trimmed = line.trim();
+        if (
+          trimmed.length > 45 &&
+          !trimmed.includes('@') &&
+          !/phone|tel|\+\d+|linkedin|github|http/i.test(trimmed) &&
+          !/\b(experience|education|skills|projects)\b/i.test(trimmed)
+        ) {
+          professionalSummary = trimmed;
+          break;
+        }
+      }
+    }
+
+    // Education parsing with full-document fallback search
+    let eduParsed = this.parseEducation(sections.education);
+    if (eduParsed.length === 0) {
+      eduParsed = this.parseEducationFromFullText(text);
+    }
+
     const education = eduParsed.map(edu => ({
       degree: edu.degree || '',
-      field_of_study: edu.field || '',
+      field_of_study: edu.field_of_study || edu.course || '',
+      course: edu.course || edu.field_of_study || '',
+      specialization: edu.specialization || '',
       institution: edu.institution || '',
+      board: edu.board || '',
       location: edu.location || '',
-      start_date: '',
-      end_date: edu.duration || '',
-      start_year: '',
-      end_year: edu.duration || '',
-      grade: edu.gpa || '',
-      gpa: edu.gpa || '',
-      honors: ''
+      duration: edu.duration || '',
+      start_date: edu.start_date || '',
+      end_date: edu.end_date || edu.duration || '',
+      start_year: edu.start_year || '',
+      end_year: edu.end_year || edu.duration || '',
+      grade: edu.grade || edu.gpa || '',
+      gpa: edu.gpa || edu.grade || '',
+      honors: edu.honors || '',
+      certifications: edu.certifications || []
     }));
 
     const headline = workExperience[0]?.job_title || 'Software Professional';
 
+    const eduConfidence = education.length > 0 ? 'high' : 'low';
+    const sumConfidence = professionalSummary.length > 20 ? 'high' : 'low';
+    const reviewReasons: string[] = [];
+    if (education.length === 0) reviewReasons.push('Education section missing or incomplete');
+    if (!professionalSummary) reviewReasons.push('Professional summary missing');
+
+    const needsReview = education.length === 0 || !professionalSummary;
+
     const data: ResumeData = {
       is_resume: true,
-      parsing_confidence: 'medium',
+      parsing_confidence: needsReview ? 'medium' : 'high',
       detected_language: 'en',
       contact: {
         full_name: name,
@@ -307,7 +343,11 @@ export class RobustResumeParser {
         website: '',
         other_urls: []
       },
-      professional_summary: sections.profile || '',
+      professional_summary: professionalSummary,
+      education_confidence: eduConfidence,
+      summary_confidence: sumConfidence,
+      needs_review: needsReview,
+      review_reasons: reviewReasons,
       total_experience_years: totalExperienceYears,
       career_level: 'Mid-Level',
       primary_role: headline,
@@ -343,14 +383,26 @@ export class RobustResumeParser {
 
   private extractSections(text: string): Record<string, string> {
     const sectionHeaders: Record<string, RegExp[]> = {
-      profile: [/\bSummary\b/i, /\bProfile\b/i, /\bObjective\b/i, /\bAbout Me\b/i],
-      experience: [/\bExperience\b/i, /\bWork History\b/i, /\bEmployment\b/i, /\bProfessional Experience\b/i],
-      education: [/\bEducation\b/i, /\bAcademic Background\b/i, /\bQualifications\b/i],
-      projects: [/\bProjects\b/i, /\bPersonal Projects\b/i, /\bAcademic Projects\b/i],
-      skills: [/\bSkills\b/i, /\bTechnologies\b/i, /\bTechnical Skills\b/i, /\bCore Competencies\b/i],
-      achievements: [/\bAchievements\b/i, /\bHonors\b/i, /\bAwards\b/i],
-      languages: [/\bLanguages\b/i],
-      interests: [/\bInterests\b/i, /\bHobbies\b/i],
+      profile: [
+        /\b(summary|profile|objective|about\s*me|executive\s*summary|professional\s*summary|career\s*summary|profile\s*summary|overview|biography|personal\s*statement)\b/i
+      ],
+      experience: [
+        /\b(experience|work\s*history|employment|professional\s*experience|work\s*experience|career\s*history|employment\s*history)\b/i
+      ],
+      education: [
+        /\b(education|academic\s*background|qualifications|academic\s*history|degrees?\s*&\s*training|educational\s*qualifications|schooling|credentials|studies)\b/i
+      ],
+      projects: [
+        /\b(projects|personal\s*projects|academic\s*projects|key\s*projects)\b/i
+      ],
+      skills: [
+        /\b(skills|technologies|technical\s*skills|core\s*competencies|areas\s*of\s*expertise|key\s*skills)\b/i
+      ],
+      achievements: [
+        /\b(achievements|honors|awards|recognitions|accolades)\b/i
+      ],
+      languages: [/\b(languages|language\s*proficiency)\b/i],
+      interests: [/\b(interests|hobbies|activities)\b/i],
     };
 
     const lines = text.split('\n');
@@ -376,34 +428,124 @@ export class RobustResumeParser {
     return result;
   }
 
-  private parseExperience(text: string): any[] {
-    const blocks = text.split(/\n(?=[A-Z0-9].*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|\d{4}))/i);
-    return blocks.filter(b => b.trim().length > 10).map(block => {
-      const lines = block.trim().split('\n');
-      const titleLine = lines[0];
-      const durationMatch = block.match(/(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|\d{2})?[\s\/-]*\d{2,4}\s*[-–—to]+\s*(?:Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec|\d{2}|Present|Current)?(?:[\s\/-]*\d{2,4})?/i);
-      
-      const responsibilities = lines.slice(1).filter(l => l.trim().startsWith('•') || l.trim().startsWith('-') || l.trim().length > 20);
-      
-      return {
-        title: titleLine.split(/ at | - | \| /i)[0].trim(),
-        company: (titleLine.split(/ at | - | \| /i)[1] || '').split(/[,(]/)[0].trim() || 'Software Company',
-        duration: durationMatch ? durationMatch[0] : '',
-        responsibilities: responsibilities.map(r => r.replace(/^[•-]\s*/, '').trim()),
-      };
-    });
+  private parseEducation(text: string): any[] {
+    if (!text || !text.trim()) return [];
+    const blocks = text.split(/\n\s*\n/).filter(b => b.trim().length > 8);
+    const results: any[] = [];
+
+    for (const block of blocks) {
+      const lines = block.split('\n').map(l => l.trim()).filter(l => l.length > 0);
+      if (lines.length === 0) continue;
+
+      const fullStr = lines.join(' ');
+      const yearMatches = fullStr.match(/\b(19|20)\d{2}\b/g) || [];
+      const duration = yearMatches.length >= 2 ? `${yearMatches[0]} - ${yearMatches[1]}` : (yearMatches[0] || '');
+
+      let degree = 'Degree';
+      if (/bachelor|b\.s|b\.a|b\.tech|b\.e|b\.sc|b\.com|bba|bca/i.test(fullStr)) degree = 'Bachelor';
+      else if (/master|m\.s|m\.a|m\.tech|m\.e|m\.sc|m\.com|mba|mca/i.test(fullStr)) degree = 'Master';
+      else if (/ph\.?d|doctorate/i.test(fullStr)) degree = 'PhD';
+      else if (/associate/i.test(fullStr)) degree = 'Associate';
+      else if (/diploma/i.test(fullStr)) degree = 'Diploma';
+      else if (/high\s*school|secondary|cbse|icse/i.test(fullStr)) degree = 'High School';
+
+      // Course / Field of study
+      const courseMatch = fullStr.match(/\b(?:in|of|major\s*in|specializing\s*in)\s+([A-Za-z\s&,]{3,35})\b/i);
+      const field_of_study = courseMatch ? courseMatch[1].trim() : (lines[1] || '');
+
+      // Board detection
+      const boardMatch = fullStr.match(/\b(cbse|icse|state\s*board|autonomous|cambridge|igcse|central\s*board|state\s*council)\b/i);
+      const board = boardMatch ? boardMatch[0].toUpperCase() : '';
+
+      // Institution
+      const parts = lines[0].split(/,|-|\|/);
+      const institution = parts[0]?.trim() || 'University / Institute';
+
+      // Grade / CGPA / Percentage
+      const gradeMatch = fullStr.match(/\b(?:gpa|cgpa|grade|percentage|marks)\s*:?\s*([\d\.]+(?:\/[\d\.]+|%|\s*cgpa)?)/i) || fullStr.match(/\b(\d{1,2}\.\d{1,2}\/10|\d{2}%|\d\.\d{1,2}\/4\.0)\b/i);
+      const grade = gradeMatch ? gradeMatch[0] : '';
+
+      results.push({
+        degree,
+        field_of_study,
+        course: field_of_study,
+        specialization: '',
+        institution,
+        board,
+        location: '',
+        duration,
+        start_date: yearMatches[0] || '',
+        end_date: yearMatches[1] || yearMatches[0] || '',
+        grade,
+        gpa: grade,
+        honors: '',
+        certifications: []
+      });
+    }
+
+    return results;
   }
 
-  private parseEducation(text: string): any[] {
-    const lines = text.split('\n').filter(l => l.trim().length > 5);
-    return lines.map(line => {
-      const yearMatch = line.match(/\d{4}/g);
+  private parseEducationFromFullText(fullText: string): any[] {
+    const lines = fullText.split('\n');
+    const results: any[] = [];
+
+    lines.forEach(line => {
+      const trimmed = line.trim();
+      if (/bachelor|master|ph\.?d|b\.tech|b\.e|m\.tech|m\.s|b\.s|diploma|university|college|institute|cbse|icse|cgpa|gpa/i.test(trimmed)) {
+        if (trimmed.length > 10 && !/experience|work history|company/i.test(trimmed)) {
+          const yearMatches = trimmed.match(/\b(19|20)\d{2}\b/g) || [];
+          let degree = 'Degree';
+          if (/bachelor|b\.s|b\.a|b\.tech|b\.e/i.test(trimmed)) degree = 'Bachelor';
+          else if (/master|m\.s|m\.a|m\.tech|mba/i.test(trimmed)) degree = 'Master';
+          else if (/ph\.?d/i.test(trimmed)) degree = 'PhD';
+          else if (/diploma/i.test(trimmed)) degree = 'Diploma';
+          else if (/cbse|icse|high\s*school/i.test(trimmed)) degree = 'High School';
+
+          const parts = trimmed.split(/,|-|\|/);
+          const institution = parts[0]?.trim() || 'Educational Institute';
+          const gradeMatch = trimmed.match(/\b(?:gpa|cgpa|grade|percentage)\s*:?\s*([\d\.]+(?:\/[\d\.]+|%)?)/i);
+
+          results.push({
+            degree,
+            field_of_study: parts[1]?.trim() || '',
+            course: parts[1]?.trim() || '',
+            specialization: '',
+            institution,
+            board: /cbse/i.test(trimmed) ? 'CBSE' : (/icse/i.test(trimmed) ? 'ICSE' : ''),
+            location: '',
+            duration: yearMatches.join(' - '),
+            start_date: yearMatches[0] || '',
+            end_date: yearMatches[1] || yearMatches[0] || '',
+            grade: gradeMatch ? gradeMatch[0] : '',
+            gpa: gradeMatch ? gradeMatch[0] : '',
+            honors: '',
+            certifications: []
+          });
+        }
+      }
+    });
+
+    return results.slice(0, 4);
+  }
+
+  private parseExperience(text: string): any[] {
+    if (!text || !text.trim()) return [];
+    const blocks = text.split(/\n(?=[A-Z0-9])/).filter(b => b.trim().length > 10);
+    return blocks.map(block => {
+      const lines = block.trim().split('\n').map(l => l.trim()).filter(Boolean);
+      const title = lines[0] || 'Role';
+      const company = lines[1] || '';
+      const yearMatches = block.match(/\b(19|20)\d{2}\b/g) || [];
+      const duration = yearMatches.length >= 2 ? `${yearMatches[0]} - ${yearMatches[1]}` : (yearMatches[0] || '');
+      const responsibilities = lines.slice(2).filter(l => l.length > 5);
       return {
-        institution: line.split(/,|-|\|/)[0].trim(),
-        degree: line.includes('Bachelor') ? 'Bachelor' : line.includes('Master') ? 'Master' : 'Degree',
-        duration: yearMatch ? yearMatch.join(' - ') : '',
+        title,
+        company,
+        duration,
+        responsibilities
       };
-    }).slice(0, 3);
+    }).slice(0, 8);
   }
 
   private parseProjects(text: string): any[] {

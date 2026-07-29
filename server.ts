@@ -469,10 +469,15 @@ cron.schedule('*/10 * * * * *', async () => {
         const result = await resumeParser.parseBuffer(buffer, mimeType);
         let parsedData;
         try {
-            parsedData = await geminiParser.parseText(result.rawText);
+            parsedData = await geminiParser.parseBuffer(buffer, mimeType, resume.fileName);
         } catch (geminiError) {
-            console.warn('[Worker] Gemini parsing failed for bulk resume, falling back to heuristic parsed data.', geminiError);
-            parsedData = result;
+            console.warn('[Worker] Gemini parseBuffer failed for bulk resume, attempting text fallback...', geminiError);
+            try {
+                parsedData = await geminiParser.parseText(result.rawText);
+            } catch (fallbackErr) {
+                console.warn('[Worker] Gemini parseText also failed, falling back to heuristic parsing.', fallbackErr);
+                parsedData = result;
+            }
         }
         
         await resumeDoc.ref.update({ status: 'completed', data: parsedData });

@@ -81,6 +81,75 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const [editedWorkAuthorization, setEditedWorkAuthorization] = useState('');
   const [editedCurrentCompany, setEditedCurrentCompany] = useState('');
   const [editedCurrentJobTitle, setEditedCurrentJobTitle] = useState('');
+  const [editedLinks, setEditedLinks] = useState<any[]>([]);
+
+  const [showAddCustomLinkModal, setShowAddCustomLinkModal] = useState(false);
+  const [modalLinkPlatform, setModalLinkPlatform] = useState('LinkedIn');
+  const [modalLinkLabel, setModalLinkLabel] = useState('');
+  const [modalLinkUrl, setModalLinkUrl] = useState('');
+  const [isSavingModalLink, setIsSavingModalLink] = useState(false);
+
+  const handleAddLink = () => {
+    setEditedLinks(prev => [...prev, { label: 'LinkedIn', url: '' }]);
+  };
+  const handleUpdateLink = (index: number, key: string, value: string) => {
+    setEditedLinks(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [key]: value };
+      return updated;
+    });
+  };
+  const handleRemoveLink = (index: number) => {
+    setEditedLinks(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const handleSaveModalDirectLink = async () => {
+    if (!modalLinkUrl.trim() || !candidate) return;
+    setIsSavingModalLink(true);
+    try {
+      const finalLabel = modalLinkPlatform === 'Custom' 
+        ? (modalLinkLabel.trim() || 'Link') 
+        : modalLinkPlatform;
+      const formattedUrl = modalLinkUrl.trim().startsWith('http') 
+        ? modalLinkUrl.trim() 
+        : `https://${modalLinkUrl.trim()}`;
+      
+      const newLinkObj = { label: finalLabel, url: formattedUrl };
+      const currentLinks = candidate.links || [];
+      const updatedLinks = [...currentLinks, newLinkObj];
+
+      await updateDoc(doc(db, 'candidates', candidate.id), {
+        links: updatedLinks,
+        updatedAt: new Date().toISOString()
+      });
+
+      setEditedLinks(updatedLinks);
+      setModalLinkUrl('');
+      setModalLinkLabel('');
+      setShowAddCustomLinkModal(false);
+    } catch (err) {
+      console.error('Error saving link in modal:', err);
+    } finally {
+      setIsSavingModalLink(false);
+    }
+  };
+
+  const handleDeleteModalDirectLink = async (indexToDelete: number) => {
+    if (!candidate) return;
+    try {
+      const currentLinks = candidate.links || [];
+      const updatedLinks = currentLinks.filter((_: any, idx: number) => idx !== indexToDelete);
+
+      await updateDoc(doc(db, 'candidates', candidate.id), {
+        links: updatedLinks,
+        updatedAt: new Date().toISOString()
+      });
+
+      setEditedLinks(updatedLinks);
+    } catch (err) {
+      console.error('Error removing link in modal:', err);
+    }
+  };
 
   const handleAddExperience = () => {
     setEditedExperience(prev => [...prev, { role: '', company: '', duration: '', description: '' }]);
@@ -176,6 +245,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
         updateData.workAuthorization = editedWorkAuthorization.trim();
         updateData.currentCompany = editedCurrentCompany.trim();
         updateData.currentJobTitle = editedCurrentJobTitle.trim();
+        updateData.links = editedLinks.filter(l => l.url && l.url.trim() !== '');
       } else if (role === 'admin' || role === 'team_leader') {
         updateData.fullName = editedFullName.trim();
       }
@@ -404,6 +474,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       setEditedWorkAuthorization(candidate.workAuthorization || '');
       setEditedCurrentCompany(candidate.currentCompany || candidate.company || '');
       setEditedCurrentJobTitle(candidate.currentJobTitle || (candidate.experience?.[0]?.role) || '');
+      setEditedLinks(candidate.links || []);
     }
   }, [candidate, isEditing]);
 
@@ -1114,14 +1185,45 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   )}
                 </div>
               ) : (
-                <div className="space-y-6 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
-                  {candidate.education?.map((edu: any, i: number) => (
-                    <div key={i} className="relative pl-6 border-l-2 border-[var(--border-color)]/70 hover:border-emerald-500/50 transition-all duration-300">
-                      <div className="absolute -left-1.5 top-1.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[var(--bg-primary)] shadow-sm" />
-                      <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">{edu.degree}</h4>
-                      <p className="text-emerald-600 dark:text-emerald-400 text-xs font-bold mt-0.5">{edu.school} • {edu.year}</p>
-                    </div>
-                  ))}
+                <div className="space-y-6 max-h-[300px] overflow-y-auto custom-scrollbar pr-2">
+                  {candidate.education?.map((edu: any, i: number) => {
+                    const deg = edu.degree || edu.course || edu.field || edu.field_of_study || 'Degree';
+                    const course = edu.course || edu.field || edu.field_of_study || '';
+                    const spec = edu.specialization || '';
+                    const sch = edu.school || edu.institution || edu.university || '';
+                    const board = edu.board || '';
+                    const yr = edu.year || edu.duration || (edu.start_year || edu.start_date ? `${edu.start_year || edu.start_date} - ${edu.end_year || edu.end_date || 'Present'}` : (edu.end_year || edu.end_date || ''));
+                    const gpa = edu.gpa || edu.grade || '';
+                    const loc = edu.location || '';
+                    const certs = Array.isArray(edu.certifications) ? edu.certifications : [];
+
+                    return (
+                      <div key={i} className="relative pl-6 border-l-2 border-[var(--border-color)]/70 hover:border-emerald-500/50 transition-all duration-300">
+                        <div className="absolute -left-1.5 top-1.5 w-3.5 h-3.5 rounded-full bg-emerald-500 border-2 border-[var(--bg-primary)] shadow-sm" />
+                        <div className="flex flex-wrap items-baseline justify-between gap-2">
+                          <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">
+                            {deg}{course && course !== deg ? ` — ${course}` : ''}{spec ? ` (${spec})` : ''}
+                          </h4>
+                          {gpa && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">Grade/GPA: {gpa}</span>}
+                        </div>
+                        <p className="text-emerald-600 dark:text-emerald-400 text-xs font-bold mt-0.5">
+                          {sch}{board ? ` • Board: ${board}` : ''}{yr ? ` • ${yr}` : ''}{loc ? ` • ${loc}` : ''}
+                        </p>
+                        {certs.length > 0 && (
+                          <div className="mt-1.5 flex flex-wrap gap-1">
+                            {certs.map((c: string, ci: number) => (
+                              <span key={ci} className="text-[10px] bg-[var(--bg-secondary)] text-[var(--text-secondary)] px-2 py-0.5 rounded-md border border-[var(--border-color)]">
+                                {c}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                  {(!candidate.education || candidate.education.length === 0) && (
+                    <p className="text-xs italic text-[var(--text-muted)] text-center py-4">No academic credentials extracted.</p>
+                  )}
                 </div>
               )}
             </section>
@@ -1399,9 +1501,20 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
 
             {/* Direct Contact info */}
             <section className="bg-[var(--card-bg)] p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                <Mail size={12} className="text-[var(--primary-gold)]" /> Contact channels
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
+                  <Mail size={12} className="text-[var(--primary-gold)]" /> Contact channels
+                </h3>
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCustomLinkModal(!showAddCustomLinkModal)}
+                    className="text-[10px] font-black text-[var(--primary-gold)] hover:underline uppercase tracking-wider flex items-center gap-1 bg-[var(--bg-secondary)] px-2.5 py-1 rounded-lg border border-[var(--border-color)] transition-all hover:border-[var(--primary-gold)]"
+                  >
+                    <Plus size={11} /> {showAddCustomLinkModal ? 'Cancel' : 'Add Link'}
+                  </button>
+                )}
+              </div>
               <div className="space-y-3">
                 {isEditing && role === 'developer' ? (
                   <>
@@ -1446,14 +1559,141 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                         : 'Location undisclosed'}
                   </p>
                 </div>
-                {!isEditing && candidate.links?.map((link: any, i: number) => (
-                    <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl transition-all hover:border-[var(--primary-gold)] hover:scale-[1.01]">
-                        <div className="text-[var(--primary-gold)] shrink-0">
-                            {getLinkIcon(link.label || 'Link')}
+                {isEditing && role === 'developer' ? (
+                  <div className="space-y-3 pt-2 border-t border-[var(--border-color)]">
+                    <div className="flex items-center justify-between">
+                      <label className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider">Social / Custom Links</label>
+                      <button
+                        type="button"
+                        onClick={handleAddLink}
+                        className="text-[9px] font-black text-[var(--primary-gold)] hover:underline uppercase tracking-wider flex items-center gap-1"
+                      >
+                        <Plus size={10} /> Add Link
+                      </button>
+                    </div>
+                    {editedLinks.map((link: any, i: number) => (
+                      <div key={i} className="p-3 bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl relative flex flex-col gap-2 shadow-sm">
+                        <button
+                          type="button"
+                          onClick={() => handleRemoveLink(i)}
+                          className="absolute top-2.5 right-2.5 text-rose-500 hover:text-rose-600 transition-colors p-1"
+                          title="Remove link"
+                        >
+                          <Trash2 size={13} />
+                        </button>
+                        <div className="grid grid-cols-2 gap-2">
+                          <input
+                            type="text"
+                            value={link.label || ''}
+                            onChange={(e) => handleUpdateLink(i, 'label', e.target.value)}
+                            className="bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg px-2.5 py-1 text-xs font-bold text-[var(--text-primary)]"
+                            placeholder="Label (e.g. GitHub)"
+                          />
+                          <input
+                            type="url"
+                            value={link.url || ''}
+                            onChange={(e) => handleUpdateLink(i, 'url', e.target.value)}
+                            className="bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg px-2.5 py-1 text-xs font-bold text-[var(--text-primary)]"
+                            placeholder="https://..."
+                          />
                         </div>
-                        <p className="text-xs font-black text-[var(--primary-gold)] truncate uppercase tracking-wider">{link.label || 'Reference Link'}</p>
-                    </a>
-                ))}
+                      </div>
+                    ))}
+                    {editedLinks.length === 0 && (
+                      <p className="text-[var(--text-muted)] text-center py-2 text-xs font-semibold">No custom links added. Click "+ Add Link" to add one.</p>
+                    )}
+                  </div>
+                ) : (
+                  candidate.links?.map((link: any, i: number) => (
+                      <div key={i} className="group relative flex items-center justify-between p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl transition-all hover:border-[var(--primary-gold)]">
+                          <a href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 min-w-0 flex-1">
+                              <div className="text-[var(--primary-gold)] shrink-0">
+                                  {getLinkIcon(link.label || 'Link')}
+                              </div>
+                              <div className="min-w-0">
+                                  <p className="text-xs font-black text-[var(--primary-gold)] truncate uppercase tracking-wider">{link.label || 'Reference Link'}</p>
+                                  <p className="text-[10px] text-[var(--text-muted)] truncate">{link.url}</p>
+                              </div>
+                          </a>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteModalDirectLink(i)}
+                            className="opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-600 transition-opacity p-1 ml-2"
+                            title="Delete link"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                      </div>
+                  ))
+                )}
+
+                {!isEditing && showAddCustomLinkModal && (
+                  <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--primary-gold)] rounded-2xl space-y-3 mt-2 shadow-md">
+                    <p className="text-[10px] font-black uppercase text-[var(--primary-gold)] tracking-wider">Add Social / Custom Link</p>
+                    
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-bold text-[var(--text-muted)] uppercase">Platform / Label</label>
+                      <select
+                        value={modalLinkPlatform}
+                        onChange={(e) => setModalLinkPlatform(e.target.value)}
+                        className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--text-primary)]"
+                      >
+                        <option value="LinkedIn">LinkedIn</option>
+                        <option value="GitHub">GitHub</option>
+                        <option value="Portfolio">Portfolio</option>
+                        <option value="Twitter">Twitter / X</option>
+                        <option value="Website">Personal Website</option>
+                        <option value="Dribbble">Dribbble</option>
+                        <option value="Medium">Medium</option>
+                        <option value="YouTube">YouTube</option>
+                        <option value="Custom">Custom Label</option>
+                      </select>
+                    </div>
+
+                    {modalLinkPlatform === 'Custom' && (
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-[var(--text-muted)] uppercase">Custom Label Name</label>
+                        <input
+                          type="text"
+                          value={modalLinkLabel}
+                          onChange={(e) => setModalLinkLabel(e.target.value)}
+                          placeholder="e.g. Behance, Kaggle, StackOverflow"
+                          className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--text-primary)]"
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-[var(--text-muted)] uppercase">Link URL</label>
+                      <input
+                        type="url"
+                        value={modalLinkUrl}
+                        onChange={(e) => setModalLinkUrl(e.target.value)}
+                        placeholder="https://..."
+                        className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--text-primary)]"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleSaveModalDirectLink}
+                        disabled={isSavingModalLink || !modalLinkUrl.trim()}
+                        className="crm-btn-gold text-[10px] px-3 py-1.5 flex items-center gap-1 rounded-xl"
+                      >
+                        {isSavingModalLink ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                        Save Link
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddCustomLinkModal(false)}
+                        className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] px-3 py-1.5 font-bold"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
 

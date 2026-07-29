@@ -184,9 +184,11 @@ export default function SystemSettings() {
   const [invoiceLogoDark, setInvoiceLogoDark] = useState<string>('');
 
   const [totalCvCount, setTotalCvCount] = useState<number>(0);
+
   const [isSaving, setIsSaving] = useState(false);
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+
 
   // Gemini API Quota & Status State
   const [geminiStatus, setGeminiStatus] = useState<any>(null);

@@ -50,15 +50,20 @@ export const toInternalResumeData = (jsonResume: JSONResumeData): ResumeData => 
   const education = jsonResume.education.map(e => ({
     degree: e.studyType || '',
     field_of_study: e.area || '',
+    course: e.area || '',
+    specialization: '',
     institution: e.institution || '',
+    board: '',
     location: '',
+    duration: e.startDate ? `${e.startDate} - ${e.endDate || 'Present'}` : (e.endDate || ''),
     start_date: e.startDate || '',
     end_date: e.endDate || '',
     start_year: e.startDate || '',
     end_year: e.endDate || '',
     grade: e.score || '',
     gpa: e.score || '',
-    honors: ''
+    honors: '',
+    certifications: []
   }));
 
   const certifications = jsonResume.certificates.map(c => ({
@@ -117,6 +122,13 @@ export const toInternalResumeData = (jsonResume: JSONResumeData): ResumeData => 
         .map(p => p.url || '')
     },
     professional_summary: jsonResume.basics.summary || '',
+    education_confidence: education.length > 0 ? 'high' : 'low',
+    summary_confidence: jsonResume.basics.summary ? 'high' : 'low',
+    needs_review: education.length === 0 || !jsonResume.basics.summary,
+    review_reasons: [
+      ...(education.length === 0 ? ['Education section missing or incomplete'] : []),
+      ...(!jsonResume.basics.summary ? ['Professional summary missing'] : [])
+    ],
     total_experience_years: 0,
     career_level: 'Mid-Level',
     primary_role: headline,

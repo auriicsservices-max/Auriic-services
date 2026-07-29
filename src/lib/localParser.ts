@@ -391,10 +391,11 @@ function extractExperience(expText: string) {
 }
 
 // Education Extractor (splits on blank lines, 1 block = 1 school/degree)
-function extractEducation(eduText: string) {
-  if (!eduText.trim()) return [];
+function extractEducation(eduText: string, fullText: string = '') {
+  const textToScan = eduText.trim() ? eduText : fullText;
+  if (!textToScan.trim()) return [];
 
-  const blocks = eduText.split(/\n\s*\n/).filter(b => b.trim().length > 10);
+  const blocks = textToScan.split(/\n\s*\n/).filter(b => b.trim().length > 10);
   const educationList: any[] = [];
 
   for (const block of blocks) {
@@ -402,35 +403,50 @@ function extractEducation(eduText: string) {
     if (lines.length === 0) continue;
 
     const fullStr = lines.join(' ');
-    const yearMatch = fullStr.match(/\b(19|20)\d{2}\b/g);
-    const startDate = yearMatch && yearMatch[0] ? yearMatch[0] : '';
-    const endDate = yearMatch && yearMatch[1] ? yearMatch[1] : (yearMatch && yearMatch[0] ? yearMatch[0] : '');
+    // Filter out blocks that are clearly experience or skills when scanning fullText
+    if (!eduText.trim() && !/bachelor|master|ph\.?d|b\.tech|b\.e|m\.tech|degree|diploma|university|college|institute|cbse|icse/i.test(fullStr)) {
+      continue;
+    }
+
+    const yearMatch = fullStr.match(/\b(19|20)\d{2}\b/g) || [];
+    const startDate = yearMatch[0] || '';
+    const endDate = yearMatch[1] || yearMatch[0] || '';
 
     // Degree detection
     let degree = 'Degree';
-    if (/bachelor|b\.s|b\.a|b\.tech|b\.e/i.test(fullStr)) degree = 'Bachelor';
-    else if (/master|m\.s|m\.a|m\.tech|m\.b\.a/i.test(fullStr)) degree = 'Master';
-    else if (/phd|doctorate/i.test(fullStr)) degree = 'PhD';
+    if (/bachelor|b\.s|b\.a|b\.tech|b\.e|b\.sc|b\.com|bba|bca/i.test(fullStr)) degree = 'Bachelor';
+    else if (/master|m\.s|m\.a|m\.tech|m\.e|m\.sc|m\.com|mba|mca/i.test(fullStr)) degree = 'Master';
+    else if (/ph\.?d|doctorate/i.test(fullStr)) degree = 'PhD';
     else if (/associate/i.test(fullStr)) degree = 'Associate';
     else if (/diploma/i.test(fullStr)) degree = 'Diploma';
+    else if (/high\s*school|secondary|cbse|icse/i.test(fullStr)) degree = 'High School';
 
     // Institution & Field
     const parts = lines[0].split(/,|-|\|/);
     const institution = parts[0]?.trim() || 'Institution';
     const field_of_study = parts[1]?.trim() || (lines[1] ? lines[1] : '');
 
+    // Board detection
+    const boardMatch = fullStr.match(/\b(cbse|icse|state\s*board|autonomous|cambridge|igcse)\b/i);
+    const board = boardMatch ? boardMatch[0].toUpperCase() : '';
+
     // Grade / GPA detection
-    const gpaMatch = fullStr.match(/\b(?:gpa|grade|cgpa)\s*:?\s*([\d\.]+(?:\/[\d\.]+)?)\b/i);
+    const gpaMatch = fullStr.match(/\b(?:gpa|grade|cgpa|percentage)\s*:?\s*([\d\.]+(?:\/[\d\.]+|%)?)/i) || fullStr.match(/\b(\d{1,2}\.\d{1,2}\/10|\d{2}%|\d\.\d{1,2}\/4\.0)\b/i);
     const grade = gpaMatch ? gpaMatch[0] : '';
 
     educationList.push({
       institution,
       degree,
       field_of_study,
+      course: field_of_study,
+      specialization: '',
+      board,
       location: '',
       start_date: startDate,
       end_date: endDate,
-      grade
+      grade,
+      gpa: grade,
+      certifications: []
     });
   }
 
@@ -442,7 +458,25 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
   const sections = splitSections(text);
   const contact = extractContact(text);
   const experience = extractExperience(sections.experience || text);
-  const education = extractEducation(sections.education || text);
+  const education = extractEducation(sections.education, text);
+
+  // Unlabeled summary fallback
+  let summaryText = sections.summary.trim();
+  if (!summaryText || summaryText.length < 20) {
+    const topLines = text.split('\n').slice(0, 20);
+    for (const l of topLines) {
+      const trimmed = l.trim();
+      if (
+        trimmed.length > 45 &&
+        !trimmed.includes('@') &&
+        !/phone|tel|\+\d+|linkedin|github|http/i.test(trimmed) &&
+        !/\b(experience|education|skills|projects)\b/i.test(trimmed)
+      ) {
+        summaryText = trimmed;
+        break;
+      }
+    }
+  }
 
   // Skills Analysis via Step 4 Skills Checker Engine
   const skillAnalysis = analyzeSkillsFromText(text);
@@ -513,18 +547,30 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
 
   const educationNormalized = education.map(edu => ({
     degree: edu.degree || '',
-    field_of_study: edu.field_of_study || '',
+    field_of_study: edu.field_of_study || edu.course || '',
+    course: edu.course || edu.field_of_study || '',
+    specialization: edu.specialization || '',
     institution: edu.institution || '',
+    board: edu.board || '',
     location: edu.location || '',
     duration: edu.start_date ? `${edu.start_date} - ${edu.end_date || 'Present'}` : (edu.end_date || ''),
     start_date: edu.start_date || '',
     end_date: edu.end_date || '',
     start_year: edu.start_date || '',
     end_year: edu.end_date || '',
-    grade: edu.grade || '',
-    gpa: edu.grade || '',
-    honors: ''
+    grade: edu.grade || edu.gpa || '',
+    gpa: edu.gpa || edu.grade || '',
+    honors: '',
+    certifications: edu.certifications || []
   }));
+
+  const eduConfidence = educationNormalized.length > 0 ? 'high' : 'low';
+  const sumConfidence = summaryText.length > 20 ? 'high' : 'low';
+  const reviewReasons: string[] = [];
+  if (educationNormalized.length === 0) reviewReasons.push('Education section missing or incomplete');
+  if (!summaryText) reviewReasons.push('Professional summary missing');
+
+  const needsReview = educationNormalized.length === 0 || !summaryText;
 
   const projectsNormalized = projectsList.map(p => ({
     name: p.name || '',
@@ -546,7 +592,7 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
 
   const resume: ParsedResume = {
     is_resume: true,
-    parsing_confidence: 'medium',
+    parsing_confidence: needsReview ? 'medium' : 'high',
     detected_language: 'en',
     contact: {
       full_name: fullName,
@@ -571,7 +617,11 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
       website: contact.links?.website || '',
       other_urls: contact.links?.other || []
     },
-    professional_summary: sections.summary.trim() || text.slice(0, 300),
+    professional_summary: summaryText,
+    education_confidence: eduConfidence,
+    summary_confidence: sumConfidence,
+    needs_review: needsReview,
+    review_reasons: reviewReasons,
     total_experience_years: experience.length > 0 ? Math.max(1, experience.length * 2) : 0,
     career_level: 'Mid-Level',
     primary_role: headline,

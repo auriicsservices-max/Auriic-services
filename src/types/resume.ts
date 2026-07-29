@@ -151,16 +151,26 @@ export const ResumeSchema = z.object({
   education: z.array(z.object({
     degree: z.string().nullable().default(''),
     field_of_study: z.string().nullable().default(''),
+    course: z.string().nullable().optional().default(''),
+    specialization: z.string().nullable().optional().default(''),
     institution: z.string().nullable().default(''),
+    board: z.string().nullable().optional().default(''),
     location: z.string().nullable().default(''),
     start_date: z.string().nullable().default(''),
     end_date: z.string().nullable().default(''),
     start_year: z.string().nullable().optional().default(''),
     end_year: z.string().nullable().optional().default(''),
+    duration: z.string().nullable().optional().default(''),
     grade: z.string().nullable().default(''),
     gpa: z.string().nullable().optional().default(''),
-    honors: z.string().nullable().optional().default('')
+    honors: z.string().nullable().optional().default(''),
+    certifications: z.array(z.string()).optional().default([])
   })).default([]),
+
+  education_confidence: z.enum(['high', 'medium', 'low']).optional().default('high'),
+  summary_confidence: z.enum(['high', 'medium', 'low']).optional().default('high'),
+  needs_review: z.boolean().optional().default(false),
+  review_reasons: z.array(z.string()).optional().default([]),
 
   certifications: z.array(z.union([
     z.string(),

@@ -77,23 +77,36 @@ ${text}
 
   private async executeGeminiParsing(ai: GoogleGenAI, contents: any, fallbackRawText: string): Promise<ResumeData> {
     const promptInstructions = `
-You are an expert resume parser for the Aurrum CRM talent platform.
-Extract EVERY single piece of information from the resume completely.
-Return ONLY a valid JSON object matching the exact schema provided.
+You are an expert executive resume parser for the Aurrum CRM talent platform.
+Extract EVERY single piece of candidate information from the attached resume completely into the exact required JSON structure with 100% precision.
 
-Rules:
-- Fill every field you can find. Use empty strings or empty arrays for missing fields.
-- Contact Details: Extract full name, primary email, mobile number (including international dial code e.g. +44, +1, +91), primary job title/designation, location (city, state, country), address.
-- Links: Extract LinkedIn profile URL, GitHub profile URL, portfolio URL, personal website, and any other relevant links.
-- Professional Summary: Extract the full career summary or profile statement.
-- Work Experience: For every role, extract exact job_title, company name, location, start_date, end_date, duration, is_current boolean, and EVERY responsibility/bullet point as separate strings in responsibilities array. Do NOT combine or truncate bullet points. Extract technologies used and key achievements.
-- Key Projects: Extract all personal and professional projects with project name, description, tech_stack array, live demo URL, GitHub repository URL, and key highlights.
-- Technical Skills: Categorize all technical skills into languages, frontend, backend, databases, cloud_devops, tools, cms_ecommerce, and other.
-- Education: Extract degree, field_of_study, institution name, location, start_date/year, end_date/year, grade/GPA, honors.
-- Certifications: Extract name, issuer/organizer, year/date.
-- Total Experience: Calculate total_experience_years accurately from job history dates.
-- Career Level: Determine career_level as "Junior", "Mid-Level", "Senior", "Lead", or "Executive".
-- Primary Role: Identify the primary professional title or domain.
+CRITICAL INSTRUCTIONS FOR EDUCATION & SUMMARY EXTRACTION:
+
+1. EDUCATION SECTION EXTRACTION MANDATE:
+   - Search the ENTIRE document (including headers, footers, sidebars, multi-column tables, text blocks, and non-standard headings).
+   - Detect Education entries regardless of section heading (e.g., "Education", "Academic Background", "Qualifications", "Academic History", "Degrees & Training", "Educational Qualifications", "Schooling", "Credentials", "Studies").
+   - Extract ALL education records without exception. For each entry, extract:
+     * degree: Exact degree name (e.g., B.Tech, Bachelor of Science, Master of Engineering, M.B.A., Ph.D., High School Diploma, Diploma).
+     * field_of_study / course: Major course/discipline (e.g., Computer Science, Information Technology, Business Administration).
+     * specialization: Specific concentration or stream if mentioned (e.g., Artificial Intelligence, Software Engineering).
+     * institution: Full name of the college, university, institute, or school.
+     * board: Board of education or affiliating university/body (e.g., CBSE, ICSE, State Board, Autonomous, Cambridge).
+     * location: Campus city/state/country.
+     * start_date / start_year & end_date / end_year: Duration or year of passing.
+     * grade / gpa: CGPA, percentage, GPA, marks, or class (e.g. 3.8/4.0, 85%, 8.5 CGPA, First Class with Distinction).
+     * honors: Academic honors, dean's list, merit awards.
+     * certifications: Any certifications or diplomas listed within the education section.
+   - FULL-DOCUMENT BACKUP: If no explicit "Education" heading exists, search the full text for degree keywords (Bachelor, B.S., B.Tech, Master, M.S., Ph.D., High School, University, College, Institute, CGPA, GPA, %) and parse every educational milestone found.
+
+2. PROFESSIONAL SUMMARY EXTRACTION MANDATE:
+   - Detect summary under ANY heading variation ("Professional Summary", "Career Summary", "Profile Summary", "Executive Summary", "Summary", "Profile", "Objective", "Career Objective", "About Me", "Overview", "Biography", "Personal Statement").
+   - UNLABELED SUMMARY DETECTION: If there is no explicit summary header, extract any top paragraph (2-5 sentences located below candidate name/contact info) that summarizes candidate experience, goals, or skills as professional_summary.
+   - VERBATIM PRESERVATION: Extract the EXACT, verbatim original summary text. Do NOT summarize, rewrite, rephrase, truncate, or drop any sentences.
+
+3. CONFIDENCE & REVIEW EVALUATION:
+   - Assess education_confidence ("high", "medium", "low") and summary_confidence ("high", "medium", "low").
+   - Set needs_review = true if Education is completely missing, if Summary is missing, or if confidence is low.
+   - List clear review_reasons (e.g., ["Education section missing or incomplete", "Summary section not detected"]).
 `;
 
     const config = {
@@ -235,18 +248,27 @@ Rules:
               properties: {
                 degree: { type: Type.STRING },
                 field_of_study: { type: Type.STRING },
+                course: { type: Type.STRING },
+                specialization: { type: Type.STRING },
                 institution: { type: Type.STRING },
+                board: { type: Type.STRING },
                 location: { type: Type.STRING },
                 start_date: { type: Type.STRING },
                 end_date: { type: Type.STRING },
                 start_year: { type: Type.STRING },
                 end_year: { type: Type.STRING },
+                duration: { type: Type.STRING },
                 grade: { type: Type.STRING },
                 gpa: { type: Type.STRING },
-                honors: { type: Type.STRING }
+                honors: { type: Type.STRING },
+                certifications: { type: Type.ARRAY, items: { type: Type.STRING } }
               }
             }
           },
+          education_confidence: { type: Type.STRING, enum: ["high", "medium", "low"] },
+          summary_confidence: { type: Type.STRING, enum: ["high", "medium", "low"] },
+          needs_review: { type: Type.BOOLEAN },
+          review_reasons: { type: Type.ARRAY, items: { type: Type.STRING } },
           certifications: {
             type: Type.ARRAY,
             items: {
@@ -275,9 +297,9 @@ Rules:
     };
 
     try {
-      console.log('[GeminiResumeParser] Attempting resume parse with primary model: gemini-3.5-flash...');
+      console.log('[GeminiResumeParser] Attempting resume parse with primary model: gemini-3.6-flash...');
       const response = await ai.models.generateContent({
-        model: "gemini-3.5-flash",
+        model: "gemini-3.6-flash",
         contents,
         config,
       });
@@ -295,7 +317,7 @@ Rules:
         throw new Error('Gemini API key invalid');
       }
 
-      console.warn('[GeminiResumeParser] gemini-3.5-flash parsing failed. Error details:', errMsg);
+      console.warn('[GeminiResumeParser] gemini-3.6-flash parsing failed. Error details:', errMsg);
       
       try {
         console.log('[GeminiResumeParser] Retrying resume parse with fallback model: gemini-3.1-pro-preview...');
@@ -413,24 +435,45 @@ function normalizeParsedResume(data: any, rawText: string): ResumeData {
   const education = rawEdu.map((e: any) => {
     const duration = e.duration || (e.start_year || e.start_date ? `${e.start_year || e.start_date} - ${e.end_year || e.end_date || 'Present'}` : (e.end_year || e.end_date || ''));
     return {
-      degree: e.degree || '',
-      field_of_study: e.field_of_study || '',
-      institution: e.institution || '',
+      degree: e.degree || e.field_of_study || e.course || '',
+      field_of_study: e.field_of_study || e.course || e.degree || '',
+      course: e.course || e.field_of_study || '',
+      specialization: e.specialization || '',
+      institution: e.institution || e.college || e.university || e.school || '',
+      board: e.board || e.affiliation || '',
       location: e.location || '',
       duration: duration,
       start_date: e.start_date || e.start_year || '',
       end_date: e.end_date || e.end_year || '',
       start_year: e.start_year || e.start_date || '',
       end_year: e.end_year || e.end_date || '',
-      grade: e.grade || e.gpa || '',
-      gpa: e.gpa || e.grade || '',
-      honors: e.honors || ''
+      grade: e.grade || e.gpa || e.cgpa || e.percentage || '',
+      gpa: e.gpa || e.grade || e.cgpa || '',
+      honors: e.honors || '',
+      certifications: Array.isArray(e.certifications) ? e.certifications : []
     };
   });
 
+  const professionalSummary = (data.professional_summary || '').trim();
+  
+  const eduConfidence = data.education_confidence || (education.length > 0 ? 'high' : 'low');
+  const sumConfidence = data.summary_confidence || (professionalSummary ? 'high' : 'low');
+  
+  const reviewReasons: string[] = Array.isArray(data.review_reasons) ? [...data.review_reasons] : [];
+  if (education.length === 0 && !reviewReasons.includes('Education section missing or incomplete')) {
+    reviewReasons.push('Education section missing or incomplete');
+  }
+  if (!professionalSummary && !reviewReasons.includes('Professional summary missing')) {
+    reviewReasons.push('Professional summary missing');
+  }
+
+  const needsReview = typeof data.needs_review === 'boolean'
+    ? data.needs_review
+    : (education.length === 0 || !professionalSummary || eduConfidence === 'low' || sumConfidence === 'low');
+
   return {
     is_resume: data.is_resume ?? true,
-    parsing_confidence: data.parsing_confidence || 'high',
+    parsing_confidence: data.parsing_confidence || (needsReview ? 'medium' : 'high'),
     detected_language: data.detected_language || 'en',
     contact: {
       full_name: fullName,
@@ -465,7 +508,11 @@ function normalizeParsedResume(data: any, rawText: string): ResumeData {
       website,
       other_urls: otherUrls
     },
-    professional_summary: data.professional_summary || '',
+    professional_summary: professionalSummary,
+    education_confidence: eduConfidence,
+    summary_confidence: sumConfidence,
+    needs_review: needsReview,
+    review_reasons: reviewReasons,
     total_experience_years: typeof data.total_experience_years === 'number' ? data.total_experience_years : 0,
     career_level: data.career_level || 'Mid-Level',
     primary_role: data.primary_role || designation,

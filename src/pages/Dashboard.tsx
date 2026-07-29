@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, useMemo } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { auth, db, getFirebaseStorage } from '../lib/firebase';
 import { collection, query, onSnapshot, addDoc, orderBy, updateDoc, doc, deleteDoc, where, getDocs, limit, getDocFromServer, getDoc, QuerySnapshot } from 'firebase/firestore';
@@ -23,6 +23,7 @@ import { InvoiceList } from '../components/InvoiceList';
 import ConfirmModal from '../components/ConfirmModal';
 
 import SystemSettings from '../components/SystemSettings';
+import CustomSkillsManager from '../components/CustomSkillsManager';
 import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
 import { RecruitmentPipeline } from '../components/RecruitmentPipeline';
@@ -93,7 +94,8 @@ import {
   Database,
   Target,
   MapPin,
-  Layers
+  Layers,
+  Sparkles
 } from 'lucide-react';
 
 
@@ -103,6 +105,7 @@ import BackupDashboard from '../components/BackupDashboard';
 
 export default function Dashboard() {
   const navigate = useNavigate();
+  const location = useLocation();
   const { user, role, quotaExceeded, setQuotaExceeded, isPrivileged, getUserDisplayName, getUserRole, getUserName } = useAuth();
   console.log("DEBUG: Dashboard role:", role);
   const { theme } = useTheme();
@@ -141,7 +144,9 @@ export default function Dashboard() {
     newParsed: any;
     file: File | null;
   } | null>(null);
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search'>('home');
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills'>(() => {
+    return (location.state as any)?.tab || 'home';
+  });
   const [bulkLimit, setBulkLimit] = useState<number>(20);
   const [fileSizeLimit, setFileSizeLimit] = useState<number>(5);
   const [searchPage, setSearchPage] = useState(1);
@@ -681,18 +686,22 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             degree: degreeName,
             school: schoolName,
             institution: schoolName,
+            course: edu.course || edu.field_of_study || edu.field || '',
+            specialization: edu.specialization || '',
+            board: edu.board || '',
             year: yearStr,
             duration: yearStr,
             start_date: edu.start_date || edu.start_year || '',
             end_date: edu.end_date || edu.end_year || '',
             start_year: edu.start_year || edu.start_date || '',
             end_year: edu.end_year || edu.end_date || '',
-            field: edu.field_of_study || edu.field || '',
-            field_of_study: edu.field_of_study || edu.field || '',
+            field: edu.field_of_study || edu.field || edu.course || '',
+            field_of_study: edu.field_of_study || edu.field || edu.course || '',
             gpa: edu.grade || edu.gpa || '',
             grade: edu.grade || edu.gpa || '',
             location: edu.location || '',
-            honors: edu.honors || ''
+            honors: edu.honors || '',
+            certifications: Array.isArray(edu.certifications) ? edu.certifications : []
           };
         }) || [];
 
@@ -757,6 +766,10 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             ...(parsed.personal_info.links.website ? [{ url: parsed.personal_info.links.website, label: 'Website' }] : []),
             ...projectLinks
           ],
+          educationConfidence: parsed.education_confidence || (normalizedEducation.length > 0 ? 'high' : 'low'),
+          summaryConfidence: parsed.summary_confidence || (parsed.professional_summary ? 'high' : 'low'),
+          needsReview: parsed.needs_review ?? (normalizedEducation.length === 0 || !parsed.professional_summary),
+          reviewReasons: parsed.review_reasons || [],
           totalExperience: parsed.total_experience_years || 0,
           rawResumeText: text,
           compressedText,
@@ -1570,6 +1583,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               <div className="space-y-1">
                 {[
                   ...((role === 'admin' || role === 'team_leader' || role === 'developer') ? [{ id: 'users', label: 'Team Hub', icon: Users }] : []),
+                  { id: 'custom_skills', label: 'Custom Skills', icon: Sparkles },
                   ...((role === 'developer') ? [{ id: 'backup', label: 'Backup & Export', icon: Download }] : []),
                   ...((role === 'developer') ? [{ id: 'database', label: 'Database Details', icon: Database }] : []),
                   ...(isPrivileged ? [{ id: 'trash', label: 'Archive Trash', icon: Trash2 }] : []),
@@ -2602,6 +2616,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <UserProfile />
           ) : activeTab === 'logs' ? (
             <LogReview />
+          ) : activeTab === 'custom_skills' ? (
+            <CustomSkillsManager />
           ) : activeTab === 'settings' ? (
             <div className="space-y-6">
                <SystemSettings />

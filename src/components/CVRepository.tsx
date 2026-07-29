@@ -221,11 +221,14 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
     
     let flatSkills: string[] = [];
     if (Array.isArray(candidate.skills)) {
-      flatSkills = candidate.skills;
+      flatSkills = [...candidate.skills];
     } else if (candidate.skills && typeof candidate.skills === 'object') {
       flatSkills = Object.values(candidate.skills)
         .filter(Array.isArray)
         .flat() as string[];
+    }
+    if (Array.isArray(candidate.matchedCustomSkills)) {
+      flatSkills.push(...candidate.matchedCustomSkills);
     }
     const skills = flatSkills.map((s: string) => s.toLowerCase());
 
@@ -272,7 +275,7 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
 
     // Apply AI matched IDs filter if active
     if (aiFilterActive) {
-      list = list.filter(c => aiMatchedIds.includes(c.id));
+      list = list.filter(c => aiMatchedIds.some(id => String(id) === String(c.id)));
     }
 
     if (selectedDomains.length > 0) {

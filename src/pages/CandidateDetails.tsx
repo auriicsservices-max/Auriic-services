@@ -81,6 +81,28 @@ export default function CandidateDetailsPage() {
   const [editedSkills, setEditedSkills] = useState<string[]>([]);
   const [editedEmail, setEditedEmail] = useState('');
   const [editedPhone, setEditedPhone] = useState('');
+  const [editedLinks, setEditedLinks] = useState<any[]>([]);
+
+  // Direct custom link addition state
+  const [showAddCustomLink, setShowAddCustomLink] = useState(false);
+  const [newCustomLinkPlatform, setNewCustomLinkPlatform] = useState('LinkedIn');
+  const [newCustomLinkLabel, setNewCustomLinkLabel] = useState('');
+  const [newCustomLinkUrl, setNewCustomLinkUrl] = useState('');
+  const [isSavingCustomLink, setIsSavingCustomLink] = useState(false);
+
+  const handleAddLink = () => {
+    setEditedLinks(prev => [...prev, { label: 'LinkedIn', url: '' }]);
+  };
+  const handleUpdateLink = (index: number, key: string, value: string) => {
+    setEditedLinks(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], [key]: value };
+      return updated;
+    });
+  };
+  const handleRemoveLink = (index: number) => {
+    setEditedLinks(prev => prev.filter((_, i) => i !== index));
+  };
 
   const [cvUrl, setCvUrl] = useState<string | null>(null);
   const [isFetchingCV, setIsFetchingCV] = useState<boolean>(false);
@@ -166,6 +188,7 @@ export default function CandidateDetailsPage() {
         setEditedSkills(data.skills || []);
         setEditedEmail(data.email || '');
         setEditedPhone(data.phone || '');
+        setEditedLinks(data.links || []);
 
         let initialCvUrl = data.url;
         if (!initialCvUrl && data.links) {
@@ -653,6 +676,7 @@ export default function CandidateDetailsPage() {
         updateData.skills = editedSkills.filter(Boolean);
         updateData.email = editedEmail.trim();
         updateData.phone = editedPhone.trim();
+        updateData.links = editedLinks.filter((l: any) => l && l.url && l.url.trim());
       } else if (role === 'admin' || role === 'team_leader') {
         updateData.fullName = editedFullName.trim();
       }
@@ -681,6 +705,72 @@ export default function CandidateDetailsPage() {
       showAlert('Error', 'Failed to save candidate profile changes.');
     } finally {
       setIsSaving(false);
+    }
+  };
+
+  const handleSaveDirectCustomLink = async () => {
+    if (!newCustomLinkUrl.trim()) {
+      showAlert('Required', 'Please enter a valid link URL.');
+      return;
+    }
+    setIsSavingCustomLink(true);
+    try {
+      const finalLabel = newCustomLinkPlatform === 'Custom' 
+        ? (newCustomLinkLabel.trim() || 'Link') 
+        : newCustomLinkPlatform;
+      const formattedUrl = newCustomLinkUrl.trim().startsWith('http') 
+        ? newCustomLinkUrl.trim() 
+        : `https://${newCustomLinkUrl.trim()}`;
+      
+      const newLinkObj = { label: finalLabel, url: formattedUrl };
+      const currentLinks = candidate.links || [];
+      const updatedLinks = [...currentLinks, newLinkObj];
+
+      await updateDoc(doc(db, 'candidates', candidate.id), {
+        links: updatedLinks,
+        updatedAt: new Date().toISOString()
+      });
+
+      setEditedLinks(updatedLinks);
+      setNewCustomLinkUrl('');
+      setNewCustomLinkLabel('');
+      setShowAddCustomLink(false);
+
+      await logActivity(
+        getUserDisplayName(),
+        user!.uid,
+        getUserRole(),
+        'Social Link Added',
+        candidate.fullName || 'Candidate',
+        null,
+        `Added social link [${finalLabel}] to candidate ${candidate.fullName}`,
+        'Candidate'
+      );
+
+      showAlert('Success', `${finalLabel} link added successfully!`);
+    } catch (err) {
+      console.error('Error adding social link:', err);
+      showAlert('Error', 'Failed to save social link.');
+    } finally {
+      setIsSavingCustomLink(false);
+    }
+  };
+
+  const handleDeleteDirectLink = async (indexToDelete: number) => {
+    try {
+      const currentLinks = candidate.links || [];
+      const updatedLinks = currentLinks.filter((_: any, idx: number) => idx !== indexToDelete);
+
+      await updateDoc(doc(db, 'candidates', candidate.id), {
+        links: updatedLinks,
+        updatedAt: new Date().toISOString()
+      });
+
+      setEditedLinks(updatedLinks);
+      showAlert('Success', 'Social link removed successfully.');
+    } catch (err) {
+      console.error('Error removing social link:', err);
+      showAlert('Error', 'Failed to remove social link.');
     }
   };
 
@@ -910,58 +1000,109 @@ export default function CandidateDetailsPage() {
           degree: degreeName,
           school: schoolName,
           institution: schoolName,
+          course: edu.course || edu.field_of_study || edu.field || '',
+          specialization: edu.specialization || '',
+          board: edu.board || '',
           year: yearStr,
           duration: yearStr,
           start_date: edu.start_date || edu.start_year || '',
           end_date: edu.end_date || edu.end_year || '',
           start_year: edu.start_year || edu.start_date || '',
           end_year: edu.end_year || edu.end_date || '',
-          field: edu.field_of_study || edu.field || '',
-          field_of_study: edu.field_of_study || edu.field || '',
+          field: edu.field_of_study || edu.field || edu.course || '',
+          field_of_study: edu.field_of_study || edu.field || edu.course || '',
           gpa: edu.grade || edu.gpa || '',
           grade: edu.grade || edu.gpa || '',
           location: edu.location || '',
-          honors: edu.honors || ''
+          honors: edu.honors || '',
+          certifications: Array.isArray(edu.certifications) ? edu.certifications : []
         };
       }) || [];
 
       const allSkills = parsed.all_skills || [];
 
+      // Extract comprehensive social & portfolio links
+      const extractedLinks: any[] = [];
+      const linkedin = parsed.personal_info?.links?.linkedin || parsed.contact?.linkedin || parsed.links?.linkedin || '';
+      const github = parsed.personal_info?.links?.github || parsed.contact?.github || parsed.links?.github || '';
+      const portfolio = parsed.personal_info?.links?.portfolio || parsed.contact?.portfolio || parsed.links?.portfolio || '';
+      const website = parsed.personal_info?.links?.website || parsed.contact?.website || parsed.links?.website || '';
+      const otherLinks = parsed.personal_info?.links?.other || parsed.links?.other || [];
+
+      if (linkedin) extractedLinks.push({ url: linkedin.startsWith('http') ? linkedin : `https://${linkedin}`, label: 'LinkedIn' });
+      if (github) extractedLinks.push({ url: github.startsWith('http') ? github : `https://${github}`, label: 'GitHub' });
+      if (portfolio) extractedLinks.push({ url: portfolio.startsWith('http') ? portfolio : `https://${portfolio}`, label: 'Portfolio' });
+      if (website) extractedLinks.push({ url: website.startsWith('http') ? website : `https://${website}`, label: 'Website' });
+
+      if (Array.isArray(otherLinks)) {
+        otherLinks.forEach((ol: any) => {
+          const urlStr = typeof ol === 'string' ? ol : (ol.url || '');
+          if (urlStr) {
+            extractedLinks.push({ url: urlStr.startsWith('http') ? urlStr : `https://${urlStr}`, label: (typeof ol === 'object' && ol.label) ? ol.label : 'Link' });
+          }
+        });
+      }
+
+      // Merge existing non-duplicate links if necessary
+      const existingLinks = candidate.links || [];
+      existingLinks.forEach((el: any) => {
+        if (el?.url && !extractedLinks.some(l => l.url.toLowerCase() === el.url.toLowerCase())) {
+          extractedLinks.push(el);
+        }
+      });
+
+      const parsedProjects = ((parsed.key_projects && parsed.key_projects.length > 0) ? parsed.key_projects : parsed.projects)?.map((p: any) => ({
+        title: p.name || p.title || 'Project',
+        role: p.role || '',
+        description: p.description || '',
+        highlights: Array.isArray(p.highlights) ? p.highlights : [],
+        technologies: Array.isArray(p.tech_stack) && p.tech_stack.length > 0
+          ? p.tech_stack
+          : (Array.isArray(p.technologies) ? p.technologies : []),
+        duration: p.duration || '',
+        link: p.live_url || p.code_url || p.link || null
+      })) || candidate.projects || [];
+
       const updateData: any = {
-        fullName: parsed.personal_info?.full_name || candidate.fullName,
-        email: (parsed.personal_info?.email || candidate.email || '').toLowerCase(),
-        phone: parsed.personal_info?.phone || candidate.phone || '',
+        fullName: parsed.personal_info?.full_name || parsed.contact?.full_name || candidate.fullName,
+        email: (parsed.personal_info?.email || parsed.contact?.email || candidate.email || '').toLowerCase(),
+        phone: parsed.personal_info?.phone || parsed.contact?.phone || parsed.contact?.mobile || candidate.phone || '',
         summary: parsed.professional_summary || candidate.summary || '',
         domainFocus: parsed.personal_info?.headline || parsed.primary_role || candidate.domainFocus || 'Other',
-        primaryRole: parsed.primary_role || candidate.primaryRole || '',
+        primaryRole: parsed.primary_role || parsed.contact?.designation || candidate.primaryRole || '',
         careerLevel: parsed.career_level || candidate.careerLevel || 'Mid-Level',
         totalExperience: parsed.total_experience_years ?? candidate.totalExperience,
         experience: normalizedExp,
         education: normalizedEdu,
+        educationConfidence: parsed.education_confidence || (normalizedEdu.length > 0 ? 'high' : 'low'),
+        summaryConfidence: parsed.summary_confidence || (parsed.professional_summary ? 'high' : 'low'),
+        needsReview: parsed.needs_review ?? (normalizedEdu.length === 0 || !parsed.professional_summary),
+        reviewReasons: parsed.review_reasons || [],
         skills: allSkills.length ? allSkills : candidate.skills,
-        projects: ((parsed.key_projects && parsed.key_projects.length > 0) ? parsed.key_projects : parsed.projects)?.map((p: any) => ({
-          title: p.name || p.title || 'Project',
-          role: p.role || '',
-          description: p.description || '',
-          highlights: Array.isArray(p.highlights) ? p.highlights : [],
-          technologies: Array.isArray(p.tech_stack) && p.tech_stack.length > 0
-            ? p.tech_stack
-            : (Array.isArray(p.technologies) ? p.technologies : []),
-          duration: p.duration || '',
-          link: p.live_url || p.code_url || p.link || null
-        })) || candidate.projects || [],
+        projects: parsedProjects,
         certifications: parsed.certifications?.map((c: any) => typeof c === 'string' ? c : (c.name || '')).filter(Boolean) || candidate.certifications || [],
         achievements: parsed.awards || candidate.achievements || [],
+        linkedin: linkedin ? (linkedin.startsWith('http') ? linkedin : `https://${linkedin}`) : (candidate.linkedin || ''),
+        links: extractedLinks,
+        currentCompany: parsed.work_experience?.[0]?.company || candidate.currentCompany || '',
+        currentJobTitle: parsed.work_experience?.[0]?.job_title || candidate.currentJobTitle || '',
+        languages: parsed.languages?.map((l: any) => typeof l === 'string' ? l : (l.language || l.name || '')).filter(Boolean) || candidate.languages || [],
         updatedAt: new Date().toISOString()
       };
 
-      if (parsed.personal_info?.location) {
+      const loc = parsed.personal_info?.location || parsed.contact?.location;
+      if (loc) {
+        const cityVal = typeof loc === 'string' ? loc.split(',')[0]?.trim() : (loc.city || '');
+        const stateVal = typeof loc === 'object' ? (loc.state || '') : '';
+        const countryVal = typeof loc === 'object' ? (loc.country || '') : '';
+        
         updateData.locationInfo = {
-          city: parsed.personal_info.location.city || candidate.locationInfo?.city || '',
-          state: parsed.personal_info.location.state || candidate.locationInfo?.state || '',
-          country: parsed.personal_info.location.country || candidate.locationInfo?.country || '',
+          city: cityVal || candidate.locationInfo?.city || '',
+          state: stateVal || candidate.locationInfo?.state || '',
+          country: countryVal || candidate.locationInfo?.country || '',
           postalCode: candidate.locationInfo?.postalCode || ''
         };
+        updateData.location = `${cityVal}${stateVal ? ', ' + stateVal : ''}${countryVal ? ', ' + countryVal : ''}`.trim() || candidate.location || '';
       }
 
       if (id) {
@@ -973,6 +1114,9 @@ export default function CandidateDetailsPage() {
       setEditedExperience(normalizedExp);
       setEditedEducation(normalizedEdu);
       if (allSkills.length) setSkills(allSkills);
+      if (updateData.locationInfo?.city) setCity(updateData.locationInfo.city);
+      if (updateData.locationInfo?.state) setState(updateData.locationInfo.state);
+      if (updateData.locationInfo?.country) setCountry(updateData.locationInfo.country);
 
       await logActivity(
         getUserDisplayName(),
@@ -1095,10 +1239,10 @@ export default function CandidateDetailsPage() {
           <p className="text-lg font-bold text-rose-500 mb-4">Profile Not Found</p>
           <p className="text-sm text-[var(--text-secondary)] mb-6">This candidate may have been removed or index is corrupt.</p>
           <button 
-            onClick={() => navigate('/dashboard')}
+            onClick={() => navigate('/dashboard', { state: { tab: 'candidates' } })}
             className="crm-btn-gold"
           >
-            Return to Dashboard
+            Return to Candidates
           </button>
         </div>
       </div>
@@ -1112,7 +1256,7 @@ export default function CandidateDetailsPage() {
       <div className="border-b border-[var(--border-color)] bg-[var(--card-bg)]/80 backdrop-blur-md sticky top-0 z-40 transition-colors">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex items-center justify-between gap-4">
           <button 
-            onClick={() => navigate(-1)}
+            onClick={() => navigate('/dashboard', { state: { tab: 'candidates' } })}
             className="group flex items-center gap-2.5 text-xs font-black text-[var(--text-muted)] hover:text-[var(--primary-gold)] uppercase tracking-widest transition-colors duration-200"
           >
             <ArrowLeft size={16} className="group-hover:-translate-x-1 transition-transform" />
@@ -1306,6 +1450,35 @@ export default function CandidateDetailsPage() {
             <p className="text-xs text-amber-800 dark:text-amber-200 font-bold">
               Large Index Frame: Extracting detailed PDF. Fallback document text is available inside sections below.
             </p>
+          </div>
+        )}
+
+        {/* AI Parsing Review Notice Banner */}
+        {(candidate.needsReview || candidate.educationConfidence === 'low' || candidate.summaryConfidence === 'low') && (
+          <div className="mb-8 p-4 bg-amber-500/10 border border-amber-500/30 rounded-2xl flex items-start justify-between gap-4">
+            <div className="flex items-start gap-3">
+              <span className="mt-0.5 p-1.5 bg-amber-500/20 text-amber-600 dark:text-amber-400 rounded-lg shrink-0">
+                <Code size={16} />
+              </span>
+              <div>
+                <h4 className="text-xs font-bold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
+                  Review Recommended (AI Confidence Score Warning)
+                </h4>
+                <p className="text-xs text-[var(--text-secondary)] mt-1">
+                  {candidate.reviewReasons && candidate.reviewReasons.length > 0
+                    ? candidate.reviewReasons.join(' • ')
+                    : 'Some sections (Education or Summary) may require verification or manual review.'}
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleReParseResume}
+              disabled={isReParsing}
+              className="crm-btn-gold text-xs shrink-0 self-center"
+            >
+              {isReParsing ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
+              <span>{isReParsing ? 'Re-extracting...' : 'AI Re-Extract'}</span>
+            </button>
           </div>
         )}
 
@@ -1532,27 +1705,39 @@ export default function CandidateDetailsPage() {
               ) : (
                 <div className="space-y-6">
                   {candidate.education?.map((edu: any, i: number) => {
-                    const deg = edu.degree || edu.field || edu.field_of_study || 'Degree';
+                    const deg = edu.degree || edu.course || edu.field || edu.field_of_study || 'Degree';
+                    const course = edu.course || edu.field || edu.field_of_study || '';
+                    const spec = edu.specialization || '';
                     const sch = edu.school || edu.institution || edu.university || '';
+                    const board = edu.board || '';
                     const yr = edu.year || edu.duration || (edu.start_year || edu.start_date ? `${edu.start_year || edu.start_date} - ${edu.end_year || edu.end_date || 'Present'}` : (edu.end_year || edu.end_date || ''));
-                    const fld = edu.field || edu.field_of_study || '';
                     const gpa = edu.gpa || edu.grade || '';
+                    const loc = edu.location || '';
+                    const certs = Array.isArray(edu.certifications) ? edu.certifications : [];
 
                     return (
                       <div key={i} className="relative pl-6 border-l-2 border-[var(--border-color)]/70 hover:border-emerald-500/50 transition-all duration-300">
                         <div className="absolute -left-1.5 top-1.5 w-3 h-3 rounded-full bg-emerald-500 border-2 border-[var(--bg-primary)] shadow-sm" />
                         <div className="flex flex-wrap items-baseline justify-between gap-2">
-                          <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">{deg}</h4>
-                          {gpa && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">Grade/GPA: {gpa}</span>}
+                          <h4 className="font-extrabold text-[var(--text-primary)] text-sm tracking-tight">
+                            {deg}{course && course !== deg ? ` — ${course}` : ''}{spec ? ` (${spec})` : ''}
+                          </h4>
+                          {gpa && <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">Grade/GPA: {gpa}</span>}
                         </div>
                         <p className="text-emerald-600 dark:text-emerald-400 text-xs font-bold mt-0.5">
-                          {sch}{yr ? ` • ${yr}` : ''}
+                          {sch}{board ? ` • Board: ${board}` : ''}{yr ? ` • ${yr}` : ''}{loc ? ` • ${loc}` : ''}
                         </p>
-                        {fld && fld !== deg && (
-                          <p className="text-xs text-[var(--text-secondary)] mt-1 font-medium">Field: {fld}</p>
-                        )}
                         {edu.honors && (
                           <p className="text-[11px] text-[var(--primary-gold)] mt-0.5 font-semibold">Honors: {edu.honors}</p>
+                        )}
+                        {certs.length > 0 && (
+                          <div className="mt-2 flex flex-wrap gap-1">
+                            {certs.map((c: string, ci: number) => (
+                              <span key={ci} className="text-[10px] font-medium bg-[var(--bg-secondary)] text-[var(--text-secondary)] px-2 py-0.5 rounded-md border border-[var(--border-color)]">
+                                {c}
+                              </span>
+                            ))}
+                          </div>
                         )}
                       </div>
                     );
@@ -1956,9 +2141,21 @@ export default function CandidateDetailsPage() {
 
             {/* Direct Contact info */}
             <section className="crm-card p-6">
-              <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
-                <Mail size={14} className="text-[var(--primary-gold)]" /> Contact Channels
-              </h3>
+              <div className="flex items-center justify-between mb-4">
+                <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
+                  <Mail size={14} className="text-[var(--primary-gold)]" /> Contact Channels
+                </h3>
+                {!isEditing && (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddCustomLink(!showAddCustomLink)}
+                    className="text-[10px] font-black text-[var(--primary-gold)] hover:underline uppercase tracking-wider flex items-center gap-1 bg-[var(--bg-secondary)] px-2.5 py-1 rounded-lg border border-[var(--border-color)] transition-all hover:border-[var(--primary-gold)]"
+                  >
+                    <Plus size={11} /> {showAddCustomLink ? 'Cancel' : 'Add Link'}
+                  </button>
+                )}
+              </div>
+
               <div className="space-y-3">
                 {isEditing && role === 'developer' ? (
                   <div className="space-y-3">
@@ -1979,6 +2176,50 @@ export default function CandidateDetailsPage() {
                         onChange={(e) => setEditedPhone(e.target.value)}
                         className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold"
                       />
+                    </div>
+
+                    <div className="pt-3 border-t border-[var(--border-color)] space-y-2">
+                      <div className="flex items-center justify-between">
+                        <label className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider">Social / Custom Links</label>
+                        <button
+                          type="button"
+                          onClick={handleAddLink}
+                          className="text-[9px] font-black text-[var(--primary-gold)] hover:underline uppercase tracking-wider flex items-center gap-1"
+                        >
+                          <Plus size={10} /> Add Link
+                        </button>
+                      </div>
+                      {editedLinks.map((link: any, i: number) => (
+                        <div key={i} className="p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl relative flex flex-col gap-2">
+                          <button
+                            type="button"
+                            onClick={() => handleRemoveLink(i)}
+                            className="absolute top-2.5 right-2.5 text-rose-500 hover:text-rose-600 transition-colors p-1"
+                            title="Remove link"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                          <div className="grid grid-cols-2 gap-2 pr-6">
+                            <input
+                              type="text"
+                              value={link.label || ''}
+                              onChange={(e) => handleUpdateLink(i, 'label', e.target.value)}
+                              className="bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg px-2.5 py-1 text-xs font-bold text-[var(--text-primary)]"
+                              placeholder="Label (e.g. LinkedIn)"
+                            />
+                            <input
+                              type="url"
+                              value={link.url || ''}
+                              onChange={(e) => handleUpdateLink(i, 'url', e.target.value)}
+                              className="bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-lg px-2.5 py-1 text-xs font-bold text-[var(--text-primary)]"
+                              placeholder="https://..."
+                            />
+                          </div>
+                        </div>
+                      ))}
+                      {editedLinks.length === 0 && (
+                        <p className="text-[var(--text-muted)] text-center py-2 text-xs font-semibold">No custom links added yet.</p>
+                      )}
                     </div>
                   </div>
                 ) : (
@@ -2004,13 +2245,94 @@ export default function CandidateDetailsPage() {
                 </div>
 
                 {!isEditing && candidate.links?.map((link: any, i: number) => (
-                  <a key={i} href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl transition-all hover:scale-[1.01]">
-                    <div className="text-[var(--primary-gold)] shrink-0">
-                      {getLinkIcon(link.label || 'Link')}
-                    </div>
-                    <p className="text-xs font-black text-[var(--primary-gold)] truncate uppercase tracking-wider">{link.label || 'Reference Link'}</p>
-                  </a>
+                  <div key={i} className="group relative flex items-center justify-between p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl transition-all hover:border-[var(--primary-gold)]">
+                    <a href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="text-[var(--primary-gold)] shrink-0">
+                        {getLinkIcon(link.label || 'Link')}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-xs font-black text-[var(--primary-gold)] truncate uppercase tracking-wider">{link.label || 'Reference Link'}</p>
+                        <p className="text-[10px] text-[var(--text-muted)] truncate">{link.url}</p>
+                      </div>
+                    </a>
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteDirectLink(i)}
+                      className="opacity-0 group-hover:opacity-100 text-rose-500 hover:text-rose-600 transition-opacity p-1 ml-2"
+                      title="Delete link"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 ))}
+
+                {!isEditing && showAddCustomLink && (
+                  <div className="p-4 bg-[var(--bg-secondary)] border border-[var(--primary-gold)] rounded-2xl space-y-3 mt-2 shadow-md">
+                    <p className="text-[10px] font-black uppercase text-[var(--primary-gold)] tracking-wider">Add Social / Custom Link</p>
+                    
+                    <div className="space-y-2">
+                      <label className="text-[9px] font-bold text-[var(--text-muted)] uppercase">Platform / Label</label>
+                      <select
+                        value={newCustomLinkPlatform}
+                        onChange={(e) => setNewCustomLinkPlatform(e.target.value)}
+                        className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--text-primary)]"
+                      >
+                        <option value="LinkedIn">LinkedIn</option>
+                        <option value="GitHub">GitHub</option>
+                        <option value="Portfolio">Portfolio</option>
+                        <option value="Twitter">Twitter / X</option>
+                        <option value="Website">Personal Website</option>
+                        <option value="Dribbble">Dribbble</option>
+                        <option value="Medium">Medium</option>
+                        <option value="YouTube">YouTube</option>
+                        <option value="Custom">Custom Label</option>
+                      </select>
+                    </div>
+
+                    {newCustomLinkPlatform === 'Custom' && (
+                      <div className="space-y-1">
+                        <label className="text-[9px] font-bold text-[var(--text-muted)] uppercase">Custom Label Name</label>
+                        <input
+                          type="text"
+                          value={newCustomLinkLabel}
+                          onChange={(e) => setNewCustomLinkLabel(e.target.value)}
+                          placeholder="e.g. Behance, Kaggle, StackOverflow"
+                          className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--text-primary)]"
+                        />
+                      </div>
+                    )}
+
+                    <div className="space-y-1">
+                      <label className="text-[9px] font-bold text-[var(--text-muted)] uppercase">Link URL</label>
+                      <input
+                        type="url"
+                        value={newCustomLinkUrl}
+                        onChange={(e) => setNewCustomLinkUrl(e.target.value)}
+                        placeholder="https://..."
+                        className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs font-bold text-[var(--text-primary)]"
+                      />
+                    </div>
+
+                    <div className="flex items-center gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={handleSaveDirectCustomLink}
+                        disabled={isSavingCustomLink || !newCustomLinkUrl.trim()}
+                        className="crm-btn-gold text-[10px] px-3 py-1.5 flex items-center gap-1 rounded-xl"
+                      >
+                        {isSavingCustomLink ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />}
+                        Save Link
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setShowAddCustomLink(false)}
+                        className="text-[10px] text-[var(--text-muted)] hover:text-[var(--text-primary)] px-3 py-1.5 font-bold"
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
             </section>
 

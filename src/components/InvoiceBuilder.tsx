@@ -121,7 +121,13 @@ export const InvoiceBuilder = () => {
   return (
     <div className="min-h-screen bg-[var(--bg-primary)] p-4 sm:p-8 transition-colors duration-300 font-sans">
       <button 
-        onClick={() => navigate(-1)} 
+        onClick={() => {
+          if (candidateId) {
+            navigate(`/candidate/${candidateId}`);
+          } else {
+            navigate('/dashboard', { state: { tab: 'invoices' } });
+          }
+        }} 
         className="flex items-center gap-2 mb-6 text-[var(--text-primary)] font-bold hover:text-[var(--primary-gold)] transition-colors"
       >
         <ArrowLeft size={16} /> Back
