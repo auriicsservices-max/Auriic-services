@@ -22,8 +22,6 @@ export default function CustomSkillsManager() {
   const [skillSearch, setSkillSearch] = useState('');
   const [skillCategoryFilter, setSkillCategoryFilter] = useState('All');
   const [newSkillName, setNewSkillName] = useState('');
-  const [newSkillCategory, setNewSkillCategory] = useState('Technical');
-  const [newSkillDescription, setNewSkillDescription] = useState('');
   const [editingSkillId, setEditingSkillId] = useState<string | null>(null);
   const [editSkillName, setEditSkillName] = useState('');
   const [editSkillCategory, setEditSkillCategory] = useState('');
@@ -68,13 +66,12 @@ export default function CustomSkillsManager() {
     const newSkill = {
       id: Date.now().toString(),
       name: newSkillName.trim(),
-      category: newSkillCategory,
-      description: newSkillDescription.trim()
+      category: 'Technical',
+      description: ''
     };
     const updated = [newSkill, ...customSkills];
     setCustomSkills(updated);
     setNewSkillName('');
-    setNewSkillDescription('');
     setMessage({ type: 'success', text: 'Custom skill added successfully!' });
     await saveToFirestore(updated);
   };
@@ -215,7 +212,7 @@ export default function CustomSkillsManager() {
         <h4 className="font-extrabold text-sm text-[var(--text-primary)] flex items-center gap-2">
           <Plus size={18} className="text-[var(--primary-gold)]" /> Add New Custom Skill
         </h4>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 gap-4">
           <div>
             <label className="block text-[11px] font-extrabold uppercase text-[var(--text-muted)] mb-1">Skill Name</label>
             <input
@@ -223,30 +220,6 @@ export default function CustomSkillsManager() {
               placeholder="e.g., Kubernetes or GraphQL"
               value={newSkillName}
               onChange={(e) => setNewSkillName(e.target.value)}
-              className="crm-input text-xs"
-            />
-          </div>
-          <div>
-            <label className="block text-[11px] font-extrabold uppercase text-[var(--text-muted)] mb-1">Category</label>
-            <select
-              value={newSkillCategory}
-              onChange={(e) => setNewSkillCategory(e.target.value)}
-              className="crm-input text-xs"
-            >
-              <option value="Technical">Technical</option>
-              <option value="Functional">Functional</option>
-              <option value="Soft Skills">Soft Skills</option>
-              <option value="Domain">Domain</option>
-              <option value="Other">Other</option>
-            </select>
-          </div>
-          <div>
-            <label className="block text-[11px] font-extrabold uppercase text-[var(--text-muted)] mb-1">Description</label>
-            <input
-              type="text"
-              placeholder="Brief description or context"
-              value={newSkillDescription}
-              onChange={(e) => setNewSkillDescription(e.target.value)}
               className="crm-input text-xs"
             />
           </div>

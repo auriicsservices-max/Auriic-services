@@ -40,6 +40,7 @@ export default function CandidateDetailsPage() {
 
   const [candidate, setCandidate] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const hasAutoParsed = React.useRef(false);
   
   // Team members list
   const [teamMembers, setTeamMembers] = useState<Record<string, string>>({});
@@ -239,6 +240,13 @@ export default function CandidateDetailsPage() {
       fetchCVUrl();
     }
   }, [candidate, cvUrl]);
+
+  useEffect(() => {
+    if (candidate && !hasAutoParsed.current && (candidate.needsReview || !candidate.experience || candidate.experience.length === 0)) {
+      hasAutoParsed.current = true;
+      handleReParseResume();
+    }
+  }, [candidate]);
 
   const handleDownload = async () => {
     const originalName = candidate.originalFileName || 'Resume';
