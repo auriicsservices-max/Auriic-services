@@ -1905,23 +1905,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           ) : activeTab === 'candidates' ? (
             <div className="flex flex-col gap-6 sm:gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {/* Candidates Header banner */}
-              <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 px-2">
-                <div className="flex items-center gap-4">
-                  <div className="flex -space-x-2.5">
-                    {['A', 'B', 'C'].map((char, i) => {
-                      const colors = ['bg-gold-a98b', 'bg-gold-bc9b', 'bg-amber-400'];
-                      return (
-                        <div key={i} className={`w-9 h-9 rounded-full border-2 border-[var(--card-bg)] ${colors[i]} flex items-center justify-center text-[10px] font-bold text-white shadow-sm`}>
-                          {char}
-                        </div>
-                      );
-                    })}
-                  </div>
-                  <div>
-                    <h2 className="text-lg font-black tracking-tight text-[var(--text-primary)]">Candidate List</h2>
-                  </div>
-                </div>
-                {role === 'recruiter' && (
+              {role === 'recruiter' && (
+                <div className="flex flex-col md:flex-row md:items-center justify-end gap-6 px-2">
                   <div className="flex p-1 bg-[var(--sidebar-bg)] rounded-2xl transition-colors duration-300 border border-[var(--border-color)] overflow-x-auto whitespace-nowrap shadow-sm">
                     <button 
                       onClick={() => {
@@ -1965,8 +1950,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                       All Activity
                     </button>
                   </div>
-                )}
-              </div>
+                </div>
+              )}
               
               {/* Premium KPI Stats Bar */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
