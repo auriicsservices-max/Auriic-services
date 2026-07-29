@@ -525,21 +525,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     // Track emails in this batch to prevent duplicates if Firebase hasn't updated yet
     const addedEmailsInBatch = new Set<string>();
     
-    // Initialize queue
-    setResumeQueue(acceptedFiles.map(file => ({ file, status: 'queued' })));
-
     // Process files sequentially to ensure detailed analysis
     for (const file of acceptedFiles) {
-      setResumeQueue(prev => prev.map(item => item.file === file ? { ...item, status: 'processing' } : item));
-      
       if (file.size > fileSizeLimit * 1024 * 1024) {
         setDuplicateNotification({
           isOpen: true,
-          message: `File rejected: ${file.name} is larger than ${fileSizeLimit}MB.`
+          message: `File rejected: ${file.name} is larger than ${fileSizeLimit}MB. Please upload a smaller file.`
         });
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
-        setResumeQueue(prev => prev.map(item => item.file === file ? { ...item, status: 'failed', error: 'File too large' } : item));
-        continue;
+        return;
       }
       try {
         // Progress: 0-10% -> Uploading File
@@ -594,7 +588,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           });
           setUploadStatus('duplicate');
           setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
-          setResumeQueue(prev => prev.map(item => item.file === file ? { ...item, status: 'failed', error: 'Duplicate' } : item));
 
           if (isDuplicateInState) {
             setDuplicateResolution({
@@ -604,7 +597,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               file: file
             });
           }
-          continue;
+          return;
         }
 
         // Add to batch tracking
@@ -805,7 +798,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           createdAt: new Date().toISOString()
         });
 
-        setResumeQueue(prev => prev.map(item => item.file === file ? { ...item, status: 'completed' } : item));
+        // Progress: 95-100% -> Background Indexing / Completed
+        setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'Completed', progress: 100 } }));
+        
         // Cleanup status after delay
         setTimeout(() => {
           setParsingStatus(prev => {
@@ -2749,24 +2744,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           </div>
         </div>
       )}
-
-      {/* Resume Upload Queue Status */}
-      {resumeQueue.length > 0 && (
-        <div className="crm-card p-6 mt-6">
-          <div className="flex items-center justify-between mb-4">
-            <h4 className="font-bold text-sm text-[var(--text-primary)]">Upload Queue ({resumeQueue.filter(q => q.status === 'completed').length}/{resumeQueue.length})</h4>
-          </div>
-          <div className="space-y-2">
-            {resumeQueue.map((q, i) => (
-              <div key={i} className="flex items-center justify-between p-3 bg-[var(--bg-secondary)] rounded-xl border border-[var(--border-color)]">
-                <span className="text-xs font-medium text-[var(--text-primary)] truncate max-w-[200px]">{q.file.name}</span>
-                <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${q.status === 'completed' ? 'bg-emerald-100 text-emerald-700' : q.status === 'processing' ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-700'}`}>{q.status}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-      {/* Resume Upload Queue Status - END */}
     </div>
   );
 }
