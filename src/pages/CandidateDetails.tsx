@@ -13,7 +13,7 @@ import LZString from 'lz-string';
 import { useAuth } from '../contexts/AuthContext';
 import { useTimezone } from '../contexts/TimezoneContext';
 import { logActivity } from '../services/activityService';
-import { createNotification, formatNotificationMessage } from '../services/notificationService';
+import { createNotification, notifyMultiple, formatNotificationMessage } from '../services/notificationService';
 import ConfirmModal from '../components/ConfirmModal';
 import { fetchCvList } from '../services/cvApiService';
 import { parseResumeHeuristically } from '../lib/localParser';
@@ -531,17 +531,27 @@ export default function CandidateDetailsPage() {
         'Candidate Assignment'
       );
       
-      if (Notification.permission === 'granted') {
-        const title = isRemoval ? 'Assignment Removed' : 'Candidate Assigned';
-        const body = isRemoval 
-          ? `Assignment removed for ${candidate.fullName}.`
-          : `Successfully assigned ${candidate.fullName} to ${teamMembers[assignedTo] || 'Recruiter'}.`;
-            
-        new Notification(title, {
-          body,
-          icon: 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg'
-        });
-      }
+      // Notify
+      const message = `Assigned candidate ${candidate.fullName} to ${teamMembers[assignedTo] || 'Recruiter'} — Profile assignment`;
+      const recipientIds = new Set<string>([assignedTo]);
+      // Add Admin/Team Leaders/Developers
+      fullTeamList.forEach(u => {
+          if (u.role === 'admin' || u.role === 'team_leader' || u.role === 'developer') {
+              const uid = u.uid || u.id;
+              if (uid) recipientIds.add(uid);
+          }
+      });
+      // Add Client
+      if (candidate.clientId) recipientIds.add(candidate.clientId);
+      
+      await notifyMultiple(
+          formatNotificationMessage(getUserDisplayName(), getUserRole(), message),
+          user!.uid,
+          getUserDisplayName(),
+          getUserRole(),
+          Array.from(recipientIds),
+          candidate.id
+      );
       
       showAlert('Success', isRemoval ? 'Assignment removed successfully.' : 'Candidate assigned successfully.');
     } catch (err) {

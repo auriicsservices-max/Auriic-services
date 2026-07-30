@@ -1,4 +1,5 @@
 import React from 'react';
+import { NotificationBadge } from '../NotificationBadge';
 import { 
   LayoutDashboard, Users, FileText, BarChart2, Bell, Settings, LogOut, 
   ChevronLeft, ChevronRight, Sparkles, Layers, Receipt, Linkedin, Shield, Star, User
@@ -127,14 +128,17 @@ export default function Sidebar({
                       : 'text-[#DCE6EC] hover:text-white hover:bg-white/5'
                   }`}
                 >
-                  <item.icon 
-                    size={20} 
-                    className={`shrink-0 transition-transform duration-200 ${
-                      isActive 
-                        ? 'text-[#BC9B66] scale-110' 
-                        : 'text-[#A9C2CE] group-hover:text-white group-hover:scale-105'
-                    }`} 
-                  />
+                  <div className="relative">
+                    <item.icon 
+                      size={20} 
+                      className={`shrink-0 transition-transform duration-200 ${
+                        isActive 
+                          ? 'text-[#BC9B66] scale-110' 
+                          : 'text-[#A9C2CE] group-hover:text-white group-hover:scale-105'
+                      }`} 
+                    />
+                    {item.id === 'notifications' && <NotificationBadge />}
+                  </div>
                   {isOpen ? (
                     <span className="text-sm font-medium tracking-wide truncate">{item.label}</span>
                   ) : (

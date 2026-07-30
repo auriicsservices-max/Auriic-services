@@ -32,3 +32,20 @@ export async function createNotification(
     console.error('Error creating notification:', error);
   }
 }
+
+export async function notifyMultiple(
+  text: string,
+  senderId: string,
+  senderName: string,
+  senderRole: string,
+  recipientIds: string[],
+  relatedCandidateId?: string
+) {
+  try {
+    await Promise.all(recipientIds.map(recipientId => 
+      createNotification(text, senderId, senderName, senderRole, recipientId, relatedCandidateId)
+    ));
+  } catch (error) {
+    console.error('Error creating multi-recipient notifications:', error);
+  }
+}

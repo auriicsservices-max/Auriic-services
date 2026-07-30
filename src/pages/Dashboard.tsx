@@ -31,8 +31,8 @@ import { RecruitmentPipeline } from '../components/RecruitmentPipeline';
 import { ClientDashboard } from '../components/ClientDashboard';
 import { resumeParser } from '../services/resumeParserService';
 import { logActivity } from '../services/activityService';
-import { createNotification, formatNotificationMessage } from '../services/notificationService';
-import NotificationBadge from '../components/NotificationBadge';
+import { createNotification, notifyMultiple, formatNotificationMessage } from '../services/notificationService';
+import { NotificationBadge } from '../components/NotificationBadge';
 import QuotaNotice from '../components/QuotaNotice';
 import LZString from 'lz-string';
 import Select from 'react-select';
@@ -1065,14 +1065,27 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               getUserRole(),
               `Assigned candidate ${candidate.fullName} to ${teamMembers[userId] || 'Recruiter'} — Profile assignment`
           );
-          await createNotification(
+          
+          const recipientIds = new Set<string>([userId]);
+          // Add Admin/Team Leaders/Developers
+          fullTeamList.forEach(u => {
+              if (u.role === 'admin' || u.role === 'team_leader' || u.role === 'developer') {
+                  const uid = u.uid || u.id;
+                  if (uid) recipientIds.add(uid);
+              }
+          });
+          // Add Client
+          if (candidate.clientId) recipientIds.add(candidate.clientId);
+          
+          await notifyMultiple(
               message,
               user!.uid,
               getUserName(),
               getUserRole(),
-              userId,
+              Array.from(recipientIds),
               id
           );
+          
           await logActivity(
               getUserDisplayName(),
               user?.uid || 'System',

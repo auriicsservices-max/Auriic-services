@@ -37,7 +37,7 @@ import { getSLAInfo, dispatchClientAction } from '../../utils/clientActionServic
 import { getStageLabel } from '../../lib/pipelineStages';
 import { filterClientPortalCandidates, getAvailableClients } from '../../utils/clientUtils';
 import { ClientSelectorBar } from './ClientSelectorBar';
-import ResumeDocumentViewerModal from '../common/ResumeDocumentViewerModal';
+
 
 interface ClientPipelineViewProps {
   candidates?: any[];
@@ -73,7 +73,7 @@ export const ClientPipelineView: React.FC<ClientPipelineViewProps> = ({
   const [selectedStageTab, setSelectedStageTab] = useState<string>('all');
   const [viewMode, setViewMode] = useState<'board' | 'list'>('board');
   const [selectedCandidateForDetails, setSelectedCandidateForDetails] = useState<any | null>(null);
-  const [selectedCandidateForResume, setSelectedCandidateForResume] = useState<any | null>(null);
+
   const [copiedText, setCopiedText] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
 
@@ -247,12 +247,7 @@ export const ClientPipelineView: React.FC<ClientPipelineViewProps> = ({
     }
   };
 
-  const handleViewResume = async (candidate: any) => {
-    setSelectedCandidateForResume(candidate);
-    try {
-      await dispatchClientAction({ candidate, user, actionType: 'view_resume', fullTeamList });
-    } catch (e) { console.warn(e); }
-  };
+
 
   // Helper to get formatted text for resume
   const getResumeText = (candidate: any) => {
@@ -600,13 +595,6 @@ export const ClientPipelineView: React.FC<ClientPipelineViewProps> = ({
                                   <Eye size={12} />
                                 </button>
                                 <button
-                                  onClick={() => handleViewResume(candidate)}
-                                  className="p-1.5 rounded-lg bg-[var(--card-bg)] border border-[var(--border-color)] text-[var(--text-primary)] hover:text-[#A98B56] hover:border-[#A98B56] transition-all cursor-pointer"
-                                  title="View Full Resume"
-                                >
-                                  <FileText size={12} />
-                                </button>
-                                <button
                                   onClick={() => handleDownloadCV(candidate)}
                                   className="p-1.5 rounded-lg bg-[var(--card-bg)] border border-[var(--border-color)] text-[var(--text-primary)] hover:text-emerald-500 hover:border-emerald-500 transition-all cursor-pointer"
                                   title="Download Resume"
@@ -714,12 +702,7 @@ export const ClientPipelineView: React.FC<ClientPipelineViewProps> = ({
                             >
                               <Eye size={12} /> Details
                             </button>
-                            <button
-                              onClick={() => setSelectedCandidateForResume(candidate)}
-                              className="px-2.5 py-1 bg-[var(--bg-secondary)] border border-[var(--border-color)] hover:border-[#A98B56] text-[var(--text-primary)] rounded-lg text-xs font-semibold transition-all flex items-center gap-1 cursor-pointer"
-                            >
-                              <FileText size={12} /> CV
-                            </button>
+
                             <button
                               onClick={() => handleDownloadCV(candidate)}
                               className="p-1.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] hover:border-emerald-500 text-emerald-500 rounded-lg transition-all cursor-pointer"
@@ -829,13 +812,7 @@ export const ClientPipelineView: React.FC<ClientPipelineViewProps> = ({
 
             {/* Modal Action Footer */}
             <div className="flex items-center justify-between pt-4 border-t border-[var(--border-color)]">
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => setSelectedCandidateForResume(selectedCandidateForDetails)}
-                  className="px-4 py-2 bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl text-xs font-bold flex items-center gap-1.5 hover:border-[#A98B56] transition-all cursor-pointer"
-                >
-                  <FileText size={14} className="text-[#A98B56]" /> View Resume Text
-                </button>
+              <div>
                 <button
                   onClick={() => handleDownloadCV(selectedCandidateForDetails)}
                   className="px-4 py-2 bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] rounded-xl text-xs font-bold flex items-center gap-1.5 hover:border-emerald-500 transition-all cursor-pointer"
@@ -855,14 +832,6 @@ export const ClientPipelineView: React.FC<ClientPipelineViewProps> = ({
         </div>
       )}
 
-      {/* FULL RESUME DOCUMENT VIEWER MODAL */}
-      <ResumeDocumentViewerModal
-        candidate={selectedCandidateForResume}
-        isOpen={!!selectedCandidateForResume}
-        onClose={() => setSelectedCandidateForResume(null)}
-        user={user}
-        role={role || ''}
-      />
     </div>
   );
 };

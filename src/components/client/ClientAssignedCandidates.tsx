@@ -30,7 +30,7 @@ import { getStageConfig } from '../../lib/pipelineStages';
 import { filterClientPortalCandidates, getAvailableClients } from '../../utils/clientUtils';
 import { dispatchClientAction } from '../../utils/clientActionService';
 import { ClientSelectorBar } from './ClientSelectorBar';
-import ResumeDocumentViewerModal from '../common/ResumeDocumentViewerModal';
+
 
 interface ClientAssignedCandidatesProps {
   candidates: any[];
@@ -74,8 +74,7 @@ export const ClientAssignedCandidates: React.FC<ClientAssignedCandidatesProps> =
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(20);
 
-  // Resume Modal State
-  const [previewCandidate, setPreviewCandidate] = useState<any | null>(null);
+
 
   // Helper for status badge styling
   const getClientStatus = (candidate: any) => {
@@ -179,12 +178,7 @@ export const ClientAssignedCandidates: React.FC<ClientAssignedCandidatesProps> =
     }
   };
 
-  const handleViewResume = async (candidate: any) => {
-    setPreviewCandidate(candidate);
-    try {
-      await dispatchClientAction({ candidate, user, actionType: 'view_resume', fullTeamList });
-    } catch (e) { console.warn(e); }
-  };
+
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300 pb-12">
@@ -240,22 +234,25 @@ export const ClientAssignedCandidates: React.FC<ClientAssignedCandidatesProps> =
           <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider flex items-center gap-1.5">
             <Search size={12} className="text-[#A98B56]" /> Boolean Search Expression Engine
           </label>
-          <div className="flex items-center gap-2 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-4 py-2.5">
+          <div className="relative flex items-center bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#A98B56]/50 focus-within:border-[#A98B56] transition-all">
+            <div className="pl-4 pr-2 text-[var(--text-muted)]">
+              <Search size={14} />
+            </div>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
               placeholder="e.g. React AND Node NOT Java..."
-              className="flex-1 bg-transparent border-none focus:outline-none text-xs font-semibold text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+              className="flex-1 w-full bg-transparent border-none focus:outline-none py-3 text-xs font-semibold text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+              <button onClick={() => setSearchQuery('')} className="px-3 text-[var(--text-muted)] hover:text-[var(--text-primary)]">
                 <X size={14} />
               </button>
             )}
             <button
               onClick={() => setShowBooleanGuide(!showBooleanGuide)}
-              className="text-[10px] uppercase font-bold text-[#A98B56] hover:underline flex items-center gap-1"
+              className="px-4 py-3 text-[10px] uppercase font-bold text-[#A98B56] hover:bg-[#A98B56]/10 flex items-center gap-1.5 transition-colors border-l border-[var(--border-color)]"
             >
               <HelpCircle size={12} /> Syntax Help
             </button>
@@ -422,13 +419,7 @@ export const ClientAssignedCandidates: React.FC<ClientAssignedCandidatesProps> =
                         </td>
 
                         <td className="px-6 py-4 text-right space-x-2" onClick={(e) => e.stopPropagation()}>
-                          <button
-                            onClick={() => handleViewResume(c)}
-                            className="px-3 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-xl text-[10px] font-bold uppercase transition-all"
-                            title="View Resume Document"
-                          >
-                            <Eye size={12} className="inline mr-1 text-[#A98B56]" /> View CV
-                          </button>
+
 
                           <button
                             onClick={() => handleDownloadResume(c)}
@@ -569,15 +560,8 @@ export const ClientAssignedCandidates: React.FC<ClientAssignedCandidatesProps> =
 
                 <div className="pt-3 border-t border-[var(--border-color)] flex items-center justify-between gap-2" onClick={(e) => e.stopPropagation()}>
                   <button
-                    onClick={() => handleViewResume(c)}
-                    className="px-3 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-xl text-[10px] font-bold uppercase"
-                  >
-                    <Eye size={12} className="inline mr-1 text-[#A98B56]" /> Resume
-                  </button>
-
-                  <button
                     onClick={() => onSelectCandidate && onSelectCandidate(c)}
-                    className="px-3.5 py-1.5 crm-btn-gold text-[10px] font-black uppercase rounded-xl"
+                    className="w-full py-2 crm-btn-gold text-[10px] font-black uppercase rounded-xl"
                   >
                     Full Profile
                   </button>
@@ -588,14 +572,7 @@ export const ClientAssignedCandidates: React.FC<ClientAssignedCandidatesProps> =
         </div>
       )}
 
-      {/* Resume Document Viewer Modal */}
-      <ResumeDocumentViewerModal
-        candidate={previewCandidate}
-        isOpen={!!previewCandidate}
-        onClose={() => setPreviewCandidate(null)}
-        user={user}
-        role={role || ''}
-      />
+
     </div>
   );
 };

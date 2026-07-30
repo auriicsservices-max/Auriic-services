@@ -34,6 +34,7 @@ export const ResumeDocumentViewerModal: React.FC<ResumeDocumentViewerModalProps>
 }) => {
   const [activeTab, setActiveTab] = useState<'original' | 'parsed'>('original');
   const [copied, setCopied] = useState(false);
+  const [iframeError, setIframeError] = useState(false);
 
   if (!isOpen || !candidate) return null;
 
@@ -210,27 +211,52 @@ export const ResumeDocumentViewerModal: React.FC<ResumeDocumentViewerModalProps>
         <div className="flex-1 overflow-hidden bg-[var(--bg-secondary)] relative flex flex-col">
           {activeTab === 'original' ? (
             <div className="flex-1 w-full h-full relative flex flex-col p-4">
-              {embedSrc ? (
-                <div className="w-full h-full rounded-2xl overflow-hidden border border-[var(--border-color)] shadow-inner bg-white dark:bg-slate-900 relative">
+              {embedSrc && !iframeError ? (
+                <div className="w-full h-full rounded-2xl overflow-hidden border border-[var(--border-color)] shadow-inner bg-white dark:bg-slate-900 relative flex flex-col">
+                  {/* Quick Bar over iframe for opening in new tab if browser blocks */}
+                  <div className="absolute top-3 right-3 z-10 flex items-center gap-2 bg-black/60 backdrop-blur-md px-3 py-1.5 rounded-xl text-white">
+                    <span className="text-[10px] font-medium hidden sm:inline">Previewing Document</span>
+                    <a
+                      href={finalUrl || candidate.cvBase64}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="px-2.5 py-1 bg-[#A98B56] hover:bg-[#BC9B66] text-white rounded-lg text-xs font-bold flex items-center gap-1 transition-all"
+                    >
+                      <ExternalLink size={12} /> Open in New Tab
+                    </a>
+                  </div>
                   <iframe
                     src={embedSrc}
                     title={`${candidate.fullName} Resume`}
                     className="w-full h-full border-0"
+                    onError={() => setIframeError(true)}
                   />
                 </div>
               ) : (
                 <div className="flex-1 flex flex-col items-center justify-center text-center p-8 space-y-4 crm-card m-auto max-w-lg">
                   <AlertCircle size={40} className="text-[#A98B56]" />
-                  <h3 className="text-base font-bold text-[var(--text-primary)]">Original File URL Unavailable</h3>
+                  <h3 className="text-base font-bold text-[var(--text-primary)]">Document Preview Restricted or Unavailable</h3>
                   <p className="text-xs text-[var(--text-muted)] leading-relaxed">
-                    The original binary document file is not directly linked in cloud storage, but AI extracted text and structured details are fully preserved below.
+                    Some browser security policies restrict direct embedding of remote storage documents. You can download the original file instantly or open it in a new browser tab.
                   </p>
-                  <button
-                    onClick={() => setActiveTab('parsed')}
-                    className="px-4 py-2 crm-btn-gold text-xs font-bold uppercase rounded-xl cursor-pointer"
-                  >
-                    View Parsed Details & Text
-                  </button>
+                  <div className="flex items-center gap-3 pt-2">
+                    {finalUrl && (
+                      <a
+                        href={finalUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="px-4 py-2.5 crm-btn-gold text-xs font-bold uppercase rounded-xl cursor-pointer flex items-center gap-1.5"
+                      >
+                        <ExternalLink size={14} /> Open in New Tab
+                      </a>
+                    )}
+                    <button
+                      onClick={() => setActiveTab('parsed')}
+                      className="px-4 py-2.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] hover:border-[#A98B56] text-xs font-bold uppercase rounded-xl cursor-pointer"
+                    >
+                      View Parsed Details
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

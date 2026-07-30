@@ -1,22 +1,37 @@
-import React from 'react';
-import { useNotifications } from '../contexts/NotificationContext';
-import { Bell } from 'lucide-react';
+import React, { useState, useEffect } from 'react';
+import { collection, query, where, onSnapshot } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { useAuth } from '../contexts/AuthContext';
 
-interface Props {
-  onClick?: () => void;
-}
+export const NotificationBadge: React.FC = () => {
+  const { user, role } = useAuth();
+  const [unreadCount, setUnreadCount] = useState(0);
 
-export default function NotificationBadge({ onClick }: Props) {
-  const { unreadCount } = useNotifications();
+  useEffect(() => {
+    if (!user?.uid) return;
+
+    const recipientIds = [user.uid, 'all'];
+    if (role === 'admin' || role === 'developer') recipientIds.push('admin');
+    if (role === 'recruiter') recipientIds.push('recruiter');
+
+    const q = query(
+      collection(db, 'notifications'),
+      where('recipientId', 'in', recipientIds),
+      where('read', '==', false)
+    );
+
+    const unsub = onSnapshot(q, (snapshot) => {
+      setUnreadCount(snapshot.size);
+    });
+
+    return () => unsub();
+  }, [user?.uid, role]);
+
+  if (unreadCount === 0) return null;
 
   return (
-    <div className="relative cursor-pointer" onClick={onClick}>
-      <Bell size={20} className="text-[var(--text-muted)] hover:text-indigo-600 dark:hover:text-indigo-400 transition-colors" />
-      {unreadCount > 0 && (
-        <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] w-4 h-4 rounded-full flex items-center justify-center font-bold">
-          {unreadCount}
-        </span>
-      )}
-    </div>
+    <span className="absolute -top-1.5 -right-1.5 bg-rose-500 text-white text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center animate-bounce shadow-sm z-50">
+      {unreadCount > 9 ? '9+' : unreadCount}
+    </span>
   );
-}
+};

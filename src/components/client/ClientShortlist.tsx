@@ -21,7 +21,6 @@ import LZString from 'lz-string';
 
 import { filterClientPortalCandidates, getAvailableClients } from '../../utils/clientUtils';
 import { ClientSelectorBar } from './ClientSelectorBar';
-import ResumeDocumentViewerModal from '../common/ResumeDocumentViewerModal';
 
 interface ClientShortlistProps {
   candidates: any[];
@@ -59,7 +58,6 @@ export const ClientShortlist: React.FC<ClientShortlistProps> = ({
   }, [candidates, user, role, selectedClientId]);
 
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedCandidate, setSelectedCandidate] = useState<any | null>(null);
 
   // Filter by search query
   const filtered = useMemo(() => {
@@ -218,13 +216,6 @@ export const ClientShortlist: React.FC<ClientShortlistProps> = ({
                 {/* Footer Action Bar */}
                 <div className="pt-3 border-t border-[var(--border-color)] flex items-center justify-between gap-2">
                   <button
-                    onClick={() => setSelectedCandidate(candidate)}
-                    className="px-3 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-xl text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
-                  >
-                    <Eye size={13} className="text-[#A98B56]" /> View Resume
-                  </button>
-
-                  <button
                     onClick={() => handleDownload(candidate)}
                     className="px-3 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] text-emerald-600 rounded-xl border border-[var(--border-color)] text-xs font-bold transition-all flex items-center gap-1 cursor-pointer"
                   >
@@ -252,14 +243,6 @@ export const ClientShortlist: React.FC<ClientShortlistProps> = ({
         </div>
       )}
 
-      {/* Resume Modal */}
-      <ResumeDocumentViewerModal
-        candidate={selectedCandidate}
-        isOpen={!!selectedCandidate}
-        onClose={() => setSelectedCandidate(null)}
-        user={user}
-        role={role || ''}
-      />
     </div>
   );
 };

@@ -15,7 +15,7 @@ import {
 } from 'lucide-react';
 import LZString from 'lz-string';
 import { dispatchClientAction } from '../../utils/clientActionService';
-import ResumeDocumentViewerModal from '../common/ResumeDocumentViewerModal';
+
 
 import { filterClientPortalCandidates, getAvailableClients } from '../../utils/clientUtils';
 import { ClientSelectorBar } from './ClientSelectorBar';
@@ -51,7 +51,6 @@ export const ClientCvRepository: React.FC<ClientCvRepositoryProps> = ({
 
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedDomain, setSelectedDomain] = useState<string>('all');
-  const [selectedCandidate, setSelectedCandidate] = useState<any | null>(null);
 
   // Domains list
   const domains = useMemo(() => {
@@ -140,12 +139,7 @@ export const ClientCvRepository: React.FC<ClientCvRepositoryProps> = ({
     }
   };
 
-  const handleReadResume = async (candidate: any) => {
-    setSelectedCandidate(candidate);
-    try {
-      await dispatchClientAction({ candidate, user, actionType: 'view_resume', fullTeamList });
-    } catch (e) { console.warn(e); }
-  };
+
 
   return (
     <div className="space-y-8 animate-in fade-in duration-300 pb-12">
@@ -179,17 +173,19 @@ export const ClientCvRepository: React.FC<ClientCvRepositoryProps> = ({
       {/* Filter & Boolean Search Bar */}
       <div className="crm-card p-4 space-y-3">
         <div className="flex flex-col md:flex-row items-center gap-4">
-          <div className="flex-1 flex items-center gap-2 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 w-full">
-            <Search size={16} className="text-[#A98B56]" />
+          <div className="relative flex items-center bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#A98B56]/50 focus-within:border-[#A98B56] transition-all w-full md:w-auto flex-1">
+            <div className="pl-4 pr-2 text-[var(--text-muted)]">
+              <Search size={16} />
+            </div>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Boolean Search (e.g., React AND Node NOT Python)..."
-              className="w-full bg-transparent border-none focus:outline-none text-xs font-semibold text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+              className="w-full bg-transparent border-none focus:outline-none py-3.5 text-xs font-semibold text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+              <button onClick={() => setSearchQuery('')} className="px-4 text-[var(--text-muted)] hover:text-[var(--text-primary)]">
                 <X size={14} />
               </button>
             )}
@@ -262,19 +258,12 @@ export const ClientCvRepository: React.FC<ClientCvRepositoryProps> = ({
                 )}
               </div>
 
-              <div className="pt-3 border-t border-[var(--border-color)] flex items-center justify-between gap-2">
-                <button
-                  onClick={() => handleReadResume(candidate)}
-                  className="px-3 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                >
-                  <Eye size={13} className="text-[#A98B56]" /> Read Resume
-                </button>
-
+              <div className="pt-3 border-t border-[var(--border-color)]">
                 <button
                   onClick={() => handleDownload(candidate)}
-                  className="px-3 py-1.5 crm-btn-gold text-xs font-black uppercase rounded-xl flex items-center gap-1.5 cursor-pointer"
+                  className="w-full py-2 crm-btn-gold text-xs font-black uppercase rounded-xl flex items-center justify-center gap-1.5 cursor-pointer"
                 >
-                  <Download size={13} /> Download
+                  <Download size={13} /> Download Resume
                 </button>
               </div>
             </div>
@@ -288,14 +277,6 @@ export const ClientCvRepository: React.FC<ClientCvRepositoryProps> = ({
         </div>
       )}
 
-      {/* Resume Viewer Modal */}
-      <ResumeDocumentViewerModal
-        candidate={selectedCandidate}
-        isOpen={!!selectedCandidate}
-        onClose={() => setSelectedCandidate(null)}
-        user={user}
-        role={role || ''}
-      />
     </div>
   );
 };

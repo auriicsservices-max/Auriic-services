@@ -45,7 +45,6 @@ import { getStageConfig } from '../../lib/pipelineStages';
 import { filterClientPortalCandidates, getAvailableClients } from '../../utils/clientUtils';
 import { getSLAInfo, dispatchClientAction, ClientActionType } from '../../utils/clientActionService';
 import { ClientSelectorBar } from './ClientSelectorBar';
-import ResumeDocumentViewerModal from '../common/ResumeDocumentViewerModal';
 
 interface ClientCandidateReviewProps {
   candidates: any[];
@@ -86,7 +85,7 @@ export const ClientCandidateReview: React.FC<ClientCandidateReviewProps> = ({
 
   // Action Modals State
   const [activeModal, setActiveModal] = useState<{
-    type: 'accept' | 'reject' | 'discussion' | 'shortlist' | 'resume';
+    type: 'accept' | 'reject' | 'discussion' | 'shortlist';
     candidate: any;
   } | null>(null);
 
@@ -400,28 +399,29 @@ export const ClientCandidateReview: React.FC<ClientCandidateReviewProps> = ({
       {/* Search Bar & Boolean Controls */}
       <div className="crm-card p-5 space-y-3">
         <div className="flex flex-col sm:flex-row items-center gap-3">
-          <div className="flex-1 flex items-center gap-2 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl px-3.5 py-2.5 w-full">
-            <Search size={16} className="text-[#A98B56]" />
+          <div className="relative flex items-center bg-[var(--card-bg)] border border-[var(--border-color)] rounded-xl overflow-hidden focus-within:ring-2 focus-within:ring-[#A98B56]/50 focus-within:border-[#A98B56] transition-all">
+            <div className="pl-4 pr-2 text-[var(--text-muted)]">
+              <Search size={16} />
+            </div>
             <input
               type="text"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by candidate name, skill, domain, or Boolean syntax (e.g. React AND Node NOT Python)..."
-              className="flex-1 bg-transparent border-none focus:outline-none text-xs font-semibold text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
+              className="flex-1 w-full bg-transparent border-none focus:outline-none py-3.5 text-xs font-semibold text-[var(--text-primary)] placeholder:text-[var(--text-muted)]"
             />
             {searchQuery && (
-              <button onClick={() => setSearchQuery('')} className="text-[var(--text-muted)] hover:text-[var(--text-primary)]">
+              <button onClick={() => setSearchQuery('')} className="px-3 text-[var(--text-muted)] hover:text-[var(--text-primary)]">
                 <X size={14} />
               </button>
             )}
+            <button
+              onClick={() => setShowBooleanGuide(!showBooleanGuide)}
+              className="px-4 py-3.5 text-[10px] uppercase font-bold text-[#A98B56] hover:bg-[#A98B56]/10 flex items-center gap-1.5 transition-colors border-l border-[var(--border-color)] whitespace-nowrap"
+            >
+              <HelpCircle size={14} /> Boolean Syntax Guide
+            </button>
           </div>
-
-          <button
-            onClick={() => setShowBooleanGuide(!showBooleanGuide)}
-            className="px-3 py-2.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] hover:border-[#A98B56] text-[var(--text-secondary)] rounded-xl text-xs font-bold flex items-center gap-1.5 transition-all cursor-pointer whitespace-nowrap"
-          >
-            <HelpCircle size={14} className="text-[#A98B56]" /> Boolean Syntax Guide
-          </button>
         </div>
 
         {/* Boolean Guide Drawer */}
@@ -526,12 +526,7 @@ export const ClientCandidateReview: React.FC<ClientCandidateReviewProps> = ({
                 {/* Action Buttons & Interactions Toggle */}
                 <div className="pt-3 border-t border-[var(--border-color)] flex flex-wrap items-center justify-between gap-3">
                   <div className="flex items-center gap-2 flex-wrap">
-                    <button
-                      onClick={() => setActiveModal({ type: 'resume', candidate })}
-                      className="px-3.5 py-2 bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-xl text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer"
-                    >
-                      <Eye size={14} className="text-[#A98B56]" /> View Resume
-                    </button>
+
 
                     <button
                       onClick={() => handleDownloadResume(candidate)}
@@ -632,7 +627,7 @@ export const ClientCandidateReview: React.FC<ClientCandidateReviewProps> = ({
       </div>
 
       {/* Decision Modal (Accept / Reject / Discussion / Shortlist) */}
-      {activeModal && activeModal.type !== 'resume' && (
+      {activeModal && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[1100] flex items-center justify-center p-4 animate-in fade-in duration-200">
           <div className="bg-[var(--card-bg)] border border-[var(--border-color)] max-w-lg w-full rounded-[2rem] p-6 sm:p-8 shadow-2xl space-y-6 relative">
             <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-4">
@@ -713,14 +708,7 @@ export const ClientCandidateReview: React.FC<ClientCandidateReviewProps> = ({
         </div>
       )}
 
-      {/* Resume Preview Modal */}
-      <ResumeDocumentViewerModal
-        candidate={activeModal?.type === 'resume' ? activeModal.candidate : null}
-        isOpen={activeModal?.type === 'resume'}
-        onClose={() => setActiveModal(null)}
-        user={user}
-        role={role || ''}
-      />
+
     </div>
   );
 };

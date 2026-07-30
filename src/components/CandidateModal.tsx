@@ -329,16 +329,17 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const [isSavingAssignee, setIsSavingAssignee] = useState(false);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const renderHighlightedText = (text: string) => {
-    if (!searchTerm.trim()) return text;
+  const renderHighlightedText = (text: any) => {
+    const stringText = typeof text === 'string' ? text : String(text || '');
+    if (!searchTerm.trim()) return stringText;
     const terms = searchTerm.toLowerCase().split(/\s+/).filter(t => t.length > 0);
-    if (terms.length === 0) return text;
+    if (terms.length === 0) return stringText;
 
     // Create a regex that matches any of the terms
     const escapedTerms = terms.map(t => t.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
     const regex = new RegExp(`(${escapedTerms.join('|')})`, 'gi');
     
-    const parts = text.split(regex);
+    const parts = stringText.split(regex);
     
     return (
       <>
