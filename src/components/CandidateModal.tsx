@@ -23,6 +23,7 @@ import { fetchCvList } from '../services/cvApiService';
 import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { STAGES, getStageConfig } from '../lib/pipelineStages';
+import { getSLAInfo } from '../utils/clientActionService';
 
 const STAGES_LIST = STAGES;
 
@@ -717,21 +718,43 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
     setIsSavingClient(true);
     try {
       const isRemoval = assignedClientId === '';
-      
+      const nowIso = new Date().toISOString();
+
       if (onUpdateClient) {
         await onUpdateClient(candidate.id, assignedClientId);
       } else {
         await updateDoc(doc(db, 'candidates', candidate.id), {
           clientId: assignedClientId || null,
-          clientAssignedAt: new Date().toISOString()
+          clientAssignedAt: isRemoval ? null : nowIso,
+          slaStartTime: isRemoval ? null : nowIso,
+          slaStatus: isRemoval ? null : 'On Time',
+          clientStatus: isRemoval ? null : (candidate.clientStatus || 'pending_review')
         });
       }
 
       candidate.clientId = assignedClientId || null;
+      if (!isRemoval) {
+        candidate.clientAssignedAt = nowIso;
+        candidate.slaStartTime = nowIso;
+        candidate.slaStatus = 'On Time';
+      }
       
       const clientsList = (fullTeamList || []).filter(u => u.role === 'client');
-      const clientUser = clientsList.find(c => c.id === assignedClientId);
+      const clientUser = clientsList.find(c => c.id === assignedClientId || c.uid === assignedClientId);
       const clientName = clientUser ? (clientUser.name || clientUser.email) : 'Client';
+
+      if (!isRemoval && assignedClientId) {
+        try {
+          await createNotification(
+            `New Candidate Assigned for Review: "${candidate.fullName}". Sourced by ${getUserDisplayName()}.`,
+            user!.uid,
+            getUserDisplayName(),
+            getUserRole(),
+            assignedClientId,
+            candidate.id
+          );
+        } catch (e) { console.warn('Notification send failed:', e); }
+      }
 
       const activityAction = isRemoval ? 'Client Assignment Removed' : 'Client Assigned'; 
       await logActivity(
@@ -741,11 +764,11 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
         activityAction,
         candidate.fullName || 'Candidate',
         assignedClientId ? clientName : null,
-        isRemoval ? 'Client assignment removed' : `Assigned to Client ${clientName}`,
+        isRemoval ? 'Client assignment removed' : `Assigned to Client ${clientName} (SLA Timer Started)`,
         'Candidate Client Assignment'
       );
       
-      showAlert('Success', isRemoval ? 'Client assignment removed successfully.' : 'Candidate assigned to client successfully.');
+      showAlert('Success', isRemoval ? 'Client assignment removed successfully.' : 'Candidate assigned to client successfully (SLA Timer Started).');
     } catch (err) {
       console.error(err);
       showAlert('Error', 'Failed to update client assignment.');
@@ -924,17 +947,19 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                       </button>
                     </div>
                   ) : (
-                    <button
-                      onClick={() => setIsEditing(true)}
-                      className="px-3.5 py-2 crm-btn-gold text-xs flex items-center gap-1.5"
-                    >
-                      <Code size={13} />
-                      <span>{role === 'developer' ? 'Edit Profile' : 'Edit Name'}</span>
-                    </button>
+                    (role as any) !== 'client' && (
+                      <button
+                        onClick={() => setIsEditing(true)}
+                        className="px-3.5 py-2 crm-btn-gold text-xs flex items-center gap-1.5"
+                      >
+                        <Code size={13} />
+                        <span>{role === 'developer' ? 'Edit Profile' : 'Edit Name'}</span>
+                      </button>
+                    )
                   )}
                 </>
               )}
-              {(role === 'admin' || role === 'developer' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid) && (
+              {(role === 'admin' || role === 'developer' || role === 'client' || candidate.uploadedBy === user?.uid || candidate.clientId === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid || candidate.cvBase64) && (
                 <button 
                   onClick={handleView}
                   disabled={isFetchingCV}
@@ -944,7 +969,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   <span>{isFetchingCV ? 'Syncing...' : 'View Original'}</span>
                 </button>
               )}
-              {(role === 'admin' || role === 'developer' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid) && (
+              {(role === 'admin' || role === 'developer' || role === 'client' || candidate.uploadedBy === user?.uid || candidate.clientId === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid || candidate.cvBase64) && (
                 <button 
                   onClick={handleDownload}
                   disabled={isFetchingCV}
@@ -1918,6 +1943,76 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                     Update Client Assignment
                   </button>
                 </div>
+              </section>
+            )}
+
+            {/* Client Review & SLA Tracking Panel */}
+            {candidate.clientId && (
+              <section className="bg-[var(--card-bg)] p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)] shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] flex items-center gap-2">
+                    <Clock size={12} className="text-[#A98B56]" /> Client SLA & Review Tracking
+                  </h3>
+                  {(() => {
+                    const sla = getSLAInfo(candidate);
+                    return (
+                      <span className={`px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-wider flex items-center gap-1 ${sla.badgeBg}`}>
+                        <Clock size={10} className={sla.indicatorColor} />
+                        {sla.label}
+                      </span>
+                    );
+                  })()}
+                </div>
+
+                {/* SLA Progress Bar */}
+                {(() => {
+                  const sla = getSLAInfo(candidate);
+                  return (
+                    <div className="space-y-1.5 bg-[var(--bg-secondary)] p-3 rounded-xl border border-[var(--border-color)] text-xs">
+                      <div className="flex justify-between text-[10px] font-extrabold">
+                        <span className="text-[var(--text-muted)]">SLA Elapsed ({sla.elapsedHours.toFixed(1)}h / 48h)</span>
+                        <span className="text-[var(--text-primary)]">{sla.percent}%</span>
+                      </div>
+                      <div className="w-full bg-[var(--border-color)] h-2 rounded-full overflow-hidden">
+                        <div 
+                          className={`h-full transition-all duration-500 ${sla.indicatorColor}`}
+                          style={{ width: `${sla.percent}%` }}
+                        />
+                      </div>
+                      <div className="flex justify-between text-[9px] font-bold text-[var(--text-muted)] pt-0.5">
+                        <span>Assigned: {candidate.clientAssignedAt ? new Date(candidate.clientAssignedAt).toLocaleDateString() : 'Recent'}</span>
+                        <span>Status: <strong className="text-[var(--text-primary)] uppercase">{candidate.clientStatus || 'pending_review'}</strong></span>
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* Client Activity Audit History */}
+                {Array.isArray(candidate.clientInteractions) && candidate.clientInteractions.length > 0 ? (
+                  <div className="space-y-2 pt-2 border-t border-[var(--border-color)]">
+                    <p className="text-[10px] font-black uppercase text-[var(--text-muted)]">Client Interactions History</p>
+                    <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
+                      {candidate.clientInteractions.map((act: any, idx: number) => (
+                        <div key={act.id || idx} className="p-2.5 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl space-y-1 text-xs">
+                          <div className="flex items-center justify-between text-[10px]">
+                            <span className="font-extrabold text-[var(--text-primary)]">{act.userName || 'Client'}</span>
+                            <span className="text-[var(--text-muted)]">{act.timestamp ? new Date(act.timestamp).toLocaleString() : ''}</span>
+                          </div>
+                          <p className="text-[11px] font-bold text-[#A98B56]">{act.action}</p>
+                          {act.feedback && (
+                            <p className="text-[10px] text-[var(--text-secondary)] italic bg-[var(--card-bg)] p-1.5 rounded-lg border border-[var(--border-color)]">
+                              "{act.feedback}"
+                            </p>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-[10px] text-[var(--text-muted)] italic text-center py-2">
+                    Awaiting client review response.
+                  </p>
+                )}
               </section>
             )}
 

@@ -28,8 +28,10 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
 
       // Filter
       allCandidates = allCandidates.filter(c => !c.isArchived);
-      if (!isPrivileged) {
-        allCandidates = allCandidates.filter(c => c.uploadedBy === user?.uid);
+      if (role === 'client') {
+        allCandidates = allCandidates.filter(c => c.clientId === user?.uid || c.assignedToClient === user?.uid);
+      } else if (!isPrivileged) {
+        allCandidates = allCandidates.filter(c => c.uploadedBy === user?.uid || c.assignedTo === user?.uid);
       }
       
       // Sort

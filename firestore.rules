@@ -29,9 +29,11 @@ service cloud.firestore {
     }
 
     function isTeamMember() {
-      let user = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
       return isSignedIn() && (
-        isAdmin() || (user.role in ['team_leader', 'recruiter'] && user.get('isArchived', false) == false)
+        isAdmin() || (
+          getUserData().get('role', 'none') in ['team_leader', 'recruiter', 'developer', 'admin'] &&
+          getUserData().get('isArchived', false) == false
+        )
       );
     }
 
@@ -51,13 +53,17 @@ service cloud.firestore {
       function isValidUser(data) {
         return data.uid is string && 
                data.email is string && 
-               data.role in ['admin', 'team_leader', 'recruiter', 'developer'];
+               data.role in ['admin', 'team_leader', 'recruiter', 'developer', 'client'];
       }
 
-      allow create: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow create: if isSignedIn() && (request.auth.uid == userId || isTeamMember() || isAdmin());
       // Support updating own profile or status/readCursors
-      allow update: if isSignedIn() && (request.auth.uid == userId || isAdmin());
+      allow update: if isSignedIn() && (request.auth.uid == userId || isTeamMember() || isAdmin());
       allow delete: if isAdmin();
+
+      match /{allPaths=**} {
+        allow read, write: if isSignedIn();
+      }
     }
 
     // Invitations for pre-registration
@@ -76,19 +82,9 @@ service cloud.firestore {
 
     // Notifications Collection Rules
     match /notifications/{notificationId} {
-      allow read: if isSignedIn() && (
-        isAdmin() ||
-        (
-          resource.data.recipientId == request.auth.uid || resource.data.recipientId == 'all'
-        )
-      );
-      allow update: if isSignedIn() && (
-        isAdmin() ||
-        (
-          resource.data.recipientId == request.auth.uid || resource.data.recipientId == 'all'
-        )
-      );
-      allow create: if isAdmin();
+      allow read: if isSignedIn();
+      allow create: if isSignedIn();
+      allow update: if isSignedIn();
       allow delete: if isAdmin();
     }
 

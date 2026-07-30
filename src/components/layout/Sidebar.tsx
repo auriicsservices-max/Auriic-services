@@ -1,7 +1,7 @@
 import React from 'react';
 import { 
   LayoutDashboard, Users, FileText, BarChart2, Bell, Settings, LogOut, 
-  ChevronLeft, ChevronRight, Sparkles, Layers, Receipt, Linkedin, Shield
+  ChevronLeft, ChevronRight, Sparkles, Layers, Receipt, Linkedin, Shield, Star, User
 } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -22,12 +22,33 @@ export default function Sidebar({
   const { role, user } = useAuth();
   
   // Logical section grouping for enterprise CRM navigation
-  const navigationSections = [
+  const navigationSections = role === 'client' ? [
+    {
+      title: 'Workspace',
+      items: [
+        { icon: LayoutDashboard, label: 'Dashboard', id: 'home' },
+        { icon: Sparkles, label: 'Candidate Review', id: 'client-portal' },
+        { icon: Layers, label: 'Pipeline', id: 'pipeline' },
+        { icon: Users, label: 'Assigned Candidates', id: 'candidates' },
+        { icon: Star, label: 'Shortlist', id: 'shortlist' },
+        { icon: BarChart2, label: 'Talent Insights', id: 'analytics' },
+        { icon: FileText, label: 'CV Repository', id: 'repository' },
+      ]
+    },
+    {
+      title: 'Preferences',
+      items: [
+        { icon: User, label: 'My Profile', id: 'profile' },
+        { icon: Bell, label: 'Notifications', id: 'notifications' },
+      ]
+    }
+  ] : [
     {
       title: 'Core Platform',
       items: [
         { icon: LayoutDashboard, label: 'Dashboard', id: 'home' },
-        ...(role === 'client' || role === 'admin' || role === 'developer' ? [{ icon: Layers, label: 'Pipeline', id: 'pipeline' }] : []),
+        ...(role === 'admin' || role === 'developer' ? [{ icon: Sparkles, label: 'Candidate Review', id: 'client-portal' }] : []),
+        { icon: Layers, label: 'Pipeline', id: 'pipeline' },
         { icon: Users, label: 'Candidates', id: 'candidates' },
         { icon: Linkedin, label: 'LinkedIn Search', id: 'linkedin-search' },
         { icon: FileText, label: 'CV Repository', id: 'repository' },
@@ -44,7 +65,7 @@ export default function Sidebar({
       title: 'Preferences',
       items: [
         { icon: Bell, label: 'Notifications', id: 'notifications' },
-        ...(role !== 'recruiter' && role !== 'client' ? [{ icon: Settings, label: 'Settings', id: 'settings' }] : []),
+        ...(role !== 'recruiter' ? [{ icon: Settings, label: 'Settings', id: 'settings' }] : []),
       ]
     }
   ];

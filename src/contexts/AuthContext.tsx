@@ -46,9 +46,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     let statusInterval: any;
     const handleOffline = () => {
-      if (user?.uid) {
+      if (user?.uid && auth.currentUser) {
         const userDocRef = doc(db, 'users', user.uid);
-        updateDoc(userDocRef, { status: 'offline', lastSeen: serverTimestamp() });
+        updateDoc(userDocRef, { status: 'offline', lastSeen: serverTimestamp() }).catch(() => {});
       }
     };
 
@@ -98,7 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               try {
                 await updateDoc(userDocRef, { isArchived: false, status: 'online', lastSeen: serverTimestamp() });
               } catch (error) {
-                handleFirestoreError(error, OperationType.UPDATE, 'users/' + authenticatedUser.uid);
+                console.warn("User status update warning:", error);
               }
               setRole('admin');
             } else if (data.isArchived) {
@@ -107,7 +107,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               try {
                 await updateDoc(userDocRef, { status: 'online', lastSeen: serverTimestamp() });
               } catch (error) {
-                handleFirestoreError(error, OperationType.UPDATE, 'users/' + authenticatedUser.uid);
+                console.warn("User status update warning:", error);
               }
               setRole(data.role);
             }
@@ -116,19 +116,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           // Heartbeat to keep online status fresh
           if (statusInterval) clearInterval(statusInterval);
           statusInterval = setInterval(async () => {
-            if (quotaExceeded) return;
+            if (quotaExceeded || !auth.currentUser) return;
             try {
-              try {
-                await updateDoc(userDocRef, { 
-                  status: 'online', 
-                  lastSeen: serverTimestamp() 
-                });
-              } catch (error) {
-                handleFirestoreError(error, OperationType.UPDATE, 'users/' + authenticatedUser.uid);
-              }
+              await updateDoc(userDocRef, { 
+                status: 'online', 
+                lastSeen: serverTimestamp() 
+              });
             } catch (err: any) {
-              if (err.code === 'resource-exhausted') setQuotaExceeded(true);
-              console.error(err);
+              if (err?.code === 'resource-exhausted') setQuotaExceeded(true);
+              console.warn("Background heartbeat status update skipped:", err?.message || err);
             }
           }, 120000); // Every 2 minutes
 

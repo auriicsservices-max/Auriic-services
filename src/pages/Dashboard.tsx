@@ -21,12 +21,14 @@ import LogReview from '../components/LogReview';
 import ActivityLogList from '../components/ActivityLogList';
 import { InvoiceList } from '../components/InvoiceList';
 import ConfirmModal from '../components/ConfirmModal';
+import NotificationCenter from '../components/NotificationCenter';
 
 import SystemSettings from '../components/SystemSettings';
 import CustomSkillsManager from '../components/CustomSkillsManager';
 import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
 import { RecruitmentPipeline } from '../components/RecruitmentPipeline';
+import { ClientDashboard } from '../components/ClientDashboard';
 import { resumeParser } from '../services/resumeParserService';
 import { logActivity } from '../services/activityService';
 import { createNotification, formatNotificationMessage } from '../services/notificationService';
@@ -153,7 +155,7 @@ export default function Dashboard() {
   }[]>([]);
 
 
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills'>(() => {
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'notifications' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills' | 'client-portal'>(() => {
     return (location.state as any)?.tab || 'home';
   });
   const [bulkLimit, setBulkLimit] = useState<number>(20);
@@ -1559,6 +1561,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <div className="space-y-1">
               {[
                 { id: 'home', label: 'Dashboard', icon: LayoutDashboard },
+                ...(role === 'client' || role === 'admin' || role === 'developer' ? [{ id: 'client-portal', label: 'Client Portal', icon: Sparkles }] : []),
                 ...(role === 'client' || role === 'admin' || role === 'developer' ? [{ id: 'pipeline', label: 'Pipeline', icon: Layers }] : []),
                 { id: 'candidates', label: 'Candidates', icon: Users },
                 ...(role !== 'client' ? [{ id: 'upload', label: 'CV Parsing', icon: Upload }] : []),
@@ -1836,16 +1839,32 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   <p className="text-xs text-[var(--text-muted)] font-bold py-4 text-center">No new notifications</p>
                 ) : (
                   <div className="space-y-3">
-                    {notifications.map((n: any) => (
-                      <div 
-                        key={n.id} 
-                        onClick={() => !n.read && markAsRead(n.id)}
-                        className={`text-xs p-3 rounded-xl transition-all cursor-pointer ${n.read ? 'text-[var(--text-secondary)] opacity-60 hover:opacity-100' : 'text-[var(--text-primary)] bg-indigo-50/50 dark:bg-indigo-950/20 border-l-2 border-indigo-500'} flex flex-col gap-1`}
-                      >
-                        <p className="font-bold">{n.text}</p>
-                        <span className="text-[10px] text-[var(--text-muted)]">{formatDate(n.createdAt?.toDate())}</span>
-                      </div>
-                    ))}
+                    {notifications.map((n: any) => {
+                      const candId = n.relatedCandidateId || n.candidateId;
+                      return (
+                        <div 
+                          key={n.id} 
+                          onClick={() => {
+                            if (!n.read) markAsRead(n.id);
+                            if (candId) {
+                              const cand = candidates.find((c: any) => c.id === candId);
+                              if (cand) setSelectedCandidate(cand);
+                            }
+                          }}
+                          className={`text-xs p-3 rounded-xl transition-all cursor-pointer ${n.read ? 'text-[var(--text-secondary)] opacity-60 hover:opacity-100' : 'text-[var(--text-primary)] bg-[#A98B56]/10 border-l-2 border-[#A98B56]'} flex flex-col gap-1 hover:bg-[var(--card-hover-bg)]`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <p className="font-bold text-[var(--text-primary)]">{n.title || 'Notification'}</p>
+                            {!n.read && <span className="w-2 h-2 rounded-full bg-[#A98B56]" />}
+                          </div>
+                          <p className="text-[11px] font-medium text-[var(--text-secondary)] line-clamp-2">{n.text || n.message}</p>
+                          <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] pt-1">
+                            <span>{n.createdAt?.toDate ? formatDate(n.createdAt.toDate()) : 'Just now'}</span>
+                            {candId && <span className="text-[#A98B56] font-bold">View Profile →</span>}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
                 )}
               </div>
@@ -1901,6 +1920,26 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
              <DatabaseDetails />
           ) : activeTab === 'invoices' ? (
              <InvoiceList />
+          ) : role === 'client' ? (
+             <ClientDashboard 
+               candidates={activeCandidates} 
+               user={user} 
+               role={role} 
+               fullTeamList={fullTeamList}
+               onSelectCandidate={handleCandidateSelect}
+               activeTab={activeTab}
+               onNavigate={(tab: string) => setActiveTab(tab as any)}
+             />
+          ) : activeTab === 'client-portal' ? (
+             <ClientDashboard 
+               candidates={activeCandidates} 
+               user={user} 
+               role={role} 
+               fullTeamList={fullTeamList}
+               onSelectCandidate={handleCandidateSelect}
+               activeTab="client-portal"
+               onNavigate={(tab: string) => setActiveTab(tab as any)}
+             />
           ) : activeTab === 'home' ? (
             <div className="flex flex-col gap-6">
               <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} fullTeamList={fullTeamList} />
@@ -2610,6 +2649,16 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                   </div>
                 </div>
             </div>
+          ) : activeTab === 'notifications' ? (
+            <NotificationCenter 
+              user={user} 
+              role={role} 
+              candidates={candidates} 
+              onSelectCandidate={(candId) => {
+                const cand = candidates.find(c => c.id === candId);
+                if (cand) setSelectedCandidate(cand);
+              }} 
+            />
           ) : activeTab === 'shortlist' ? (
             <Shortlist candidates={candidates} onCandidateSelect={handleCandidateSelect} onArchive={handleArchiveCandidate} role={role} />
           ) : activeTab === 'profile' ? (
@@ -2618,7 +2667,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             <LogReview />
           ) : activeTab === 'custom_skills' ? (
             <CustomSkillsManager />
-          ) : activeTab === 'settings' && role !== 'recruiter' && role !== 'client' ? (
+          ) : activeTab === 'settings' && role !== 'recruiter' && (role as string) !== 'client' ? (
             <div className="space-y-6">
                <SystemSettings />
             </div>

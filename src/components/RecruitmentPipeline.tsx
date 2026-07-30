@@ -177,6 +177,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
 
   // Handle HTML5 drag and drop events
   const handleDragStart = (e: React.DragEvent, candidateId: string) => {
+    if (role === 'client') return;
     setDraggingId(candidateId);
     e.dataTransfer.setData('text/plain', candidateId);
     e.dataTransfer.effectAllowed = 'move';
@@ -188,6 +189,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
   };
 
   const handleDragOver = (e: React.DragEvent, stageId: string) => {
+    if (role === 'client') return;
     e.preventDefault();
     if (dragOverStage !== stageId) {
       setDragOverStage(stageId);
@@ -195,6 +197,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
   };
 
   const handleDrop = async (e: React.DragEvent, targetStageId: string) => {
+    if (role === 'client') return;
     e.preventDefault();
     setDragOverStage(null);
     const candidateId = e.dataTransfer.getData('text/plain') || draggingId;
@@ -211,6 +214,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
 
   // Perform firestore update and notifications for moving stage
   const moveCandidateStage = async (candidateId: string, targetStageId: string) => {
+    if (role === 'client') return;
     setIsUpdatingStage(candidateId);
     try {
       const candidate = candidates.find(c => c.id === candidateId);
@@ -316,6 +320,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
 
   // Save candidate inline details
   const saveCandidateDetails = async () => {
+    if (role === 'client') return;
     if (!editingCandidate) return;
     setIsSavingDetails(true);
     try {
@@ -594,10 +599,12 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                         return (
                           <div
                             key={candidate.id}
-                            draggable
+                            draggable={role !== 'client'}
                             onDragStart={(e) => handleDragStart(e, candidate.id)}
                             onDragEnd={handleDragEnd}
-                            className={`bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] border border-[var(--border-color)] hover:border-[var(--primary-gold)]/50 p-3.5 rounded-xl shadow-xs hover:shadow-md transition-all duration-200 flex flex-col gap-2.5 group relative cursor-grab active:cursor-grabbing ${
+                            className={`bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] border border-[var(--border-color)] hover:border-[var(--primary-gold)]/50 p-3.5 rounded-xl shadow-xs hover:shadow-md transition-all duration-200 flex flex-col gap-2.5 group relative ${
+                              role !== 'client' ? 'cursor-grab active:cursor-grabbing' : 'cursor-default'
+                            } ${
                               draggingId === candidate.id ? 'opacity-35 border-dashed border-slate-400' : ''
                             } ${isUpdating ? 'pointer-events-none opacity-50' : ''}`}
                           >
@@ -674,24 +681,31 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                             {/* Stage Selector Dropdown */}
                             <div className="flex flex-col gap-1 border-t border-[var(--border-color)] pt-2.5">
                               <label className="text-[8px] font-black uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-1">
-                                <ArrowRight size={8} className="text-[var(--primary-gold)] animate-pulse" /> Change Stage:
+                                <ArrowRight size={8} className="text-[var(--primary-gold)]" /> Current Stage:
                               </label>
-                              <div className="relative">
-                                <select
-                                  value={getCandidateStage(candidate)}
-                                  onChange={(e) => moveCandidateStage(candidate.id, e.target.value)}
-                                  className="w-full bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] border border-[var(--border-color)] text-[10px] font-bold text-[var(--text-secondary)] rounded-xl px-2.5 py-1.5 appearance-none focus:outline-none cursor-pointer pr-7 text-left leading-tight"
-                                >
-                                  {STAGES.map(s => (
-                                    <option key={s.id} value={s.id}>
-                                      {s.label}
-                                    </option>
-                                  ))}
-                                </select>
-                                <div className="absolute right-2 top-2 pointer-events-none text-[var(--text-muted)]">
-                                  <ChevronRight size={10} className="rotate-90" />
+                              {role === 'client' ? (
+                                <div className="w-full bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[10px] font-bold text-[var(--primary-gold)] rounded-xl px-2.5 py-1.5 leading-tight flex items-center justify-between">
+                                  <span>{STAGES.find(s => s.id === getCandidateStage(candidate))?.label || 'CV Upload'}</span>
+                                  <span className="text-[8px] uppercase tracking-wider bg-[var(--primary-gold)]/10 px-1.5 py-0.5 rounded text-[var(--primary-gold)] font-black">View-Only</span>
                                 </div>
-                              </div>
+                              ) : (
+                                <div className="relative">
+                                  <select
+                                    value={getCandidateStage(candidate)}
+                                    onChange={(e) => moveCandidateStage(candidate.id, e.target.value)}
+                                    className="w-full bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] border border-[var(--border-color)] text-[10px] font-bold text-[var(--text-secondary)] rounded-xl px-2.5 py-1.5 appearance-none focus:outline-none cursor-pointer pr-7 text-left leading-tight"
+                                  >
+                                    {STAGES.map(s => (
+                                      <option key={s.id} value={s.id}>
+                                        {s.label}
+                                      </option>
+                                    ))}
+                                  </select>
+                                  <div className="absolute right-2 top-2 pointer-events-none text-[var(--text-muted)]">
+                                    <ChevronRight size={10} className="rotate-90" />
+                                  </div>
+                                </div>
+                              )}
                             </div>
 
                             {/* Hover Controls (View & Edit Pipeline details) */}
@@ -705,7 +719,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                               <button
                                 onClick={() => openDetailsEditor(candidate)}
                                 className="px-2.5 py-1.5 bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] border border-[var(--border-color)] text-[var(--text-secondary)] rounded-xl text-[9px] font-black uppercase tracking-wider flex items-center justify-center gap-1 transition-all cursor-pointer"
-                                title="Edit pipeline properties"
+                                title={role === 'client' ? "View pipeline properties (Read-Only)" : "Edit pipeline properties"}
                               >
                                 <Edit2 size={10} />
                               </button>
@@ -765,10 +779,24 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                 </button>
               </div>
 
-              <div className="py-2.5 border-y border-[var(--border-color)] flex items-center gap-2 mb-4">
-                <span className="text-[10px] font-black uppercase text-[var(--text-muted)]">Target Candidate:</span>
-                <span className="text-xs font-black text-[var(--primary-gold)]">{editingCandidate.fullName}</span>
+              <div className="py-2.5 border-y border-[var(--border-color)] flex items-center justify-between gap-2 mb-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase text-[var(--text-muted)]">Target Candidate:</span>
+                  <span className="text-xs font-black text-[var(--primary-gold)]">{editingCandidate.fullName}</span>
+                </div>
+                {role === 'client' && (
+                  <span className="text-[9px] font-extrabold uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/30 px-2 py-0.5 rounded-md">
+                    Read-Only
+                  </span>
+                )}
               </div>
+
+              {role === 'client' && (
+                <div className="bg-amber-500/10 border border-amber-500/20 text-amber-700 dark:text-amber-300 px-3.5 py-2.5 rounded-xl text-xs font-semibold flex items-start gap-2 mb-4.5">
+                  <AlertCircle size={16} className="shrink-0 mt-0.5 text-amber-500" />
+                  <span>Clients have view-only access to card configurations. Only Recruiters and Admins can modify pipeline attributes.</span>
+                </div>
+              )}
 
               {/* Form fields */}
               <div className="flex flex-col gap-4.5">
@@ -777,6 +805,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Assigned Client Partner User</label>
                   <select
+                    disabled={role === 'client'}
                     value={editFields.clientId}
                     onChange={(e) => {
                       const selectedId = e.target.value;
@@ -787,7 +816,7 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                         client: selectedClientObj ? (selectedClientObj.name || selectedClientObj.company || selectedClientObj.email) : prev.client
                       }));
                     }}
-                    className="crm-input cursor-pointer"
+                    className="crm-input cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
                   >
                     <option value="">No Client User Assigned</option>
                     {fullTeamList && fullTeamList.filter((u: any) => u.role === 'client').map((client: any) => (
@@ -802,11 +831,12 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Client Partner Name / Company</label>
                   <input
+                    disabled={role === 'client'}
                     type="text"
                     value={editFields.client}
                     onChange={(e) => setEditFields(prev => ({ ...prev, client: e.target.value }))}
                     placeholder="e.g. Acme Corporation, Meta, Stripe"
-                    className="crm-input"
+                    className="crm-input disabled:opacity-75 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -814,9 +844,10 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Pipeline Stage</label>
                   <select
+                    disabled={role === 'client'}
                     value={editFields.stage}
                     onChange={(e) => setEditFields(prev => ({ ...prev, stage: e.target.value }))}
-                    className="crm-input cursor-pointer"
+                    className="crm-input cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
                   >
                     {STAGES.map((s) => (
                       <option key={s.id} value={s.id}>
@@ -830,11 +861,12 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Target Role / Position</label>
                   <input
+                    disabled={role === 'client'}
                     type="text"
                     value={editFields.position}
                     onChange={(e) => setEditFields(prev => ({ ...prev, position: e.target.value }))}
                     placeholder="e.g. Senior Software Engineer"
-                    className="crm-input"
+                    className="crm-input disabled:opacity-75 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -842,11 +874,12 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Recruiter Owner</label>
                   <input
+                    disabled={role === 'client'}
                     type="text"
                     value={editFields.recruiter}
                     onChange={(e) => setEditFields(prev => ({ ...prev, recruiter: e.target.value }))}
                     placeholder="e.g. Darren Wala"
-                    className="crm-input"
+                    className="crm-input disabled:opacity-75 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -855,9 +888,10 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Priority</label>
                     <select
+                      disabled={role === 'client'}
                       value={editFields.priority}
                       onChange={(e) => setEditFields(prev => ({ ...prev, priority: e.target.value }))}
-                      className="crm-input cursor-pointer"
+                      className="crm-input cursor-pointer disabled:opacity-75 disabled:cursor-not-allowed"
                     >
                       <option value="high">🔴 High</option>
                       <option value="medium">🟡 Medium</option>
@@ -869,10 +903,11 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                   <div className="flex flex-col gap-1.5">
                     <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Follow-Up Date</label>
                     <input
+                      disabled={role === 'client'}
                       type="date"
                       value={editFields.followUpDate}
                       onChange={(e) => setEditFields(prev => ({ ...prev, followUpDate: e.target.value }))}
-                      className="crm-input"
+                      className="crm-input disabled:opacity-75 disabled:cursor-not-allowed"
                     />
                   </div>
                 </div>
@@ -881,11 +916,12 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
                 <div className="flex flex-col gap-1.5">
                   <label className="text-[10px] font-black uppercase tracking-wider text-[var(--text-secondary)]">Next Action / Follow-Up Note</label>
                   <textarea
+                    disabled={role === 'client'}
                     value={editFields.nextAction}
                     onChange={(e) => setEditFields(prev => ({ ...prev, nextAction: e.target.value }))}
                     placeholder="e.g. Arrange 30min video screening with Director"
                     rows={2}
-                    className="crm-input resize-none"
+                    className="crm-input resize-none disabled:opacity-75 disabled:cursor-not-allowed"
                   />
                 </div>
 
@@ -893,31 +929,43 @@ export function RecruitmentPipeline({ candidates, onSelect, role, teamMembers = 
 
               {/* Actions Footer */}
               <div className="flex items-center justify-end gap-2.5 mt-6 border-t border-[var(--border-color)] pt-4">
-                <button
-                  type="button"
-                  onClick={() => setEditingCandidate(null)}
-                  className="px-4 py-2 text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--card-hover-bg)] rounded-xl transition-all cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  disabled={isSavingDetails}
-                  onClick={saveCandidateDetails}
-                  className="crm-btn-gold px-5 py-2 font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
-                >
-                  {isSavingDetails ? (
-                    <>
-                      <span className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
-                      Saving...
-                    </>
-                  ) : (
-                    <>
-                      <Check size={14} />
-                      Save Details
-                    </>
-                  )}
-                </button>
+                {role === 'client' ? (
+                  <button
+                    type="button"
+                    onClick={() => setEditingCandidate(null)}
+                    className="crm-btn-gold px-5 py-2 font-extrabold text-xs rounded-xl shadow-md transition-all cursor-pointer"
+                  >
+                    Close View
+                  </button>
+                ) : (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => setEditingCandidate(null)}
+                      className="px-4 py-2 text-xs font-bold text-[var(--text-secondary)] hover:bg-[var(--card-hover-bg)] rounded-xl transition-all cursor-pointer"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isSavingDetails}
+                      onClick={saveCandidateDetails}
+                      className="crm-btn-gold px-5 py-2 font-extrabold text-xs rounded-xl shadow-lg transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {isSavingDetails ? (
+                        <>
+                          <span className="w-3.5 h-3.5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+                          Saving...
+                        </>
+                      ) : (
+                        <>
+                          <Check size={14} />
+                          Save Details
+                        </>
+                      )}
+                    </button>
+                  </>
+                )}
               </div>
 
             </motion.div>

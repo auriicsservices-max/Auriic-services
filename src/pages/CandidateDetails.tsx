@@ -958,7 +958,7 @@ export default function CandidateDetailsPage() {
     }
 
     if (!text) {
-      nr('Error', 'No raw resume text available for re-parsing. Please re-upload the resume to enable AI re-extraction.');
+      showAlert('Error', 'No raw resume text available for re-parsing. Please re-upload the resume to enable AI re-extraction.');
       return;
     }
 
