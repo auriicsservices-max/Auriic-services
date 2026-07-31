@@ -1,67 +1,49 @@
-import * as pdfParseModule from 'pdf-parse';
 import * as mammoth from 'mammoth';
 import { parseResumeHeuristically } from '../lib/localParser';
 
-// Resolve pdf-parse correctly in both ESM (dev) and CommonJS (prod bundle)
-async function getPDFParser(): Promise<any> {
-  // 1. Try checking the statically imported module namespace
-  const mod = pdfParseModule as any;
-  if (typeof mod === 'function') {
-    return mod;
-  }
-  if (mod && typeof mod.default === 'function') {
-    return mod.default;
-  }
-  if (mod && mod.default && typeof mod.default.default === 'function') {
-    return mod.default.default;
-  }
+// Use dynamic import for pdf-parse
+async function parseWithPdfParse(buffer: Buffer): Promise<string> {
+    const pdfParse = (await import('pdf-parse'));
+    // Handle both default import and direct export
+    const parser = typeof pdfParse === 'function' ? pdfParse : (pdfParse.default || (pdfParse as any).pdf || pdfParse);
+    const data = await parser(buffer);
+    return data.text || '';
+}
 
-  // 2. Try dynamic import
-  try {
-    const imported = (await import('pdf-parse')) as any;
-    if (typeof imported === 'function') return imported;
-    if (imported && typeof imported.default === 'function') return imported.default;
-    if (imported && imported.default && typeof imported.default.default === 'function') {
-      return imported.default.default;
+// Fallback to pdfjs-dist
+async function parseWithPdfJs(buffer: Buffer): Promise<string> {
+    const pdfjsLib = await import('pdfjs-dist');
+    // Convert Buffer to Uint8Array
+    const uint8Array = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
+    const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+    const pdf = await loadingTask.promise;
+    let text = '';
+    for (let i = 1; i <= pdf.numPages; i++) {
+        const page = await pdf.getPage(i);
+        const content = await page.getTextContent();
+        text += (content as any).items.map((item: any) => item.str).join(' ') + '\n';
     }
-  } catch (e) {
-    // ignore
-  }
-
-  // 3. Try dynamic require if in CommonJS environment or tsx
-  try {
-    if (typeof require !== 'undefined') {
-      const required = require('pdf-parse');
-      if (typeof required === 'function') return required;
-      if (required && typeof required.default === 'function') return required.default;
-    }
-  } catch (e) {
-    // ignore
-  }
-
-  // 4. Try node module bridge
-  try {
-    const { createRequire } = await import('module');
-    const requireBridge = createRequire(import.meta.url);
-    const required = requireBridge('pdf-parse');
-    if (typeof required === 'function') return required;
-    if (required && typeof required.default === 'function') return required.default;
-  } catch (e) {
-    // ignore
-  }
-
-  throw new Error("PDF parsing library (pdf-parse) not available or could not be loaded");
+    return text;
 }
 
 export async function extractRawTextFromBuffer(buffer: Buffer, mimeType: string): Promise<string> {
     let text = '';
     if (mimeType === 'application/pdf') {
+        // Try Primary
         try {
-            const pdfLib = await getPDFParser();
-            const data = await pdfLib(buffer);
-            text = data.text || '';
+            console.log('[resumeParserServer] Attempting PDF parsing with pdf-parse...');
+            text = await parseWithPdfParse(buffer);
+            console.log('[resumeParserServer] PDF parsing successful with pdf-parse.');
         } catch (e) {
-            console.warn('[resumeParserServer] PDF text extraction failed:', e);
+            console.warn('[resumeParserServer] pdf-parse failed, attempting fallback to pdfjs-dist:', e);
+            // Try Fallback
+            try {
+                text = await parseWithPdfJs(buffer);
+                console.log('[resumeParserServer] PDF parsing successful with pdfjs-dist.');
+            } catch (fallbackErr) {
+                console.error('[resumeParserServer] All PDF parsing methods failed:', fallbackErr);
+                throw new Error('All PDF parsing methods failed');
+            }
         }
     } else if (mimeType.includes('wordprocessingml') || mimeType.includes('msword')) {
         try {
@@ -69,6 +51,7 @@ export async function extractRawTextFromBuffer(buffer: Buffer, mimeType: string)
             text = result.value || '';
         } catch (e) {
             console.warn('[resumeParserServer] Docx text extraction failed:', e);
+            throw new Error('Docx extraction failed');
         }
     } else {
         text = buffer.toString('utf-8');

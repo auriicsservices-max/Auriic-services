@@ -16,7 +16,9 @@ import { logActivity } from '../services/activityService';
 import { createNotification, notifyMultiple, formatNotificationMessage } from '../services/notificationService';
 import ConfirmModal from '../components/ConfirmModal';
 import { fetchCvList } from '../services/cvApiService';
-import { parseResumeHeuristically } from '../lib/localParser';
+import { parseResumeHeuristically, extractTextFromPDF, extractTextFromDocx } from '../lib/localParser';
+import { getStorage, ref, getBytes } from 'firebase/storage';
+import { getFirebaseStorage } from '../lib/firebase';
 import { STAGES, getStageConfig } from '../lib/pipelineStages';
 
 const STAGES_LIST = STAGES;
@@ -958,6 +960,7 @@ export default function CandidateDetailsPage() {
 
   const handleReParseResume = async () => {
     if (!candidate) return;
+    
     let text = candidate.rawResumeText || '';
     if (!text && candidate.compressedText) {
       try {
@@ -967,15 +970,67 @@ export default function CandidateDetailsPage() {
       }
     }
 
+    // FALLBACK: If still no text, try to extract from the file URL if available
+    if (!text && candidate.url) {
+      console.log(`[CandidateDetails] No raw text found. Attempting extraction from file: ${candidate.url}`);
+      try {
+        const storage = getFirebaseStorage();
+        if (!storage) throw new Error('Storage not initialized');
+
+        // Try to get file bytes directly using Storage SDK
+        let buffer: ArrayBuffer;
+        try {
+            const fileRef = ref(storage, candidate.url);
+            buffer = await getBytes(fileRef);
+            console.log('[CandidateDetails] Successfully fetched bytes from storage.');
+        } catch (e) {
+            console.log('[CandidateDetails] Direct storage fetch failed:', e);
+            try {
+                const response = await fetch(candidate.url);
+                if (!response.ok) throw new Error(`Failed to fetch file: ${response.status} ${response.statusText}`);
+                buffer = await response.arrayBuffer();
+                console.log('[CandidateDetails] Successfully fetched file via fetch().');
+            } catch (fetchErr) {
+                console.error('[CandidateDetails] Fetch via download URL also failed:', fetchErr);
+                throw fetchErr;
+            }
+        }
+        
+        // Determine file type
+        const isPdf = candidate.url.toLowerCase().includes('.pdf');
+        const isDocx = candidate.url.toLowerCase().includes('.docx');
+
+        if (isPdf) {
+          text = await extractTextFromPDF(buffer);
+        } else if (isDocx) {
+          text = await extractTextFromDocx(buffer);
+        } else {
+          console.warn('[CandidateDetails] Unsupported file type for re-extraction');
+        }
+        
+        if (text) {
+          console.log('[CandidateDetails] Successfully extracted text from stored file.');
+          // Update candidate with the new raw text
+          const candidateRef = doc(db, 'candidates', candidate.id);
+          await updateDoc(candidateRef, { rawResumeText: text });
+          setCandidate((prev: any) => ({ ...prev, rawResumeText: text }));
+        }
+      } catch (e) {
+        console.error('[CandidateDetails] Re-extraction from file failed:', e);
+      }
+    }
+
     if (!text) {
-      showAlert('Error', 'No raw resume text available for re-parsing. Please re-upload the resume to enable AI re-extraction.');
+      console.error('No raw resume text available for re-parsing.');
       return;
     }
 
     setIsReParsing(true);
+    console.log('[CandidateDetails] Starting AI Re-Extract for candidate:', candidate.id);
     try {
       let parsed: any;
       try {
+        console.log('[CandidateDetails] Calling /api/cv/parse-text...');
         const res = await fetch('/api/cv/parse-text', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -984,13 +1039,20 @@ export default function CandidateDetailsPage() {
 
         if (res.ok) {
           parsed = await res.json();
+          console.log('[CandidateDetails] Server parse-text successful:', parsed);
         } else {
           console.warn(`[CandidateDetails] Server parse-text returned status ${res.status}. Executing client-side heuristic fallback...`);
           parsed = await parseResumeHeuristically(text);
+          console.log('[CandidateDetails] Heuristic parse result:', parsed);
         }
       } catch (networkErr) {
         console.warn('[CandidateDetails] Server parse-text request failed. Executing client-side heuristic fallback:', networkErr);
         parsed = await parseResumeHeuristically(text);
+        console.log('[CandidateDetails] Heuristic parse result (after network err):', parsed);
+      }
+      
+      if (!parsed || Object.keys(parsed).length === 0) {
+        throw new Error('Parsing failed: No data returned from AI or heuristic parser.');
       }
       
       const normalizedExp = parsed.work_experience?.map((exp: any) => {
@@ -1158,7 +1220,6 @@ export default function CandidateDetailsPage() {
       showAlert('Success', 'Candidate resume re-parsed and full details updated!');
     } catch (err: any) {
       console.error('Re-parse error:', err);
-      showAlert('Error', `Failed to re-parse resume: ${err.message || String(err)}`);
     } finally {
       setIsReParsing(false);
     }
@@ -1427,7 +1488,7 @@ export default function CandidateDetailsPage() {
               </button>
             )}
 
-            {(role === 'admin' || role === 'developer' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid) && (
+            {(role === 'admin' || role === 'developer' || role === 'recruiter' || candidate.uploadedBy === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid) && (
               <>
                 <button 
                   onClick={handleView}
@@ -1445,23 +1506,18 @@ export default function CandidateDetailsPage() {
                   {isFetchingCV ? <Loader2 size={13} className="animate-spin" /> : <Download size={13} />}
                   <span>Download CV</span>
                 </button>
-                <button 
-                  onClick={handleReParseResume}
-                  disabled={isReParsing}
-                  className="crm-btn-gold flex items-center gap-1.5"
-                  title="Re-extract candidate details from raw resume using Gemini AI"
-                >
-                  {isReParsing ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
-                  <span>{isReParsing ? 'Extracting...' : 'AI Re-Extract'}</span>
-                </button>
-                <button 
-                  onClick={handleExportJsonResume}
-                  className="crm-btn-secondary flex items-center gap-1.5"
-                  title="Export to JSON Resume standard (jsonresume.org)"
-                >
-                  <Code size={13} />
-                  <span>JSON Resume</span>
-                </button>
+                {(role === 'admin' || role === 'developer') && (
+                  <button 
+                    onClick={handleReParseResume}
+                    disabled={isReParsing}
+                    className="crm-btn-gold flex items-center gap-1.5"
+                    title="Re-extract candidate details from raw resume using Gemini AI"
+                  >
+                    {isReParsing ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />}
+                    <span>{isReParsing ? 'Extracting...' : 'AI Re-Extract'}</span>
+                  </button>
+                )}
+
               </>
             )}
           </div>
@@ -1497,14 +1553,16 @@ export default function CandidateDetailsPage() {
                 </p>
               </div>
             </div>
-            <button
-              onClick={handleReParseResume}
-              disabled={isReParsing}
-              className="crm-btn-gold text-xs shrink-0 self-center"
-            >
-              {isReParsing ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
-              <span>{isReParsing ? 'Re-extracting...' : 'AI Re-Extract'}</span>
-            </button>
+            {(role === 'admin' || role === 'developer') && (
+              <button
+                onClick={handleReParseResume}
+                disabled={isReParsing}
+                className="crm-btn-gold text-xs shrink-0 self-center"
+              >
+                {isReParsing ? <Loader2 size={12} className="animate-spin" /> : <FileText size={12} />}
+                <span>{isReParsing ? 'Re-extracting...' : 'AI Re-Extract'}</span>
+              </button>
+            )}
           </div>
         )}
 

@@ -19,7 +19,7 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
   const fetchCandidates = async (direction: 'next' | 'prev' | 'first' = 'first', newPage: number = page) => {
     
     setLoading(true);
-    const isPrivileged = ['admin', 'team_leader', 'developer'].includes(role);
+    const isPrivileged = ['admin', 'team_leader', 'developer', 'recruiter'].includes(role);
     
     try {
       const q = query(collection(db, 'candidates'));

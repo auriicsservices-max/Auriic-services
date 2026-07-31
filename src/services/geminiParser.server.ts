@@ -3,6 +3,21 @@ import { ResumeData, ResumeSchema } from '../types/resume';
 import { extractRawTextFromBuffer } from './resumeParserServer';
 import { parseResumeHeuristically } from '../lib/localParser';
 
+const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+async function retryWithBackoff<T>(fn: () => Promise<T>, retries: number = 3, initialDelay: number = 2000): Promise<T> {
+  try {
+    return await fn();
+  } catch (err: any) {
+    if (retries > 0 && (err?.status === 503 || err?.message?.includes('503'))) {
+      console.warn(`[GeminiResumeParser] Retrying due to 503... ${retries} retries left. Delay: ${initialDelay}ms`);
+      await sleep(initialDelay);
+      return retryWithBackoff(fn, retries - 1, initialDelay * 2);
+    }
+    throw err;
+  }
+}
+
 export class GeminiResumeParser {
   private getAiClient(): GoogleGenAI | null {
     const apiKey = process.env.GEMINI_API_KEY;
@@ -105,7 +120,19 @@ CRITICAL INSTRUCTIONS FOR EDUCATION & SUMMARY EXTRACTION:
    - UNLABELED SUMMARY DETECTION: If there is no explicit summary header, extract any top paragraph (2-5 sentences located below candidate name/contact info) that summarizes candidate experience, goals, or skills as professional_summary.
    - VERBATIM PRESERVATION: Extract the EXACT, verbatim original summary text. Do NOT summarize, rewrite, rephrase, truncate, or drop any sentences.
 
-3. CONFIDENCE & REVIEW EVALUATION:
+3. PROFESSIONAL LINKS & PROJECTS EXTRACTION MANDATE:
+   - Extract ALL professional and project-related links found anywhere in the document.
+   - Detect and classify: LinkedIn, GitHub, Portfolio, Personal Website, Behance, Dribbble, Stack Overflow, Kaggle, LeetCode, HackerRank, Medium, YouTube, X (Twitter), live demo links, repository links.
+   - Extract links into specific platform fields if possible, or into "other_urls" / "other" array.
+   - For PROJECTS: Detect all projects listed. Extract:
+     * name: Project name.
+     * description: Detailed project description.
+     * tech_stack: Technologies and tools used.
+     * live_url: Link to live demo or project website.
+     * code_url: Link to source code repository (e.g., GitHub, GitLab).
+     * highlights: Key features or achievements of the project.
+
+4. CONFIDENCE & REVIEW EVALUATION:
    - Assess education_confidence ("high", "medium", "low") and summary_confidence ("high", "medium", "low").
    - Set needs_review = true if Education is completely missing, if Summary is missing, or if confidence is low.
    - List clear review_reasons (e.g., ["Education section missing or incomplete", "Summary section not detected"]).
@@ -310,11 +337,11 @@ CRITICAL INSTRUCTIONS FOR EDUCATION & SUMMARY EXTRACTION:
     for (const modelName of candidateModels) {
       try {
         console.log(`[GeminiResumeParser] Attempting resume parse with model: ${modelName}...`);
-        const response = await ai.models.generateContent({
+        const response = await retryWithBackoff(() => ai.models.generateContent({
           model: modelName,
           contents,
           config,
-        });
+        }));
 
         const rawText = response.text || '{}';
         const cleanText = rawText.replace(/```json\s*/gi, '').replace(/```\s*$/gi, '').trim();

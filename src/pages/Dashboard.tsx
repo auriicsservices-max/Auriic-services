@@ -351,7 +351,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         let filtered = candidatesData;
         if (role === 'client') {
           filtered = candidatesData.filter((c: any) => c.clientId === user?.uid);
-        } else if (role !== 'admin' && role !== 'team_leader' && role !== 'developer') {
+        } else if (role !== 'admin' && role !== 'team_leader' && role !== 'developer' && role !== 'recruiter') {
           filtered = candidatesData.filter((c: any) => c.uploadedBy === user?.uid || c.assignedTo === user?.uid);
         }
 
