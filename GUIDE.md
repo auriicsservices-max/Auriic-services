@@ -1,156 +1,52 @@
-# Talent Insights / Aurrum CRM - Complete Enterprise Design System & Architecture Guide
+# Aurrum CRM / Talent Insights - Deployment & User Guide
 
-## 1. Introduction
-This document serves as the definitive Enterprise Design System and Technical Architecture Guide for the **Talent Insights / Aurrum CRM** platform. It establishes visual standards, component design patterns, theme parity rules, security invariants, high-performance AI resume parsing architecture (aligned with the [JSON Resume Schema Standard](https://jsonresume.org/schema)), and operational guidelines required for delivering a high-performance, accessible enterprise SaaS experience across both **Light Theme** and **Dark Theme**.
-
----
-
-## 2. Core Architectural & Design Principles
-
-### Unified Theme Parity (Light & Dark Mode)
-- **Single Component Architecture:** Light Theme and Dark Theme share the exact same component structure, typography scale, padding, margin, border-radius, and interactive functionality.
-- **Variable-Driven Custom Properties:** Theme switching toggles semantic CSS custom properties (`--bg-primary`, `--card-bg`, `--text-primary`, `--text-muted`, `--border-color`, etc.) smoothly in `200ms–300ms` transitions without page refresh, layout shifts, or component re-renders.
-- **Elimination of Hardcoded CSS:** Component code MUST NOT use hardcoded light/dark Tailwind classes like `bg-slate-50`, `dark:bg-slate-900`, `text-indigo-600`, or `dark:text-indigo-400`. All styling must use semantic tokens like `bg-[var(--card-bg)]`, `text-[var(--text-primary)]`, `text-[var(--primary-gold)]`, and `.crm-btn-gold`.
+Welcome to **Aurrum CRM**, an enterprise-grade recruitment and talent intelligence platform built with React, TypeScript, Tailwind CSS, Express, and Firebase.
 
 ---
 
-## 3. Light Theme vs Dark Theme Standards
+## 🚀 Deployment Guide (Vercel & Production)
 
-### Aurrum Light Theme Standards (Client-Ready & High Contrast)
-- **Backgrounds:** Pure white (`#FFFFFF`) cards and modal surfaces layered on a crisp, soft neutral canvas (`#F8FAFC`).
-- **Typography:** High-contrast solid dark navy typography (`#002D38` primary, `#003649` secondary, `#005472` muted). Faded gray text is strictly forbidden.
-- **Borders & Elevation:** Crisp 1px borders (`#E2E8F0`) with subtle, refined elevation shadows.
-- **Accents & Buttons:** Brand Primary Blue (`#004564`) and Primary Gold (`#A98B56`).
+### 1. Build Configuration on Vercel
+When deploying to Vercel, ensure your project settings are configured as follows:
+- **Build Command**: `npm run build`
+- **Output Directory**: `dist`
+- **Install Command**: `npm install`
+- **Development Command**: `npm run dev`
+- **Start Command**: `npm start`
 
-### Aurrum Dark Theme Standards (Modern & Comfortable)
-- **Backgrounds:** Layered deep brand blue surfaces (`#002D38` canvas, `#003E51` cards) rather than harsh pure black (`#000000`).
-- **Typography:** High-contrast off-white and pure white typography (`#FFFFFF` primary, `#E2E8F0` secondary, `#94A3B8` muted).
-- **Borders & Elevation:** Subtle dark blue borders (`#005472`) and soft depth shadows.
+`vercel.json` and `package.json` are pre-configured to output build artifacts directly into the `dist/` directory with `dist/server.cjs` for full-stack API routing.
 
----
-
-## 4. Typography Specifications (Font: Poppins)
-- **Primary Font Family:** **Poppins** across all modules (`font-sans`).
-- **Hierarchy Rules:**
-  - **Headings (H1 - H3):** Poppins 700-800 weight, tight tracking, high-contrast brand tokens (`var(--text-primary)`).
-  - **Body Text:** Poppins 400-500 weight, 1.5–1.6 line height for effortless long-session reading.
-  - **UI Labels, Badges & Buttons:** Poppins 600-700 weight, medium/tight tracking.
-- **Accessibility & Contrast:** Minimum 4.5:1 contrast ratio for body text in both light and dark modes.
+### 2. Environment Variables
+Configure the following environment variables in your Vercel or hosting project settings:
+- `GEMINI_API_KEY`: Server-side API key for AI resume parsing, candidate matching, and Boolean search generation.
+- `FIREBASE_API_KEY`, `FIREBASE_AUTH_DOMAIN`, `FIREBASE_PROJECT_ID`, etc. (if using Firebase authentication/firestore).
 
 ---
 
-## 5. Official Brand Palette & CSS Token Architecture
+## 🛠️ Local Development
 
-### Primary Palette
-- **Primary Brand Blue (`#004564`)**: Main brand color for primary actions, active headers, and focal points.
-- **Darkest Blue (`#002D38`)**: Primary text token in light mode, primary background surface in dark mode.
-- **Primary Gold Accent (`#A98B56`)**: Primary accent color, active state indicators, and gold button gradients (`#A98B56` to `#BC9B66`).
-
-### CSS Token Mapping (`src/index.css`)
-
-| Semantic Token | Light Theme Value | Dark Theme Value | Usage Description |
-| :--- | :--- | :--- | :--- |
-| `--bg-primary` | `#F8FAFC` | `#002D38` | Main application canvas background |
-| `--bg-secondary` | `#EDF2F7` | `#003649` | Secondary containers, table headers, hover surfaces |
-| `--card-bg` | `#FFFFFF` | `#003E51` | Surface for cards, modals, and drawers |
-| `--card-hover-bg` | `#F1F5F9` | `#004564` | Row and card hover background |
-| `--text-primary` | `#002D38` | `#FFFFFF` | High-contrast main headings and body text |
-| `--text-secondary` | `#003649` | `#E2E8F0` | Subtitles, table cell secondary content |
-| `--text-muted` | `#005472` | `#94A3B8` | Muted labels, placeholders, timestamps |
-| `--border-color` | `#E2E8F0` | `#005472` | Card borders, table dividers, input borders |
-| `--primary-gold` | `#A98B56` | `#A98B56` | Primary brand gold accent |
+1. Install dependencies:
+   ```bash
+   npm install
+   ```
+2. Start the development server (Express + Vite middleware on port 3000):
+   ```bash
+   npm run dev
+   ```
+3. Build for production:
+   ```bash
+   npm run build
+   ```
+4. Start production server:
+   ```bash
+   npm start
+   ```
 
 ---
 
-## 6. Core Component Library Standards
-
-### Sidebar Navigation
-- Premium collapsible navigation with structured section headers (**Core Platform**, **Operations & Insights**, **Preferences**).
-- Featuring the Aurrum Gold Sparkle emblem, smooth collapse transitions, active tab left accent line (`#A98B56`), floating tooltips, and bottom user profile card.
-
-### Buttons & Interactive Controls
-- **Primary Gold Button (`.crm-btn-gold`)**: High-contrast gold gradient button (`#A98B56` -> `#BC9B66`) with active scale feedback.
-- **Secondary Button (`.crm-btn-secondary`)**: Clean surface button with custom border and brand color text.
-- **Form Inputs (`.crm-input`, `.crm-label`)**: Theme-aware input fields with high-contrast text labels and primary gold focus rings.
-
-### Tables & Data Cards
-- Standardized `.crm-table` and `.crm-card` styling across Candidate Repository, Pipeline, Invoice Management, and Analytics views.
-- Sticky high-contrast table headers, comfortable padding, and standardized status badges (`.crm-badge-gold`, `.crm-badge-success`, `.crm-badge-warning`, `.crm-badge-error`, `.crm-badge-info`).
-
----
-
-## 7. Security Specifications & Data Invariants
-1. **IP-Based Access Restriction:** Managed via `ALLOWED_IPS` environment variable with fail-closed security.
-2. **Firestore Security Rules:** Strict rules enforcing authentication and requiring `uploadedBy` UID validation on candidate records.
-
----
-
-## 8. AI Resume Parsing Engine & JSON Resume Architecture
-- **High-Capability AI Models:** Uses `gemini-3.1-pro-preview` as the primary parsing engine (with automatic fallback to `gemini-3.6-flash`) via `@google/genai` to guarantee exhaustive, high-precision structured data extraction.
-- **Queue-Based Bulk Processing:** Implements a high-performance, queue-based architecture for processing single and bulk resume uploads using 3–5 parallel workers, with real-time tracking, automatic retries with exponential backoff, and local fallback parsing.
-- **Candidate Actions:**
-  - **AI Re-Extract:** Authorized users (Admin and Developer) can trigger re-parsing of raw resume files to update profile fields, preserving manual edits.
-  - **Download CV:** Recruiters, Admins, and Developers can download original uploaded resume files.
-- **Persistent Extraction Storage:** Permanently stores original resumes, extracted raw text, parsed JSON, AI metadata, and file hashes to support efficient re-parsing without requiring re-upload.
-
----
-
-## 9. Global Logo & Branding Engine
-
-To ensure cohesive corporate identity across all customer touchpoints, the CRM implements a unified **Global Branding Engine**:
-
-### Centralized Management
-- **System Settings Integration:** Located under **System Settings → Global CRM Branding**, administrators can manage corporate identity assets globally.
-- **Light & Dark Theme Parity:** Upload distinct logos or supply direct URLs for both **Light Theme** (optimized for white backgrounds) and **Dark Theme** (optimized for navy/dark blue backgrounds).
-- **Format & Constraint Validation:** Supports drag-and-drop or file browsing (PNG, JPG, SVG, WebP up to 500KB) with instant preview frames of corresponding theme backgrounds.
-
-### Automated Multi-Surface Application
-Once configured globally in the database, the logos dynamically apply across all system surfaces with zero secondary configuration:
-1. **Sidebar Navigation:** Automatically displays the appropriate active branding logo adapting to the user's selected global theme.
-2. **Login Screen:** Welcomes users with the official global corporate branding in perfect high-contrast.
-3. **Invoices Module:** All invoice templates, print sheets, and generated PDF structures automatically inherit the Light Theme logo to match the crisp white paper canvas layout.
-
----
-
-## 10. Performance & Load Optimization Architecture
-
-To maintain lightning-fast responsiveness across enterprise workflows (even with thousands of candidate profiles), Aurrum CRM implements rigorous performance optimizations:
-
-1. **Payload Separation (Firebase Storage):**
-   - Original resume files are uploaded directly to Firebase Storage (`resumes/`), storing only lightweight metadata (`cvStorageUrl`, `cvFileName`, `cvSizeBytes`, `cvFileHash`) on Firestore candidate documents.
-   - Eliminates multi-megabyte base64 payload bloat in Firestore document reads.
-
-2. **Bounded Real-Time Listeners:**
-   - All Firestore `onSnapshot` subscriptions use strict query boundaries (`orderBy`, `where`, and `limit(100)`), preventing unbounded collection-wide data transfers on every update.
-
-3. **Optimized Derived State (`useMemo`) & Debounced Search:**
-   - Complex sorting, status filtering, and search matching are wrapped in `useMemo` hooks keyed to raw query snapshots and filter parameters to avoid redundant re-renders.
-   - Search-input queries are debounced to eliminate unnecessary CPU spikes.
-
-4. **Standardized Pagination:**
-   - Large datasets (Candidates, Invoices, Activity Logs) feature robust client and server pagination controls (`15–50` items per page) with intuitive navigation.
-
----
-
-## 11. Invoice Fee Calculation & Robust PDF Export Engine
-
-Aurrum CRM features an enterprise-grade automated billing and invoicing module:
-
-1. **Annual Salary (CTC) Automatic Fee Calculation:**
-   - Every candidate profile includes an **Annual Salary (CTC)** property.
-   - Each client profile supports configurable placement billing rules: either **Percentage (%)** of CTC (e.g. 10%, 15%) or **Fixed Amount ($)**.
-   - When generating Candidate or Dynamic Invoices, fees are calculated automatically with complete breakdown displays in USD ($) currency formatting.
-
-2. **Custom Due Dates & Dynamic Line Items:**
-   - Invoice creation and builders include explicit **Invoice Date** and **Due Date** inputs.
-   - Interactive calculation preview boxes allow instant fee adjustment and item application.
-
-3. **Robust PDF Generation Engine:**
-   - Leverages `html2canvas` and `jspdf` to render pixel-perfect multi-page PDF statements with clean table layouts, brand typography, and USD currency formatting.
-
----
-
-## 12. CV Repository Bulk ZIP Export
-
-- **Download All CVs in One ZIP Archive:** The **CV Repository** features a dedicated **"Download All CVs (ZIP)"** action button that packages all candidate CV documents (PDF, Word DOCX) into a single structured archive (`Aurrum_CRM_All_CVs_YYYY-MM-DD.zip`), enabling recruiters and admins to download the entire talent pool instantly.
-
+## 🌟 Key Features
+- **AI Resume Parsing**: Drag & drop or upload candidate CVs (PDF/DOCX) for automated structured extraction (skills, experience, education, salary, notice period).
+- **Client Pipeline Portal**: Shareable client interview pipelines with feedback ratings and stage management.
+- **Talent Insights Dashboard**: Analytics on hiring funnel conversion, skill availability, and experience breakdowns.
+- **Advanced Boolean Search**: Natural language to Boolean search query builder powered by Gemini.
+- **Enterprise Theme Engine**: Seamless Light and Dark theme parity adhering to Aurrum Brand Palette (`#004564` brand blue and `#A98B56` gold accent).

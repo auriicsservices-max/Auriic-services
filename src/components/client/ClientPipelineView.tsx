@@ -540,10 +540,10 @@ export const ClientPipelineView: React.FC<ClientPipelineViewProps> = ({
                                   <span className="truncate">{candidate.location}</span>
                                 </div>
                               )}
-                              {(candidate.experience || candidate.totalExperience) && (
+                              {((typeof candidate.experience === 'number' || typeof candidate.experience === 'string') || candidate.totalExperience) && (
                                 <div className="flex items-center gap-1 truncate text-[var(--text-muted)]">
                                   <Briefcase size={11} className="shrink-0 text-[#A98B56]" />
-                                  <span className="truncate">{candidate.experience || candidate.totalExperience} Yrs Exp</span>
+                                  <span className="truncate">{typeof candidate.experience === 'number' || typeof candidate.experience === 'string' ? candidate.experience : candidate.totalExperience} Yrs Exp</span>
                                 </div>
                               )}
                             </div>
@@ -677,7 +677,7 @@ export const ClientPipelineView: React.FC<ClientPipelineViewProps> = ({
                         {/* Location & Experience */}
                         <td className="py-3 px-3 text-[var(--text-muted)] text-[11px]">
                           <div>{candidate.location || 'Location N/A'}</div>
-                          {candidate.experience && (
+                          {(typeof candidate.experience === 'number' || typeof candidate.experience === 'string') && (
                             <div className="text-[10px] font-semibold text-[#A98B56]">{candidate.experience} Yrs Exp</div>
                           )}
                         </td>
