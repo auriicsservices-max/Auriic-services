@@ -4,18 +4,40 @@ import { parseResumeHeuristically } from '../lib/localParser';
 // Use dynamic import for pdf-parse
 async function parseWithPdfParse(buffer: Buffer): Promise<string> {
     const pdfParse = (await import('pdf-parse'));
-    // Handle both default import and direct export
     const parser = (pdfParse as any).default || (pdfParse as any).pdf || pdfParse;
-    const data = await parser(buffer);
-    return data.text || '';
+    
+    if (typeof parser === 'function') {
+        const data = await parser(buffer);
+        return data.text || '';
+    } else if (parser && typeof parser.PDFParse === 'function') {
+        const u8 = new Uint8Array(buffer);
+        const p = new parser.PDFParse({ data: u8 });
+        const res = await p.getText();
+        return res.text || '';
+    } else if (parser && typeof parser.default?.PDFParse === 'function') {
+        const u8 = new Uint8Array(buffer);
+        const p = new parser.default.PDFParse({ data: u8 });
+        const res = await p.getText();
+        return res.text || '';
+    } else if (pdfParse && typeof (pdfParse as any).PDFParse === 'function') {
+        const u8 = new Uint8Array(buffer);
+        const p = new (pdfParse as any).PDFParse({ data: u8 });
+        const res = await p.getText();
+        return res.text || '';
+    }
+    throw new Error('pdf-parse is not a valid function or class structure');
 }
 
-// Fallback to pdfjs-dist
+// Fallback to pdfjs-dist for Node.js
 async function parseWithPdfJs(buffer: Buffer): Promise<string> {
     const pdfjsLib = await import('pdfjs-dist');
-    // Convert Buffer to Uint8Array
     const uint8Array = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-    const loadingTask = pdfjsLib.getDocument({ data: uint8Array });
+    try {
+        (pdfjsLib as any).GlobalWorkerOptions.workerSrc = '';
+    } catch (e) {}
+    const loadingTask = pdfjsLib.getDocument({ 
+        data: uint8Array
+    });
     const pdf = await loadingTask.promise;
     let text = '';
     for (let i = 1; i <= pdf.numPages; i++) {
