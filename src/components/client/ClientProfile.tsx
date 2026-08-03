@@ -15,7 +15,6 @@ import {
 import { updatePassword, updateProfile } from 'firebase/auth';
 import { doc, updateDoc } from 'firebase/firestore';
 import { auth, db } from '../../lib/firebase';
-import { BackButton } from '../common/BackButton';
 
 interface ClientProfileProps {
   user: any;
@@ -93,10 +92,6 @@ export const ClientProfile: React.FC<ClientProfileProps> = ({ user, role }) => {
 
   return (
     <div className="max-w-4xl mx-auto space-y-8 animate-in fade-in duration-300 pb-12">
-      <div className="flex items-center justify-between pb-2">
-        <BackButton />
-        <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">Client Portal</span>
-      </div>
       {/* Header Banner */}
       <div className="crm-card p-6 border-l-4 border-l-[#A98B56] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3">

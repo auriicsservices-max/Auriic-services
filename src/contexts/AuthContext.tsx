@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
 import { User, onAuthStateChanged } from 'firebase/auth';
-import { doc, getDoc, setDoc, updateDoc, serverTimestamp, collection, query, where, limit, getDocs } from 'firebase/firestore';
+import { doc, getDoc, setDoc, updateDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 import { OperationType, handleFirestoreError } from '../lib/firestoreError';
 
@@ -74,19 +74,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             } catch (error) {
               handleFirestoreError(error, OperationType.GET, 'invitations/' + authenticatedUser.email!);
             }
-            let defaultRole = isAdminEmail ? 'admin' : (inviteDoc.exists() ? inviteDoc.data().role : 'recruiter');
-
-            if (!isAdminEmail && !inviteDoc.exists() && authenticatedUser.email) {
-              try {
-                const clientQuery = query(collection(db, 'candidates'), where('clientEmail', '==', authenticatedUser.email.toLowerCase()), limit(1));
-                const clientSnap = await getDocs(clientQuery);
-                if (!clientSnap.empty) {
-                  defaultRole = 'client';
-                }
-              } catch (e) {
-                console.warn("Client email lookup warning:", e);
-              }
-            }
+            const defaultRole = isAdminEmail ? 'admin' : (inviteDoc.exists() ? inviteDoc.data().role : 'recruiter');
 
             const newUser = {
               uid: authenticatedUser.uid,

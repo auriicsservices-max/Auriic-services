@@ -127,7 +127,7 @@ export const filterClientPortalCandidates = (
   return clientOnlyCandidates.filter(c => isCandidateForClient(c, selectedClientId));
 };
 
-export function isCandidateAssignedToUser(c: any, user: any): boolean {
+function isCandidateAssignedToUser(c: any, user: any): boolean {
   if (!user) return false;
   const uid = (user.uid || user.id || '').toLowerCase();
   const email = (user.email || '').toLowerCase();

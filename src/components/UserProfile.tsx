@@ -3,7 +3,6 @@ import { useAuth } from '../contexts/AuthContext';
 import { db } from '../lib/firebase';
 import { doc, getDoc, updateDoc } from 'firebase/firestore';
 import { Loader2, User as UserIcon, Mail, Save, AlertCircle } from 'lucide-react';
-import { BackButton } from './common/BackButton';
 
 export default function UserProfile() {
   const { user } = useAuth();
@@ -87,10 +86,6 @@ export default function UserProfile() {
 
   return (
     <div className="max-w-3xl mx-auto crm-card p-8 space-y-8">
-      <div className="flex items-center justify-between pb-4 border-b border-[var(--border-color)]">
-        <BackButton />
-        <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">User Profile</span>
-      </div>
       {/* Header Profile Section */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 pb-6 border-b border-[var(--border-color)]">
         <div className="flex items-center gap-5">

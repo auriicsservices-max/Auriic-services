@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Download, Star, StarOff, Briefcase, GraduationCap, Mail, Phone, Code, Globe, Clock, Save, Calendar, Loader2, StickyNote, Users, Search, MessageSquare, ChevronDown, Linkedin, Github, Twitter, ExternalLink, CheckCircle2, MapPin, Trash, Trash2, Plus, Layers, Building, Coins, ShieldAlert } from 'lucide-react';
 import LZString from 'lz-string';
-import { BackButton } from './common/BackButton';
 
 // Helper to get icon for link
 const getLinkIcon = (label: string) => {
@@ -25,7 +24,6 @@ import { doc, updateDoc } from 'firebase/firestore';
 import { db } from '../lib/firebase';
 import { STAGES, getStageConfig } from '../lib/pipelineStages';
 import { getSLAInfo } from '../utils/clientActionService';
-import { isCandidateAssignedToUser } from '../utils/clientUtils';
 
 const STAGES_LIST = STAGES;
 
@@ -846,10 +844,6 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
         
         {/* Modal Top Banner Header */}
         <header className="p-6 sm:p-8 border-b border-[var(--border-color)]/80 flex flex-col gap-5 shrink-0 bg-[var(--bg-secondary)]">
-          <div className="flex items-center justify-between pb-2">
-            <BackButton onClick={onClose} label="Back" />
-            <span className="text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)]">Candidate Details</span>
-          </div>
           <div className="flex flex-col sm:flex-row justify-between items-start gap-4">
             <div className="flex items-center gap-4 sm:gap-5">
               {/* Dynamic Gradients Initial Avatar Circle */}
@@ -966,7 +960,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   )}
                 </>
               )}
-              {(role === 'admin' || role === 'developer' || role === 'client' || candidate.uploadedBy === user?.uid || isCandidateAssignedToUser(candidate, user)) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid || candidate.cvBase64) && (
+              {(role === 'admin' || role === 'developer' || role === 'client' || candidate.uploadedBy === user?.uid || candidate.clientId === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid || candidate.cvBase64) && (
                 <button 
                   onClick={handleView}
                   disabled={isFetchingCV}
@@ -976,7 +970,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   <span>{isFetchingCV ? 'Syncing...' : 'View Original'}</span>
                 </button>
               )}
-              {(role === 'admin' || role === 'developer' || role === 'client' || candidate.uploadedBy === user?.uid || isCandidateAssignedToUser(candidate, user)) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid || candidate.cvBase64) && (
+              {(role === 'admin' || role === 'developer' || role === 'client' || candidate.uploadedBy === user?.uid || candidate.clientId === user?.uid) && (cvUrl || candidate.url || candidate.compressedText || candidate.cid || candidate.cvBase64) && (
                 <button 
                   onClick={handleDownload}
                   disabled={isFetchingCV}

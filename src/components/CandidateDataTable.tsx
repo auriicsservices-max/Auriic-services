@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import { collection, query, orderBy, limit, startAfter, getDocs, where, QueryDocumentSnapshot, DocumentData, getCountFromServer, onSnapshot } from 'firebase/firestore';
 import { ChevronLeft, ChevronRight, Loader2, Search } from 'lucide-react';
 import { Pagination } from './Pagination';
-import { isCandidateAssignedToUser } from '../utils/clientUtils';
 
 interface Props {
   db: any;
@@ -30,7 +29,7 @@ export const CandidateDataTable: React.FC<Props> = ({ db, user, role }) => {
       // Filter
       allCandidates = allCandidates.filter(c => !c.isArchived);
       if (role === 'client') {
-        allCandidates = allCandidates.filter(c => isCandidateAssignedToUser(c, user));
+        allCandidates = allCandidates.filter(c => c.clientId === user?.uid || c.assignedToClient === user?.uid);
       } else if (!isPrivileged) {
         allCandidates = allCandidates.filter(c => c.uploadedBy === user?.uid || c.assignedTo === user?.uid);
       }

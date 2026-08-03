@@ -29,7 +29,6 @@ import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
 import { RecruitmentPipeline } from '../components/RecruitmentPipeline';
 import { ClientDashboard } from '../components/ClientDashboard';
-import { isCandidateAssignedToUser } from '../utils/clientUtils';
 import { resumeParser } from '../services/resumeParserService';
 import { logActivity } from '../services/activityService';
 import { createNotification, notifyMultiple, formatNotificationMessage } from '../services/notificationService';
@@ -352,7 +351,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         
         let filtered = candidatesData;
         if (role === 'client') {
-          filtered = candidatesData.filter((c: any) => isCandidateAssignedToUser(c, user));
+          filtered = candidatesData.filter((c: any) => c.clientId === user?.uid);
         } else if (role !== 'admin' && role !== 'team_leader' && role !== 'developer' && role !== 'recruiter') {
           filtered = candidatesData.filter((c: any) => c.uploadedBy === user?.uid || c.assignedTo === user?.uid);
         }
