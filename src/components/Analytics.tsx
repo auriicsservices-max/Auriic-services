@@ -7,6 +7,7 @@ import CandidateModal from './CandidateModal';
 import QuotaNotice from './QuotaNotice';
 import { useAuth } from '../contexts/AuthContext';
 import { useTimezone } from '../contexts/TimezoneContext';
+import { BackButton } from './common/BackButton';
 
 interface StatsProps {
   candidates: any[];
@@ -287,9 +288,12 @@ export default function Analytics({
     </div>
   ) : (
     <div className="space-y-12 animate-in fade-in slide-in-from-bottom-4 duration-500 text-[var(--text-primary)] pb-12">
+      <div className="flex items-center justify-between pb-4 border-b border-[var(--border-color)]">
+         <BackButton />
+         <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">Real-time candidate analytics</p>
+      </div>
       <div className="flex items-center justify-between">
          <h2 className="text-3xl font-serif text-[var(--text-primary)]">Talent Insights</h2>
-         <p className="text-[10px] uppercase font-bold tracking-widest text-[var(--text-muted)]">Real-time candidate analytics</p>
       </div>
 
       {/* Top Cards */}

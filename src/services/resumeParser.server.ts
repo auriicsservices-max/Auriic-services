@@ -61,60 +61,20 @@ export class RobustResumeParser {
     let text = '';
 
     if (mimetype === 'application/pdf') {
-      let textSuccess = false;
-      try {
-        const pdfLib = await getPDFParser();
-        const parser = pdfLib?.default || pdfLib?.PDFParse || pdfLib;
-        if (typeof parser === 'function') {
-          const data = await parser(buffer);
-          text = data.text || '';
-          textSuccess = !!text.trim();
-        } else if (parser && typeof parser.PDFParse === 'function') {
-          const u8 = new Uint8Array(buffer);
-          const p = new parser.PDFParse({ data: u8 });
-          const res = await p.getText();
-          text = res.text || '';
-          textSuccess = !!text.trim();
-        } else if (pdfLib && typeof pdfLib.PDFParse === 'function') {
-          const u8 = new Uint8Array(buffer);
-          const p = new pdfLib.PDFParse({ data: u8 });
-          const res = await p.getText();
-          text = res.text || '';
-          textSuccess = !!text.trim();
-        }
-      } catch (e) {
-        console.warn('[RobustResumeParser] pdf-parse failed:', e);
-      }
-
-      if (!textSuccess) {
-        try {
-          console.log('[RobustResumeParser] Attempting fallback to pdfjs-dist...');
-          const pdfjsLib = await import('pdfjs-dist');
-          const uint8Array = new Uint8Array(buffer.buffer, buffer.byteOffset, buffer.byteLength);
-          try {
-            (pdfjsLib as any).GlobalWorkerOptions.workerSrc = '';
-          } catch (e) {}
-          const loadingTask = pdfjsLib.getDocument({
-            data: uint8Array
-          });
-          const pdf = await loadingTask.promise;
-          let pdfJsText = '';
-          for (let i = 1; i <= pdf.numPages; i++) {
-            const page = await pdf.getPage(i);
-            const content = await page.getTextContent();
-            pdfJsText += (content as any).items.map((item: any) => item.str).join(' ') + '\n';
-          }
-          if (pdfJsText.trim()) {
-            text = pdfJsText;
-            textSuccess = true;
-          }
-        } catch (fallbackErr) {
-          console.warn('[RobustResumeParser] pdfjs-dist fallback failed:', fallbackErr);
-        }
-      }
-
-      if (!textSuccess && !text.trim()) {
-        throw new Error("All PDF parsing methods (pdf-parse, pdfjs-dist) failed to extract text from PDF");
+      const pdfLib = await getPDFParser();
+      if (pdfLib && typeof pdfLib.PDFParse === 'function') {
+        const u8 = new Uint8Array(buffer);
+        const parser = new pdfLib.PDFParse({ data: u8 });
+        const result = await parser.getText();
+        text = result.text;
+      } else if (typeof pdfLib === 'function') {
+        const data = await pdfLib(buffer);
+        text = data.text;
+      } else if (pdfLib && typeof pdfLib.default === 'function') {
+        const data = await pdfLib.default(buffer);
+        text = data.text;
+      } else {
+        throw new Error("PDF parsing library loaded but has unknown API structure");
       }
     } else if (mimetype === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') {
       const data = await mammoth.extractRawText({ buffer });

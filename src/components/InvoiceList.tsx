@@ -10,7 +10,7 @@ import {
   FileText, Loader2, Plus, Calendar, User, DollarSign, ArrowLeft, 
   Printer, CheckCircle, Trash2, Check, X, ShieldAlert, Users, ChevronRight, 
   Briefcase, Percent, FileCheck, Layers, Eye, Pencil, Search, CheckSquare, Square,
-  Download, Mail
+  Download, Mail, Copy
 } from 'lucide-react';
 
 interface BilledCandidate {
@@ -158,6 +158,10 @@ export const InvoiceList = () => {
   };
 
   const handleStartEditInvoice = (inv: any) => {
+    if (inv.invoiceType === 'Custom') {
+      navigate(`/invoice-builder/${inv.id}`);
+      return;
+    }
     setEditingInvoiceId(inv.id);
     setSelectedClientId(inv.clientId);
     
@@ -251,6 +255,7 @@ export const InvoiceList = () => {
         // Edit mode - Update existing invoice
         const updatedInvoice = {
           invoiceNumber: invoiceNumber.trim() || `INV-${Math.floor(100000 + Math.random() * 900000)}`,
+          invoiceType: 'Dynamic',
           clientId: selectedClientId,
           clientName: getClientName(),
           candidates: selectedCandidatesList,
@@ -280,6 +285,7 @@ export const InvoiceList = () => {
         // Create mode
         const newInvoice = {
           invoiceNumber: invoiceNumber.trim() || `INV-${Math.floor(100000 + Math.random() * 900000)}`,
+          invoiceType: 'Dynamic',
           clientId: selectedClientId,
           clientName: getClientName(),
           candidates: selectedCandidatesList,
@@ -357,7 +363,26 @@ export const InvoiceList = () => {
     }
   };
 
-  // Delete invoice
+  const handleDuplicateInvoice = async (inv: any) => {
+    try {
+      const prefix = 'INV-' + new Date().getFullYear();
+      const random = Math.floor(1000 + Math.random() * 9000);
+      const duplicated = {
+        ...inv,
+        invoiceNumber: `${prefix}-${random}`,
+        status: 'Draft',
+        createdAt: serverTimestamp(),
+        createdBy: user?.uid || 'System'
+      };
+      delete duplicated.id;
+      await addDoc(collection(db, 'consolidated_invoices'), duplicated);
+      alert('Invoice duplicated successfully!');
+    } catch (err) {
+      console.error('Error duplicating invoice:', err);
+      alert('Failed to duplicate invoice');
+    }
+  };
+
   const handleDeleteInvoice = async (invoiceId: string) => {
     if (!window.confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
       return;
@@ -1019,6 +1044,30 @@ export const InvoiceList = () => {
                           </button>
                           
                           <button
+                            onClick={() => handleDownloadPDF(inv)}
+                            className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
+                            title="Download PDF"
+                          >
+                            <Download className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            onClick={() => handleEmailInvoice(inv)}
+                            className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
+                            title="Email Invoice"
+                          >
+                            <Mail className="w-4 h-4" />
+                          </button>
+
+                          <button
+                            onClick={() => handleDuplicateInvoice(inv)}
+                            className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
+                            title="Duplicate Invoice"
+                          >
+                            <Copy className="w-4 h-4" />
+                          </button>
+
+                          <button
                             onClick={() => handlePrintInvoice(inv)}
                             className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--primary-gold)] transition"
                             title="Direct print"
@@ -1440,6 +1489,13 @@ export const InvoiceList = () => {
                   title="Email Statement"
                 >
                   <Mail className="w-3.5 h-3.5" /> Email
+                </button>
+                <button
+                  onClick={() => handleDuplicateInvoice(viewingInvoice)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 crm-btn-secondary text-xs font-bold transition"
+                  title="Duplicate Invoice"
+                >
+                  <Copy className="w-3.5 h-3.5" /> Duplicate
                 </button>
                 <button
                   onClick={() => handlePrintInvoice(viewingInvoice)}

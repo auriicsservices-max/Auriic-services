@@ -86,7 +86,7 @@ export const InvoicePreview = React.forwardRef<HTMLDivElement, { invoice: Invoic
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-8 items-end">
           {/* Bank Instructions */}
           <div className="space-y-3">
-            {(invoice.payeeName || invoice.bankName || invoice.accountNumber) && (
+            {invoice.invoiceType !== 'Custom' && (invoice.payeeName || invoice.bankName || invoice.accountNumber) && (
               <>
                 <p className="text-xs font-black text-[var(--text-primary)] uppercase tracking-wider">
                   Make all payable to:

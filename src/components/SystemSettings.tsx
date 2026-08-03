@@ -3,6 +3,7 @@ import { db } from '../lib/firebase';
 import { doc, getDoc, setDoc, collection, query, getDocs } from 'firebase/firestore';
 import { Save, Shield, Settings, Info, AlertTriangle, Lock, CheckCircle2, Image, Upload, Trash2, Layout, LogIn, FileText, Sparkles, RefreshCw, Cpu, Activity, Zap, Layers, Key, Clock, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
+import { BackButton } from './common/BackButton';
 
 interface LogoUploaderProps {
   id: string;
@@ -279,6 +280,10 @@ export default function SystemSettings() {
 
   return (
     <div className="max-w-5xl mx-auto py-6 space-y-8">
+      <div className="flex items-center justify-between pb-2">
+        <BackButton />
+        <span className="text-xs font-bold uppercase tracking-wider text-[var(--text-muted)]">System Settings</span>
+      </div>
       <div className="crm-card p-8 space-y-8">
         <div className="flex items-center gap-4 pb-6 border-b border-[var(--border-color)]">
           <div className="w-12 h-12 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-2xl flex items-center justify-center text-[var(--primary-gold)] shadow-sm">
