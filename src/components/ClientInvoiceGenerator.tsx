@@ -26,7 +26,7 @@ export const ClientInvoiceGenerator = ({ clientId, clientName, candidates }: { c
       await addDoc(collection(db, 'consolidated_invoices'), invoiceData);
       
       // Print/PDF generation logic would go here
-      alert('Consolidated invoice generated!');
+      alert('Dynamic invoice generated!');
     } catch (error) {
       console.error('Error generating invoice:', error);
       alert('Failed to generate invoice');
@@ -42,7 +42,7 @@ export const ClientInvoiceGenerator = ({ clientId, clientName, candidates }: { c
       className="crm-btn-gold flex items-center gap-2 text-xs uppercase tracking-widest disabled:opacity-50"
     >
       {loading ? <Loader2 className="animate-spin" size={16} /> : <FileText size={16} />}
-      Generate Consolidated Invoice
+      Generate Dynamic Invoice
     </button>
   );
 };

@@ -645,7 +645,7 @@ async function bootstrap() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), 'dist');
+    const distPath = path.join(process.cwd(), 'build');
     app.use(express.static(distPath));
     // Wildcard handler for SPA fallback, only if not running in Vercel lambda (Vercel routes static files natively)
     if (!process.env.VERCEL) {

@@ -63,7 +63,7 @@ export const InvoicePreview = React.forwardRef<HTMLDivElement, { invoice: Invoic
               <tr key={item.id} className="hover:bg-[var(--card-hover-bg)] transition-colors">
                 <td className="py-3.5 px-5 text-[var(--text-primary)] font-bold">{item.description}</td>
                 <td className="py-3.5 px-5 text-right font-mono font-bold text-[var(--text-primary)] text-sm">
-                  £ {item.amount.toFixed(2)}
+                  $ {item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </td>
               </tr>
             ))}
@@ -74,7 +74,7 @@ export const InvoicePreview = React.forwardRef<HTMLDivElement, { invoice: Invoic
             <tr className="bg-[var(--bg-secondary)] border-t-2 border-[var(--primary-gold)]/50 font-black text-sm">
               <td className="py-4 px-5 text-right text-[var(--text-primary)] uppercase tracking-wider text-xs">Total:</td>
               <td className="py-4 px-5 text-right font-mono text-[var(--primary-gold)] text-base">
-                £ {invoice.total.toFixed(2)}
+                $ {invoice.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
               </td>
             </tr>
           </tbody>

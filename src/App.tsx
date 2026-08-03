@@ -55,7 +55,7 @@ export default function App() {
                       } 
                     />
                     <Route 
-                      path="/invoice-builder/:candidateId" 
+                      path="/invoice-builder/:candidateId?" 
                       element={
                         <PrivateRoute>
                           <InvoiceBuilder />

@@ -290,6 +290,43 @@ export const ClientProfile: React.FC<ClientProfileProps> = ({ user, role }) => {
           </button>
         </div>
       </form>
+
+      {/* Billing Settings Form */}
+      <form onSubmit={handleUpdateProfile} className="crm-card p-6 space-y-6">
+        <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-3">
+          <Building size={18} className="text-[#A98B56]" />
+          <h2 className="text-sm font-bold text-[var(--text-primary)]">Client Billing Configuration</h2>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-[var(--text-primary)]">Placement Fee Type</label>
+            <select className="crm-input w-full">
+              <option value="percentage">Percentage</option>
+              <option value="fixed">Fixed</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-[var(--text-primary)]">Fee Value</label>
+            <input type="number" placeholder="e.g. 8" className="crm-input w-full" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-[var(--text-primary)]">GST/Tax Rate (%)</label>
+            <input type="number" placeholder="e.g. 18" className="crm-input w-full" />
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-xs font-bold text-[var(--text-primary)]">Currency</label>
+            <input type="text" placeholder="e.g. INR" className="crm-input w-full" />
+          </div>
+        </div>
+
+        <div className="flex justify-end pt-2">
+          <button type="submit" className="crm-btn-gold px-6 py-2.5 rounded-xl text-xs font-black uppercase flex items-center gap-2 cursor-pointer">
+            <Save size={14} />
+            Save Billing Settings
+          </button>
+        </div>
+      </form>
     </div>
   );
 };

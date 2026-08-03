@@ -1,12 +1,16 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { db } from '../lib/firebase';
 import { collection, query, onSnapshot, orderBy, addDoc, serverTimestamp, doc, updateDoc, deleteDoc } from 'firebase/firestore';
 import { useAuth } from '../contexts/AuthContext';
 import Logo from './Logo';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import { 
   FileText, Loader2, Plus, Calendar, User, DollarSign, ArrowLeft, 
   Printer, CheckCircle, Trash2, Check, X, ShieldAlert, Users, ChevronRight, 
-  Briefcase, Percent, FileCheck, Layers, Eye, Pencil, Search, CheckSquare, Square
+  Briefcase, Percent, FileCheck, Layers, Eye, Pencil, Search, CheckSquare, Square,
+  Download, Mail
 } from 'lucide-react';
 
 interface BilledCandidate {
@@ -18,6 +22,7 @@ interface BilledCandidate {
 }
 
 export const InvoiceList = () => {
+  const navigate = useNavigate();
   const { role, user } = useAuth();
   const [invoices, setInvoices] = useState<any[]>([]);
   const [candidates, setCandidates] = useState<any[]>([]);
@@ -65,7 +70,15 @@ export const InvoiceList = () => {
 
   const getCandidateFeeAmount = (c: any) => {
     const salaryNum = parseFloat(String(c.salary || '').replace(/[^0-9.]/g, '')) || 0;
-    return salaryNum > 0 ? Math.round(salaryNum * 0.15) : 5000;
+    const clientObj = clients.find(cl => cl.id === (selectedClientId || c.clientId));
+    
+    const feePct = clientObj?.placementFeePercentage ?? clientObj?.feePercentage ?? (clientObj?.placementFeeType === 'percentage' ? clientObj.placementFee : null);
+    const fixedFee = clientObj?.placementFeeFixed ?? (clientObj?.placementFeeType === 'fixed' ? clientObj.placementFee : (clientObj?.placementFee > 100 ? clientObj.placementFee : 0));
+    
+    if (fixedFee > 0) return Math.round(fixedFee);
+    const pct = feePct !== null && feePct !== undefined && !isNaN(Number(feePct)) ? Number(feePct) : (clientObj?.placementFee && clientObj.placementFee <= 100 ? clientObj.placementFee : 15);
+    
+    return salaryNum > 0 ? Math.round(salaryNum * (pct / 100)) : 5000;
   };
 
   // Load consolidated invoices, candidates, clients and logo
@@ -226,7 +239,8 @@ export const InvoiceList = () => {
         fee: getCandidateFeeAmount(c)
       }));
 
-    const subtotal = useFlatSubtotal
+    const isFlat = useFlatSubtotal || flatSubtotalVal > 0;
+    const subtotal = isFlat
       ? flatSubtotalVal
       : selectedCandidatesList.reduce((sum, item) => sum + item.fee, 0);
     const taxAmount = Math.round(subtotal * (taxRate / 100));
@@ -254,7 +268,7 @@ export const InvoiceList = () => {
           senderWeb,
           customLogoUrl,
           issueDate,
-          useFlatSubtotal,
+          useFlatSubtotal: isFlat,
           flatSubtotalVal,
           updatedAt: serverTimestamp(),
           updatedBy: user?.uid || 'System'
@@ -284,7 +298,7 @@ export const InvoiceList = () => {
           senderWeb,
           customLogoUrl,
           issueDate,
-          useFlatSubtotal,
+          useFlatSubtotal: isFlat,
           flatSubtotalVal,
           createdAt: serverTimestamp(),
           createdBy: user?.uid || 'System'
@@ -358,9 +372,148 @@ export const InvoiceList = () => {
     }
   };
 
+  const handleDownloadPDF = async (inv: any) => {
+    try {
+      const container = document.createElement('div');
+      container.style.position = 'fixed';
+      container.style.left = '-9999px';
+      container.style.top = '0';
+      container.style.width = '800px';
+      container.style.background = '#ffffff';
+      container.style.padding = '40px';
+      container.style.fontFamily = "'Poppins', sans-serif";
+      container.style.color = '#002D38';
+
+      const isFlatInvoice = inv.useFlatSubtotal || (inv.subtotal && (!inv.candidates || inv.candidates.length === 0));
+      const candidateRows = isFlatInvoice ? `
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 12px; text-align: center;">1</td>
+          <td style="padding: 12px; font-weight: 600;" colspan="3">Placement Fee</td>
+          <td style="padding: 12px; text-align: right; font-family: monospace; font-weight: 600;">$${Number(inv.subtotal || inv.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+        </tr>
+      ` : (inv.candidates || []).map((c: any, index: number) => `
+        <tr style="border-bottom: 1px solid #e2e8f0;">
+          <td style="padding: 8px; text-align: center;">${index + 1}</td>
+          <td style="padding: 8px; font-weight: 600;">${c.candidateName}</td>
+          <td style="padding: 8px;">${c.position || 'N/A'}</td>
+          <td style="padding: 8px;"><span style="background-color: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 10px;">${c.billingType || 'Placement'}</span></td>
+          <td style="padding: 8px; text-align: right; font-family: monospace; font-weight: 600;">$${Number(c.fee || c.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+        </tr>
+      `).join('');
+
+      const tableHeader = isFlatInvoice ? `
+        <tr>
+          <th style="width: 50px; text-align: center; background: #004564; color: #fff; padding: 10px;">#</th>
+          <th colspan="3" style="background: #004564; color: #fff; padding: 10px; text-align: left;">Service Description</th>
+          <th style="text-align: right; width: 120px; background: #004564; color: #fff; padding: 10px;">Amount</th>
+        </tr>
+      ` : `
+        <tr>
+          <th style="width: 50px; text-align: center; background: #004564; color: #fff; padding: 10px;">#</th>
+          <th style="background: #004564; color: #fff; padding: 10px; text-align: left;">Placed Candidate</th>
+          <th style="background: #004564; color: #fff; padding: 10px; text-align: left;">Position/Role</th>
+          <th style="background: #004564; color: #fff; padding: 10px; text-align: left;">Type</th>
+          <th style="text-align: right; width: 120px; background: #004564; color: #fff; padding: 10px;">Amount</th>
+        </tr>
+      `;
+
+      const formattedDate = inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : (inv.createdAt?.toDate ? inv.createdAt.toDate().toLocaleDateString() : new Date().toLocaleDateString());
+      const formattedDueDate = inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : 'N/A';
+
+      container.innerHTML = `
+        <div style="font-family: 'Poppins', sans-serif; color: #002D38; padding: 20px; background: #ffffff;">
+          <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #004564; padding-bottom: 16px; margin-bottom: 20px;">
+            <div>
+              <h1 style="font-size: 22px; font-weight: 800; color: #002D38; margin: 0 0 4px 0;">${inv.senderName || 'Aurrum CRM'}</h1>
+              <p style="margin: 2px 0; color: #005472; font-size: 12px;">${inv.senderTagline || 'Talent Insights & Recruitment Services'}</p>
+            </div>
+            <div style="text-align: right;">
+              <h2 style="font-size: 24px; font-weight: 800; color: #002D38; margin: 0 0 4px 0;">INVOICE</h2>
+              <span style="display: inline-block; padding: 4px 8px; border: 2px solid #3b82f6; color: #3b82f6; border-radius: 6px; font-weight: 800; text-transform: uppercase; font-size: 11px;">${inv.status}</span>
+            </div>
+          </div>
+          <div style="display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; margin-bottom: 25px; background: #f8fafc;">
+            <div>
+              <h3 style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #A98B56; margin-bottom: 8px;">Billed To</h3>
+              <p style="margin: 3px 0; font-size: 12px;"><strong>Client:</strong> ${inv.clientName}</p>
+              ${inv.paymentTerms ? `<p style="margin: 3px 0; font-size: 12px;"><strong>Payment Terms:</strong> ${inv.paymentTerms}</p>` : ''}
+            </div>
+            <div style="text-align: right;">
+              <h3 style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #A98B56; margin-bottom: 8px;">Invoice Info</h3>
+              <p style="margin: 3px 0; font-size: 12px;"><strong>Invoice Number:</strong> ${inv.invoiceNumber}</p>
+              <p style="margin: 3px 0; font-size: 12px;"><strong>Issue Date:</strong> ${formattedDate}</p>
+              <p style="margin: 3px 0; font-size: 12px;"><strong>Due Date:</strong> ${formattedDueDate}</p>
+            </div>
+          </div>
+          <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden;">
+            <thead>${tableHeader}</thead>
+            <tbody>${candidateRows}</tbody>
+          </table>
+          <div style="display: flex; justify-content: flex-end; margin-top: 15px;">
+            <table style="width: 280px; font-size: 12px; border-collapse: collapse;">
+              <tr><td style="padding: 6px 0;">Subtotal:</td><td style="text-align: right; font-family: monospace; padding: 6px 0;">$${Number(inv.subtotal || inv.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>
+              ${inv.taxRate > 0 ? `<tr><td style="padding: 6px 0;">Tax (${inv.taxRate}%):</td><td style="text-align: right; font-family: monospace; padding: 6px 0;">+$${Number(inv.taxAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>` : ''}
+              ${inv.discountAmount > 0 ? `<tr><td style="padding: 6px 0;">Discount:</td><td style="text-align: right; font-family: monospace; color: #ef4444; padding: 6px 0;">-$${Number(inv.discountAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>` : ''}
+              <tr style="border-top: 2px solid #A98B56; font-size: 15px; font-weight: 800; color: #A98B56;">
+                <td style="padding: 8px 0;">Total Due:</td>
+                <td style="text-align: right; font-family: monospace; padding: 8px 0;">$${Number(inv.totalAmount || inv.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+              </tr>
+            </table>
+          </div>
+        </div>
+      `;
+
+      document.body.appendChild(container);
+      const canvas = await html2canvas(container, { scale: 2, useCORS: true, logging: false });
+      document.body.removeChild(container);
+
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const imgWidth = 210;
+      const pageHeight = 295;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
+      let heightLeft = imgHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft >= 0) {
+        position = heightLeft - imgHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+      }
+
+      pdf.save(`invoice-${inv.invoiceNumber || 'statement'}.pdf`);
+    } catch (error) {
+      console.error('[InvoiceList] Download PDF error:', error);
+      alert('PDF download failed. Opening printable view instead.');
+      handlePrintInvoice(inv);
+    }
+  };
+
+  const handleEmailInvoice = (inv: any) => {
+    try {
+      const subject = encodeURIComponent(`Invoice Statement #${inv.invoiceNumber} from Aurrum CRM`);
+      const body = encodeURIComponent(`Dear ${inv.clientName},\n\nPlease find your invoice statement #${inv.invoiceNumber} attached / available for review.\n\nTotal Amount Due: $${Number(inv.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}\nDue Date: ${inv.dueDate || 'N/A'}\n\nThank you for partnering with Aurrum Company Recruitment Services.\n\nBest regards,\nAurrum CRM Team`);
+      window.location.href = `mailto:?subject=${subject}&body=${body}`;
+    } catch (error) {
+      console.error('[InvoiceList] Email invoice error:', error);
+      alert('Failed to open email client.');
+    }
+  };
+
   // Open printable window for Invoice
   const handlePrintInvoice = (inv: any) => {
-    const candidateRows = inv.candidates.map((c: any, index: number) => `
+    const isFlatInvoice = inv.useFlatSubtotal || (inv.subtotal && (!inv.candidates || inv.candidates.length === 0));
+    const candidateRows = isFlatInvoice ? `
+      <tr style="border-bottom: 1px solid #e2e8f0;">
+        <td style="padding: 12px; text-align: center;">1</td>
+        <td style="padding: 12px; font-weight: 600;" colspan="3">Placement Fee</td>
+        <td style="padding: 12px; text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 600;">$${Number(inv.subtotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+      </tr>
+    ` : inv.candidates.map((c: any, index: number) => `
       <tr style="border-bottom: 1px solid #e2e8f0;">
         <td style="padding: 8px; text-align: center;">${index + 1}</td>
         <td style="padding: 8px; font-weight: 600;">${c.candidateName}</td>
@@ -369,6 +522,22 @@ export const InvoiceList = () => {
         <td style="padding: 8px; text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 600;">${Number(c.fee) > 0 ? `$${Number(c.fee).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '<span style="color: #64748b; font-size: 10px; font-weight: normal;">Included</span>'}</td>
       </tr>
     `).join('');
+
+    const tableHeader = isFlatInvoice ? `
+      <tr>
+        <th style="width: 50px; text-align: center;">#</th>
+        <th colspan="3">Service Description</th>
+        <th style="text-align: right; width: 120px;">Amount</th>
+      </tr>
+    ` : `
+      <tr>
+        <th style="width: 50px; text-align: center;">#</th>
+        <th>Placed Candidate</th>
+        <th>Position/Role</th>
+        <th>Placement/Contract Type</th>
+        <th style="text-align: right; width: 120px;">Amount</th>
+      </tr>
+    `;
 
     const formattedDate = inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : (inv.createdAt?.toDate ? inv.createdAt.toDate().toLocaleDateString() : new Date().toLocaleDateString());
     const formattedDueDate = inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : 'N/A';
@@ -547,15 +716,7 @@ export const InvoiceList = () => {
           </div>
 
           <table>
-            <thead>
-              <tr>
-                <th style="width: 50px; text-align: center;">#</th>
-                <th>Placed Candidate</th>
-                <th>Position/Role</th>
-                <th>Placement/Contract Type</th>
-                <th style="text-align: right; width: 120px;">Amount</th>
-              </tr>
-            </thead>
+            ${tableHeader}
             <tbody>
               ${candidateRows}
             </tbody>
@@ -611,22 +772,38 @@ export const InvoiceList = () => {
     }
   };
 
-  // Filtered invoices for the History Tab
-  const filteredInvoices = invoices.filter(inv => {
-    if (filterInvoiceStatus !== 'all' && inv.status !== filterInvoiceStatus) {
-      return false;
-    }
-    if (searchInvoiceQuery.trim()) {
-      const q = searchInvoiceQuery.toLowerCase();
-      const numMatch = (inv.invoiceNumber || '').toLowerCase().includes(q);
-      const clientMatch = (inv.clientName || '').toLowerCase().includes(q);
-      const candMatch = inv.candidates && Array.isArray(inv.candidates)
-        ? inv.candidates.some((c: any) => (c.candidateName || '').toLowerCase().includes(q))
-        : false;
-      return numMatch || clientMatch || candMatch;
-    }
-    return true;
-  });
+  // Pagination State for Invoices
+  const [currentPage, setCurrentPage] = useState<number>(1);
+  const itemsPerPage = 15;
+
+  // Filtered invoices for the History Tab (Memoized for performance)
+  const filteredInvoices = useMemo(() => {
+    return invoices.filter(inv => {
+      if (filterInvoiceStatus !== 'all' && inv.status !== filterInvoiceStatus) {
+        return false;
+      }
+      if (searchInvoiceQuery.trim()) {
+        const q = searchInvoiceQuery.toLowerCase();
+        const numMatch = (inv.invoiceNumber || '').toLowerCase().includes(q);
+        const clientMatch = (inv.clientName || '').toLowerCase().includes(q);
+        const candMatch = inv.candidates && Array.isArray(inv.candidates)
+          ? inv.candidates.some((c: any) => (c.candidateName || '').toLowerCase().includes(q))
+          : false;
+        return numMatch || clientMatch || candMatch;
+      }
+      return true;
+    });
+  }, [invoices, filterInvoiceStatus, searchInvoiceQuery]);
+
+  const totalPages = Math.ceil(filteredInvoices.length / itemsPerPage) || 1;
+  const paginatedInvoices = useMemo(() => {
+    const start = (currentPage - 1) * itemsPerPage;
+    return filteredInvoices.slice(start, start + itemsPerPage);
+  }, [filteredInvoices, currentPage]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [searchInvoiceQuery, filterInvoiceStatus]);
 
   // Filtered candidates list for the Builder Tab
   const filteredCandidateList = activeClientCandidates;
@@ -658,6 +835,13 @@ export const InvoiceList = () => {
 
         <div className="flex bg-[var(--bg-secondary)] p-1.5 rounded-2xl border border-[var(--border-color)]">
           <button
+            onClick={() => navigate('/invoice-builder')}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-tight transition-all duration-300 crm-btn-gold text-white shadow-sm`}
+          >
+            <Plus className="w-4 h-4" /> Custom Invoice
+          </button>
+          
+          <button
             onClick={() => setActiveTab('builder')}
             className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-tight transition-all duration-300 ${
               activeTab === 'builder'
@@ -673,7 +857,7 @@ export const InvoiceList = () => {
             ) : (
               <>
                 <Plus className="w-4 h-4" />
-                Create Invoice
+                Dynamic Invoice
               </>
             )}
           </button>
@@ -696,7 +880,7 @@ export const InvoiceList = () => {
         <div className="crm-card p-0 overflow-hidden">
           <div className="p-6 border-b border-[var(--border-color)] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[var(--bg-primary)]">
             <div>
-              <span className="text-xs font-bold uppercase text-[var(--text-muted)] tracking-wider">All Consolidated Invoices</span>
+              <span className="text-xs font-bold uppercase text-[var(--text-muted)] tracking-wider">All Dynamic Invoices</span>
               <p className="text-xs text-[var(--text-primary)] mt-0.5">Filter, search, print, or manage billing statements.</p>
             </div>
             <span className="crm-badge-gold text-xs px-3.5 py-1.5">
@@ -777,7 +961,7 @@ export const InvoiceList = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInvoices.length === 0 ? (
+                  {paginatedInvoices.length === 0 ? (
                     <tr>
                       <td colSpan={7} className="p-16 text-center text-[var(--text-primary)] font-sans">
                         <Users className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
@@ -786,7 +970,7 @@ export const InvoiceList = () => {
                       </td>
                     </tr>
                   ) : (
-                    filteredInvoices.map((inv) => (
+                    paginatedInvoices.map((inv) => (
                     <tr key={inv.id} className="hover:bg-[var(--card-hover-bg)] transition-colors">
                       <td className="p-4 pl-6">
                         <span className="font-mono text-xs font-bold text-[var(--text-primary)]">{inv.invoiceNumber}</span>
@@ -867,6 +1051,32 @@ export const InvoiceList = () => {
                   )))}
                 </tbody>
               </table>
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between p-4 border-t border-[var(--border-color)] bg-[var(--bg-primary)]">
+                  <span className="text-xs text-[var(--text-muted)]">
+                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredInvoices.length)} of {filteredInvoices.length} invoices
+                  </span>
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                      disabled={currentPage === 1}
+                      className="px-3 py-1.5 crm-btn-secondary text-xs disabled:opacity-40"
+                    >
+                      Previous
+                    </button>
+                    <span className="text-xs font-bold text-[var(--text-primary)] px-2">
+                      Page {currentPage} of {totalPages}
+                    </span>
+                    <button
+                      onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                      disabled={currentPage === totalPages}
+                      className="px-3 py-1.5 crm-btn-secondary text-xs disabled:opacity-40"
+                    >
+                      Next
+                    </button>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -934,7 +1144,7 @@ export const InvoiceList = () => {
                     </div>
                   </div>
                   <div className="space-y-1.5 pt-2">
-                    <label className="block text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider font-mono">Consolidated Flat Placement Fee ($)</label>
+                    <label className="block text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider font-mono">Placement Fee ($)</label>
                     <div className="relative max-w-xs">
                       <span className="absolute left-3 top-2.5 text-xs text-[var(--text-secondary)]">$</span>
                       <input
@@ -1135,7 +1345,7 @@ export const InvoiceList = () => {
                 <div className="flex justify-between">
                   <span>Placements Subtotal:</span>
                   <span className="font-mono font-bold text-[var(--text-primary)]">
-                    ${(useFlatSubtotal ? flatSubtotalVal : activeClientCandidates
+                    ${((useFlatSubtotal || flatSubtotalVal > 0) ? flatSubtotalVal : activeClientCandidates
                       .reduce((sum, item) => sum + getCandidateFeeAmount(item), 0))
                       .toLocaleString(undefined, { minimumFractionDigits: 2 })}
                   </span>
@@ -1175,7 +1385,7 @@ export const InvoiceList = () => {
                   <span>GRAND TOTAL DUE:</span>
                   <span className="font-mono text-[var(--primary-gold)]">
                     ${(() => {
-                      const subtotal = useFlatSubtotal ? flatSubtotalVal : activeClientCandidates
+                      const subtotal = (useFlatSubtotal || flatSubtotalVal > 0) ? flatSubtotalVal : activeClientCandidates
                         .reduce((sum, item) => sum + getCandidateFeeAmount(item), 0);
                       const taxVal = Math.round(subtotal * (taxRate / 100));
                       const finalTotal = subtotal + taxVal - discountAmount;
@@ -1218,11 +1428,35 @@ export const InvoiceList = () => {
               </div>
               <div className="flex items-center gap-2">
                 <button
+                  onClick={() => handleDownloadPDF(viewingInvoice)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 crm-btn-secondary text-xs font-bold transition"
+                  title="Download PDF"
+                >
+                  <Download className="w-3.5 h-3.5" /> PDF
+                </button>
+                <button
+                  onClick={() => handleEmailInvoice(viewingInvoice)}
+                  className="flex items-center gap-1.5 px-3 py-1.5 crm-btn-secondary text-xs font-bold transition"
+                  title="Email Statement"
+                >
+                  <Mail className="w-3.5 h-3.5" /> Email
+                </button>
+                <button
                   onClick={() => handlePrintInvoice(viewingInvoice)}
                   className="flex items-center gap-1.5 px-3 py-1.5 crm-btn-gold text-xs font-bold transition"
+                  title="Print Statement"
                 >
-                  <Printer className="w-3.5 h-3.5" /> Print Statement
+                  <Printer className="w-3.5 h-3.5" /> Print
                 </button>
+                {(role === 'admin' || role === 'developer' || role === 'team_leader') && (
+                  <button
+                    onClick={() => handleDeleteInvoice(viewingInvoice.id)}
+                    className="flex items-center gap-1.5 px-3 py-1.5 bg-rose-500/10 text-rose-500 hover:bg-rose-500/20 rounded-xl text-xs font-bold transition"
+                    title="Delete Invoice"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" /> Delete
+                  </button>
+                )}
                 <button
                   onClick={() => setViewingInvoice(null)}
                   className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"
@@ -1283,36 +1517,52 @@ export const InvoiceList = () => {
                 </div>
               </div>
 
-              {/* Billed Candidates Table */}
+              {/* Billed Candidates Table or Custom Flat Fee item */}
               <div className="border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-2xs">
                 <table className="w-full text-left">
                   <thead className="bg-[#004564] dark:bg-[#002D38] text-white text-[10px] font-black uppercase tracking-wider">
                     <tr>
                       <th className="p-3 pl-4">#</th>
-                      <th className="p-3">Placed Candidate</th>
-                      <th className="p-3">Role / Specialty</th>
-                      <th className="p-3">Billing Contract Type</th>
+                      <th className="p-3" colSpan={viewingInvoice.useFlatSubtotal || (!viewingInvoice.candidates || viewingInvoice.candidates.length === 0) ? 3 : 1}>
+                        {viewingInvoice.useFlatSubtotal || (!viewingInvoice.candidates || viewingInvoice.candidates.length === 0) ? 'Service Description' : 'Placed Candidate'}
+                      </th>
+                      {!viewingInvoice.useFlatSubtotal && viewingInvoice.candidates && viewingInvoice.candidates.length > 0 && (
+                        <>
+                          <th className="p-3">Role / Specialty</th>
+                          <th className="p-3">Billing Contract Type</th>
+                        </>
+                      )}
                       <th className="p-3 pr-4 text-right">Fee/Amount</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border-color)] text-xs">
-                    {viewingInvoice.candidates?.map((c: any, index: number) => (
-                      <tr key={c.candidateId || index} className="text-[var(--text-secondary)] hover:bg-[var(--card-hover-bg)]">
-                        <td className="p-3 pl-4 font-mono text-[var(--text-muted)]">{index + 1}</td>
-                        <td className="p-3 font-semibold text-[var(--text-primary)]">{c.candidateName}</td>
-                        <td className="p-3">{c.position}</td>
-                        <td className="p-3">
-                          <span className="px-1.5 py-0.5 rounded bg-[var(--bg-secondary)] text-[var(--text-muted)] text-[10px] border border-[var(--border-color)]">
-                            {c.billingType}
-                          </span>
-                        </td>
+                    {viewingInvoice.useFlatSubtotal || (!viewingInvoice.candidates || viewingInvoice.candidates.length === 0) ? (
+                      <tr className="text-[var(--text-secondary)] hover:bg-[var(--card-hover-bg)]">
+                        <td className="p-3 pl-4 font-mono text-[var(--text-muted)]">1</td>
+                        <td className="p-3 font-semibold text-[var(--text-primary)]" colSpan={3}>Placement Fee</td>
                         <td className="p-3 pr-4 text-right font-mono font-bold text-[var(--text-primary)]">
-                          {Number(c.fee || 0) > 0 ? `$${Number(c.fee).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : (
-                            <span className="text-xs font-normal text-[var(--text-muted)]">Included</span>
-                          )}
+                          ${Number(viewingInvoice.subtotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </td>
                       </tr>
-                    ))}
+                    ) : (
+                      viewingInvoice.candidates?.map((c: any, index: number) => (
+                        <tr key={c.candidateId || index} className="text-[var(--text-secondary)] hover:bg-[var(--card-hover-bg)]">
+                          <td className="p-3 pl-4 font-mono text-[var(--text-muted)]">{index + 1}</td>
+                          <td className="p-3 font-semibold text-[var(--text-primary)]">{c.candidateName}</td>
+                          <td className="p-3">{c.position}</td>
+                          <td className="p-3">
+                            <span className="px-1.5 py-0.5 rounded bg-[var(--bg-secondary)] text-[var(--text-muted)] text-[10px] border border-[var(--border-color)]">
+                              {c.billingType}
+                            </span>
+                          </td>
+                          <td className="p-3 pr-4 text-right font-mono font-bold text-[var(--text-primary)]">
+                            {Number(c.fee || 0) > 0 ? `$${Number(c.fee).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : (
+                              <span className="text-xs font-normal text-[var(--text-muted)]">Included</span>
+                            )}
+                          </td>
+                        </tr>
+                      ))
+                    )}
                   </tbody>
                 </table>
               </div>

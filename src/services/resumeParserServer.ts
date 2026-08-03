@@ -5,7 +5,7 @@ import { parseResumeHeuristically } from '../lib/localParser';
 async function parseWithPdfParse(buffer: Buffer): Promise<string> {
     const pdfParse = (await import('pdf-parse'));
     // Handle both default import and direct export
-    const parser = typeof pdfParse === 'function' ? pdfParse : (pdfParse.default || (pdfParse as any).pdf || pdfParse);
+    const parser = (pdfParse as any).default || (pdfParse as any).pdf || pdfParse;
     const data = await parser(buffer);
     return data.text || '';
 }

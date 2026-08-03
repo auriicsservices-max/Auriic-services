@@ -34,18 +34,72 @@ export const InvoiceBuilder = () => {
     candidateId: candidateId
   });
 
+  const [annualSalary, setAnnualSalary] = useState<number>(100000);
+  const [feeType, setFeeType] = useState<'percentage' | 'fixed'>('percentage');
+  const [feeRate, setFeeRate] = useState<number>(15);
+  const [candidateName, setCandidateName] = useState<string>('');
+
+  const calculatedFee = feeType === 'percentage'
+    ? Math.round(annualSalary * (feeRate / 100))
+    : Math.round(feeRate);
+
+  const applyFeeCalculation = () => {
+    const desc = `Placement Fee — ${candidateName || 'Candidate'} (Annual Salary: $${annualSalary.toLocaleString()} | Fee: ${feeType === 'percentage' ? feeRate + '%' : '$' + feeRate})`;
+    setInvoice(prev => {
+      const items = [{ id: prev.items[0]?.id || Date.now().toString(), description: desc, amount: calculatedFee }, ...prev.items.slice(1)];
+      const total = items.reduce((sum, item) => sum + (item.amount || 0), 0);
+      return {
+        ...prev,
+        items,
+        total
+      };
+    });
+  };
+
   useEffect(() => {
     const fetchCandidate = async () => {
       if (!candidateId) return;
-      const docRef = doc(db, 'candidates', candidateId);
-      const docSnap = await getDoc(docRef);
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setInvoice(prev => ({
-          ...prev,
-          clientName: data.client || '',
-          serviceDescription: `Placement Fee for ${data.fullName || ''}`,
-        }));
+      try {
+        const docRef = doc(db, 'candidates', candidateId);
+        const docSnap = await getDoc(docRef);
+        if (docSnap.exists()) {
+          const data = docSnap.data();
+          const salaryNum = parseFloat(String(data.salary || '').replace(/[^0-9.]/g, '')) || 100000;
+          setAnnualSalary(salaryNum);
+          setCandidateName(data.fullName || 'Candidate');
+          let feePct = 15;
+          let fixedFee = 0;
+          
+          if (data.clientId) {
+            const clientRef = doc(db, 'users', data.clientId);
+            const clientSnap = await getDoc(clientRef);
+            if (clientSnap.exists()) {
+              const clientData = clientSnap.data();
+              feePct = Number(clientData.placementFeePercentage ?? clientData.feePercentage ?? 15);
+              fixedFee = Number(clientData.placementFeeFixed ?? 0);
+            }
+          }
+
+          if (fixedFee > 0) {
+            setFeeType('fixed');
+            setFeeRate(fixedFee);
+          } else {
+            setFeeType('percentage');
+            setFeeRate(feePct);
+          }
+
+          const feeAmount = fixedFee > 0 ? Math.round(fixedFee) : Math.round(salaryNum * (feePct / 100));
+
+          setInvoice(prev => ({
+            ...prev,
+            clientName: data.client || '',
+            serviceDescription: `Placement Fee for ${data.fullName || ''} (${data.position || 'Position'})`,
+            items: [{ id: Date.now().toString(), description: `Placement Fee — ${data.fullName || 'Candidate'} (${data.position || 'Position'} | CTC: $${salaryNum.toLocaleString()})`, amount: feeAmount }],
+            total: feeAmount
+          }));
+        }
+      } catch (err) {
+        console.error('Error fetching candidate for invoice:', err);
       }
     };
     fetchCandidate();
@@ -95,18 +149,42 @@ export const InvoiceBuilder = () => {
 
   const generatePDF = async () => {
     if (previewRef.current) {
-      const canvas = await html2canvas(previewRef.current);
-      const imgData = canvas.toDataURL('image/png');
-      const pdf = new jsPDF();
-      pdf.addImage(imgData, 'PNG', 0, 0, 210, 297);
-      pdf.save(`invoice-${invoice.invoiceNumber}.pdf`);
+      try {
+        const canvas = await html2canvas(previewRef.current, { scale: 2, useCORS: true, logging: false });
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF('p', 'mm', 'a4');
+        const imgWidth = 210;
+        const pageHeight = 295;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
+        let heightLeft = imgHeight;
+        let position = 0;
+
+        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+        heightLeft -= pageHeight;
+
+        while (heightLeft >= 0) {
+          position = heightLeft - imgHeight;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+
+        pdf.save(`invoice-${invoice.invoiceNumber || 'statement'}.pdf`);
+      } catch (err) {
+        console.error('[InvoiceBuilder] PDF generation error:', err);
+        alert('Failed to generate PDF. Please try again.');
+      }
     }
   };
 
   const saveInvoice = async () => {
     setLoading(true);
     try {
-      await addDoc(collection(db, 'invoices'), { ...invoice, createdAt: serverTimestamp() });
+      const invoiceData: any = { ...invoice, createdAt: serverTimestamp() };
+      if (!invoiceData.candidateId) {
+        delete invoiceData.candidateId;
+      }
+      await addDoc(collection(db, 'invoices'), invoiceData);
       alert('Invoice saved successfully!');
     } catch (error) {
       console.error(error);
@@ -160,6 +238,27 @@ export const InvoiceBuilder = () => {
                 value={invoice.clientName} 
                 onChange={e => updateInvoice('clientName', e.target.value)} 
               />
+            </div>
+
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Invoice Date</label>
+                <input 
+                  type="date"
+                  className="w-full p-3 bg-[var(--input-bg)] text-[var(--text-primary)] border border-[var(--input-border)] rounded-xl focus:border-[var(--accent-color)] focus:ring-2 focus:ring-[var(--input-focus-ring)] outline-none transition-all text-xs font-semibold" 
+                  value={invoice.invoiceDate} 
+                  onChange={e => updateInvoice('invoiceDate', e.target.value)} 
+                />
+              </div>
+              <div>
+                <label className="block text-xs font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1.5">Due Date</label>
+                <input 
+                  type="date"
+                  className="w-full p-3 bg-[var(--input-bg)] text-[var(--text-primary)] border border-[var(--input-border)] rounded-xl focus:border-[var(--accent-color)] focus:ring-2 focus:ring-[var(--input-focus-ring)] outline-none transition-all text-xs font-semibold" 
+                  value={invoice.dueDate} 
+                  onChange={e => updateInvoice('dueDate', e.target.value)} 
+                />
+              </div>
             </div>
 
             <div>
@@ -230,6 +329,70 @@ export const InvoiceBuilder = () => {
                   value={invoice.signatoryTitle} 
                   onChange={e => updateInvoice('signatoryTitle', e.target.value)} 
                 />
+              </div>
+            </div>
+
+            <div className="bg-[var(--bg-primary)] p-5 rounded-2xl border border-[var(--border-color)] space-y-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <span className="block text-xs font-bold uppercase tracking-wider text-[var(--primary-gold)]">Placement Fee Calculator (Annual Salary Based)</span>
+                  <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Calculate package-wise placement fee based on annual CTC and client billing rules.</p>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">Annual Salary (CTC)</label>
+                  <input
+                    type="number"
+                    className="w-full p-2.5 bg-[var(--input-bg)] text-[var(--text-primary)] border border-[var(--input-border)] rounded-xl font-mono text-xs focus:border-[var(--accent-color)] outline-none"
+                    value={annualSalary}
+                    onChange={e => setAnnualSalary(parseFloat(e.target.value) || 0)}
+                    placeholder="100000"
+                  />
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">Fee Type</label>
+                  <select
+                    className="w-full p-2.5 bg-[var(--input-bg)] text-[var(--text-primary)] border border-[var(--input-border)] rounded-xl text-xs focus:border-[var(--accent-color)] outline-none"
+                    value={feeType}
+                    onChange={e => setFeeType(e.target.value as 'percentage' | 'fixed')}
+                  >
+                    <option value="percentage">Percentage (%)</option>
+                    <option value="fixed">Fixed Amount ($)</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="block text-[10px] font-bold uppercase tracking-wider text-[var(--text-muted)] mb-1">
+                    {feeType === 'percentage' ? 'Fee Percentage (%)' : 'Fixed Fee Amount ($)'}
+                  </label>
+                  <input
+                    type="number"
+                    className="w-full p-2.5 bg-[var(--input-bg)] text-[var(--text-primary)] border border-[var(--input-border)] rounded-xl font-mono text-xs focus:border-[var(--accent-color)] outline-none"
+                    value={feeRate}
+                    onChange={e => setFeeRate(parseFloat(e.target.value) || 0)}
+                    placeholder={feeType === 'percentage' ? '15' : '5000'}
+                  />
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between pt-2 border-t border-[var(--border-color)]">
+                <div>
+                  <span className="text-xs text-[var(--text-muted)]">Calculated Fee: </span>
+                  <span className="font-mono text-sm font-extrabold text-[var(--primary-gold)]">
+                    ${calculatedFee.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                  </span>
+                  <span className="text-[10px] text-[var(--text-muted)] ml-2">
+                    ({feeType === 'percentage' ? `$${annualSalary.toLocaleString()} × ${feeRate}%` : `Fixed $${feeRate.toLocaleString()}`})
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  onClick={applyFeeCalculation}
+                  className="px-3.5 py-2 bg-[var(--primary-gold)] hover:bg-[#8C6E42] text-white rounded-xl text-xs font-bold transition shadow-sm"
+                >
+                  Apply to Invoice Item
+                </button>
               </div>
             </div>
 

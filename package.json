@@ -5,10 +5,10 @@
   "type": "module",
   "scripts": {
     "dev": "tsx server.ts",
-    "build": "mkdir -p dist && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=dist/server.cjs && node --input-type=module -e \"import fs from 'node:fs'; fs.copyFileSync('metadata.json', 'dist/metadata.json'); if (fs.existsSync('firebase-applet-config.json')) fs.copyFileSync('firebase-applet-config.json', 'dist/firebase-applet-config.json');\"",
-    "start": "node dist/server.cjs",
+    "build": "mkdir -p build && vite build && esbuild server.ts --bundle --platform=node --format=cjs --packages=external --sourcemap --outfile=build/server.cjs && node --input-type=module -e \"import fs from 'node:fs'; fs.copyFileSync('metadata.json', 'build/metadata.json'); if (fs.existsSync('firebase-applet-config.json')) fs.copyFileSync('firebase-applet-config.json', 'build/firebase-applet-config.json');\"",
+    "start": "node build/server.cjs",
     "preview": "vite preview",
-    "clean": "rm -rf dist",
+    "clean": "rm -rf build",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
@@ -16,6 +16,7 @@
     "@google/genai": "^1.52.0",
     "@tailwindcss/vite": "^4.1.14",
     "@types/adm-zip": "^0.5.8",
+    "@types/jszip": "^3.4.1",
     "@types/node-cron": "^3.0.11",
     "@vitejs/plugin-react": "^5.0.4",
     "adm-zip": "^0.5.17",
@@ -31,6 +32,7 @@
     "firebase-admin": "^13.8.0",
     "html2canvas": "^1.4.1",
     "jspdf": "^4.2.1",
+    "jszip": "^3.10.1",
     "libphonenumber-js": "^1.13.1",
     "lucide-react": "^0.546.0",
     "lz-string": "^1.5.0",

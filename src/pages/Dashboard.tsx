@@ -136,7 +136,8 @@ export default function Dashboard() {
   const [sortField, setSortField] = useState<'createdAt' | 'domainFocus' | 'fullName'>('createdAt');
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [uploadProgress, setUploadProgress] = useState({ total: 0, processed: 0, failed: 0 });
+  const [skippedFiles, setSkippedFiles] = useState<string[]>([]);
+  const [uploadProgress, setUploadProgress] = useState({ total: 0, processed: 0, skipped: 0, failed: 0 });
   const [parsingStatus, setParsingStatus] = useState<Record<string, { status: string, progress: number }>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; }>({ isOpen: false, message: '' });
@@ -523,8 +524,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
     setIsProcessing(true);
     setUploadStatus('idle');
+    setSkippedFiles([]);
     setDuplicateNotification({ isOpen: false, message: '' });
-    setUploadProgress({ total: acceptedFiles.length, processed: 0, failed: 0 });
+    setUploadProgress({ total: acceptedFiles.length, processed: 0, skipped: 0, failed: 0 });
     
     // Track emails in this batch to prevent duplicates if Firebase hasn't updated yet
     const addedEmailsInBatch = new Set<string>();
@@ -568,8 +570,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         const firstCompany = parsed.work_experience?.[0]?.company || '';
 
         // CHECK FOR DUPLICATES
-        // Note: This check uses the latest candidates state, but might have race conditions
-        // if multiple uploads are processed in parallel.
         const isDuplicateInState = candidates.find(c => 
           (c.email && c.email === parsed.personal_info.email) ||
           (c.phone && c.phone === parsed.personal_info.phone) ||
@@ -581,26 +581,19 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         const isDuplicateInBatch = addedEmailsInBatch.has(parsed.personal_info.email);
         
         if (isDuplicateInState || isDuplicateInBatch) {
-          const workerId = isDuplicateInState ? (isDuplicateInState.assignedTo || isDuplicateInState.uploadedBy) : 'this batch';
-          const workerName = isDuplicateInState ? (teamMembers[workerId] || 'Unknown Recruiter') : 'this batch';
-          const status = isDuplicateInState ? (isDuplicateInState.pipelineStage || isDuplicateInState.status || 'Screening') : 'New';
-          const lastUpdated = isDuplicateInState ? formatUKDate(isDuplicateInState.updatedAt || isDuplicateInState.createdAt) : 'N/A';
-          
-          setDuplicateNotification({ 
-            isOpen: true, 
-            message: `Candidate: ${candidateFullName}\nStatus: Already exists in system\nCurrently Assigned To: ${workerName}\nCurrent Stage: ${status}\nLast Updated: ${lastUpdated}`
-          });
-          setUploadStatus('duplicate');
-          setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
-
-          if (isDuplicateInState) {
-            setDuplicateResolution({
-              isOpen: true,
-              candidate: isDuplicateInState,
-              newParsed: parsed,
-              file: file
-            });
-          }
+          console.warn(`[Dashboard] Skipping duplicate candidate: ${candidateFullName}`);
+          await logActivity(
+            getUserDisplayName(),
+            user?.uid || 'System',
+            getUserRole(),
+            "skipped duplicate",
+            candidateFullName,
+            null,
+            "Duplicate Resume - Skipped",
+            "Upload"
+          );
+          setSkippedFiles(prev => [...prev, candidateFullName]);
+          setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, skipped: prev.skipped + 1 })); 
           return;
         }
 
@@ -846,14 +839,14 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         console.error(err);
         showAlert('Upload Error', `Unable to process ${file.name}: ${err.message}`);
         setUploadStatus('error');
-        setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
+        setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, skipped: prev.skipped, failed: prev.failed + 1 }));
       }
     }
 
     
     setTimeout(() => {
       setIsProcessing(false);
-      setUploadProgress({ total: 0, processed: 0, failed: 0 });
+      setUploadProgress({ total: 0, processed: 0, skipped: 0, failed: 0 });
       setActiveTab('candidates');
     }, 3000);
   }, [user, candidates, teamMembers]); 
@@ -1832,7 +1825,15 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 Processing ({Object.keys(parsingStatus).length})
               </div>
             )}
-            <NotificationBadge onClick={() => setShowNotifications(!showNotifications)} />
+            <button
+              type="button"
+              onClick={() => setShowNotifications(!showNotifications)}
+              className="relative p-2.5 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[var(--text-primary)] hover:border-[var(--primary-gold)] hover:text-[var(--primary-gold)] transition-all cursor-pointer flex items-center justify-center shadow-sm"
+              title="Notifications"
+            >
+              <Bell size={18} className="text-[var(--text-primary)] hover:text-[var(--primary-gold)]" />
+              <NotificationBadge />
+            </button>
             
             {showNotifications && (
               <div 
@@ -1960,7 +1961,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           ) : activeTab === 'repository' ? (
             <CVRepository candidates={activeCandidates} onSelect={handleCandidateSelect} />
           ) : activeTab === 'upload' ? (
-            <BulkUpload onUpload={onDrop} isProcessing={isProcessing} />
+            <BulkUpload onUpload={onDrop} isProcessing={isProcessing} uploadProgress={uploadProgress} skippedFiles={skippedFiles} />
           ) : activeTab === 'pipeline' ? (
             <RecruitmentPipeline candidates={activeCandidates} onSelect={handleCandidateSelect} role={role} teamMembers={teamMembers} fullTeamList={fullTeamList} />
           ) : activeTab === 'candidates' ? (
@@ -2719,95 +2720,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         confirmText={confirmConfig.confirmText}
       />
 
-      {duplicateResolution?.isOpen && (
-        <div className="fixed inset-0 bg-black/60 backdrop-blur-xs z-[1100] flex items-center justify-center p-4 animate-in fade-in duration-300">
-          <div className="bg-[var(--card-bg)] border border-[var(--border-color)] max-w-lg w-full rounded-[2rem] p-6 sm:p-8 shadow-2xl relative flex flex-col gap-6 animate-in zoom-in-95 duration-300">
-            {/* Header */}
-            <div className="flex items-start justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-amber-500/10 rounded-2xl flex items-center justify-center text-amber-600 dark:text-amber-400">
-                  <AlertCircle size={24} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-serif text-[var(--text-primary)]">Duplicate Detected</h3>
-                  <p className="text-[10px] uppercase font-bold tracking-widest text-amber-600 dark:text-amber-400">Manage existing candidate profile conflict</p>
-                </div>
-              </div>
-              <button 
-                onClick={() => setDuplicateResolution(null)} 
-                className="p-1.5 hover:bg-[var(--card-hover-bg)] rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] transition-colors cursor-pointer"
-              >
-                <X size={18} />
-              </button>
-            </div>
-
-            {/* Candidate Details */}
-            <div className="bg-[var(--bg-secondary)] p-5 rounded-2xl border border-[var(--border-color)] flex flex-col gap-3 text-xs font-bold text-[var(--text-secondary)]">
-              <div className="flex justify-between border-b border-[var(--border-color)]/50 pb-2">
-                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[9px]">Candidate Identity:</span>
-                <span className="text-[var(--text-primary)] text-right truncate max-w-[200px]">{duplicateResolution.candidate.fullName}</span>
-              </div>
-              <div className="flex justify-between border-b border-[var(--border-color)]/50 pb-2">
-                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[9px]">Email address:</span>
-                <span className="text-[var(--text-primary)] text-right truncate max-w-[200px]">{duplicateResolution.candidate.email}</span>
-              </div>
-              <div className="flex justify-between border-b border-[var(--border-color)]/50 pb-2">
-                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[9px]">Current Pipeline Stage:</span>
-                <span className="text-[var(--text-primary)] capitalize">{(duplicateResolution.candidate.pipelineStage || 'cv_upload').replace('_', ' ')}</span>
-              </div>
-              <div className="flex justify-between border-b border-[var(--border-color)]/50 pb-2">
-                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[9px]">Currently Assigned To:</span>
-                <span className="text-[var(--text-primary)]">{teamMembers[duplicateResolution.candidate.assignedTo || duplicateResolution.candidate.uploadedBy] || 'Unassigned'}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[var(--text-muted)] uppercase tracking-wider text-[9px]">Last Record Update:</span>
-                <span className="text-[var(--text-primary)] font-mono">{formatUKDate(duplicateResolution.candidate.updatedAt || duplicateResolution.candidate.createdAt)}</span>
-              </div>
-            </div>
-
-            <p className="text-xs text-[var(--text-muted)] leading-relaxed font-bold">
-              This candidate is already registered in the system. Please select an action to resolve this conflict:
-            </p>
-
-            {/* Actions Grid */}
-            <div className="grid grid-cols-2 gap-3">
-              {duplicateResolution.candidate.isArchived ? (
-                <button 
-                  onClick={handleResolveRestore}
-                  className="col-span-2 py-3 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-                >
-                  <RotateCcw size={14} /> Restore & View Candidate
-                </button>
-              ) : (
-                <button 
-                  onClick={handleResolveView}
-                  className="col-span-2 py-3 crm-btn-gold rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2 shadow-xs cursor-pointer"
-                >
-                  View Profile Details
-                </button>
-              )}
-
-              <button 
-                onClick={handleResolveOverwrite}
-                className="py-2.5 bg-[var(--bg-primary)] hover:bg-[var(--card-hover-bg)] text-[var(--text-primary)] rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 border border-[var(--border-color)] cursor-pointer"
-                title="Overwrite the existing resume data and file with the new one"
-              >
-                Overwrite Profile
-              </button>
-
-              {isPrivileged && (
-                <button 
-                  onClick={handleResolveDelete}
-                  className="py-2.5 bg-rose-50 hover:bg-rose-100 dark:bg-rose-950/20 dark:hover:bg-rose-950/40 text-rose-600 dark:text-rose-400 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center justify-center gap-1.5 border border-rose-200/50 dark:border-rose-950"
-                  title="Permanently remove candidate from Firebase database"
-                >
-                  Delete Permanently
-                </button>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Removed duplicate resolution modal as it is now automatic */}
     </div>
   );
 }

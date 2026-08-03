@@ -1752,13 +1752,13 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                       />
                     </div>
                     <div className="flex flex-col gap-1">
-                      <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Salary Expectation</label>
+                      <label className="text-[8px] font-black uppercase text-[var(--text-muted)] tracking-wider">Annual Salary (CTC) (₹)</label>
                       <input
-                        type="text"
+                        type="number"
                         value={editedSalary}
                         onChange={(e) => setEditedSalary(e.target.value)}
                         className="w-full bg-[var(--input-bg)] border border-[var(--border-color)] rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-1 focus:ring-[var(--primary-gold)] text-[var(--text-primary)] font-bold shadow-sm"
-                        placeholder="e.g. $120,000/yr"
+                        placeholder="e.g. 1200000"
                       />
                     </div>
                     <div className="flex flex-col gap-1">
@@ -1801,7 +1801,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                     <div className="flex items-center gap-3 p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl">
                       <Coins className="text-[var(--primary-gold)] shrink-0" size={14} />
                       <div className="flex-1 min-w-0">
-                        <p className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider leading-none mb-1">Salary Expectation</p>
+                        <p className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider leading-none mb-1">Annual Salary (CTC)</p>
                         <p className="text-xs font-bold text-[var(--text-secondary)] select-all truncate">{candidate.salary || 'N/A'}</p>
                       </div>
                     </div>

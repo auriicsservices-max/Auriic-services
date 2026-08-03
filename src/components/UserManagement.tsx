@@ -6,7 +6,7 @@ import { useAuth } from '../contexts/AuthContext';
 import { initializeApp } from 'firebase/app';
 import { getAuth, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 import firebaseConfig from '../../firebase-applet-config.json';
-import { UserPlus, Shield, User as UserIcon, Trash2, Mail, Lock, Loader2, RotateCcw, AlertTriangle, RefreshCcw, Database } from 'lucide-react';
+import { UserPlus, Shield, User as UserIcon, Trash2, Mail, Lock, Loader2, RotateCcw, AlertTriangle, RefreshCcw, Database, Archive } from 'lucide-react';
 import ConfirmModal from './ConfirmModal';
 
 export default function UserManagement() {
@@ -363,7 +363,7 @@ export default function UserManagement() {
                 </div>
               </div>
               
-              <div className="flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-all">
+              <div className="flex items-center gap-2 transition-all">
                 {view === 'active' ? (
                   <>
                     <button 
@@ -371,8 +371,17 @@ export default function UserManagement() {
                       className="p-2 text-slate-300 dark:text-slate-700 hover:text-amber-500 dark:hover:text-amber-400 hover:bg-amber-50 dark:hover:bg-amber-900/40 rounded-xl transition-all"
                       title="Move to Trash"
                     >
-                      <Trash2 size={18} />
+                      <Archive size={18} />
                     </button>
+                    {(role === 'admin' || role === 'team_leader' || role === 'developer') && (
+                      <button 
+                        onClick={() => handleDeleteUserPermanently(u.id)}
+                        className="p-2 text-slate-300 dark:text-slate-700 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-xl transition-all"
+                        title="Delete Permanently"
+                      >
+                        <Trash2 size={18} className="text-red-500" />
+                      </button>
+                    )}
                   </>
                 ) : (
                   <>
@@ -383,13 +392,15 @@ export default function UserManagement() {
                     >
                       <RotateCcw size={18} />
                     </button>
-                    <button 
-                      onClick={() => handleDeleteUserPermanently(u.id)}
-                      className="p-2 text-slate-300 dark:text-slate-700 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-xl transition-all"
-                      title="Delete Permanently"
-                    >
-                      <AlertTriangle size={18} />
-                    </button>
+                    {(role === 'admin' || role === 'team_leader' || role === 'developer') && (
+                      <button 
+                        onClick={() => handleDeleteUserPermanently(u.id)}
+                        className="p-2 text-slate-300 dark:text-slate-700 hover:text-red-500 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/40 rounded-xl transition-all"
+                        title="Delete Permanently"
+                      >
+                        <Trash2 size={18} className="text-red-500" />
+                      </button>
+                    )}
                   </>
                 )
                   }

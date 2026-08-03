@@ -87,10 +87,11 @@ This document serves as the definitive Enterprise Design System and Technical Ar
 
 ## 8. AI Resume Parsing Engine & JSON Resume Architecture
 - **High-Capability AI Models:** Uses `gemini-3.1-pro-preview` as the primary parsing engine (with automatic fallback to `gemini-3.6-flash`) via `@google/genai` to guarantee exhaustive, high-precision structured data extraction.
-- **JSON Resume Standard ([jsonresume.org/schema](https://jsonresume.org/schema)):**
-  - Fully implements the universal JSON Resume schema specifications across all 12 core sections: `basics`, `work`, `volunteer`, `education`, `awards`, `certificates`, `publications`, `skills`, `languages`, `interests`, `references`, and `projects`.
-  - **Exhaustive Data Capture:** Ensures zero information loss across multi-page resumes, capturing every bullet point verbatim, granular date normalizations (`YYYY-MM`), categorized skill arrays, social profiles, and project metrics.
-  - **Dual Mapping Engine:** Seamlessly bridges JSON Resume structures into Aurrum CRM internal candidate profiles (`ResumeData`) while retaining full backwards and forwards compatibility.
+- **Queue-Based Bulk Processing:** Implements a high-performance, queue-based architecture for processing single and bulk resume uploads using 3–5 parallel workers, with real-time tracking, automatic retries with exponential backoff, and local fallback parsing.
+- **Candidate Actions:**
+  - **AI Re-Extract:** Authorized users (Admin and Developer) can trigger re-parsing of raw resume files to update profile fields, preserving manual edits.
+  - **Download CV:** Recruiters, Admins, and Developers can download original uploaded resume files.
+- **Persistent Extraction Storage:** Permanently stores original resumes, extracted raw text, parsed JSON, AI metadata, and file hashes to support efficient re-parsing without requiring re-upload.
 
 ---
 
@@ -108,3 +109,48 @@ Once configured globally in the database, the logos dynamically apply across all
 1. **Sidebar Navigation:** Automatically displays the appropriate active branding logo adapting to the user's selected global theme.
 2. **Login Screen:** Welcomes users with the official global corporate branding in perfect high-contrast.
 3. **Invoices Module:** All invoice templates, print sheets, and generated PDF structures automatically inherit the Light Theme logo to match the crisp white paper canvas layout.
+
+---
+
+## 10. Performance & Load Optimization Architecture
+
+To maintain lightning-fast responsiveness across enterprise workflows (even with thousands of candidate profiles), Aurrum CRM implements rigorous performance optimizations:
+
+1. **Payload Separation (Firebase Storage):**
+   - Original resume files are uploaded directly to Firebase Storage (`resumes/`), storing only lightweight metadata (`cvStorageUrl`, `cvFileName`, `cvSizeBytes`, `cvFileHash`) on Firestore candidate documents.
+   - Eliminates multi-megabyte base64 payload bloat in Firestore document reads.
+
+2. **Bounded Real-Time Listeners:**
+   - All Firestore `onSnapshot` subscriptions use strict query boundaries (`orderBy`, `where`, and `limit(100)`), preventing unbounded collection-wide data transfers on every update.
+
+3. **Optimized Derived State (`useMemo`) & Debounced Search:**
+   - Complex sorting, status filtering, and search matching are wrapped in `useMemo` hooks keyed to raw query snapshots and filter parameters to avoid redundant re-renders.
+   - Search-input queries are debounced to eliminate unnecessary CPU spikes.
+
+4. **Standardized Pagination:**
+   - Large datasets (Candidates, Invoices, Activity Logs) feature robust client and server pagination controls (`15–50` items per page) with intuitive navigation.
+
+---
+
+## 11. Invoice Fee Calculation & Robust PDF Export Engine
+
+Aurrum CRM features an enterprise-grade automated billing and invoicing module:
+
+1. **Annual Salary (CTC) Automatic Fee Calculation:**
+   - Every candidate profile includes an **Annual Salary (CTC)** property.
+   - Each client profile supports configurable placement billing rules: either **Percentage (%)** of CTC (e.g. 10%, 15%) or **Fixed Amount ($)**.
+   - When generating Candidate or Dynamic Invoices, fees are calculated automatically with complete breakdown displays in USD ($) currency formatting.
+
+2. **Custom Due Dates & Dynamic Line Items:**
+   - Invoice creation and builders include explicit **Invoice Date** and **Due Date** inputs.
+   - Interactive calculation preview boxes allow instant fee adjustment and item application.
+
+3. **Robust PDF Generation Engine:**
+   - Leverages `html2canvas` and `jspdf` to render pixel-perfect multi-page PDF statements with clean table layouts, brand typography, and USD currency formatting.
+
+---
+
+## 12. CV Repository Bulk ZIP Export
+
+- **Download All CVs in One ZIP Archive:** The **CV Repository** features a dedicated **"Download All CVs (ZIP)"** action button that packages all candidate CV documents (PDF, Word DOCX) into a single structured archive (`Aurrum_CRM_All_CVs_YYYY-MM-DD.zip`), enabling recruiters and admins to download the entire talent pool instantly.
+
