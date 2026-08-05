@@ -154,3 +154,27 @@ Aurrum CRM features an enterprise-grade automated billing and invoicing module:
 
 - **Download All CVs in One ZIP Archive:** The **CV Repository** features a dedicated **"Download All CVs (ZIP)"** action button that packages all candidate CV documents (PDF, Word DOCX) into a single structured archive (`Aurrum_CRM_All_CVs_YYYY-MM-DD.zip`), enabling recruiters and admins to download the entire talent pool instantly.
 
+---
+
+## 13. Client Portal Candidate Assignment Display
+
+- **Assigned Client Visibility:** In the Client Portal (`ClientAssignedCandidates`, `ClientCvRepository`, and `ClientShortlist`), every candidate listing card and table row explicitly displays the **Assigned Client** name with a dedicated building icon badge.
+- **Client Resolution Logic:** Automatically resolves client identification across `candidate.clientName`, lookup against the team list using `candidate.clientId` or `candidate.assignedToClient`, falling back to `candidate.clientEmail` or shortened ID.
+
+---
+
+## 15. Backend Bulk Resume Parser & 1500+ Ingestion Engine
+
+For bulk importing 1,500+ resumes with complete structured JSON extraction:
+
+1. **Folder Setup**:
+   - Place all raw resume files (`.pdf`, `.docx`, `.txt`) into a local directory named `bulk_resumes/` at the root of the project.
+2. **Automated Backend Script (`scripts/bulk_parse_resumes.ts`)**:
+   - Run the ingestion script using `npx tsx scripts/bulk_parse_resumes.ts`.
+   - **Text Extraction**: Uses `pdf-parse` for PDFs and `mammoth` for Word documents (`.docx`).
+   - **Gemini AI Structured Extraction**: Sends extracted raw text to Google Gemini (`gemini-2.5-flash`) with strict JSON schema definitions (`Type.OBJECT`, `Type.ARRAY`) to extract Name, Email, Phone, Location, Summary, Skills, Experience history, Education, Certifications, Domain, and ATS scores.
+3. **Batch Processing & Rate Limiting**:
+   - Processes resumes in concurrency batches of 5 with automatic rate-limiting pauses and JSON progress checkpoints saved to `parsed_candidates_batch.json`.
+4. **Database Sync**:
+   - The generated JSON file can be imported directly into Firestore or seeded into Aurrum CRM using the batch seeding utilities.
+

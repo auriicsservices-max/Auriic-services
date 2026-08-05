@@ -20,7 +20,8 @@ import {
   HelpCircle, 
   X,
   ExternalLink,
-  Briefcase
+  Briefcase,
+  Building
 } from 'lucide-react';
 import Select from 'react-select';
 import LZString from 'lz-string';
@@ -107,6 +108,22 @@ export const ClientAssignedCandidates: React.FC<ClientAssignedCandidatesProps> =
 
     const stageConfig = getStageConfig(candidate.pipelineStage || candidate.status);
     return { key: 'pipeline_stage', label: stageConfig.label || 'In Screening', badgeStyle: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/30' };
+  };
+
+  // Helper to get assigned client display name
+  const getAssignedClientName = (candidate: any) => {
+    if (!candidate) return 'Unassigned';
+    if (candidate.clientName) return candidate.clientName;
+    const clientId = candidate.clientId || candidate.assignedToClient;
+    if (clientId && fullTeamList && fullTeamList.length > 0) {
+      const clientUser = fullTeamList.find((u: any) => (u.uid === clientId || u.id === clientId || u.email === clientId));
+      if (clientUser) {
+        return clientUser.displayName || clientUser.name || clientUser.email || 'Client';
+      }
+    }
+    if (candidate.clientEmail) return candidate.clientEmail;
+    if (clientId) return `Client (${String(clientId).slice(0, 8)})`;
+    return 'Unassigned Client';
   };
 
   // Filtered Candidates computation
@@ -360,6 +377,7 @@ export const ClientAssignedCandidates: React.FC<ClientAssignedCandidatesProps> =
                 <tr>
                   <th className="px-6 py-4">Candidate Identity</th>
                   <th className="px-6 py-4">Domain Focus</th>
+                  <th className="px-6 py-4">Assigned Client</th>
                   <th className="px-6 py-4">Core Competencies</th>
                   <th className="px-6 py-4">Review Status</th>
                   <th className="px-6 py-4 text-right">Actions</th>
@@ -395,6 +413,15 @@ export const ClientAssignedCandidates: React.FC<ClientAssignedCandidatesProps> =
                           <span className="px-2.5 py-1 bg-[var(--bg-secondary)] border border-[var(--border-color)] text-[#A98B56] rounded-lg text-[10px] font-bold uppercase">
                             {getNormalizedDomain(c)}
                           </span>
+                        </td>
+
+                        <td className="px-6 py-4">
+                          <div className="flex items-center gap-1.5 text-xs font-bold text-[var(--text-primary)]">
+                            <Building size={13} className="text-[#A98B56]" />
+                            <span className="truncate max-w-[150px]" title={getAssignedClientName(c)}>
+                              {getAssignedClientName(c)}
+                            </span>
+                          </div>
                         </td>
 
                         <td className="px-6 py-4">
@@ -536,6 +563,15 @@ export const ClientAssignedCandidates: React.FC<ClientAssignedCandidatesProps> =
                 </div>
 
                 <div className="space-y-2 text-xs">
+                  <div className="flex items-center justify-between text-[11px] bg-[var(--bg-secondary)] px-2.5 py-1.5 rounded-xl border border-[var(--border-color)]">
+                    <span className="flex items-center gap-1 text-[var(--text-muted)] font-bold">
+                      <Building size={12} className="text-[#A98B56]" /> Assigned Client:
+                    </span>
+                    <span className="text-[var(--text-primary)] font-extrabold truncate max-w-[145px]" title={getAssignedClientName(c)}>
+                      {getAssignedClientName(c)}
+                    </span>
+                  </div>
+
                   <div className="flex items-center justify-between text-[11px] text-[var(--text-muted)] font-semibold">
                     <span>Domain:</span>
                     <span className="text-[#A98B56] font-bold">{getNormalizedDomain(c)}</span>

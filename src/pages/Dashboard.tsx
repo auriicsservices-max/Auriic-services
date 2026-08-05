@@ -27,6 +27,7 @@ import SystemSettings from '../components/SystemSettings';
 import CustomSkillsManager from '../components/CustomSkillsManager';
 import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
+import BulkImportReconciliation from '../components/BulkImportReconciliation';
 import { RecruitmentPipeline } from '../components/RecruitmentPipeline';
 import { ClientDashboard } from '../components/ClientDashboard';
 import { resumeParser } from '../services/resumeParserService';
@@ -97,7 +98,8 @@ import {
   Target,
   MapPin,
   Layers,
-  Sparkles
+  Sparkles,
+  RefreshCw
 } from 'lucide-react';
 
 
@@ -156,7 +158,7 @@ export default function Dashboard() {
   }[]>([]);
 
 
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'notifications' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills' | 'client-portal'>(() => {
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'notifications' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills' | 'client-portal' | 'bulk_sync'>(() => {
     return (location.state as any)?.tab || 'home';
   });
   const [bulkLimit, setBulkLimit] = useState<number>(20);
@@ -1570,6 +1572,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 ...(role === 'client' || role === 'admin' || role === 'developer' ? [{ id: 'client-portal', label: 'Client Portal', icon: Sparkles }] : []),
                 ...(role === 'client' || role === 'admin' || role === 'developer' ? [{ id: 'pipeline', label: 'Pipeline', icon: Layers }] : []),
                 { id: 'candidates', label: 'Candidates', icon: Users },
+                { id: 'bulk_sync', label: 'Bulk Sync Audit', icon: RefreshCw },
                 ...(role !== 'client' ? [{ id: 'upload', label: 'CV Parsing', icon: Upload }] : []),
                 { id: 'shortlist', label: 'Shortlist', icon: Star },
                 { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
@@ -1928,6 +1931,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </div>
           ) : activeTab === 'linkedin-search' ? (
              <LinkedInSearch onImportComplete={() => setActiveTab('candidates')} />
+          ) : activeTab === 'bulk_sync' ? (
+             <BulkImportReconciliation candidates={activeCandidates} />
           ) : activeTab === 'backup' ? (
              <BackupDashboard />
           ) : activeTab === 'database' ? (

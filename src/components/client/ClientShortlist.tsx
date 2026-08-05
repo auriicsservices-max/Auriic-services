@@ -46,6 +46,22 @@ export const ClientShortlist: React.FC<ClientShortlistProps> = ({
     return getAvailableClients(candidates, fullTeamList);
   }, [candidates, fullTeamList]);
 
+  // Helper to get assigned client display name
+  const getAssignedClientName = (candidate: any) => {
+    if (!candidate) return 'Unassigned';
+    if (candidate.clientName) return candidate.clientName;
+    const clientId = candidate.clientId || candidate.assignedToClient;
+    if (clientId && fullTeamList && fullTeamList.length > 0) {
+      const clientUser = fullTeamList.find((u: any) => (u.uid === clientId || u.id === clientId || u.email === clientId));
+      if (clientUser) {
+        return clientUser.displayName || clientUser.name || clientUser.email || 'Client';
+      }
+    }
+    if (candidate.clientEmail) return candidate.clientEmail;
+    if (clientId) return `Client (${String(clientId).slice(0, 8)})`;
+    return 'Unassigned Client';
+  };
+
   // Filter candidates specifically assigned to client / client-wise
   const shortlistedCandidates = useMemo(() => {
     const assigned = filterClientPortalCandidates(candidates, user, role, selectedClientId);
@@ -158,6 +174,15 @@ export const ClientShortlist: React.FC<ClientShortlistProps> = ({
                 className="crm-card p-6 space-y-4 border-t-4 border-t-[#A98B56] hover:border-[#A98B56] transition-all flex flex-col justify-between"
               >
                 <div className="space-y-3">
+                  <div className="flex items-center justify-between text-[11px] bg-[var(--bg-secondary)] px-2.5 py-1.5 rounded-xl border border-[var(--border-color)]">
+                    <span className="flex items-center gap-1 text-[var(--text-muted)] font-bold">
+                      <Building size={12} className="text-[#A98B56]" /> Assigned Client:
+                    </span>
+                    <span className="text-[var(--text-primary)] font-extrabold truncate max-w-[145px]" title={getAssignedClientName(candidate)}>
+                      {getAssignedClientName(candidate)}
+                    </span>
+                  </div>
+
                   {/* Header Row */}
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
