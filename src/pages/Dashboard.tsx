@@ -27,7 +27,7 @@ import SystemSettings from '../components/SystemSettings';
 import CustomSkillsManager from '../components/CustomSkillsManager';
 import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
-import BulkImportReconciliation from '../components/BulkImportReconciliation';
+import LocalResumeSync from '../components/LocalResumeSync';
 import { RecruitmentPipeline } from '../components/RecruitmentPipeline';
 import { ClientDashboard } from '../components/ClientDashboard';
 import { resumeParser } from '../services/resumeParserService';
@@ -89,6 +89,7 @@ import {
   Activity,
   Menu,
   X,
+  Folder,
   MessageSquare,
   StickyNote,
   Bell,
@@ -99,7 +100,8 @@ import {
   MapPin,
   Layers,
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  Globe
 } from 'lucide-react';
 
 
@@ -158,7 +160,7 @@ export default function Dashboard() {
   }[]>([]);
 
 
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'notifications' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills' | 'client-portal' | 'bulk_sync'>(() => {
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'notifications' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills' | 'client-portal' | 'local-resumes'>(() => {
     return (location.state as any)?.tab || 'home';
   });
   const [bulkLimit, setBulkLimit] = useState<number>(20);
@@ -1572,11 +1574,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 ...(role === 'client' || role === 'admin' || role === 'developer' ? [{ id: 'client-portal', label: 'Client Portal', icon: Sparkles }] : []),
                 ...(role === 'client' || role === 'admin' || role === 'developer' ? [{ id: 'pipeline', label: 'Pipeline', icon: Layers }] : []),
                 { id: 'candidates', label: 'Candidates', icon: Users },
-                { id: 'bulk_sync', label: 'Bulk Sync Audit', icon: RefreshCw },
                 ...(role !== 'client' ? [{ id: 'upload', label: 'CV Parsing', icon: Upload }] : []),
                 { id: 'shortlist', label: 'Shortlist', icon: Star },
                 { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
                 { id: 'repository', label: 'CV Repository', icon: FileText },
+                { id: 'local-resumes', label: 'Local Resumes Sync', icon: Folder },
                 ...(role === 'developer' || role === 'admin' || role === 'team_leader' ? [{ id: 'invoices', label: 'Invoices', icon: Receipt }] : []),
               ].map((item) => (
                 <button 
@@ -1931,8 +1933,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </div>
           ) : activeTab === 'linkedin-search' ? (
              <LinkedInSearch onImportComplete={() => setActiveTab('candidates')} />
-          ) : activeTab === 'bulk_sync' ? (
-             <BulkImportReconciliation candidates={activeCandidates} />
           ) : activeTab === 'backup' ? (
              <BackupDashboard />
           ) : activeTab === 'database' ? (
@@ -2472,6 +2472,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 </div>
               </div>
             </div>
+          ) : activeTab === 'local-resumes' ? (
+            <LocalResumeSync onSyncComplete={() => {}} />
           ) : activeTab === 'activity_logs' ? (
             <ActivityLogList role={role} />
           ) : activeTab === 'analytics' ? (
