@@ -27,7 +27,7 @@ import SystemSettings from '../components/SystemSettings';
 import CustomSkillsManager from '../components/CustomSkillsManager';
 import BulkUpload from '../components/BulkUpload';
 import CVRepository from '../components/CVRepository';
-import LocalResumeSync from '../components/LocalResumeSync';
+import WordPressLiveSync from '../components/WordPressLiveSync';
 import { RecruitmentPipeline } from '../components/RecruitmentPipeline';
 import { ClientDashboard } from '../components/ClientDashboard';
 import { resumeParser } from '../services/resumeParserService';
@@ -101,7 +101,8 @@ import {
   Layers,
   Sparkles,
   RefreshCw,
-  Globe
+  Globe,
+  Cpu
 } from 'lucide-react';
 
 
@@ -160,7 +161,7 @@ export default function Dashboard() {
   }[]>([]);
 
 
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'notifications' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills' | 'client-portal' | 'local-resumes'>(() => {
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'notifications' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills' | 'client-portal' | 'live-sync'>(() => {
     return (location.state as any)?.tab || 'home';
   });
   const [bulkLimit, setBulkLimit] = useState<number>(20);
@@ -1578,7 +1579,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 { id: 'shortlist', label: 'Shortlist', icon: Star },
                 { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
                 { id: 'repository', label: 'CV Repository', icon: FileText },
-                { id: 'local-resumes', label: 'Local Resumes Sync', icon: Folder },
+                { id: 'live-sync', label: 'Live Resume Sync', icon: Cpu },
                 ...(role === 'developer' || role === 'admin' || role === 'team_leader' ? [{ id: 'invoices', label: 'Invoices', icon: Receipt }] : []),
               ].map((item) => (
                 <button 
@@ -2472,8 +2473,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 </div>
               </div>
             </div>
-          ) : activeTab === 'local-resumes' ? (
-            <LocalResumeSync onSyncComplete={() => {}} />
+          ) : activeTab === 'live-sync' ? (
+            <WordPressLiveSync onSyncComplete={() => {}} />
           ) : activeTab === 'activity_logs' ? (
             <ActivityLogList role={role} />
           ) : activeTab === 'analytics' ? (
