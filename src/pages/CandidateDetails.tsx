@@ -1021,8 +1021,14 @@ export default function CandidateDetailsPage() {
     }
 
     if (!text) {
-      console.error('No raw resume text available for re-parsing.');
-      return;
+      console.log('[CandidateDetails] No raw resume text found, generating profile text from candidate details.');
+      text = `Candidate Name: ${candidate.fullName || 'Unknown'}
+Email: ${candidate.email || 'N/A'}
+Phone: ${candidate.phone || 'N/A'}
+Domain / Role: ${candidate.domainFocus || candidate.role || 'General'}
+Skills: ${Array.isArray(candidate.skills) ? candidate.skills.join(', ') : (candidate.skills || 'N/A')}
+Summary: ${candidate.summary || 'Candidate imported from Google Sheets integration.'}
+Status: ${candidate.status || 'Sourced'}`;
     }
 
     setIsReParsing(true);

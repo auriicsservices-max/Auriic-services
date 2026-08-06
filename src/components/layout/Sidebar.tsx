@@ -2,7 +2,7 @@ import React from 'react';
 import { NotificationBadge } from '../NotificationBadge';
 import { 
   LayoutDashboard, Users, FileText, BarChart2, Bell, Settings, LogOut, 
-  ChevronLeft, ChevronRight, Sparkles, Layers, Receipt, Linkedin, Shield, Star, User
+  ChevronLeft, ChevronRight, Sparkles, Layers, Receipt, Linkedin, Shield, Star, User, FileSpreadsheet
 } from 'lucide-react';
 import { auth } from '../../lib/firebase';
 import { useAuth } from '../../contexts/AuthContext';
@@ -60,6 +60,7 @@ export default function Sidebar({
       items: [
         ...(role === 'developer' || role === 'admin' || role === 'team_leader' ? [{ icon: Receipt, label: 'Invoices', id: 'invoices' }] : []),
         { icon: BarChart2, label: 'Analytics', id: 'analytics' },
+        { icon: FileSpreadsheet, label: 'Live Resume Sync', id: 'google-sheets' },
       ]
     },
     {
