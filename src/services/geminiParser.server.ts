@@ -5,12 +5,15 @@ import { parseResumeHeuristically } from '../lib/localParser';
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
-async function retryWithBackoff<T>(fn: () => Promise<T>, retries: number = 3, initialDelay: number = 2000): Promise<T> {
+async function retryWithBackoff<T>(fn: () => Promise<T>, retries: number = 2, initialDelay: number = 1000): Promise<T> {
   try {
     return await fn();
   } catch (err: any) {
-    if (retries > 0 && (err?.status === 503 || err?.message?.includes('503'))) {
-      console.warn(`[GeminiResumeParser] Retrying due to 503... ${retries} retries left. Delay: ${initialDelay}ms`);
+    const errMsg = err?.message || String(err);
+    const isRateOrQuotaError = err?.status === 429 || errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota');
+    // Do not waste time retrying 429 quota exhaustion errors - fail fast to trigger local fallback
+    if (retries > 0 && err?.status === 503 || (err?.message?.includes('503') && !isRateOrQuotaError)) {
+      console.warn(`[GeminiResumeParser] Retrying due to 503 service error... ${retries} retries left. Delay: ${initialDelay}ms`);
       await sleep(initialDelay);
       return retryWithBackoff(fn, retries - 1, initialDelay * 2);
     }

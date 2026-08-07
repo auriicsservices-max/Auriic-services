@@ -1616,8 +1616,10 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 { id: 'shortlist', label: 'Shortlist', icon: Star },
                 { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
                 { id: 'repository', label: 'CV Repository', icon: FileText },
-                { id: 'json-uploader', label: 'JSON Resume Uploader', icon: Code },
-                { id: 'google-sheets', label: 'Live Resume Sync', icon: Cpu },
+                ...(role === 'developer' ? [
+                  { id: 'json-uploader', label: 'JSON Resume Uploader', icon: Code },
+                  { id: 'google-sheets', label: 'Live Resume Sync', icon: Cpu }
+                ] : []),
                 ...(role === 'developer' || role === 'admin' || role === 'team_leader' ? [{ id: 'invoices', label: 'Invoices', icon: Receipt }] : []),
               ].map((item) => (
                 <button 

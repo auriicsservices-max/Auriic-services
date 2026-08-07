@@ -73,35 +73,89 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
       const zip = new JSZip();
       let count = 0;
       for (const c of candidates) {
+        let added = false;
         if (c.cvBase64) {
-          const arr = c.cvBase64.split(',');
-          const mime = arr[0].match(/:(.*?);/)?.[1] || 'application/pdf';
-          const bstr = atob(arr[1]);
-          let n = bstr.length;
-          const u8arr = new Uint8Array(n);
-          while (n--) {
-            u8arr[n] = bstr.charCodeAt(n);
+          try {
+            const arr = c.cvBase64.split(',');
+            const mime = arr[0].match(/:(.*?);/)?.[1] || 'application/pdf';
+            const bstr = atob(arr[1]);
+            let n = bstr.length;
+            const u8arr = new Uint8Array(n);
+            while (n--) {
+              u8arr[n] = bstr.charCodeAt(n);
+            }
+            const ext = mime.includes('wordprocessingml') ? 'docx' : mime.includes('msword') ? 'doc' : 'pdf';
+            const fileName = `${(c.fullName || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_')}_CV.${ext}`;
+            zip.file(fileName, u8arr);
+            added = true;
+          } catch (e) {
+            console.warn('Failed to parse cvBase64 for zip:', c.fullName);
           }
-          const ext = mime.includes('wordprocessingml') ? 'docx' : mime.includes('msword') ? 'doc' : 'pdf';
-          const fileName = `${(c.fullName || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_')}_CV.${ext}`;
-          zip.file(fileName, u8arr);
-          count++;
-        } else if (c.url) {
+        } 
+        
+        if (!added && c.url) {
           try {
             const res = await fetch(c.url);
-            const blob = await res.blob();
-            const ext = c.url.split('.').pop()?.split('?')[0] || 'pdf';
-            const fileName = `${(c.fullName || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_')}_CV.${ext}`;
-            zip.file(fileName, blob);
-            count++;
+            if (res.ok) {
+              const blob = await res.blob();
+              const ext = c.url.split('.').pop()?.split('?')[0] || 'pdf';
+              const fileName = `${(c.fullName || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_')}_CV.${ext}`;
+              zip.file(fileName, blob);
+              added = true;
+            }
           } catch (err) {
-            console.warn('Failed to fetch CV URL for zip:', c.fullName);
+            console.warn('CORS or fetch failed for CV URL in zip:', c.url);
           }
+        }
+
+        // Fallback: If no file attached or fetch failed, generate a rich text resume profile document
+        if (!added) {
+          const safeName = (c.fullName || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
+          const profileText = `
+AURRUM CRM - CANDIDATE RESUME PROFILE
+==================================================
+Full Name: ${c.fullName || 'N/A'}
+Email: ${c.email || 'N/A'}
+Phone: ${c.phone || 'N/A'}
+Location: ${[c.locationInfo?.city, c.locationInfo?.state, c.locationInfo?.country].filter(Boolean).join(', ') || 'N/A'}
+Domain Focus: ${c.domainFocus || 'N/A'}
+Primary Role: ${c.primaryRole || 'N/A'}
+Total Experience: ${c.totalExperience ? c.totalExperience + ' years' : 'N/A'}
+Career Level: ${c.careerLevel || 'N/A'}
+
+PROFESSIONAL SUMMARY:
+${c.summary || 'N/A'}
+
+SKILLS:
+${Array.isArray(c.skills) ? c.skills.join(', ') : 'N/A'}
+
+EXPERIENCE:
+${Array.isArray(c.experience) && c.experience.length > 0 ? c.experience.map((exp: any) => `
+- ${exp.job_title || 'Role'} at ${exp.company || 'Company'} (${exp.duration || exp.start_date + ' - ' + (exp.end_date || 'Present')})
+  Responsibilities:
+  ${Array.isArray(exp.responsibilities) ? exp.responsibilities.map((r: string) => `  * ${r}`).join('\n') : 'N/A'}
+`).join('\n') : 'N/A'}
+
+EDUCATION:
+${Array.isArray(c.education) && c.education.length > 0 ? c.education.map((edu: any) => `
+- ${edu.degree || 'Degree'} from ${edu.school || 'School'} (${edu.year || 'N/A'})
+`).join('\n') : 'N/A'}
+
+RAW RESUME TEXT:
+${c.rawResumeText || 'N/A'}
+          `.trim();
+
+          zip.file(`${safeName}_Resume_Profile.txt`, profileText);
+          added = true;
+        }
+
+        if (added) {
+          count++;
         }
       }
 
       if (count === 0) {
-        alert('No downloadable CV documents found for candidates.');
+        alert('No candidate records found to package.');
         return;
       }
 
