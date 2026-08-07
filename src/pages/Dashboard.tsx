@@ -22,6 +22,7 @@ import ActivityLogList from '../components/ActivityLogList';
 import { InvoiceList } from '../components/InvoiceList';
 import ConfirmModal from '../components/ConfirmModal';
 import NotificationCenter from '../components/NotificationCenter';
+import { JsonResumeUploader } from '../components/JsonResumeUploader';
 
 import SystemSettings from '../components/SystemSettings';
 import CustomSkillsManager from '../components/CustomSkillsManager';
@@ -102,7 +103,8 @@ import {
   Sparkles,
   RefreshCw,
   Globe,
-  Cpu
+  Cpu,
+  Code
 } from 'lucide-react';
 
 
@@ -168,7 +170,7 @@ export default function Dashboard() {
   }[]>([]);
 
 
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'notifications' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills' | 'client-portal' | 'google-sheets'>(() => {
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'notifications' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills' | 'client-portal' | 'google-sheets' | 'json-uploader'>(() => {
     return (location.state as any)?.tab || 'home';
   });
   const [bulkLimit, setBulkLimit] = useState<number>(20);
@@ -1614,6 +1616,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 { id: 'shortlist', label: 'Shortlist', icon: Star },
                 { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
                 { id: 'repository', label: 'CV Repository', icon: FileText },
+                { id: 'json-uploader', label: 'JSON Resume Uploader', icon: Code },
                 { id: 'google-sheets', label: 'Live Resume Sync', icon: Cpu },
                 ...(role === 'developer' || role === 'admin' || role === 'team_leader' ? [{ id: 'invoices', label: 'Invoices', icon: Receipt }] : []),
               ].map((item) => (
@@ -2001,6 +2004,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </div>
           ) : activeTab === 'repository' ? (
             <CVRepository candidates={activeCandidates} onSelect={handleCandidateSelect} />
+          ) : activeTab === 'json-uploader' ? (
+            <JsonResumeUploader />
           ) : activeTab === 'upload' ? (
             <BulkUpload 
               onUpload={onDrop} 

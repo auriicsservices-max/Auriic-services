@@ -14,6 +14,7 @@ const getLinkIcon = (label: string) => {
   return <ExternalLink size={16} />;
 };
 import { formatUKDate } from '../lib/dateUtils';
+import { getLinksArray } from '../lib/utils';
 import { useAuth } from '../contexts/AuthContext';
 import { useTimezone } from '../contexts/TimezoneContext';
 import { logActivity } from '../services/activityService';
@@ -125,7 +126,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
         : `https://${modalLinkUrl.trim()}`;
       
       const newLinkObj = { label: finalLabel, url: formattedUrl };
-      const currentLinks = candidate.links || [];
+      const currentLinks = getLinksArray(candidate.links);
       const updatedLinks = [...currentLinks, newLinkObj];
 
       await updateDoc(doc(db, 'candidates', candidate.id), {
@@ -147,7 +148,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
   const handleDeleteModalDirectLink = async (indexToDelete: number) => {
     if (!candidate) return;
     try {
-      const currentLinks = candidate.links || [];
+      const currentLinks = getLinksArray(candidate.links);
       const updatedLinks = currentLinks.filter((_: any, idx: number) => idx !== indexToDelete);
 
       await updateDoc(doc(db, 'candidates', candidate.id), {
@@ -447,7 +448,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       let initialCvUrl = candidate.url;
       
       if (!initialCvUrl && candidate.links) {
-        const cvLink = candidate.links.find((l: any) => 
+        const cvLink = getLinksArray(candidate.links).find((l: any) => 
           l.label?.toLowerCase().includes('cv') || 
           l.label?.toLowerCase().includes('resume') ||
           l.url?.toLowerCase().endsWith('.pdf')
@@ -485,7 +486,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       setEditedWorkAuthorization(candidate.workAuthorization || '');
       setEditedCurrentCompany(candidate.currentCompany || candidate.company || '');
       setEditedCurrentJobTitle(candidate.currentJobTitle || (candidate.experience?.[0]?.role) || '');
-      setEditedLinks(candidate.links || []);
+      setEditedLinks(getLinksArray(candidate.links));
     }
   }, [candidate, isEditing]);
 
@@ -1639,7 +1640,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                     )}
                   </div>
                 ) : (
-                  candidate.links?.map((link: any, i: number) => (
+                  getLinksArray(candidate.links).map((link: any, i: number) => (
                       <div key={i} className="group relative flex items-center justify-between p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl transition-all hover:border-[var(--primary-gold)]">
                           <a href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 min-w-0 flex-1">
                               <div className="text-[var(--primary-gold)] shrink-0">

@@ -20,6 +20,7 @@ import { parseResumeHeuristically, extractTextFromPDF, extractTextFromDocx } fro
 import { getStorage, ref, getBytes } from 'firebase/storage';
 import { getFirebaseStorage } from '../lib/firebase';
 import { STAGES, getStageConfig } from '../lib/pipelineStages';
+import { getLinksArray } from '../lib/utils';
 
 const STAGES_LIST = STAGES;
 
@@ -192,11 +193,11 @@ export default function CandidateDetailsPage() {
         setEditedSkills(data.skills || []);
         setEditedEmail(data.email || '');
         setEditedPhone(data.phone || '');
-        setEditedLinks(data.links || []);
+        setEditedLinks(getLinksArray(data.links));
 
         let initialCvUrl = data.url;
         if (!initialCvUrl && data.links) {
-          const cvLink = data.links.find((l: any) => 
+          const cvLink = getLinksArray(data.links).find((l: any) => 
             l.label?.toLowerCase().includes('cv') || 
             l.label?.toLowerCase().includes('resume') ||
             l.url?.toLowerCase().endsWith('.pdf')
@@ -744,7 +745,7 @@ export default function CandidateDetailsPage() {
         : `https://${newCustomLinkUrl.trim()}`;
       
       const newLinkObj = { label: finalLabel, url: formattedUrl };
-      const currentLinks = candidate.links || [];
+      const currentLinks = getLinksArray(candidate.links);
       const updatedLinks = [...currentLinks, newLinkObj];
 
       await updateDoc(doc(db, 'candidates', candidate.id), {
@@ -779,7 +780,7 @@ export default function CandidateDetailsPage() {
 
   const handleDeleteDirectLink = async (indexToDelete: number) => {
     try {
-      const currentLinks = candidate.links || [];
+      const currentLinks = getLinksArray(candidate.links);
       const updatedLinks = currentLinks.filter((_: any, idx: number) => idx !== indexToDelete);
 
       await updateDoc(doc(db, 'candidates', candidate.id), {
@@ -1138,7 +1139,7 @@ Status: ${candidate.status || 'Sourced'}`;
       }
 
       // Merge existing non-duplicate links if necessary
-      const existingLinks = candidate.links || [];
+      const existingLinks = getLinksArray(candidate.links);
       existingLinks.forEach((el: any) => {
         if (el?.url && !extractedLinks.some(l => l.url.toLowerCase() === el.url.toLowerCase())) {
           extractedLinks.push(el);
@@ -2334,7 +2335,7 @@ Status: ${candidate.status || 'Sourced'}`;
                   </p>
                 </div>
 
-                {!isEditing && candidate.links?.map((link: any, i: number) => (
+                {!isEditing && getLinksArray(candidate.links).map((link: any, i: number) => (
                   <div key={i} className="group relative flex items-center justify-between p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl transition-all hover:border-[var(--primary-gold)]">
                     <a href={link.url} target="_blank" rel="noopener noreferrer" className="flex items-center gap-3 min-w-0 flex-1">
                       <div className="text-[var(--primary-gold)] shrink-0">
