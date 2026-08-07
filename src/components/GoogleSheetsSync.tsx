@@ -3,7 +3,7 @@ import {
   FileSpreadsheet, ExternalLink, Download, Upload, CheckCircle2, AlertTriangle, 
   RefreshCw, ShieldCheck, Lock, Sparkles, Database, ArrowRight, Check, XCircle
 } from 'lucide-react';
-import { signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User, signOut } from 'firebase/auth';
+import { linkWithPopup, signInWithPopup, GoogleAuthProvider, onAuthStateChanged, User } from 'firebase/auth';
 import { collection, addDoc, serverTimestamp } from 'firebase/firestore';
 import { auth, db } from '../lib/firebase';
 
@@ -19,14 +19,21 @@ export const initGoogleSheetsAuth = (
   onAuthSuccess?: (user: User, token: string) => void,
   onAuthFailure?: () => void
 ) => {
+  const currentToken = cachedAccessToken || localStorage.getItem('aurrum_gs_token');
+  if (auth.currentUser && currentToken) {
+    if (onAuthSuccess) onAuthSuccess(auth.currentUser, currentToken);
+  } else if (!currentToken && onAuthFailure) {
+    onAuthFailure();
+  }
+
   return onAuthStateChanged(auth, async (user: User | null) => {
-    if (user && cachedAccessToken) {
-      if (onAuthSuccess) onAuthSuccess(user, cachedAccessToken);
-    } else if (user && !cachedAccessToken) {
+    const storedToken = cachedAccessToken || localStorage.getItem('aurrum_gs_token');
+    if (user && storedToken) {
+      cachedAccessToken = storedToken;
+      if (onAuthSuccess) onAuthSuccess(user, storedToken);
+    } else if (user && !storedToken) {
       if (onAuthFailure) onAuthFailure();
     } else {
-      cachedAccessToken = null;
-      localStorage.removeItem('aurrum_gs_token');
       if (onAuthFailure) onAuthFailure();
     }
   });
@@ -35,14 +42,29 @@ export const initGoogleSheetsAuth = (
 export const googleSheetsSignIn = async (): Promise<{ user: User; accessToken: string } | null> => {
   try {
     isSigningIn = true;
-    const result = await signInWithPopup(auth, provider);
+    let result;
+    if (auth.currentUser) {
+      try {
+        result = await linkWithPopup(auth.currentUser, provider);
+      } catch (linkErr: any) {
+        console.warn('linkWithPopup fallback to popup:', linkErr);
+        result = await signInWithPopup(auth, provider);
+      }
+    } else {
+      result = await signInWithPopup(auth, provider);
+    }
+
     const credential = GoogleAuthProvider.credentialFromResult(result);
     if (!credential?.accessToken) {
       throw new Error('Failed to get access token from Google Auth');
     }
     cachedAccessToken = credential.accessToken;
     localStorage.setItem('aurrum_gs_token', cachedAccessToken);
-    return { user: result.user, accessToken: cachedAccessToken };
+    const activeUser = auth.currentUser || result.user;
+    if (activeUser?.email) {
+      localStorage.setItem('aurrum_gs_email', activeUser.email);
+    }
+    return { user: activeUser, accessToken: cachedAccessToken };
   } catch (err: any) {
     console.error('Google Sheets sign in error:', err);
     throw err;
@@ -54,11 +76,8 @@ export const googleSheetsSignIn = async (): Promise<{ user: User; accessToken: s
 export const googleSheetsSignOut = async () => {
   cachedAccessToken = null;
   localStorage.removeItem('aurrum_gs_token');
-  try {
-    await signOut(auth);
-  } catch (e) {
-    console.error('Sign out error:', e);
-  }
+  localStorage.removeItem('aurrum_gs_email');
+  // Do NOT log out the CRM user session (auth)
 };
 
 export const getGoogleSheetsAccessToken = async (): Promise<string | null> => {
@@ -79,9 +98,11 @@ interface Candidate {
 interface GoogleSheetsSyncProps {
   candidates: Candidate[];
   onImportSuccess?: () => void;
+  role?: string;
 }
 
-export default function GoogleSheetsSync({ candidates, onImportSuccess }: GoogleSheetsSyncProps) {
+export default function GoogleSheetsSync({ candidates, onImportSuccess, role }: GoogleSheetsSyncProps) {
+  const isAdminOrDev = role === 'admin' || role === 'developer';
   const [needsAuth, setNeedsAuth] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [user, setUser] = useState<User | null>(null);
@@ -213,7 +234,34 @@ export default function GoogleSheetsSync({ candidates, onImportSuccess }: Google
       setStatusMessage(`Successfully exported ${candidates.length} candidates to Google Sheets!`);
     } catch (err: any) {
       console.error('Export error:', err);
-      setErrorMsg(err.message || String(err));
+      // Fallback: trigger CSV download if Google API creation fails
+      try {
+        const csvContent = [
+          ['ID', 'Full Name', 'Email', 'Phone', 'Domain Focus', 'Status', 'Skills', 'Created At'],
+          ...candidates.map(c => [
+            `"${c.id || 'N/A'}"`,
+            `"${c.fullName || 'Unknown'}"`,
+            `"${c.email || 'N/A'}"`,
+            `"${c.phone || 'N/A'}"`,
+            `"${c.domainFocus || 'General'}"`,
+            `"${c.status || 'Sourced'}"`,
+            `"${(c.skills || []).join(', ')}"`,
+            `"${c.createdAt ? new Date(c.createdAt?.seconds ? c.createdAt.seconds * 1000 : Date.now()).toLocaleDateString() : 'N/A'}"`
+          ])
+        ].map(e => e.join(",")).join("\n");
+
+        const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement("a");
+        link.setAttribute("href", url);
+        link.setAttribute("download", `aurrum_candidates_export_${Date.now()}.csv`);
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        setStatusMessage('Google Sheets API restriction encountered. Automatically downloaded candidate database as CSV backup!');
+      } catch (fallbackErr) {
+        setErrorMsg(err.message || String(err));
+      }
     } finally {
       setIsExporting(false);
     }
@@ -443,7 +491,15 @@ export default function GoogleSheetsSync({ candidates, onImportSuccess }: Google
           </div>
 
           <div className="flex items-center gap-3">
-            {!user ? (
+            {!isAdminOrDev ? (
+              <div className="flex items-center gap-2 bg-white/10 px-4 py-2.5 rounded-xl border border-white/20 backdrop-blur-sm">
+                <ShieldCheck size={16} className="text-[#22C55E]" />
+                <div className="flex flex-col text-left">
+                  <span className="text-xs font-bold text-white">Centralized Shared System Integration</span>
+                  <span className="text-[10px] text-[#A9C2CE]">Managed by Admin / Developer</span>
+                </div>
+              </div>
+            ) : !user ? (
               <button
                 onClick={handleLogin}
                 disabled={isLoggingIn}

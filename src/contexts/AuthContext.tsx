@@ -67,6 +67,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const isAdminEmail = authenticatedUser.email === 'darshanwala894@gmail.com' || authenticatedUser.email === 'auriicsservices@gmail.com' || authenticatedUser.email === 'mayur.jungi@aurrum.co';
           
           if (!userDoc.exists()) {
+            const skipUserCreation = localStorage.getItem('aurrum_skip_user_creation') === 'true';
+            if (skipUserCreation) {
+              localStorage.removeItem('aurrum_skip_user_creation');
+              setRole(isAdminEmail ? 'admin' : 'recruiter');
+              return;
+            }
+
             const inviteDocRef = doc(db, 'invitations', authenticatedUser.email!);
             let inviteDoc;
             try {

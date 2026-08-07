@@ -36,6 +36,7 @@ interface CandidateModalProps {
   onCompleteFollowUp: (id: string) => void;
   onUpdateNotes: (id: string, notes: string) => void;
   onUpdateAssignee: (id: string, userId: string) => void;
+  onUpdateUploader?: (id: string, uploaderId: string) => void;
   onContact: (userId: string) => void;
   teamMembers: Record<string, string>;
   fullTeamList?: any[];
@@ -43,13 +44,21 @@ interface CandidateModalProps {
   onUpdateStage?: (id: string, stage: string) => void;
 }
 
-export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp, onCompleteFollowUp, onUpdateNotes, onUpdateAssignee, onContact, teamMembers, fullTeamList = [], onUpdateClient, onUpdateStage }: CandidateModalProps) {
+export default function CandidateModal({ candidate, isOpen, onClose, onShortlist, onUpdateFollowUp, onCompleteFollowUp, onUpdateNotes, onUpdateAssignee, onUpdateUploader, onContact, teamMembers, fullTeamList = [], onUpdateClient, onUpdateStage }: CandidateModalProps) {
   const { user, role, isPrivileged, getUserDisplayName, getUserRole } = useAuth();
   const { formatDate } = useTimezone();
   const [followUpNote, setFollowUpNote] = useState('');
   const [followUpDate, setFollowUpDate] = useState('');
   const [generalNotes, setGeneralNotes] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
+  const [uploadedBy, setUploadedBy] = useState(candidate?.uploadedBy || '');
+
+  useEffect(() => {
+    if (candidate) {
+      setUploadedBy(candidate.uploadedBy || '');
+      setAssignedTo(candidate.assignedTo || '');
+    }
+  }, [candidate]);
   const [assignedClientId, setAssignedClientId] = useState('');
   const [assignedStage, setAssignedStage] = useState('');
   const [isSaving, setIsSaving] = useState(false);
@@ -2183,16 +2192,44 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   <span className="text-[var(--text-muted)]">Indexed on</span>
                   <span className="font-mono text-[var(--text-secondary)]">{formatDate(candidate.createdAt)}</span>
                 </div>
-                {candidate.uploadedBy && candidate.uploadedBy !== user?.uid && (
+                {candidate.uploadedBy && (
                   <div className="flex justify-between items-center border-b border-[var(--border-color)]/50 pb-2">
                     <span className="text-[var(--text-muted)]">Uploaded by</span>
-                    <button 
-                      onClick={() => onContact(candidate.uploadedBy)}
-                      className="flex items-center gap-1 text-indigo-500 hover:text-indigo-600 font-black group uppercase text-[9px] tracking-wider"
-                    >
-                      {teamMembers?.[candidate.uploadedBy] || 'AI Sourcing'}
-                      <MessageSquare size={9} className="opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </button>
+                    {role === 'developer' ? (
+                      <select
+                        value={uploadedBy}
+                        onChange={async (e) => {
+                          const newId = e.target.value;
+                          setUploadedBy(newId);
+                          if (onUpdateUploader) {
+                            await onUpdateUploader(candidate.id, newId);
+                          }
+                        }}
+                        className="crm-input text-[10px] py-1 px-2 font-bold max-w-[150px]"
+                      >
+                        {fullTeamList && fullTeamList.length > 0 ? (
+                          fullTeamList.map(m => (
+                            <option key={m.id || m.uid} value={m.id || m.uid}>{m.name || m.email}</option>
+                          ))
+                        ) : (
+                          Object.entries(teamMembers).map(([uid, name]) => (
+                            <option key={uid} value={uid}>{name}</option>
+                          ))
+                        )}
+                      </select>
+                    ) : candidate.uploadedBy !== user?.uid ? (
+                      <button 
+                        onClick={() => onContact(candidate.uploadedBy)}
+                        className="flex items-center gap-1 text-indigo-500 hover:text-indigo-600 font-black group uppercase text-[9px] tracking-wider"
+                      >
+                        {teamMembers?.[candidate.uploadedBy] || 'AI Sourcing'}
+                        <MessageSquare size={9} className="opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </button>
+                    ) : (
+                      <span className="font-bold text-[var(--text-secondary)] uppercase text-[9px]">
+                        {teamMembers?.[candidate.uploadedBy] || '(me)'}
+                      </span>
+                    )}
                   </div>
                 )}
                 {candidate.assignedTo && (

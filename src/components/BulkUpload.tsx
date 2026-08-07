@@ -7,9 +7,13 @@ interface BulkUploadProps {
   isProcessing: boolean;
   uploadProgress: { total: number, processed: number, skipped: number, failed: number };
   skippedFiles: string[];
+  role?: string;
+  fullTeamList?: any[];
+  selectedUploaderId?: string;
+  onUploaderChange?: (uploaderId: string) => void;
 }
 
-export default function BulkUpload({ onUpload, isProcessing, uploadProgress, skippedFiles }: BulkUploadProps) {
+export default function BulkUpload({ onUpload, isProcessing, uploadProgress, skippedFiles, role, fullTeamList = [], selectedUploaderId, onUploaderChange }: BulkUploadProps) {
   const [largeFilesWarn, setLargeFilesWarn] = useState<string[]>([]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -39,6 +43,26 @@ export default function BulkUpload({ onUpload, isProcessing, uploadProgress, ski
         <h2 className="text-3xl font-black tracking-tight text-[var(--text-primary)]">Bulk Upload CVs</h2>
         <p className="text-[var(--text-muted)] text-sm">Drag and drop multiple CVs to parse and add them to your pipeline.</p>
       </div>
+
+      {role === 'developer' && (
+        <div className="crm-card p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-[2rem] shadow-sm">
+          <div className="flex flex-col">
+            <span className="text-xs font-black uppercase tracking-wider text-[var(--text-primary)]">Developer Upload Attribution</span>
+            <span className="text-[11px] text-[var(--text-muted)]">Select recruiter attribution ("uploadedBy") for this upload batch.</span>
+          </div>
+          <select
+            value={selectedUploaderId || ''}
+            onChange={(e) => onUploaderChange?.(e.target.value)}
+            className="crm-input text-xs py-2 px-3 font-bold min-w-[220px]"
+          >
+            {fullTeamList.map(member => (
+              <option key={member.id || member.uid} value={member.id || member.uid}>
+                {member.name || member.email} ({member.role || 'recruiter'})
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {largeFilesWarn.length > 0 && (
         <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 p-6 rounded-3xl flex items-start gap-3.5 text-amber-800 dark:text-amber-200 animate-in fade-in zoom-in-95 duration-200">

@@ -142,6 +142,13 @@ export default function Dashboard() {
   const [sortDirection, setSortDirection] = useState<'asc' | 'desc'>('desc');
   const [isProcessing, setIsProcessing] = useState(false);
   const [skippedFiles, setSkippedFiles] = useState<string[]>([]);
+  const [uploadUploaderId, setUploadUploaderId] = useState<string>('');
+
+  useEffect(() => {
+    if (user?.uid && !uploadUploaderId) {
+      setUploadUploaderId(user.uid);
+    }
+  }, [user]);
   const [uploadProgress, setUploadProgress] = useState({ total: 0, processed: 0, skipped: 0, failed: 0 });
   const [parsingStatus, setParsingStatus] = useState<Record<string, { status: string, progress: number }>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
@@ -796,7 +803,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           isShortlisted: false,
           isArchived: false,
           aiAnalyzed: true,
-          uploadedBy: user?.uid,
+          uploadedBy: role === 'developer' && uploadUploaderId ? uploadUploaderId : (user?.uid || ''),
           createdAt: new Date().toISOString()
         });
 
@@ -1038,6 +1045,34 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               "Interview feedback added",
               "Notes"
           );
+      }
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const handleUpdateUploader = async (id: string, uploaderId: string) => {
+    if (role !== 'developer') return;
+    try {
+      await updateDoc(doc(db, 'candidates', id), { 
+        uploadedBy: uploaderId,
+        updatedAt: new Date().toISOString()
+      });
+      const candidate = candidates.find(c => c.id === id);
+      if (selectedCandidate?.id === id) {
+        setSelectedCandidate((prev: any) => ({ ...prev, uploadedBy: uploaderId }));
+      }
+      if (candidate) {
+        await logActivity(
+          getUserDisplayName(),
+          user?.uid || 'System',
+          getUserRole(),
+          "updated uploader attribution",
+          candidate.fullName,
+          teamMembers[uploaderId] || uploaderId,
+          "Recruiter Attribution updated",
+          "Candidate Edit"
+        );
       }
     } catch (err) {
       console.error(err);
@@ -1967,7 +2002,16 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           ) : activeTab === 'repository' ? (
             <CVRepository candidates={activeCandidates} onSelect={handleCandidateSelect} />
           ) : activeTab === 'upload' ? (
-            <BulkUpload onUpload={onDrop} isProcessing={isProcessing} uploadProgress={uploadProgress} skippedFiles={skippedFiles} />
+            <BulkUpload 
+              onUpload={onDrop} 
+              isProcessing={isProcessing} 
+              uploadProgress={uploadProgress} 
+              skippedFiles={skippedFiles} 
+              role={role}
+              fullTeamList={fullTeamList}
+              selectedUploaderId={uploadUploaderId}
+              onUploaderChange={setUploadUploaderId}
+            />
           ) : activeTab === 'pipeline' ? (
             <RecruitmentPipeline candidates={activeCandidates} onSelect={handleCandidateSelect} role={role} teamMembers={teamMembers} fullTeamList={fullTeamList} />
           ) : activeTab === 'candidates' ? (
@@ -2399,14 +2443,32 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                                 )}
                               </div>
                             </td>
-                            <td className="px-6 py-4.5">
+                            <td className="px-6 py-4.5" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center gap-2">
                                 <div className="w-6.5 h-6.5 rounded-lg bg-[var(--bg-secondary)] flex items-center justify-center text-[8px] font-black text-[var(--text-secondary)] uppercase border border-[var(--border-color)]">
                                   {getInitials(teamMembers[candidate.uploadedBy] || 'AI')}
                                 </div>
-                                <span className="text-[10px] font-bold text-[var(--text-secondary)] truncate max-w-[100px]">
-                                  {candidate.uploadedBy === user?.uid ? '(me)' : (teamMembers[candidate.uploadedBy] || 'System Index')}
-                                </span>
+                                {role === 'developer' ? (
+                                  <select
+                                    value={candidate.uploadedBy || ''}
+                                    onChange={(e) => handleUpdateUploader(candidate.id, e.target.value)}
+                                    className="crm-input text-[10px] py-1 px-2 font-bold max-w-[130px]"
+                                  >
+                                    {fullTeamList && fullTeamList.length > 0 ? (
+                                      fullTeamList.map(m => (
+                                        <option key={m.id || m.uid} value={m.id || m.uid}>{m.name || m.email}</option>
+                                      ))
+                                    ) : (
+                                      Object.entries(teamMembers).map(([uid, name]) => (
+                                        <option key={uid} value={uid}>{name}</option>
+                                      ))
+                                    )}
+                                  </select>
+                                ) : (
+                                  <span className="text-[10px] font-bold text-[var(--text-secondary)] truncate max-w-[100px]">
+                                    {candidate.uploadedBy === user?.uid ? '(me)' : (teamMembers[candidate.uploadedBy] || 'System Index')}
+                                  </span>
+                                )}
                               </div>
                             </td>
                             <td className="px-6 py-4.5">
@@ -2474,7 +2536,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               </div>
             </div>
           ) : activeTab === 'google-sheets' ? (
-            <GoogleSheetsSync candidates={candidates} onImportSuccess={() => {}} />
+            <GoogleSheetsSync candidates={candidates} onImportSuccess={() => {}} role={role} />
           ) : activeTab === 'activity_logs' ? (
             <ActivityLogList role={role} />
           ) : activeTab === 'analytics' ? (
@@ -2711,6 +2773,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         onCompleteFollowUp={handleCompleteFollowUp}
         onUpdateNotes={handleUpdateNotes}
         onUpdateAssignee={handleUpdateAssignee}
+        onUpdateUploader={handleUpdateUploader}
         onContact={() => {}}
         teamMembers={teamMembers}
         fullTeamList={fullTeamList}
