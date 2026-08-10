@@ -173,7 +173,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'notifications' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills' | 'client-portal' | 'google-sheets' | 'json-uploader'>(() => {
     return (location.state as any)?.tab || 'home';
   });
-  const [bulkLimit, setBulkLimit] = useState<number>(20);
+  const [bulkLimit, setBulkLimit] = useState<number>(50);
   const [fileSizeLimit, setFileSizeLimit] = useState<number>(5);
   const [searchPage, setSearchPage] = useState(1);
   const [searchRowsPerPage, setSearchRowsPerPage] = useState(20);
@@ -573,6 +573,34 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         
         // Ensure parsed object exists
         if (!parsed) throw new Error("Parser returned empty data");
+
+        // Re-extract / Cross-reference missing details if any data is missing or incomplete
+        if (!parsed.personal_info.email || parsed.personal_info.email === 'pending@aurrum.co' || !parsed.skills?.length || !parsed.work_experience?.length) {
+          console.log('[Dashboard] Missing fields detected. Running secondary re-extraction & analysis pass...');
+          try {
+            const fallbackParsed = await parseResumeHeuristically(text);
+            if (!parsed.personal_info.email || parsed.personal_info.email === 'pending@aurrum.co') {
+              parsed.personal_info.email = fallbackParsed.personal_info.email || parsed.personal_info.email;
+            }
+            if (!parsed.personal_info.phone) {
+              parsed.personal_info.phone = fallbackParsed.personal_info.phone || '';
+            }
+            if (!parsed.skills || parsed.skills.length === 0) {
+              parsed.skills = fallbackParsed.skills || [];
+            }
+            if (!parsed.work_experience || parsed.work_experience.length === 0) {
+              parsed.work_experience = fallbackParsed.work_experience || [];
+            }
+            if (!parsed.education || parsed.education.length === 0) {
+              parsed.education = fallbackParsed.education || [];
+            }
+            if (!parsed.certifications || parsed.certifications.length === 0) {
+              parsed.certifications = fallbackParsed.certifications || [];
+            }
+          } catch (reErr) {
+            console.warn('[Dashboard] Re-extraction fallback error:', reErr);
+          }
+        }
         
         // Use extracted name, normalize it
         const candidateFullName = (parsed.personal_info.full_name || file.name.split('.')[0]).trim();

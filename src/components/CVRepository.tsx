@@ -202,6 +202,45 @@ ${c.rawResumeText || 'N/A'}
     });
   }, [candidates]);
 
+  const clientSideFallbackSearch = (query: string, candList: any[]) => {
+    const rawQuery = query.trim().toLowerCase();
+    const stopWords = new Set(['in', 'for', 'with', 'a', 'an', 'the', 'candidates', 'candidate', 'developer', 'developers', 'engineer', 'engineers', 'show', 'me', 'find', 'get', 'list']);
+    const queryTerms = rawQuery.split(/\s+/).filter(term => term.length > 1 && !stopWords.has(term));
+
+    const matches = candList.filter(c => {
+      const name = (c.fullName || '').toLowerCase();
+      const domain = (c.domainFocus || c.domain || '').toLowerCase();
+      const pos = (c.position || '').toLowerCase();
+      const loc = (c.location || '').toLowerCase();
+      const skillsStr = (Array.isArray(c.skills) ? c.skills : []).map((s: string) => s.toLowerCase()).join(' ');
+      const fullText = `${name} ${domain} ${pos} ${loc} ${skillsStr}`;
+
+      if (fullText.includes(rawQuery)) return true;
+      if (queryTerms.length > 0) {
+        return queryTerms.some(term => fullText.includes(term));
+      }
+      return false;
+    });
+
+    let explanation = `### AI Search Results for "${query}" (Instant Cloud Fallback)\n\n`;
+    if (matches.length === 0) {
+      explanation += `No candidates found matching **"${query}"**. Try searching for specific skills (e.g. 'React', 'Python', 'Node'), locations, or domains.`;
+    } else {
+      matches.forEach(c => {
+        explanation += `## ${c.fullName} | ${c.position || c.domainFocus || 'Professional'}\n`;
+        explanation += `* **Experience:** ${c.experience || 'Not specified'} Years\n`;
+        explanation += `* **Top Skills:** ${(c.skills || []).slice(0, 8).map((s: string) => `\`${s}\``).join(', ') || 'Not specified'}\n`;
+        explanation += `* **Quick Match Assessment:** Matched candidate profile for query criteria **"${query}"**.\n`;
+        explanation += `> **Key Highlight:** Domain Focus: ${c.domainFocus || 'General'} | Location: ${c.location || 'Remote'}\n\n`;
+      });
+    }
+
+    return {
+      matchedIds: matches.map(c => c.id),
+      explanation
+    };
+  };
+
   const handleChatSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!chatInput.trim()) return;
@@ -212,35 +251,33 @@ ${c.rawResumeText || 'N/A'}
     setChatLoading(true);
 
     try {
-      const response = await fetch('/api/cv/search-ai', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          query: userMsg,
-          candidates: preparedCandidates,
-          history: chatMessages,
-          precision: searchPrecision
-        })
-      });
+      let result: any = null;
+      try {
+        const response = await fetch('/api/cv/search-ai', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            query: userMsg,
+            candidates: preparedCandidates,
+            history: chatMessages,
+            precision: searchPrecision
+          })
+        });
 
-      const contentType = response.headers.get('content-type');
-      if (!response.ok) {
-        let errorMessage = `Server returned status ${response.status}`;
-        if (contentType && contentType.includes('application/json')) {
-          const errorData = await response.json().catch(() => ({}));
-          errorMessage = errorData.details || errorData.error || errorMessage;
-        } else {
-          const errorText = await response.text().catch(() => '');
-          console.error('Server returned non-JSON error:', errorText);
+        const contentType = response.headers.get('content-type');
+        if (response.ok && contentType && contentType.includes('application/json')) {
+          result = await response.json();
         }
-        throw new Error(errorMessage);
+      } catch (apiErr) {
+        console.warn('API search-ai failed or timed out, switching to instant client-side fallback:', apiErr);
       }
 
-      if (!contentType || !contentType.includes('application/json')) {
-        throw new Error('Server returned an invalid response (not JSON)');
+      // If API failed or returned empty/invalid result, use client-side instant fallback search
+      if (!result || !result.explanation) {
+        console.log('[CVRepository] Executing client-side fallback AI search engine...');
+        result = clientSideFallbackSearch(userMsg, preparedCandidates);
       }
 
-      const result = await response.json();
       const matched = result.matchedIds || [];
       const explanation = result.explanation || 'No candidates found matching the search criteria.';
 
@@ -261,10 +298,18 @@ ${c.rawResumeText || 'N/A'}
       }
     } catch (err: any) {
       console.error('AI Search Error:', err);
+      // Fallback safeguard
+      const fallbackResult = clientSideFallbackSearch(userMsg, preparedCandidates);
       setChatMessages(prev => [...prev, { 
         role: 'assistant', 
-        text: `Sorry, I encountered an error while searching for candidates: ${err?.message || 'Please try again.'}` 
+        text: fallbackResult.explanation,
+        matchedIds: fallbackResult.matchedIds
       }]);
+      if (fallbackResult.matchedIds.length > 0) {
+        setAiMatchedIds(fallbackResult.matchedIds);
+        setAiFilterActive(true);
+        setCurrentAiQuery(userMsg);
+      }
     } finally {
       setChatLoading(false);
     }
