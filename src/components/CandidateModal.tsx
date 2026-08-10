@@ -476,7 +476,7 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
       setEditedExperience(candidate.experience || []);
       setEditedEducation(candidate.education || []);
       setEditedProjects(candidate.projects || []);
-      setEditedCertifications(candidate.certifications || []);
+      setEditedCertifications((candidate.certifications || []).map((c: any) => typeof c === 'string' ? c : (c.name || c.title || c.issuer || JSON.stringify(c))));
       setEditedAchievements(candidate.achievements || []);
       setEditedSkills(candidate.skills || []);
       setEditedEmail(candidate.email || '');
@@ -1247,9 +1247,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                         </p>
                         {certs.length > 0 && (
                           <div className="mt-1.5 flex flex-wrap gap-1">
-                            {certs.map((c: string, ci: number) => (
+                            {certs.map((c: any, ci: number) => (
                               <span key={ci} className="text-[10px] bg-[var(--bg-secondary)] text-[var(--text-secondary)] px-2 py-0.5 rounded-md border border-[var(--border-color)]">
-                                {c}
+                                {typeof c === 'string' ? c : (c.name || c.title || c.issuer || JSON.stringify(c))}
                               </span>
                             ))}
                           </div>
@@ -1443,9 +1443,9 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 max-h-[180px] overflow-y-auto custom-scrollbar pr-2">
-                    {candidate.certifications?.map((cert: string, i: number) => (
+                    {candidate.certifications?.map((cert: any, i: number) => (
                       <div key={i} className="p-3 bg-amber-50/20 dark:bg-amber-950/20 border border-amber-100/10 dark:border-amber-900/10 rounded-xl text-[11px] font-bold text-amber-900 dark:text-amber-300">
-                        {cert}
+                        {typeof cert === 'string' ? cert : (cert.name || cert.title || cert.issuer || JSON.stringify(cert))}
                       </div>
                     ))}
                   </div>

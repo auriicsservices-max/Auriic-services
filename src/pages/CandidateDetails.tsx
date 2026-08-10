@@ -188,7 +188,7 @@ export default function CandidateDetailsPage() {
         setEditedExperience(data.experience || []);
         setEditedEducation(data.education || []);
         setEditedProjects(data.projects || []);
-        setEditedCertifications(data.certifications || []);
+        setEditedCertifications((data.certifications || []).map((c: any) => typeof c === 'string' ? c : (c.name || c.title || c.issuer || JSON.stringify(c))));
         setEditedAchievements(data.achievements || []);
         setEditedSkills(data.skills || []);
         setEditedEmail(data.email || '');
@@ -1823,9 +1823,9 @@ Status: ${candidate.status || 'Sourced'}`;
                         )}
                         {certs.length > 0 && (
                           <div className="mt-2 flex flex-wrap gap-1">
-                            {certs.map((c: string, ci: number) => (
+                            {certs.map((c: any, ci: number) => (
                               <span key={ci} className="text-[10px] font-medium bg-[var(--bg-secondary)] text-[var(--text-secondary)] px-2 py-0.5 rounded-md border border-[var(--border-color)]">
-                                {c}
+                                {typeof c === 'string' ? c : (c.name || c.title || c.issuer || JSON.stringify(c))}
                               </span>
                             ))}
                           </div>
@@ -2043,9 +2043,9 @@ Status: ${candidate.status || 'Sourced'}`;
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {candidate.certifications?.map((cert: string, i: number) => (
+                      {candidate.certifications?.map((cert: any, i: number) => (
                         <div key={i} className="p-3 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-xl text-xs font-bold text-[var(--text-primary)]">
-                          {cert}
+                          {typeof cert === 'string' ? cert : (cert.name || cert.title || cert.issuer || JSON.stringify(cert))}
                         </div>
                       ))}
                     </div>
@@ -2138,7 +2138,7 @@ Status: ${candidate.status || 'Sourced'}`;
               </section>
             )}
 
-            {/* Recruiter Assignment Panel */}
+            {/* Recruiter Assignment Panel (Hidden temporarily per user request)
             {isPrivileged && (
               <section className="crm-card p-6">
                 <h3 className="text-[10px] font-black uppercase tracking-widest text-[var(--text-muted)] mb-4 flex items-center gap-2">
@@ -2169,6 +2169,7 @@ Status: ${candidate.status || 'Sourced'}`;
                 </div>
               </section>
             )}
+            */}
 
             {/* Client Assignment Panel */}
             {(isPrivileged || role === 'recruiter') && (

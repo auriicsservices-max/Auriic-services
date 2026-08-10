@@ -163,7 +163,30 @@ Aurrum CRM features an enterprise-grade automated billing and invoicing module:
 
 ---
 
-## 15. Backend Bulk Resume Parser & 1500+ Ingestion Engine
+## 14. Role-Based Access Controls for Advanced Tools
+- **Developer-Only Advanced Tools:** The **JSON Resume Uploader** and **Live Resume Sync** tools are strictly restricted to the `developer` role, ensuring that recruiters, team leaders, and administrators have a streamlined candidate management workflow without developer maintenance clutter.
+- **Granular Permissions:** Invoices, candidate editing, system settings, and bulk actions are appropriately governed across Admin, Team Leader, Recruiter, Client, and Developer roles.
+
+---
+
+## 15. Resilient AI Parser & Rate-Limit Fault Tolerance
+- **Smart Error Recovery:** The backend and client Gemini resume parsers incorporate robust error handlers for HTTP 503 service errors and HTTP 429 quota exhaustion limits.
+- **Local Fallback Engine:** When AI quotas or network errors occur, the parser seamlessly defaults to high-accuracy regex and structural heuristic extraction to ensure zero data loss during resume ingestion.
+
+---
+
+## 16. Type-Safe Certification & Education Rendering
+- **Object/String Agnostic Handling:** Candidate certifications and education records support both raw string formats and structured metadata objects (`{ name, issuer, year }`).
+- **Crash Prevention:** All UI views (CandidateModal, CandidateDetails) include defensive guards (`typeof c === 'string' ? c : (c.name || JSON.stringify(c))`) to prevent React runtime object rendering crashes.
+
+---
+
+## 17. Comprehensive CV Repository Bulk ZIP Packaging
+- **Multi-Source Archive Generation:** The bulk ZIP export tool in the CV Repository processes candidates with base64 storage, URL storage, or raw profile text fallback, ensuring that every profile in the talent pool is successfully packaged into a clean download archive.
+
+---
+
+## 18. Backend Bulk Resume Parser & 1500+ Ingestion Engine
 
 For bulk importing 1,500+ resumes with complete structured JSON extraction:
 
