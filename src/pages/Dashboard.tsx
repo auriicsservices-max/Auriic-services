@@ -553,7 +553,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           message: `File rejected: ${file.name} is larger than ${fileSizeLimit}MB. Please upload a smaller file.`
         });
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
-        return;
+        continue;
       }
       try {
         // Progress: 0-10% -> Uploading File
@@ -636,7 +636,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           );
           setSkippedFiles(prev => [...prev, candidateFullName]);
           setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, skipped: prev.skipped + 1 })); 
-          return;
+          continue;
         }
 
         // Add to batch tracking
