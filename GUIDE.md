@@ -67,6 +67,7 @@ This document serves as the definitive Enterprise Design System and Technical Ar
 ### Sidebar Navigation
 - Premium collapsible navigation with structured section headers (**Core Platform**, **Operations & Insights**, **Preferences**).
 - Featuring the Aurrum Gold Sparkle emblem, smooth collapse transitions, active tab left accent line (`#A98B56`), floating tooltips, and bottom user profile card.
+- *Note:* Redundant developer maintenance tools (JSON Resume Uploader and Live Resume Sync) have been permanently removed from the sidebar across all roles.
 
 ### Buttons & Interactive Controls
 - **Primary Gold Button (`.crm-btn-gold`)**: High-contrast gold gradient button (`#A98B56` -> `#BC9B66`) with active scale feedback.
@@ -76,18 +77,20 @@ This document serves as the definitive Enterprise Design System and Technical Ar
 ### Tables & Data Cards
 - Standardized `.crm-table` and `.crm-card` styling across Candidate Repository, Pipeline, Invoice Management, and Analytics views.
 - Sticky high-contrast table headers, comfortable padding, and standardized status badges (`.crm-badge-gold`, `.crm-badge-success`, `.crm-badge-warning`, `.crm-badge-error`, `.crm-badge-info`).
+- Candidate table explicitly displays the **Uploaded By** attribute column for precise tracking.
 
 ---
 
 ## 7. Security Specifications & Data Invariants
 1. **IP-Based Access Restriction:** Managed via `ALLOWED_IPS` environment variable with fail-closed security.
 2. **Firestore Security Rules:** Strict rules enforcing authentication and requiring `uploadedBy` UID validation on candidate records.
+3. **Client Portal Profile Safeguards:** Sensitive configuration panels such as Security & Password and Client Billing Configuration are hidden from client views to maintain a clean client experience.
 
 ---
 
 ## 8. AI Resume Parsing Engine & JSON Resume Architecture
 - **High-Capability AI Models:** Uses `gemini-3.1-pro-preview` as the primary parsing engine (with automatic fallback to `gemini-3.6-flash`) via `@google/genai` to guarantee exhaustive, high-precision structured data extraction.
-- **Queue-Based Bulk Processing:** Implements a high-performance, queue-based architecture for processing single and bulk resume uploads using 3–5 parallel workers, with real-time tracking, automatic retries with exponential backoff, and local fallback parsing.
+- **Queue-Based Bulk Processing & Enhanced Batch Limits:** Supports up to 50 CVs per batch upload. Implements high-performance queue-based processing with 3–5 parallel workers, automatic retries with exponential backoff, and automatic secondary re-extraction/cross-reference fallback passes when any fields are missing.
 - **Candidate Actions:**
   - **AI Re-Extract:** Authorized users (Admin and Developer) can trigger re-parsing of raw resume files to update profile fields, preserving manual edits.
   - **Download CV:** Recruiters, Admins, and Developers can download original uploaded resume files.
@@ -127,7 +130,10 @@ To maintain lightning-fast responsiveness across enterprise workflows (even with
    - Complex sorting, status filtering, and search matching are wrapped in `useMemo` hooks keyed to raw query snapshots and filter parameters to avoid redundant re-renders.
    - Search-input queries are debounced to eliminate unnecessary CPU spikes.
 
-4. **Standardized Pagination:**
+4. **Instant Client-Side AI Search Fallbacks:**
+   - The AI CV Search Assistant features an instant client-side heuristic fallback mechanism. If API rate limits (HTTP 429) or network timeouts occur, the search engine instantly processes candidate attributes locally to ensure zero downtime and uninterrupted recruiter workflows.
+
+5. **Standardized Pagination:**
    - Large datasets (Candidates, Invoices, Activity Logs) feature robust client and server pagination controls (`15–50` items per page) with intuitive navigation.
 
 ---
@@ -164,7 +170,7 @@ Aurrum CRM features an enterprise-grade automated billing and invoicing module:
 ---
 
 ## 14. Role-Based Access Controls for Advanced Tools
-- **Developer-Only Advanced Tools:** The **JSON Resume Uploader** and **Live Resume Sync** tools are strictly restricted to the `developer` role, ensuring that recruiters, team leaders, and administrators have a streamlined candidate management workflow without developer maintenance clutter.
+- **Clean Sidebar Architecture:** Redundant developer maintenance tabs have been permanently retired from the navigation menu across all user roles.
 - **Granular Permissions:** Invoices, candidate editing, system settings, and bulk actions are appropriately governed across Admin, Team Leader, Recruiter, Client, and Developer roles.
 
 ---
@@ -200,4 +206,5 @@ For bulk importing 1,500+ resumes with complete structured JSON extraction:
    - Processes resumes in concurrency batches of 5 with automatic rate-limiting pauses and JSON progress checkpoints saved to `parsed_candidates_batch.json`.
 4. **Database Sync**:
    - The generated JSON file can be imported directly into Firestore or seeded into Aurrum CRM using the batch seeding utilities.
+
 
