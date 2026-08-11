@@ -154,7 +154,7 @@ export default function Dashboard() {
   const [uploadProgress, setUploadProgress] = useState({ total: 0, processed: 0, skipped: 0, failed: 0 });
   const [parsingStatus, setParsingStatus] = useState<Record<string, { status: string, progress: number }>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
-  const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; }>({ isOpen: false, message: '' });
+  const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; searchQuery?: string }>({ isOpen: false, message: '', searchQuery: '' });
   const [duplicateResolution, setDuplicateResolution] = useState<{
     isOpen: boolean;
     candidate: any;
@@ -636,6 +636,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           );
           setSkippedFiles(prev => [...prev, candidateFullName]);
           setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, skipped: prev.skipped + 1 })); 
+          setDuplicateNotification({
+            isOpen: true,
+            message: `CV for "${candidateFullName}" is already uploaded. You can find it in the candidate list using search.`,
+            searchQuery: candidateFullName
+          });
           continue;
         }
 
@@ -1815,17 +1820,37 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         )}
 
         {duplicateNotification.isOpen && (
-            <div className="fixed bottom-4 left-0 right-0 flex justify-center z-50 animate-in slide-in-from-bottom-4">
-                <div className="bg-amber-600 text-white px-6 py-3 rounded-[2rem] shadow-2xl flex items-center gap-3 border border-amber-500/20">
-                    <AlertCircle size={18} />
-                    <span className="text-sm font-bold">{duplicateNotification.message}</span>
-                    <button 
-                      onClick={() => setDuplicateNotification({ isOpen: false, message: '' })}
-                      className="p-1 hover:bg-amber-700/50 rounded-full transition-all text-white/80 hover:text-white"
-                      title="Dismiss"
-                    >
-                      <X size={14} className="stroke-[3px]" />
-                    </button>
+            <div className="fixed bottom-6 right-6 z-[100] max-w-sm animate-in slide-in-from-bottom-4">
+                <div className="bg-[var(--card-bg)] text-[var(--text-primary)] p-4 rounded-2xl shadow-2xl border border-[var(--border-color)] flex flex-col gap-3">
+                    <div className="flex items-start gap-3">
+                        <div className="p-2 bg-amber-500/10 text-amber-600 dark:text-amber-400 rounded-xl shrink-0 mt-0.5">
+                            <AlertCircle size={20} />
+                        </div>
+                        <div className="flex-1">
+                            <h4 className="text-xs font-black uppercase tracking-wider text-amber-600 dark:text-amber-400 mb-1">Duplicate CV Detected</h4>
+                            <p className="text-xs text-[var(--text-secondary)] leading-relaxed">{duplicateNotification.message}</p>
+                        </div>
+                        <button 
+                          onClick={() => setDuplicateNotification({ isOpen: false, message: '', searchQuery: '' })}
+                          className="p-1 text-[var(--text-muted)] hover:text-[var(--text-primary)] rounded-lg transition-colors"
+                          title="Dismiss"
+                        >
+                          <X size={16} />
+                        </button>
+                    </div>
+                    {duplicateNotification.searchQuery && (
+                      <button
+                        onClick={() => {
+                          setActiveTab('candidates');
+                          setSearchQuery(duplicateNotification.searchQuery || '');
+                          setDuplicateNotification({ isOpen: false, message: '', searchQuery: '' });
+                        }}
+                        className="w-full py-2 px-3 bg-[#004564] hover:bg-[#003649] text-white rounded-xl text-xs font-bold transition-colors flex items-center justify-center gap-2 shadow-sm"
+                      >
+                        <Search size={14} />
+                        <span>Find in Candidate List</span>
+                      </button>
+                    )}
                 </div>
             </div>
         )}
