@@ -246,7 +246,7 @@ export const ClientProfile: React.FC<ClientProfileProps> = ({ user, role }) => {
         </div>
       </form>
 
-      {/* Password Update Form */}
+      {/* Password Update Form (Hidden temporarily per user request)
       <form onSubmit={handleUpdatePassword} className="crm-card p-6 space-y-6">
         <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-3">
           <KeyRound size={18} className="text-[#A98B56]" />
@@ -290,8 +290,9 @@ export const ClientProfile: React.FC<ClientProfileProps> = ({ user, role }) => {
           </button>
         </div>
       </form>
+      */}
 
-      {/* Billing Settings Form */}
+      {/* Billing Settings Form (Hidden temporarily per user request)
       <form onSubmit={handleUpdateProfile} className="crm-card p-6 space-y-6">
         <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-3">
           <Building size={18} className="text-[#A98B56]" />
@@ -327,6 +328,7 @@ export const ClientProfile: React.FC<ClientProfileProps> = ({ user, role }) => {
           </button>
         </div>
       </form>
+      */}
     </div>
   );
 };

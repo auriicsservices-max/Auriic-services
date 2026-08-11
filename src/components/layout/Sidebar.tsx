@@ -60,7 +60,6 @@ export default function Sidebar({
       items: [
         ...(role === 'developer' || role === 'admin' || role === 'team_leader' ? [{ icon: Receipt, label: 'Invoices', id: 'invoices' }] : []),
         { icon: BarChart2, label: 'Analytics', id: 'analytics' },
-        { icon: FileSpreadsheet, label: 'Live Resume Sync', id: 'google-sheets' },
       ]
     },
     {

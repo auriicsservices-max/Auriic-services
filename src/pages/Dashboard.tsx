@@ -170,7 +170,7 @@ export default function Dashboard() {
   }[]>([]);
 
 
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'notifications' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills' | 'client-portal' | 'google-sheets' | 'json-uploader'>(() => {
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'notifications' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills' | 'client-portal'>(() => {
     return (location.state as any)?.tab || 'home';
   });
   const [bulkLimit, setBulkLimit] = useState<number>(50);
@@ -1644,10 +1644,6 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 { id: 'shortlist', label: 'Shortlist', icon: Star },
                 { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
                 { id: 'repository', label: 'CV Repository', icon: FileText },
-                ...(role === 'developer' ? [
-                  { id: 'json-uploader', label: 'JSON Resume Uploader', icon: Code },
-                  { id: 'google-sheets', label: 'Live Resume Sync', icon: Cpu }
-                ] : []),
                 ...(role === 'developer' || role === 'admin' || role === 'team_leader' ? [{ id: 'invoices', label: 'Invoices', icon: Receipt }] : []),
               ].map((item) => (
                 <button 
@@ -2034,8 +2030,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             </div>
           ) : activeTab === 'repository' ? (
             <CVRepository candidates={activeCandidates} onSelect={handleCandidateSelect} />
-          ) : activeTab === 'json-uploader' ? (
-            <JsonResumeUploader />
+
           ) : activeTab === 'upload' ? (
             <BulkUpload 
               onUpload={onDrop} 
@@ -2380,7 +2375,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                           </div>
                         </th>
                         <th className="px-6 py-4.5">Core Competencies</th>
-                        <th className="px-6 py-4.5">Parser Agent</th>
+                        <th className="px-6 py-4.5">Uploaded By</th>
                         <th className="px-6 py-4.5">Reminders</th>
                         <th className="px-6 py-4.5 text-right">Actions</th>
                       </tr>
@@ -2570,8 +2565,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 </div>
               </div>
             </div>
-          ) : activeTab === 'google-sheets' ? (
-            <GoogleSheetsSync candidates={candidates} onImportSuccess={() => {}} role={role} />
+
           ) : activeTab === 'activity_logs' ? (
             <ActivityLogList role={role} />
           ) : activeTab === 'analytics' ? (
