@@ -5,19 +5,27 @@ import { parseResumeHeuristically } from '../lib/localParser';
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
-async function retryWithBackoff<T>(fn: () => Promise<T>, retries: number = 2, initialDelay: number = 1000): Promise<T> {
-  try {
-    return await fn();
-  } catch (err: any) {
-    const errMsg = err?.message || String(err);
-    const isRateOrQuotaError = err?.status === 429 || errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota');
-    // Do not waste time retrying 429 quota exhaustion errors - fail fast to trigger local fallback
-    if (retries > 0 && err?.status === 503 || (err?.message?.includes('503') && !isRateOrQuotaError)) {
-      // Retry silently
-      await sleep(initialDelay);
-      return retryWithBackoff(fn, retries - 1, initialDelay * 2);
+async function retryWithBackoff<T>(fn: () => Promise<T>, retries: number = 3, initialDelay: number = 1000): Promise<T> {
+  let attempt = 0;
+  while (true) {
+    try {
+      return await fn();
+    } catch (err: any) {
+      attempt++;
+      const errMsg = err?.message || String(err);
+      const isRateOrQuotaError = err?.status === 429 || errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota');
+      const isServerOrTimeoutError = err?.status >= 500 || errMsg.includes('503') || errMsg.includes('502') || errMsg.includes('timeout') || errMsg.includes('ETIMEDOUT') || errMsg.includes('ECONNRESET');
+
+      if (attempt > retries || (!isRateOrQuotaError && !isServerOrTimeoutError)) {
+        throw err;
+      }
+
+      // Exponential backoff with jitter
+      const jitter = 0.8 + Math.random() * 0.4;
+      const delay = Math.min(10000, initialDelay * Math.pow(2, attempt - 1)) * jitter;
+      console.warn(`[GeminiResumeParser] Attempt ${attempt} failed (${errMsg}). Retrying in ${Math.round(delay)}ms...`);
+      await sleep(delay);
     }
-    throw err;
   }
 }
 

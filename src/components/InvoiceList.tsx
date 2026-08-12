@@ -23,67 +23,54 @@ interface BilledCandidate {
 
 export const InvoiceList = () => {
   const navigate = useNavigate();
-  const { role, user } = useAuth();
+  const { role } = useAuth();
   const [invoices, setInvoices] = useState<any[]>([]);
-  const [candidates, setCandidates] = useState<any[]>([]);
-  const [clients, setClients] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<'history' | 'builder'>('history');
 
-  // Builder Form State
-  const [selectedClientId, setSelectedClientId] = useState<string>('');
-  // REMOVED: selectedCandidateIds, candidateFees
-  const [invoiceNumber, setInvoiceNumber] = useState<string>('');
-  const [dueDate, setDueDate] = useState<string>('');
-  const [taxRate, setTaxRate] = useState<number>(0);
-  const [discountAmount, setDiscountAmount] = useState<number>(0);
-  const [paymentTerms, setPaymentTerms] = useState<string>('');
-  const [notes, setNotes] = useState<string>('');
-
-  // Sender info and print overrides
-  const [senderName, setSenderName] = useState<string>('');
-  const [senderTagline, setSenderTagline] = useState<string>('');
-  const [senderEmail, setSenderEmail] = useState<string>('');
-  const [senderWeb, setSenderWeb] = useState<string>('');
-  const [customLogoUrl, setCustomLogoUrl] = useState<string>('');
-  const [issueDate, setIssueDate] = useState<string>(new Date().toISOString().substring(0, 10));
-
-  // Modal State for Invoice View
+  // Modal State for Invoice View & Editable Preview
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null);
+  const [editedInvoice, setEditedInvoice] = useState<any | null>(null);
 
-  // Edit State
-  const [editingInvoiceId, setEditingInvoiceId] = useState<string | null>(null);
+  const handleOpenInvoice = (inv: any) => {
+    setViewingInvoice(inv);
+    setEditedInvoice(JSON.parse(JSON.stringify(inv)));
+  };
 
-  // Flat Consolidated/Bulk Fee Option state
-  const [useFlatSubtotal, setUseFlatSubtotal] = useState<boolean>(false);
-  const [flatSubtotalVal, setFlatSubtotalVal] = useState<number>(0);
+  const handleSaveEditedInvoice = async () => {
+    if (!editedInvoice || !editedInvoice.id) return;
+    try {
+      const subtotal = editedInvoice.useFlatSubtotal || (!editedInvoice.candidates || editedInvoice.candidates.length === 0)
+        ? Number(editedInvoice.subtotal || 0)
+        : (editedInvoice.candidates || []).reduce((sum: number, c: any) => sum + Number(c.fee || 0), 0);
+      const taxRate = Number(editedInvoice.taxRate || 0);
+      const taxAmount = Math.round(subtotal * (taxRate / 100));
+      const discountAmount = Number(editedInvoice.discountAmount || 0);
+      const totalAmount = Math.max(0, subtotal + taxAmount - discountAmount);
 
-  // Global branding state
-  const [logoUrlLight, setLogoUrlLight] = useState<string>('');
-  const [logoUrlDark, setLogoUrlDark] = useState<string>('');
-  const [invoiceLogoLight, setInvoiceLogoLight] = useState<string>('');
-  const [invoiceLogoDark, setInvoiceLogoDark] = useState<string>('');
+      const updatedPayload = {
+        ...editedInvoice,
+        subtotal,
+        taxAmount,
+        totalAmount,
+        updatedAt: serverTimestamp()
+      };
+
+      await updateDoc(doc(db, 'consolidated_invoices', editedInvoice.id), updatedPayload);
+      setViewingInvoice(updatedPayload);
+      setEditedInvoice(JSON.parse(JSON.stringify(updatedPayload)));
+      alert('Invoice edits saved successfully!');
+    } catch (err) {
+      console.error('Error saving invoice edits:', err);
+      alert('Failed to save invoice edits');
+    }
+  };
 
   // Search and Filter States for Invoices
   const [searchInvoiceQuery, setSearchInvoiceQuery] = useState<string>('');
   const [filterInvoiceStatus, setFilterInvoiceStatus] = useState<string>('all');
 
-  const getCandidateFeeAmount = (c: any) => {
-    const salaryNum = parseFloat(String(c.salary || '').replace(/[^0-9.]/g, '')) || 0;
-    const clientObj = clients.find(cl => cl.id === (selectedClientId || c.clientId));
-    
-    const feePct = clientObj?.placementFeePercentage ?? clientObj?.feePercentage ?? (clientObj?.placementFeeType === 'percentage' ? clientObj.placementFee : null);
-    const fixedFee = clientObj?.placementFeeFixed ?? (clientObj?.placementFeeType === 'fixed' ? clientObj.placementFee : (clientObj?.placementFee > 100 ? clientObj.placementFee : 0));
-    
-    if (fixedFee > 0) return Math.round(fixedFee);
-    const pct = feePct !== null && feePct !== undefined && !isNaN(Number(feePct)) ? Number(feePct) : (clientObj?.placementFee && clientObj.placementFee <= 100 ? clientObj.placementFee : 15);
-    
-    return salaryNum > 0 ? Math.round(salaryNum * (pct / 100)) : 5000;
-  };
-
-  // Load consolidated invoices, candidates, clients and logo
+  // Load consolidated invoices
   useEffect(() => {
-    // 1. Load Invoices
     const qInvoices = query(collection(db, 'consolidated_invoices'), orderBy('createdAt', 'desc'));
     const unsubInvoices = onSnapshot(qInvoices, (snapshot) => {
       const invoicesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
@@ -94,257 +81,10 @@ export const InvoiceList = () => {
       setLoading(false);
     });
 
-    // 2. Load Candidates to group by client
-    const qCandidates = query(collection(db, 'candidates'));
-    const unsubCandidates = onSnapshot(qCandidates, (snapshot) => {
-      const candidatesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
-      setCandidates(candidatesData);
-    }, (error) => {
-      console.error("Error loading candidates for invoice list:", error);
-    });
-
-    // 3. Load Client accounts from users collection
-    const qUsers = query(collection(db, 'users'));
-    const unsubUsers = onSnapshot(qUsers, (snapshot) => {
-      const usersData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
-      const clientsList = usersData.filter(u => u.role === 'client');
-      setClients(clientsList);
-    }, (error) => {
-      console.error("Error loading users for client list:", error);
-    });
-
-    // 4. Load Global Settings (Branding logo URL)
-    const unsubLogo = onSnapshot(doc(db, 'settings', 'global'), (docSnap) => {
-      if (docSnap.exists()) {
-        const data = docSnap.data();
-        setLogoUrlLight(data.logoUrlLight || data.logoUrl || '');
-        setLogoUrlDark(data.logoUrlDark || data.logoUrl || '');
-        setInvoiceLogoLight(data.invoiceLogoLight || '');
-        setInvoiceLogoDark(data.invoiceLogoDark || '');
-      }
-    }, (error) => {
-      console.error("Error loading global settings logo URL:", error);
-    });
-
-    // Generate a default invoice number draft
-    const prefix = 'INV-' + new Date().getFullYear();
-    const random = Math.floor(1000 + Math.random() * 9000);
-    setInvoiceNumber(`${prefix}-${random}`);
-
-    // Set default due date to 30 days from now
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    setDueDate(d.toISOString().substring(0, 10));
-
     return () => {
       unsubInvoices();
-      unsubCandidates();
-      unsubUsers();
-      unsubLogo();
     };
   }, []);
-
-  // Group candidates that belong to the currently selected client
-  const activeClientCandidates = candidates.filter(c => {
-    if (!selectedClientId) return false;
-    return c.clientId === selectedClientId;
-  });
-
-
-
-  const getClientName = () => {
-    const clientUser = clients.find(c => c.id === selectedClientId);
-    return clientUser ? (clientUser.name || clientUser.email) : 'Direct Client';
-  };
-
-  const handleStartEditInvoice = (inv: any) => {
-    setEditingInvoiceId(inv.id);
-    setSelectedClientId(inv.clientId);
-    
-    // Set candidate selection and fees
-    // NOTE: This now auto-populates for client based on the invoice content.
-    // In a full refactor, we would validate that all candidates match the client.
-    setInvoiceNumber(inv.invoiceNumber || '');
-    setDueDate(inv.dueDate || '');
-    setTaxRate(inv.taxRate || 0);
-    setDiscountAmount(inv.discountAmount || 0);
-    setPaymentTerms(inv.paymentTerms || '');
-    setNotes(inv.notes || '');
-
-    // Set flat billing options if loaded from db
-    setUseFlatSubtotal(inv.useFlatSubtotal || false);
-    setFlatSubtotalVal(inv.flatSubtotalVal || inv.subtotal || 0);
-
-    // Set branding, sender overrides, and issueDate
-    setSenderName(inv.senderName || '');
-    setSenderTagline(inv.senderTagline || '');
-    setSenderEmail(inv.senderEmail || '');
-    setSenderWeb(inv.senderWeb || '');
-    setCustomLogoUrl(inv.customLogoUrl || '');
-    setIssueDate(inv.issueDate || (inv.createdAt?.toDate ? inv.createdAt.toDate().toISOString().substring(0, 10) : new Date().toISOString().substring(0, 10)));
-    
-    setActiveTab('builder');
-  };
-
-  // Cancel Edit Mode
-  const handleCancelEdit = () => {
-    setEditingInvoiceId(null);
-    setSelectedClientId('');
-    
-    // Regenerate invoice numbers
-    const prefix = 'INV-' + new Date().getFullYear();
-    const random = Math.floor(1000 + Math.random() * 9000);
-    setInvoiceNumber(`${prefix}-${random}`);
-
-    // Set default due date to 30 days from now
-    const d = new Date();
-    d.setDate(d.getDate() + 30);
-    setDueDate(d.toISOString().substring(0, 10));
-
-    setTaxRate(0);
-    setDiscountAmount(0);
-    setPaymentTerms('Net 30');
-    setNotes('Contract to Hire & Permanent Placement Services combined billing.');
-
-    // Reset flat billing overrides
-    setUseFlatSubtotal(false);
-    setFlatSubtotalVal(0);
-
-    // Reset sender and brand overrides
-    setSenderName('');
-    setSenderTagline('');
-    setSenderEmail('');
-    setSenderWeb('');
-    setCustomLogoUrl('');
-    setIssueDate(new Date().toISOString().substring(0, 10));
-    
-    setActiveTab('history');
-  };
-
-  // Generate / Update Invoice Action
-  const handleGenerateBulkInvoice = async (e: React.FormEvent) => {
-    e.preventDefault();
-
-    if (!selectedClientId) {
-      alert('Please select a client/company');
-      return;
-    }
-
-    const selectedCandidatesList = activeClientCandidates
-      .map(c => ({
-        candidateId: c.id,
-        candidateName: c.fullName,
-        position: c.position || 'Consultant',
-        billingType: 'Contract to Hire (Monthly)',
-        fee: getCandidateFeeAmount(c)
-      }));
-
-    const isFlat = useFlatSubtotal || flatSubtotalVal > 0;
-    const subtotal = isFlat
-      ? flatSubtotalVal
-      : selectedCandidatesList.reduce((sum, item) => sum + item.fee, 0);
-    const taxAmount = Math.round(subtotal * (taxRate / 100));
-    const totalAmount = subtotal + taxAmount - discountAmount;
-
-    try {
-      if (editingInvoiceId) {
-        // Edit mode - Update existing invoice
-        const updatedInvoice = {
-          invoiceNumber: invoiceNumber.trim() || `INV-${Math.floor(100000 + Math.random() * 900000)}`,
-          clientId: selectedClientId,
-          clientName: getClientName(),
-          candidates: selectedCandidatesList,
-          subtotal,
-          taxRate,
-          taxAmount,
-          discountAmount,
-          totalAmount,
-          dueDate,
-          paymentTerms,
-          notes,
-          senderName,
-          senderTagline,
-          senderEmail,
-          senderWeb,
-          customLogoUrl,
-          issueDate,
-          useFlatSubtotal: isFlat,
-          flatSubtotalVal,
-          updatedAt: serverTimestamp(),
-          updatedBy: user?.uid || 'System'
-        };
-        
-        await updateDoc(doc(db, 'consolidated_invoices', editingInvoiceId), updatedInvoice);
-        alert('Invoice updated successfully!');
-      } else {
-        // Create mode
-        const newInvoice = {
-          invoiceNumber: invoiceNumber.trim() || `INV-${Math.floor(100000 + Math.random() * 900000)}`,
-          clientId: selectedClientId,
-          clientName: getClientName(),
-          candidates: selectedCandidatesList,
-          subtotal,
-          taxRate,
-          taxAmount,
-          discountAmount,
-          totalAmount,
-          status: 'Draft',
-          dueDate,
-          paymentTerms,
-          notes,
-          senderName,
-          senderTagline,
-          senderEmail,
-          senderWeb,
-          customLogoUrl,
-          issueDate,
-          useFlatSubtotal: isFlat,
-          flatSubtotalVal,
-          createdAt: serverTimestamp(),
-          createdBy: user?.uid || 'System'
-        };
-
-        await addDoc(collection(db, 'consolidated_invoices'), newInvoice);
-        alert('Invoice generated successfully!');
-      }
-      
-      // Reset form states
-      setEditingInvoiceId(null);
-      setSelectedClientId('');
-      setTaxRate(0);
-      setDiscountAmount(0);
-      setPaymentTerms('Net 30');
-      setNotes('Contract to Hire & Permanent Placement Services combined billing.');
-      
-      // Reset flat billing overrides
-      setUseFlatSubtotal(false);
-      setFlatSubtotalVal(0);
-
-      // Reset brand/sender overrides
-      setSenderName('');
-      setSenderTagline('');
-      setSenderEmail('');
-      setSenderWeb('');
-      setCustomLogoUrl('');
-      setIssueDate(new Date().toISOString().substring(0, 10));
-      
-      // Regenerate invoice numbers
-      const prefix = 'INV-' + new Date().getFullYear();
-      const random = Math.floor(1000 + Math.random() * 9000);
-      setInvoiceNumber(`${prefix}-${random}`);
-
-      // Set default due date to 30 days from now
-      const d = new Date();
-      d.setDate(d.getDate() + 30);
-      setDueDate(d.toISOString().substring(0, 10));
-
-      // Switch tab
-      setActiveTab('history');
-    } catch (err) {
-      console.error('Error generating/updating consolidated invoice:', err);
-      alert('Failed to save combined invoice: ' + (err as Error).message);
-    }
-  };
 
   // Update Status of generated Invoice
   const handleUpdateStatus = async (invoiceId: string, newStatus: string) => {
@@ -541,7 +281,7 @@ export const InvoiceList = () => {
 
     const formattedDate = inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : (inv.createdAt?.toDate ? inv.createdAt.toDate().toLocaleDateString() : new Date().toLocaleDateString());
     const formattedDueDate = inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : 'N/A';
-    const activeLogoUrl = invoiceLogoLight || logoUrlLight || invoiceLogoDark || logoUrlDark || 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg';
+    const activeLogoUrl = inv.senderLogo || 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg';
     const activeSenderName = inv.senderName || '';
     const activeSenderTagline = inv.senderTagline || '';
     const activeSenderEmail = inv.senderEmail || '';
@@ -805,8 +545,7 @@ export const InvoiceList = () => {
     setCurrentPage(1);
   }, [searchInvoiceQuery, filterInvoiceStatus]);
 
-  // Filtered candidates list for the Builder Tab
-  const filteredCandidateList = activeClientCandidates;
+
 
   if (loading) {
     return (
@@ -836,613 +575,250 @@ export const InvoiceList = () => {
         <div className="flex bg-[var(--bg-secondary)] p-1.5 rounded-2xl border border-[var(--border-color)]">
           <button
             onClick={() => navigate('/invoice-builder')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-tight transition-all duration-300 crm-btn-gold text-white shadow-sm`}
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold tracking-tight transition-all duration-300 crm-btn-gold text-white shadow-sm"
           >
             <Plus className="w-4 h-4" /> Custom Invoice
-          </button>
-          
-          <button
-            onClick={() => setActiveTab('builder')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-tight transition-all duration-300 ${
-              activeTab === 'builder'
-                ? 'crm-btn-gold text-white shadow-sm'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            {editingInvoiceId ? (
-              <>
-                <Pencil className="w-4 h-4 text-[var(--primary-gold)]" />
-                Edit Invoice
-              </>
-            ) : (
-              <>
-                <Plus className="w-4 h-4" />
-                Dynamic Invoice
-              </>
-            )}
-          </button>
-
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-extrabold tracking-tight transition-all duration-300 ${
-              activeTab === 'history'
-                ? 'crm-btn-gold text-white shadow-sm'
-                : 'text-[var(--text-muted)] hover:text-[var(--text-primary)]'
-            }`}
-          >
-            <FileText className="w-4 h-4" />
-            Invoice History ({invoices.length})
           </button>
         </div>
       </div>
 
-      {activeTab === 'history' ? (
-        <div className="crm-card p-0 overflow-hidden">
-          <div className="p-6 border-b border-[var(--border-color)] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[var(--bg-primary)]">
-            <div>
-              <span className="text-xs font-bold uppercase text-[var(--text-muted)] tracking-wider">All Dynamic Invoices</span>
-              <p className="text-xs text-[var(--text-primary)] mt-0.5">Filter, search, print, or manage billing statements.</p>
-            </div>
-            <span className="crm-badge-gold text-xs px-3.5 py-1.5">
-              Total Statement Amount: ${invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-            </span>
+      <div className="crm-card p-0 overflow-hidden">
+        <div className="p-6 border-b border-[var(--border-color)] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[var(--bg-primary)]">
+          <div>
+            <span className="text-xs font-bold uppercase text-[var(--text-muted)] tracking-wider">All Invoices</span>
+            <p className="text-xs text-[var(--text-primary)] mt-0.5">Filter, search, print, or manage billing statements.</p>
           </div>
-
-          {invoices.length > 0 && (
-            <div className="p-4 bg-[var(--card-bg)] border-b border-[var(--border-color)] flex flex-col md:flex-row gap-3 items-center justify-between">
-              <div className="relative w-full md:max-w-md">
-                <span className="absolute left-3.5 top-2.5 text-[var(--text-muted)]">
-                  <Search size={16} />
-                </span>
-                <input
-                  type="text"
-                  placeholder="Search by invoice #, client name, or candidate..."
-                  value={searchInvoiceQuery}
-                  onChange={(e) => setSearchInvoiceQuery(e.target.value)}
-                  className="crm-input pl-9 pr-8"
-                />
-                {searchInvoiceQuery && (
-                  <button 
-                    onClick={() => setSearchInvoiceQuery('')}
-                    className="absolute right-3 top-2.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
-                  >
-                    <X size={14} />
-                  </button>
-                )}
-              </div>
-
-              <div className="flex gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-                {['all', 'Draft', 'Sent', 'Paid', 'Overdue'].map((status) => (
-                  <button
-                    key={status}
-                    type="button"
-                    onClick={() => setFilterInvoiceStatus(status)}
-                    className={`px-3.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition shrink-0 cursor-pointer ${
-                      filterInvoiceStatus === status
-                        ? 'crm-btn-gold text-white shadow-sm'
-                        : 'crm-btn-secondary text-xs'
-                    }`}
-                  >
-                    {status}
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {invoices.length === 0 ? (
-            <div className="flex flex-col items-center justify-center p-16 text-center font-sans">
-              <div className="w-16 h-16 bg-[var(--bg-primary)] rounded-3xl flex items-center justify-center text-[var(--primary-gold)] mb-4 border border-[var(--border-color)]">
-                <FileText className="w-8 h-8" />
-              </div>
-              <h3 className="font-bold text-[var(--text-primary)] text-lg">No invoices yet</h3>
-              <p className="text-sm text-[var(--text-primary)] mt-1 max-w-sm">
-                Create your first invoice for client billing, candidate placements, or contract services.
-              </p>
-              <button
-                onClick={() => setActiveTab('builder')}
-                className="mt-6 crm-btn-gold"
-              >
-                <Plus className="w-4 h-4" /> Build Invoice
-              </button>
-            </div>
-          ) : (
-            <div className="crm-table-container border-0 rounded-none">
-              <table className="crm-table">
-                <thead>
-                  <tr>
-                    <th className="pl-6">Invoice #</th>
-                    <th>Client / Company</th>
-                    <th>Candidates</th>
-                    <th>Total Amount</th>
-                    <th>Due Date</th>
-                    <th className="text-center">Status</th>
-                    <th className="pr-6 text-right">Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {paginatedInvoices.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="p-16 text-center text-[var(--text-primary)] font-sans">
-                        <Users className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
-                        <p className="text-sm font-bold">No invoices match your search query or status filter.</p>
-                        <p className="text-xs text-[var(--text-muted)] mt-1">Try resetting the invoice search or choosing a different status filter.</p>
-                      </td>
-                    </tr>
-                  ) : (
-                    paginatedInvoices.map((inv) => (
-                    <tr key={inv.id} className="hover:bg-[var(--card-hover-bg)] transition-colors">
-                      <td className="p-4 pl-6">
-                        <span className="font-mono text-xs font-bold text-[var(--text-primary)]">{inv.invoiceNumber}</span>
-                      </td>
-                      <td className="p-4">
-                        <div className="font-bold text-[var(--text-primary)] text-xs">{inv.clientName}</div>
-                        {inv.paymentTerms ? <div className="text-[10px] text-[var(--text-muted)]">{inv.paymentTerms}</div> : null}
-                      </td>
-                      <td className="p-4">
-                        <div className="flex items-center gap-1.5">
-                          <Users className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                          <span className="text-xs font-extrabold text-[var(--primary-gold)]">{inv.candidates?.length || 0} Placements</span>
-                        </div>
-                        <div className="text-[10px] text-[var(--text-muted)] truncate max-w-[200px]">
-                          {inv.candidates?.map((c: any) => c.candidateName).join(', ')}
-                        </div>
-                      </td>
-                      <td className="p-4">
-                        <span className="font-mono text-xs font-black text-[var(--text-primary)]">
-                          ${inv.totalAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                        </span>
-                      </td>
-                      <td className="p-4">
-                        <span className="text-xs text-[var(--text-secondary)]">
-                          {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : 'N/A'}
-                        </span>
-                      </td>
-                      <td className="p-4 text-center">
-                        <span className={
-                          inv.status === 'Paid' ? 'crm-badge-success text-[10px] uppercase' :
-                          inv.status === 'Sent' ? 'crm-badge-info text-[10px] uppercase' :
-                          inv.status === 'Overdue' ? 'crm-badge-error text-[10px] uppercase' :
-                          'crm-badge-warning text-[10px] uppercase'
-                        }>
-                          {inv.status}
-                        </span>
-                      </td>
-                      <td className="p-4 pr-6 text-right">
-                        <div className="flex justify-end gap-2">
-                          <button
-                            onClick={() => setViewingInvoice(inv)}
-                            className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
-                            title="View statement & print"
-                          >
-                            <Eye className="w-4 h-4" />
-                          </button>
-                          
-                          <button
-                            onClick={() => handlePrintInvoice(inv)}
-                            className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--primary-gold)] transition"
-                            title="Direct print"
-                          >
-                            <Printer className="w-4 h-4" />
-                          </button>
-
-                          {(role === 'admin' || role === 'developer' || role === 'team_leader') && (
-                            <>
-                              <button
-                                onClick={() => handleStartEditInvoice(inv)}
-                                className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-amber-500 transition"
-                                title="Edit bill details"
-                              >
-                                <Pencil className="w-4 h-4" />
-                              </button>
-
-                              <button
-                                onClick={() => handleDeleteInvoice(inv.id)}
-                                className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-rose-500 transition"
-                                title="Delete bill"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
-                            </>
-                          )}
-                        </div>
-                      </td>
-                    </tr>
-                  )))}
-                </tbody>
-              </table>
-              {totalPages > 1 && (
-                <div className="flex items-center justify-between p-4 border-t border-[var(--border-color)] bg-[var(--bg-primary)]">
-                  <span className="text-xs text-[var(--text-muted)]">
-                    Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredInvoices.length)} of {filteredInvoices.length} invoices
-                  </span>
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
-                      disabled={currentPage === 1}
-                      className="px-3 py-1.5 crm-btn-secondary text-xs disabled:opacity-40"
-                    >
-                      Previous
-                    </button>
-                    <span className="text-xs font-bold text-[var(--text-primary)] px-2">
-                      Page {currentPage} of {totalPages}
-                    </span>
-                    <button
-                      onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
-                      disabled={currentPage === totalPages}
-                      className="px-3 py-1.5 crm-btn-secondary text-xs disabled:opacity-40"
-                    >
-                      Next
-                    </button>
-                  </div>
-                </div>
-              )}
-            </div>
-          )}
+          <span className="crm-badge-gold text-xs px-3.5 py-1.5">
+            Total Statement Amount: ${invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+          </span>
         </div>
-      ) : (
-        <form onSubmit={handleGenerateBulkInvoice} className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {editingInvoiceId && (
-            <div className="lg:col-span-3 bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900/50 p-5 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-              <div className="flex items-start gap-3">
-                <ShieldAlert className="w-5 h-5 text-amber-500 shrink-0 mt-0.5" />
-                <div>
-                  <h4 className="text-xs font-black text-amber-800 dark:text-amber-200 uppercase tracking-wide">Edit Invoice Mode Active</h4>
-                  <p className="text-[10px] text-amber-600 dark:text-amber-400 mt-0.5">
-                    You are editing Invoice number <span className="font-mono font-bold text-amber-700 dark:text-amber-300 bg-amber-100/50 dark:bg-amber-950/40 px-1.5 py-0.5 rounded">{invoiceNumber}</span>. Saving will update this invoice instead of creating a new one.
-                  </p>
-                </div>
-              </div>
-              <button
-                type="button"
-                onClick={handleCancelEdit}
-                className="px-4 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-extrabold transition shrink-0 self-end sm:self-auto"
-              >
-                Cancel Edit Mode
-              </button>
-            </div>
-          )}
 
-          {/* Builder Step 1 & 2: Client & Candidate Selection */}
-          <div className="lg:col-span-2 crm-card p-6 space-y-6">
-            <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-4">
-              <Users className="w-5 h-5 text-[var(--primary-gold)]" />
-              <div>
-                <h3 className="font-bold text-[var(--text-primary)] text-sm">Select Client & Candidates</h3>
-                <p className="text-[10px] text-[var(--text-muted)]">Choose which company to bill and select the candidates placed or working.</p>
-              </div>
-            </div>
-
-            {/* Client Picker */}
-            <div className="space-y-2">
-              <label className="block text-xs font-black uppercase text-[var(--text-muted)] tracking-wider">Client Company / Account</label>
-              <div className="grid grid-cols-1 gap-3">
-                <select
-                  value={selectedClientId}
-                  onChange={(e) => {
-                    setSelectedClientId(e.target.value);
-                    }}
-                  className="crm-input w-full py-2.5"
+        {invoices.length > 0 && (
+          <div className="p-4 bg-[var(--card-bg)] border-b border-[var(--border-color)] flex flex-col md:flex-row gap-3 items-center justify-between">
+            <div className="relative w-full md:max-w-md">
+              <span className="absolute left-3.5 top-2.5 text-[var(--text-muted)]">
+                <Search size={16} />
+              </span>
+              <input
+                type="text"
+                placeholder="Search by invoice #, client name, or candidate..."
+                value={searchInvoiceQuery}
+                onChange={(e) => setSearchInvoiceQuery(e.target.value)}
+                className="crm-input pl-9 pr-8"
+              />
+              {searchInvoiceQuery && (
+                <button 
+                  onClick={() => setSearchInvoiceQuery('')}
+                  className="absolute right-3 top-2.5 text-[var(--text-muted)] hover:text-[var(--text-primary)]"
                 >
-                  <option value="">-- Choose a Registered Client --</option>
-                  {clients.map(client => (
-                    <option key={client.id} value={client.id}>{client.name || client.email}</option>
-                  ))}
-                </select>
-              </div>
-            </div>
-
-            {/* Placed Candidates Checklist */}
-            {selectedClientId ? (
-              <div className="space-y-4">
-                {/* Billing Model Selector */}
-                <div className="crm-card bg-[var(--bg-secondary)] p-5 border border-[var(--border-color)] space-y-4">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[var(--border-color)] pb-4">
-                    <div>
-                      <h4 className="text-xs font-black uppercase text-[var(--text-muted)] tracking-wider">Billing Model</h4>
-                      <p className="text-[10px] text-[var(--text-secondary)] mt-0.5">Automated client-wise consolidated billing.</p>
-                    </div>
-                  </div>
-                  <div className="space-y-1.5 pt-2">
-                    <label className="block text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider font-mono">Placement Fee ($)</label>
-                    <div className="relative max-w-xs">
-                      <span className="absolute left-3 top-2.5 text-xs text-[var(--text-secondary)]">$</span>
-                      <input
-                        type="number"
-                        placeholder="e.g. 15000"
-                        value={flatSubtotalVal || ''}
-                        onChange={(e) => setFlatSubtotalVal(e.target.value === '' ? 0 : Number(e.target.value))}
-                        className="crm-input pl-7 pr-3 py-2.5 font-mono font-bold"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-between items-center">
-                  <label className="text-xs font-black uppercase text-[var(--text-primary)] tracking-wider">
-                    Candidates To Be Billed ({activeClientCandidates.length})
-                  </label>
-                </div>
-
-                <div className="space-y-3">
-                  {activeClientCandidates.length === 0 ? (
-                    <div className="p-8 border border-dashed border-[var(--border-color)] rounded-3xl text-center font-sans">
-                      <Users className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
-                      <p className="text-xs text-[var(--text-secondary)]">No candidates are currently assigned to this Client account.</p>
-                    </div>
-                  ) : (
-                    activeClientCandidates.map(c => {
-                      return (
-                        <div 
-                          key={c.id} 
-                          className="p-5 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-3xl"
-                        >
-                          <div className="flex justify-between items-center w-full">
-                            <div className="text-xs font-black text-[var(--text-primary)]">
-                              {c.fullName}
-                            </div>
-                            <div className="text-[10px] text-[var(--text-muted)] font-mono">
-                              {c.position || 'Consultant'}
-                            </div>
-                            <div className="text-xs font-mono font-bold text-[var(--text-primary)]">
-                                ${getCandidateFeeAmount(c).toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="text-center p-8 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)]">
-                <ShieldAlert className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
-                <p className="text-xs text-[var(--text-muted)]">Choose a client company above to load the eligible candidates for bulk billing.</p>
-              </div>
-            )}
-          </div>
-
-          {/* Builder Step 3: Billing Info, Invoice Meta & Calculations */}
-          <div className="space-y-6">
-            <div className="crm-card p-6 space-y-4">
-              <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-3">
-                <FileText className="w-4.5 h-4.5 text-[var(--primary-gold)]" />
-                <h3 className="font-bold text-[var(--text-primary)] text-xs">Billing Details</h3>
-              </div>
-
-              {/* Invoice Number */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Invoice # (Editable)</label>
-                <input
-                  type="text"
-                  required
-                  value={invoiceNumber}
-                  onChange={(e) => setInvoiceNumber(e.target.value)}
-                  className="crm-input w-full py-2 font-mono"
-                />
-              </div>
-
-              {/* Due Date */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Due Date</label>
-                <input
-                  type="date"
-                  required
-                  value={dueDate}
-                  onChange={(e) => setDueDate(e.target.value)}
-                  className="crm-input w-full py-2"
-                />
-              </div>
-
-              {/* Terms */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Payment Terms</label>
-                <select
-                  value={paymentTerms}
-                  onChange={(e) => setPaymentTerms(e.target.value)}
-                  className="crm-input w-full py-2"
-                >
-                  <option value="Net 15">Net 15</option>
-                  <option value="Net 30">Net 30</option>
-                  <option value="Net 45">Net 45</option>
-                  <option value="Due on Receipt">Due on Receipt</option>
-                </select>
-              </div>
-
-              {/* Notes */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Notes & Special Terms</label>
-                <textarea
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={2}
-                  className="crm-input w-full py-2 resize-none"
-                  placeholder="Billing terms, bank detail info..."
-                />
-              </div>
-            </div>
-
-            {/* Brand, Logo & Sender Customization Overrides */}
-            <div className="crm-card p-6 space-y-4">
-              <div className="flex items-center gap-2 border-b border-[var(--border-color)] pb-3">
-                <Layers className="w-4.5 h-4.5 text-[var(--primary-gold)]" />
-                <h3 className="font-bold text-[var(--text-primary)] text-xs">Print Brand & Sender Info</h3>
-              </div>
-
-              {/* Custom Issue Date */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Invoice Issue Date</label>
-                <input
-                  type="date"
-                  required
-                  value={issueDate}
-                  onChange={(e) => setIssueDate(e.target.value)}
-                  className="crm-input w-full py-2"
-                />
-              </div>
-
-              {/* Sender Company Name */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Sender Company Name Override</label>
-                <input
-                  type="text"
-                  placeholder="e.g. AURRUM RECRUITMENT"
-                  value={senderName}
-                  onChange={(e) => setSenderName(e.target.value)}
-                  className="crm-input w-full py-2"
-                />
-              </div>
-
-              {/* Tagline */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Tagline / Subtitle Override</label>
-                <input
-                  type="text"
-                  placeholder="e.g. Core Contract-to-Hire & Bulk Placements"
-                  value={senderTagline}
-                  onChange={(e) => setSenderTagline(e.target.value)}
-                  className="crm-input w-full py-2"
-                />
-              </div>
-
-              {/* Sender Email */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Contact Email Override</label>
-                <input
-                  type="email"
-                  placeholder="info@aurrum.co"
-                  value={senderEmail}
-                  onChange={(e) => setSenderEmail(e.target.value)}
-                  className="crm-input w-full py-2"
-                />
-              </div>
-
-              {/* Sender Web */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Website URL Override</label>
-                <input
-                  type="text"
-                  placeholder="aurrum.co"
-                  value={senderWeb}
-                  onChange={(e) => setSenderWeb(e.target.value)}
-                  className="crm-input w-full py-2"
-                />
-              </div>
-
-
-            </div>
-
-            {/* Calculations Summary Card */}
-            <div className="crm-card p-6 space-y-4">
-              <h4 className="text-xs font-black uppercase text-[var(--text-muted)] tracking-wider">Subtotal Summary</h4>
-
-              <div className="space-y-3 text-xs text-[var(--text-secondary)]">
-                <div className="flex justify-between">
-                  <span>Candidates Count:</span>
-                  <span className="font-bold text-[var(--text-primary)]">{activeClientCandidates.length}</span>
-                </div>
-
-                <div className="flex justify-between">
-                  <span>Placements Subtotal:</span>
-                  <span className="font-mono font-bold text-[var(--text-primary)]">
-                    ${((useFlatSubtotal || flatSubtotalVal > 0) ? flatSubtotalVal : activeClientCandidates
-                      .reduce((sum, item) => sum + getCandidateFeeAmount(item), 0))
-                      .toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                  </span>
-                </div>
-
-                {/* Tax Rate */}
-                <div className="flex items-center justify-between py-2 border-y border-[var(--border-color)]">
-                  <span className="flex items-center gap-1.5 text-[var(--text-primary)]">
-                    <Percent className="w-3.5 h-3.5" /> Tax Rate (%):
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    value={taxRate}
-                    onChange={(e) => setTaxRate(Number(e.target.value))}
-                    className="w-16 px-2 py-1 text-center crm-input font-mono font-bold"
-                  />
-                </div>
-
-                {/* Discount */}
-                <div className="flex items-center justify-between py-2 border-b border-[var(--border-color)]">
-                  <span className="flex items-center gap-1.5 text-[var(--text-primary)]">
-                    <DollarSign className="w-3.5 h-3.5" /> Discount ($):
-                  </span>
-                  <input
-                    type="number"
-                    min="0"
-                    value={discountAmount}
-                    onChange={(e) => setDiscountAmount(Number(e.target.value))}
-                    className="w-24 px-2 py-1 text-right crm-input font-mono font-bold"
-                  />
-                </div>
-
-                {/* Total */}
-                <div className="flex justify-between pt-3 text-sm font-black text-[var(--text-primary)]">
-                  <span>GRAND TOTAL DUE:</span>
-                  <span className="font-mono text-[var(--primary-gold)]">
-                    ${(() => {
-                      const subtotal = (useFlatSubtotal || flatSubtotalVal > 0) ? flatSubtotalVal : activeClientCandidates
-                        .reduce((sum, item) => sum + getCandidateFeeAmount(item), 0);
-                      const taxVal = Math.round(subtotal * (taxRate / 100));
-                      const finalTotal = subtotal + taxVal - discountAmount;
-                      return Math.max(0, finalTotal).toLocaleString(undefined, { minimumFractionDigits: 2 });
-                    })()}
-                  </span>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                className="crm-btn-gold w-full flex items-center justify-center gap-2 text-xs py-3.5"
-              >
-                <FileCheck className="w-4 h-4" /> {editingInvoiceId ? 'Update Invoice' : 'Save & Generate Invoice'}
-              </button>
-
-              {editingInvoiceId && (
-                <button
-                  type="button"
-                  onClick={handleCancelEdit}
-                  className="crm-btn-secondary w-full mt-2 flex items-center justify-center gap-2 text-xs py-3"
-                >
-                  <X className="w-4 h-4" /> Cancel Edit Mode
+                  <X size={14} />
                 </button>
               )}
             </div>
-          </div>
-        </form>
-      )}
 
-      {/* Invoice Detail Modal / Statement View */}
-      {viewingInvoice && (
+            <div className="flex gap-1.5 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
+              {['all', 'Draft', 'Sent', 'Paid', 'Overdue'].map((status) => (
+                <button
+                  key={status}
+                  type="button"
+                  onClick={() => setFilterInvoiceStatus(status)}
+                  className={`px-3.5 py-1.5 rounded-xl text-xs font-bold uppercase tracking-wider transition shrink-0 cursor-pointer ${
+                    filterInvoiceStatus === status
+                      ? 'crm-btn-gold text-white shadow-sm'
+                      : 'crm-btn-secondary text-xs'
+                  }`}
+                >
+                  {status}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {invoices.length === 0 ? (
+          <div className="flex flex-col items-center justify-center p-16 text-center font-sans">
+            <div className="w-16 h-16 bg-[var(--bg-primary)] rounded-3xl flex items-center justify-center text-[var(--primary-gold)] mb-4 border border-[var(--border-color)]">
+              <FileText className="w-8 h-8" />
+            </div>
+            <h3 className="font-bold text-[var(--text-primary)] text-lg">No invoices yet</h3>
+            <p className="text-sm text-[var(--text-primary)] mt-1 max-w-sm">
+              Create your first invoice for client billing, candidate placements, or contract services.
+            </p>
+            <button
+              onClick={() => navigate('/invoice-builder')}
+              className="mt-6 crm-btn-gold"
+            >
+              <Plus className="w-4 h-4" /> Create Invoice
+            </button>
+          </div>
+        ) : (
+          <div className="crm-table-container border-0 rounded-none">
+            <table className="crm-table">
+              <thead>
+                <tr>
+                  <th className="pl-6">Invoice #</th>
+                  <th>Client / Company</th>
+                  <th>Candidates</th>
+                  <th>Total Amount</th>
+                  <th>Due Date</th>
+                  <th className="text-center">Status</th>
+                  <th className="pr-6 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody>
+                {paginatedInvoices.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="p-16 text-center text-[var(--text-primary)] font-sans">
+                      <Users className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
+                      <p className="text-sm font-bold">No invoices match your search query or status filter.</p>
+                      <p className="text-xs text-[var(--text-muted)] mt-1">Try resetting the invoice search or choosing a different status filter.</p>
+                    </td>
+                  </tr>
+                ) : (
+                  paginatedInvoices.map((inv) => (
+                  <tr key={inv.id} className="hover:bg-[var(--card-hover-bg)] transition-colors">
+                    <td className="p-4 pl-6">
+                      <span className="font-mono text-xs font-bold text-[var(--text-primary)]">{inv.invoiceNumber}</span>
+                    </td>
+                    <td className="p-4">
+                      <div className="font-bold text-[var(--text-primary)] text-xs">{inv.clientName}</div>
+                      {inv.paymentTerms ? <div className="text-[10px] text-[var(--text-muted)]">{inv.paymentTerms}</div> : null}
+                    </td>
+                    <td className="p-4">
+                      <div className="flex items-center gap-1.5">
+                        <Users className="w-3.5 h-3.5 text-[var(--text-muted)]" />
+                        <span className="text-xs font-extrabold text-[var(--primary-gold)]">{inv.candidates?.length || 0} Placements</span>
+                      </div>
+                      <div className="text-[10px] text-[var(--text-muted)] truncate max-w-[200px]">
+                        {inv.candidates?.map((c: any) => c.candidateName).join(', ')}
+                      </div>
+                    </td>
+                    <td className="p-4">
+                      <span className="font-mono text-xs font-black text-[var(--text-primary)]">
+                        ${inv.totalAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                      </span>
+                    </td>
+                    <td className="p-4">
+                      <span className="text-xs text-[var(--text-secondary)]">
+                        {inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : 'N/A'}
+                      </span>
+                    </td>
+                    <td className="p-4 text-center">
+                      <span className={
+                        inv.status === 'Paid' ? 'crm-badge-success text-[10px] uppercase' :
+                        inv.status === 'Sent' ? 'crm-badge-info text-[10px] uppercase' :
+                        inv.status === 'Overdue' ? 'crm-badge-error text-[10px] uppercase' :
+                        'crm-badge-warning text-[10px] uppercase'
+                      }>
+                        {inv.status}
+                      </span>
+                    </td>
+                    <td className="p-4 pr-6 text-right">
+                      <div className="flex justify-end gap-2">
+                        <button
+                          onClick={() => handleOpenInvoice(inv)}
+                          className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
+                          title="View & Edit statement before print"
+                        >
+                          <Eye className="w-4 h-4" />
+                        </button>
+                        
+                        <button
+                          onClick={() => handlePrintInvoice(inv)}
+                          className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--primary-gold)] transition"
+                          title="Direct print"
+                        >
+                          <Printer className="w-4 h-4" />
+                        </button>
+
+                        {(role === 'admin' || role === 'developer' || role === 'team_leader') && (
+                          <button
+                            onClick={() => handleDeleteInvoice(inv.id)}
+                            className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-rose-500 transition"
+                            title="Delete bill"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                )))}
+              </tbody>
+            </table>
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between p-4 border-t border-[var(--border-color)] bg-[var(--bg-primary)]">
+                <span className="text-xs text-[var(--text-muted)]">
+                  Showing {(currentPage - 1) * itemsPerPage + 1} to {Math.min(currentPage * itemsPerPage, filteredInvoices.length)} of {filteredInvoices.length} invoices
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setCurrentPage(p => Math.max(p - 1, 1))}
+                    disabled={currentPage === 1}
+                    className="px-3 py-1.5 crm-btn-secondary text-xs disabled:opacity-40"
+                  >
+                    Previous
+                  </button>
+                  <span className="text-xs font-bold text-[var(--text-primary)] px-2">
+                    Page {currentPage} of {totalPages}
+                  </span>
+                  <button
+                    onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))}
+                    disabled={currentPage === totalPages}
+                    className="px-3 py-1.5 crm-btn-secondary text-xs disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Invoice Editable Preview & Print Modal */}
+      {viewingInvoice && editedInvoice && (
         <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-[24px] shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-[var(--card-bg)] border border-[var(--border-color)] rounded-[24px] shadow-2xl max-w-4xl w-full max-h-[90vh] overflow-y-auto">
             {/* Modal Actions Header */}
-            <div className="p-5 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--bg-primary)]">
+            <div className="p-5 border-b border-[var(--border-color)] flex justify-between items-center bg-[var(--bg-primary)] sticky top-0 z-20">
               <div className="flex items-center gap-2 text-[var(--text-primary)]">
                 <FileText className="w-4.5 h-4.5 text-[var(--primary-gold)]" />
-                <span className="font-mono text-xs font-bold uppercase tracking-tight">Invoice Details ({viewingInvoice.invoiceNumber})</span>
+                <div className="flex items-center gap-2">
+                  <span className="font-mono text-xs font-bold uppercase tracking-tight">Editable Invoice Preview</span>
+                  <input
+                    type="text"
+                    value={editedInvoice.invoiceNumber || ''}
+                    onChange={(e) => setEditedInvoice({ ...editedInvoice, invoiceNumber: e.target.value })}
+                    className="crm-input h-7 px-2 py-0.5 text-xs font-mono font-bold w-36"
+                    placeholder="Invoice #"
+                  />
+                </div>
               </div>
               <div className="flex items-center gap-2">
                 <button
-                  onClick={() => handleDownloadPDF(viewingInvoice)}
+                  onClick={handleSaveEditedInvoice}
+                  className="flex items-center gap-1.5 px-3 py-1.5 crm-btn-secondary text-xs font-bold transition text-[var(--primary-gold)] border-[var(--primary-gold)]"
+                  title="Save edits to database"
+                >
+                  <Check className="w-3.5 h-3.5" /> Save Edits
+                </button>
+                <button
+                  onClick={() => handleDownloadPDF(editedInvoice)}
                   className="flex items-center gap-1.5 px-3 py-1.5 crm-btn-secondary text-xs font-bold transition"
                   title="Download PDF"
                 >
                   <Download className="w-3.5 h-3.5" /> PDF
                 </button>
                 <button
-                  onClick={() => handleEmailInvoice(viewingInvoice)}
+                  onClick={() => handleEmailInvoice(editedInvoice)}
                   className="flex items-center gap-1.5 px-3 py-1.5 crm-btn-secondary text-xs font-bold transition"
                   title="Email Statement"
                 >
                   <Mail className="w-3.5 h-3.5" /> Email
                 </button>
                 <button
-                  onClick={() => handlePrintInvoice(viewingInvoice)}
+                  onClick={() => handlePrintInvoice(editedInvoice)}
                   className="flex items-center gap-1.5 px-3 py-1.5 crm-btn-gold text-xs font-bold transition"
                   title="Print Statement"
                 >
@@ -1458,7 +834,7 @@ export const InvoiceList = () => {
                   </button>
                 )}
                 <button
-                  onClick={() => setViewingInvoice(null)}
+                  onClick={() => { setViewingInvoice(null); setEditedInvoice(null); }}
                   className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-xl text-[var(--text-muted)] hover:text-[var(--text-primary)] transition"
                 >
                   <X className="w-4.5 h-4.5" />
@@ -1466,99 +842,218 @@ export const InvoiceList = () => {
               </div>
             </div>
 
-            {/* Statement details */}
+            {/* Statement details - fully editable */}
             <div className="p-8 space-y-6">
               <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b border-[var(--border-color)]">
-                <div className="flex flex-col items-start gap-3">
+                <div className="flex flex-col items-start gap-3 w-full sm:w-1/2">
                   <Logo variant="invoice" size="lg" className="mb-1" />
-                  <div>
-                    {viewingInvoice.senderName && (
-                      <h3 className="text-xl font-black text-[var(--primary-gold)] tracking-tight">{viewingInvoice.senderName}</h3>
-                    )}
-                    {viewingInvoice.senderTagline && (
-                      <p className="text-[10px] text-[var(--text-muted)] mt-1">{viewingInvoice.senderTagline}</p>
-                    )}
-                    {(viewingInvoice.senderEmail || viewingInvoice.senderWeb) && (
-                      <p className="text-[10px] text-[var(--text-muted)] mt-0.5">
-                        {viewingInvoice.senderEmail && <span>{viewingInvoice.senderEmail}</span>}
-                        {viewingInvoice.senderEmail && viewingInvoice.senderWeb && <span className="mx-1.5">|</span>}
-                        {viewingInvoice.senderWeb && <span>{viewingInvoice.senderWeb}</span>}
-                      </p>
-                    )}
+                  <div className="w-full space-y-2">
+                    <input
+                      type="text"
+                      value={editedInvoice.senderName || ''}
+                      onChange={(e) => setEditedInvoice({ ...editedInvoice, senderName: e.target.value })}
+                      className="crm-input font-black text-[var(--primary-gold)] text-sm"
+                      placeholder="Sender / Company Name"
+                    />
+                    <input
+                      type="text"
+                      value={editedInvoice.senderTagline || ''}
+                      onChange={(e) => setEditedInvoice({ ...editedInvoice, senderTagline: e.target.value })}
+                      className="crm-input text-xs text-[var(--text-muted)]"
+                      placeholder="Sender Tagline / Address"
+                    />
+                    <div className="grid grid-cols-2 gap-2">
+                      <input
+                        type="text"
+                        value={editedInvoice.senderEmail || ''}
+                        onChange={(e) => setEditedInvoice({ ...editedInvoice, senderEmail: e.target.value })}
+                        className="crm-input text-xs"
+                        placeholder="Email"
+                      />
+                      <input
+                        type="text"
+                        value={editedInvoice.senderWeb || ''}
+                        onChange={(e) => setEditedInvoice({ ...editedInvoice, senderWeb: e.target.value })}
+                        className="crm-input text-xs"
+                        placeholder="Website"
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="text-right">
+                <div className="text-right w-full sm:w-auto space-y-2">
                   <div className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider">Statement of Account</div>
-                  <div className="text-lg font-mono font-black text-[var(--text-primary)] mt-0.5">{viewingInvoice.invoiceNumber}</div>
-                  <div className="mt-2">
+                  <div className="flex justify-end items-center gap-2">
                     <span className={
-                      viewingInvoice.status === 'Paid' ? 'crm-badge-success text-[10px] uppercase' :
-                      viewingInvoice.status === 'Sent' ? 'crm-badge-info text-[10px] uppercase' :
-                      viewingInvoice.status === 'Overdue' ? 'crm-badge-error text-[10px] uppercase' :
+                      editedInvoice.status === 'Paid' ? 'crm-badge-success text-[10px] uppercase' :
+                      editedInvoice.status === 'Sent' ? 'crm-badge-info text-[10px] uppercase' :
+                      editedInvoice.status === 'Overdue' ? 'crm-badge-error text-[10px] uppercase' :
                       'crm-badge-warning text-[10px] uppercase'
                     }>
-                      {viewingInvoice.status}
+                      {editedInvoice.status}
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Metagrid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs">
-                <div className="space-y-1">
-                  <div className="font-bold text-[var(--text-muted)] uppercase tracking-wide text-[10px]">Bill To Client</div>
-                  <div className="text-sm font-black text-[var(--text-primary)]">{viewingInvoice.clientName}</div>
-                  {viewingInvoice.paymentTerms ? <div className="text-[var(--text-secondary)]">Contract Agreement: {viewingInvoice.paymentTerms}</div> : null}
+              {/* Metagrid - Client & Dates editable */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)]">
+                <div className="space-y-2">
+                  <label className="font-bold text-[var(--text-muted)] uppercase tracking-wide text-[10px]">Bill To Client</label>
+                  <input
+                    type="text"
+                    value={editedInvoice.clientName || ''}
+                    onChange={(e) => setEditedInvoice({ ...editedInvoice, clientName: e.target.value })}
+                    className="crm-input text-xs font-black"
+                    placeholder="Client Name"
+                  />
+                  <input
+                    type="text"
+                    value={editedInvoice.paymentTerms || ''}
+                    onChange={(e) => setEditedInvoice({ ...editedInvoice, paymentTerms: e.target.value })}
+                    className="crm-input text-xs"
+                    placeholder="Contract Agreement / Terms"
+                  />
                 </div>
-                <div className="sm:text-right space-y-1">
-                  <div className="font-bold text-[var(--text-muted)] uppercase tracking-wide text-[10px]">Invoice Details</div>
-                  <div className="text-[var(--text-primary)]"><strong>Issue Date:</strong> {viewingInvoice.issueDate ? new Date(viewingInvoice.issueDate + 'T12:00:00').toLocaleDateString() : (viewingInvoice.createdAt?.toDate ? viewingInvoice.createdAt.toDate().toLocaleDateString() : 'N/A')}</div>
-                  <div className="text-[var(--text-primary)]"><strong>Due Date:</strong> {viewingInvoice.dueDate ? new Date(viewingInvoice.dueDate + 'T12:00:00').toLocaleDateString() : 'N/A'}</div>
+                <div className="space-y-2">
+                  <label className="font-bold text-[var(--text-muted)] uppercase tracking-wide text-[10px]">Invoice Details & Dates</label>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-[10px] text-[var(--text-muted)]">Issue Date:</span>
+                      <input
+                        type="date"
+                        value={editedInvoice.issueDate || ''}
+                        onChange={(e) => setEditedInvoice({ ...editedInvoice, issueDate: e.target.value })}
+                        className="crm-input text-xs mt-1"
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-[var(--text-muted)]">Due Date:</span>
+                      <input
+                        type="date"
+                        value={editedInvoice.dueDate || ''}
+                        onChange={(e) => setEditedInvoice({ ...editedInvoice, dueDate: e.target.value })}
+                        className="crm-input text-xs mt-1"
+                      />
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Billed Candidates Table or Custom Flat Fee item */}
+              {/* Billed Candidates Table or Custom Flat Fee item - Fully Editable */}
               <div className="border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-2xs">
+                <div className="bg-[var(--bg-primary)] px-4 py-2 border-b border-[var(--border-color)] flex justify-between items-center">
+                  <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">Line Items & Placements</span>
+                  <button
+                    onClick={() => {
+                      const candidates = editedInvoice.candidates || [];
+                      setEditedInvoice({
+                        ...editedInvoice,
+                        useFlatSubtotal: false,
+                        candidates: [...candidates, { candidateId: Date.now().toString(), candidateName: 'New Candidate', position: 'Role / Title', billingType: 'Placement', fee: 5000 }]
+                      });
+                    }}
+                    className="px-2.5 py-1 text-[10px] font-bold crm-btn-gold"
+                  >
+                    + Add Item
+                  </button>
+                </div>
                 <table className="w-full text-left">
                   <thead className="bg-[#004564] dark:bg-[#002D38] text-white text-[10px] font-black uppercase tracking-wider">
                     <tr>
                       <th className="p-3 pl-4">#</th>
-                      <th className="p-3" colSpan={viewingInvoice.useFlatSubtotal || (!viewingInvoice.candidates || viewingInvoice.candidates.length === 0) ? 3 : 1}>
-                        {viewingInvoice.useFlatSubtotal || (!viewingInvoice.candidates || viewingInvoice.candidates.length === 0) ? 'Service Description' : 'Placed Candidate'}
-                      </th>
-                      {!viewingInvoice.useFlatSubtotal && viewingInvoice.candidates && viewingInvoice.candidates.length > 0 && (
-                        <>
-                          <th className="p-3">Role / Specialty</th>
-                          <th className="p-3">Billing Contract Type</th>
-                        </>
-                      )}
-                      <th className="p-3 pr-4 text-right">Fee/Amount</th>
+                      <th className="p-3">Candidate / Description</th>
+                      <th className="p-3">Role / Specialty</th>
+                      <th className="p-3">Billing Type</th>
+                      <th className="p-3 pr-4 text-right">Fee / Amount ($)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border-color)] text-xs">
-                    {viewingInvoice.useFlatSubtotal || (!viewingInvoice.candidates || viewingInvoice.candidates.length === 0) ? (
-                      <tr className="text-[var(--text-secondary)] hover:bg-[var(--card-hover-bg)]">
+                    {editedInvoice.useFlatSubtotal || (!editedInvoice.candidates || editedInvoice.candidates.length === 0) ? (
+                      <tr className="text-[var(--text-secondary)]">
                         <td className="p-3 pl-4 font-mono text-[var(--text-muted)]">1</td>
-                        <td className="p-3 font-semibold text-[var(--text-primary)]" colSpan={3}>Placement Fee</td>
-                        <td className="p-3 pr-4 text-right font-mono font-bold text-[var(--text-primary)]">
-                          ${Number(viewingInvoice.subtotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        <td className="p-3" colSpan={3}>
+                          <input
+                            type="text"
+                            value={editedInvoice.serviceDescription || 'Placement Fee'}
+                            onChange={(e) => setEditedInvoice({ ...editedInvoice, serviceDescription: e.target.value })}
+                            className="crm-input text-xs font-semibold"
+                            placeholder="Service Description"
+                          />
+                        </td>
+                        <td className="p-3 pr-4 text-right">
+                          <input
+                            type="number"
+                            value={editedInvoice.subtotal || 0}
+                            onChange={(e) => {
+                              const val = parseFloat(e.target.value) || 0;
+                              setEditedInvoice({ ...editedInvoice, subtotal: val, totalAmount: val });
+                            }}
+                            className="crm-input text-xs font-mono font-bold text-right w-32 ml-auto"
+                          />
                         </td>
                       </tr>
                     ) : (
-                      viewingInvoice.candidates?.map((c: any, index: number) => (
+                      editedInvoice.candidates?.map((c: any, index: number) => (
                         <tr key={c.candidateId || index} className="text-[var(--text-secondary)] hover:bg-[var(--card-hover-bg)]">
                           <td className="p-3 pl-4 font-mono text-[var(--text-muted)]">{index + 1}</td>
-                          <td className="p-3 font-semibold text-[var(--text-primary)]">{c.candidateName}</td>
-                          <td className="p-3">{c.position}</td>
                           <td className="p-3">
-                            <span className="px-1.5 py-0.5 rounded bg-[var(--bg-secondary)] text-[var(--text-muted)] text-[10px] border border-[var(--border-color)]">
-                              {c.billingType}
-                            </span>
+                            <input
+                              type="text"
+                              value={c.candidateName || ''}
+                              onChange={(e) => {
+                                const newC = [...editedInvoice.candidates];
+                                newC[index] = { ...newC[index], candidateName: e.target.value };
+                                setEditedInvoice({ ...editedInvoice, candidates: newC });
+                              }}
+                              className="crm-input text-xs font-semibold"
+                            />
                           </td>
-                          <td className="p-3 pr-4 text-right font-mono font-bold text-[var(--text-primary)]">
-                            {Number(c.fee || 0) > 0 ? `$${Number(c.fee).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : (
-                              <span className="text-xs font-normal text-[var(--text-muted)]">Included</span>
-                            )}
+                          <td className="p-3">
+                            <input
+                              type="text"
+                              value={c.position || ''}
+                              onChange={(e) => {
+                                const newC = [...editedInvoice.candidates];
+                                newC[index] = { ...newC[index], position: e.target.value };
+                                setEditedInvoice({ ...editedInvoice, candidates: newC });
+                              }}
+                              className="crm-input text-xs"
+                            />
+                          </td>
+                          <td className="p-3">
+                            <input
+                              type="text"
+                              value={c.billingType || ''}
+                              onChange={(e) => {
+                                const newC = [...editedInvoice.candidates];
+                                newC[index] = { ...newC[index], billingType: e.target.value };
+                                setEditedInvoice({ ...editedInvoice, candidates: newC });
+                              }}
+                              className="crm-input text-xs"
+                            />
+                          </td>
+                          <td className="p-3 pr-4 text-right flex items-center justify-end gap-1">
+                            <input
+                              type="number"
+                              value={c.fee || 0}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                const newC = [...editedInvoice.candidates];
+                                newC[index] = { ...newC[index], fee: val };
+                                setEditedInvoice({ ...editedInvoice, candidates: newC });
+                              }}
+                              className="crm-input text-xs font-mono font-bold text-right w-28"
+                            />
+                            <button
+                              onClick={() => {
+                                const newC = editedInvoice.candidates.filter((_: any, i: number) => i !== index);
+                                setEditedInvoice({ ...editedInvoice, candidates: newC });
+                              }}
+                              className="p-1 text-rose-500 hover:bg-rose-500/10 rounded"
+                              title="Remove item"
+                            >
+                              <X className="w-3.5 h-3.5" />
+                            </button>
                           </td>
                         </tr>
                       ))
@@ -1567,39 +1062,80 @@ export const InvoiceList = () => {
                 </table>
               </div>
 
-              {/* Totals Summary */}
-              <div className="flex justify-end pt-2">
-                <div className="w-72 space-y-2 text-xs">
-                  <div className="flex justify-between text-[var(--text-muted)]">
-                    <span>Subtotal:</span>
-                    <span className="font-mono font-semibold text-[var(--text-primary)]">${Number(viewingInvoice.subtotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+              {/* Totals Summary & Tax/Discount editable */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center pt-2">
+                <div className="space-y-3 bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] text-xs">
+                  <div className="font-bold text-[var(--text-muted)] uppercase tracking-wider text-[10px]">Taxes & Discounts Adjustment</div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[10px] text-[var(--text-muted)] block mb-1">Tax Rate (%)</label>
+                      <input
+                        type="number"
+                        value={editedInvoice.taxRate || 0}
+                        onChange={(e) => setEditedInvoice({ ...editedInvoice, taxRate: parseFloat(e.target.value) || 0 })}
+                        className="crm-input text-xs font-mono font-bold"
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[var(--text-muted)] block mb-1">Discount Amount ($)</label>
+                      <input
+                        type="number"
+                        value={editedInvoice.discountAmount || 0}
+                        onChange={(e) => setEditedInvoice({ ...editedInvoice, discountAmount: parseFloat(e.target.value) || 0 })}
+                        className="crm-input text-xs font-mono font-bold"
+                      />
+                    </div>
                   </div>
-                  {viewingInvoice.taxRate > 0 && (
-                    <div className="flex justify-between text-[var(--text-muted)]">
-                      <span>Tax ({viewingInvoice.taxRate}%):</span>
-                      <span className="font-mono font-semibold text-[var(--text-primary)]">+$${Number(viewingInvoice.taxAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                    </div>
-                  )}
-                  {viewingInvoice.discountAmount > 0 && (
-                    <div className="flex justify-between text-[var(--text-muted)]">
-                      <span>Discount Amount:</span>
-                      <span className="font-mono font-semibold text-rose-500">-${Number(viewingInvoice.discountAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                    </div>
-                  )}
-                  <div className="flex justify-between text-sm font-black border-t border-[var(--border-color)] pt-2 text-[var(--text-primary)]">
-                    <span>Total statement due:</span>
-                    <span className="font-mono text-[var(--primary-gold)]">${Number(viewingInvoice.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                </div>
+
+                <div className="flex justify-end">
+                  <div className="w-72 space-y-2 text-xs">
+                    {(() => {
+                      const sub = editedInvoice.useFlatSubtotal || (!editedInvoice.candidates || editedInvoice.candidates.length === 0)
+                        ? Number(editedInvoice.subtotal || 0)
+                        : (editedInvoice.candidates || []).reduce((s: number, c: any) => s + Number(c.fee || 0), 0);
+                      const tax = Math.round(sub * ((Number(editedInvoice.taxRate) || 0) / 100));
+                      const disc = Number(editedInvoice.discountAmount) || 0;
+                      const total = Math.max(0, sub + tax - disc);
+                      return (
+                        <>
+                          <div className="flex justify-between text-[var(--text-muted)]">
+                            <span>Subtotal:</span>
+                            <span className="font-mono font-semibold text-[var(--text-primary)]">${sub.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          </div>
+                          {tax > 0 && (
+                            <div className="flex justify-between text-[var(--text-muted)]">
+                              <span>Tax ({editedInvoice.taxRate}%):</span>
+                              <span className="font-mono font-semibold text-[var(--text-primary)]">+${tax.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            </div>
+                          )}
+                          {disc > 0 && (
+                            <div className="flex justify-between text-[var(--text-muted)]">
+                              <span>Discount:</span>
+                              <span className="font-mono font-semibold text-rose-500">-${disc.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            </div>
+                          )}
+                          <div className="flex justify-between text-sm font-black border-t border-[var(--border-color)] pt-2 text-[var(--text-primary)]">
+                            <span>Total statement due:</span>
+                            <span className="font-mono text-[var(--primary-gold)]">${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                          </div>
+                        </>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
 
-              {/* Notes Field */}
-              {viewingInvoice.notes ? (
-                <div className="p-4 bg-[var(--bg-secondary)] rounded-2xl border border-[var(--border-color)]">
-                  <div className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider mb-1">Contract / Terms Notes:</div>
-                  <p className="text-xs text-[var(--text-primary)] leading-relaxed margin-0">{viewingInvoice.notes}</p>
-                </div>
-              ) : null}
+              {/* Notes Field editable */}
+              <div className="space-y-1">
+                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Contract / Terms Notes:</label>
+                <textarea
+                  value={editedInvoice.notes || ''}
+                  onChange={(e) => setEditedInvoice({ ...editedInvoice, notes: e.target.value })}
+                  className="crm-input text-xs w-full h-20"
+                  placeholder="Terms and payment notes..."
+                />
+              </div>
 
               {/* Admin Actions Status controls */}
               {(role === 'admin' || role === 'developer' || role === 'team_leader') && (
@@ -1609,9 +1145,12 @@ export const InvoiceList = () => {
                     {['Draft', 'Sent', 'Paid', 'Overdue'].map((status) => (
                       <button
                         key={status}
-                        onClick={() => handleUpdateStatus(viewingInvoice.id, status)}
+                        onClick={() => {
+                          handleUpdateStatus(viewingInvoice.id, status);
+                          setEditedInvoice({ ...editedInvoice, status });
+                        }}
                         className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition cursor-pointer ${
-                          viewingInvoice.status === status
+                          editedInvoice.status === status
                             ? 'crm-btn-gold text-white shadow-sm'
                             : 'crm-btn-secondary text-[10px]'
                         }`}

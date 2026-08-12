@@ -180,12 +180,34 @@ export const InvoiceBuilder = () => {
   const saveInvoice = async () => {
     setLoading(true);
     try {
-      const invoiceData: any = { ...invoice, createdAt: serverTimestamp() };
-      if (!invoiceData.candidateId) {
-        delete invoiceData.candidateId;
-      }
-      await addDoc(collection(db, 'invoices'), invoiceData);
-      alert('Invoice saved successfully!');
+      const subtotal = invoice.total || invoice.items.reduce((sum, item) => sum + (item.amount || 0), 0);
+      const taxRate = invoice.tax || 0;
+      const taxAmount = Math.round(subtotal * (taxRate / 100));
+      const totalAmount = subtotal + taxAmount;
+
+      const invoiceData: any = {
+        invoiceNumber: invoice.invoiceNumber || `INV-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
+        clientName: invoice.clientName || 'General Client',
+        dueDate: invoice.dueDate || new Date().toISOString().split('T')[0],
+        issueDate: invoice.invoiceDate || new Date().toISOString().split('T')[0],
+        paymentTerms: 'Net 30',
+        candidates: invoice.items.map(item => ({
+          candidateName: item.description || 'Custom Service',
+          position: 'Custom Item',
+          fee: item.amount || 0
+        })),
+        subtotal,
+        taxRate,
+        taxAmount,
+        discountAmount: 0,
+        totalAmount,
+        status: 'Draft',
+        createdAt: serverTimestamp()
+      };
+
+      await addDoc(collection(db, 'consolidated_invoices'), invoiceData);
+      alert('Invoice saved successfully and added to Invoice History!');
+      navigate('/dashboard', { state: { tab: 'invoices' } });
     } catch (error) {
       console.error(error);
       alert('Failed to save invoice');
