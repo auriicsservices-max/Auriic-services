@@ -30,18 +30,32 @@ export const InvoiceList = () => {
   // Modal State for Invoice View & Editable Preview
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null);
   const [editedInvoice, setEditedInvoice] = useState<any | null>(null);
+  const [editStatusMessage, setEditStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
   const handleOpenInvoice = (inv: any) => {
     setViewingInvoice(inv);
-    setEditedInvoice(JSON.parse(JSON.stringify(inv)));
+    const cloned = JSON.parse(JSON.stringify(inv));
+    if (!cloned.serviceDescription) {
+      cloned.serviceDescription = 'Placement Fee - Recruitment Services';
+    }
+    if (cloned.subtotal === undefined && cloned.candidates && cloned.candidates.length > 0) {
+      cloned.subtotal = cloned.candidates.reduce((sum: number, c: any) => sum + Number(c.fee || c.amount || 0), 0);
+    }
+    if (cloned.calcCtc === undefined) {
+      cloned.calcCtc = cloned.subtotal ? Math.round(cloned.subtotal / (cloned.calcFeePercent || 15) * 100) : 60000;
+    }
+    if (cloned.calcFeePercent === undefined) {
+      cloned.calcFeePercent = 15;
+    }
+    setEditedInvoice(cloned);
+    setEditStatusMessage(null);
   };
 
   const handleSaveEditedInvoice = async () => {
     if (!editedInvoice || !editedInvoice.id) return;
+    setEditStatusMessage(null);
     try {
-      const subtotal = editedInvoice.useFlatSubtotal || (!editedInvoice.candidates || editedInvoice.candidates.length === 0)
-        ? Number(editedInvoice.subtotal || 0)
-        : (editedInvoice.candidates || []).reduce((sum: number, c: any) => sum + Number(c.fee || 0), 0);
+      const subtotal = Number(editedInvoice.subtotal || 0);
       const taxRate = Number(editedInvoice.taxRate || 0);
       const taxAmount = Math.round(subtotal * (taxRate / 100));
       const discountAmount = Number(editedInvoice.discountAmount || 0);
@@ -58,10 +72,11 @@ export const InvoiceList = () => {
       await updateDoc(doc(db, 'consolidated_invoices', editedInvoice.id), updatedPayload);
       setViewingInvoice(updatedPayload);
       setEditedInvoice(JSON.parse(JSON.stringify(updatedPayload)));
-      alert('Invoice edits saved successfully!');
+      setEditStatusMessage({ type: 'success', text: 'Invoice edits saved successfully!' });
+      setTimeout(() => setEditStatusMessage(null), 3500);
     } catch (err) {
       console.error('Error saving invoice edits:', err);
-      alert('Failed to save invoice edits');
+      setEditStatusMessage({ type: 'error', text: 'Failed to save invoice edits. Please try again.' });
     }
   };
 
@@ -200,6 +215,16 @@ export const InvoiceList = () => {
               </tr>
             </table>
           </div>
+          ${(inv.bankName || inv.accountNumber || inv.payeeName) ? `
+            <div style="margin-top: 20px; padding: 12px; background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 11px;">
+              <strong style="display: block; margin-bottom: 4px; color: #004564; text-transform: uppercase;">Bank Payment Instructions</strong>
+              ${inv.payeeName ? `<p style="margin: 2px 0;"><strong>Payee Name:</strong> ${inv.payeeName}</p>` : ''}
+              ${inv.bankName ? `<p style="margin: 2px 0;"><strong>Bank Name:</strong> ${inv.bankName}</p>` : ''}
+              ${inv.bankBranch ? `<p style="margin: 2px 0;"><strong>Branch:</strong> ${inv.bankBranch}</p>` : ''}
+              ${inv.accountNumber ? `<p style="margin: 2px 0;"><strong>Account Number:</strong> ${inv.accountNumber}</p>` : ''}
+              ${inv.swiftCode ? `<p style="margin: 2px 0;"><strong>SWIFT / BIC:</strong> ${inv.swiftCode}</p>` : ''}
+            </div>
+          ` : ''}
         </div>
       `;
 
@@ -246,35 +271,19 @@ export const InvoiceList = () => {
 
   // Open printable window for Invoice
   const handlePrintInvoice = (inv: any) => {
-    const isFlatInvoice = inv.useFlatSubtotal || (inv.subtotal && (!inv.candidates || inv.candidates.length === 0));
-    const candidateRows = isFlatInvoice ? `
+    const itemsList = (inv.candidates && inv.candidates.length > 0) ? inv.candidates : [{ candidateName: inv.serviceDescription || 'Recruitment services', fee: inv.subtotal || 0 }];
+    const candidateRows = itemsList.map((c: any, index: number) => `
       <tr style="border-bottom: 1px solid #e2e8f0;">
-        <td style="padding: 12px; text-align: center;">1</td>
-        <td style="padding: 12px; font-weight: 600;" colspan="3">Placement Fee</td>
-        <td style="padding: 12px; text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 600;">$${Number(inv.subtotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-      </tr>
-    ` : inv.candidates.map((c: any, index: number) => `
-      <tr style="border-bottom: 1px solid #e2e8f0;">
-        <td style="padding: 8px; text-align: center;">${index + 1}</td>
-        <td style="padding: 8px; font-weight: 600;">${c.candidateName}</td>
-        <td style="padding: 8px;">${c.position}</td>
-        <td style="padding: 8px;"><span style="background-color: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 10px;">${c.billingType}</span></td>
-        <td style="padding: 8px; text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 600;">${Number(c.fee) > 0 ? `$${Number(c.fee).toLocaleString(undefined, { minimumFractionDigits: 2 })}` : '<span style="color: #64748b; font-size: 10px; font-weight: normal;">Included</span>'}</td>
+        <td style="padding: 12px; text-align: center;">${index + 1}</td>
+        <td style="padding: 12px; font-weight: 600;" colspan="3">${c.candidateName || c.description || 'Recruitment services'}</td>
+        <td style="padding: 12px; text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 600;">$${Number(c.fee || c.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
       </tr>
     `).join('');
 
-    const tableHeader = isFlatInvoice ? `
+    const tableHeader = `
       <tr>
         <th style="width: 50px; text-align: center;">#</th>
         <th colspan="3">Service Description</th>
-        <th style="text-align: right; width: 120px;">Amount</th>
-      </tr>
-    ` : `
-      <tr>
-        <th style="width: 50px; text-align: center;">#</th>
-        <th>Placed Candidate</th>
-        <th>Position/Role</th>
-        <th>Placement/Contract Type</th>
         <th style="text-align: right; width: 120px;">Amount</th>
       </tr>
     `;
@@ -494,9 +503,20 @@ export const InvoiceList = () => {
             </div>
           ` : ''}
 
+          ${(inv.bankName || inv.accountNumber || inv.payeeName) ? `
+            <div class="notes-block">
+              <strong style="display: block; margin-bottom: 4px; color: #004564; text-transform: uppercase;">Bank Payment Instructions</strong>
+              ${inv.payeeName ? `<p style="margin: 2px 0;"><strong>Payee Name:</strong> ${inv.payeeName}</p>` : ''}
+              ${inv.bankName ? `<p style="margin: 2px 0;"><strong>Bank Name:</strong> ${inv.bankName}</p>` : ''}
+              ${inv.bankBranch ? `<p style="margin: 2px 0;"><strong>Branch:</strong> ${inv.bankBranch}</p>` : ''}
+              ${inv.accountNumber ? `<p style="margin: 2px 0;"><strong>Account Number:</strong> ${inv.accountNumber}</p>` : ''}
+              ${inv.swiftCode ? `<p style="margin: 2px 0;"><strong>SWIFT / BIC:</strong> ${inv.swiftCode}</p>` : ''}
+            </div>
+          ` : ''}
+
           <div class="footer">
-            <p>Thank you for partnering with Aurrum Company Recruitment Services.</p>
-            ${activeSenderEmail ? `<p>If you have any questions regarding this consolidated statement, contact us at ${activeSenderEmail}</p>` : ''}
+            <p>${inv.invoiceFooterLine1 !== undefined ? inv.invoiceFooterLine1 : 'Thank you for partnering with Aurrum Company Recruitment Services.'}</p>
+            <p>${inv.invoiceFooterLine2 !== undefined ? inv.invoiceFooterLine2 : `If you have any questions regarding this consolidated statement, contact us at ${activeSenderEmail || 'auriicsservices@gmail.com'}`}</p>
           </div>
         </body>
       </html>
@@ -589,7 +609,7 @@ export const InvoiceList = () => {
             <p className="text-xs text-[var(--text-primary)] mt-0.5">Filter, search, print, or manage billing statements.</p>
           </div>
           <span className="crm-badge-gold text-xs px-3.5 py-1.5">
-            Total Statement Amount: ${invoices.reduce((sum, inv) => sum + (inv.totalAmount || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            Total Pending Amount: ${invoices.filter(inv => inv.status !== 'Paid').reduce((sum, inv) => sum + (inv.totalAmount || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </span>
         </div>
 
@@ -658,7 +678,6 @@ export const InvoiceList = () => {
                 <tr>
                   <th className="pl-6">Invoice #</th>
                   <th>Client / Company</th>
-                  <th>Candidates</th>
                   <th>Total Amount</th>
                   <th>Due Date</th>
                   <th className="text-center">Status</th>
@@ -668,7 +687,7 @@ export const InvoiceList = () => {
               <tbody>
                 {paginatedInvoices.length === 0 ? (
                   <tr>
-                    <td colSpan={7} className="p-16 text-center text-[var(--text-primary)] font-sans">
+                    <td colSpan={6} className="p-16 text-center text-[var(--text-primary)] font-sans">
                       <Users className="w-8 h-8 text-[var(--text-muted)] mx-auto mb-2" />
                       <p className="text-sm font-bold">No invoices match your search query or status filter.</p>
                       <p className="text-xs text-[var(--text-muted)] mt-1">Try resetting the invoice search or choosing a different status filter.</p>
@@ -683,15 +702,6 @@ export const InvoiceList = () => {
                     <td className="p-4">
                       <div className="font-bold text-[var(--text-primary)] text-xs">{inv.clientName}</div>
                       {inv.paymentTerms ? <div className="text-[10px] text-[var(--text-muted)]">{inv.paymentTerms}</div> : null}
-                    </td>
-                    <td className="p-4">
-                      <div className="flex items-center gap-1.5">
-                        <Users className="w-3.5 h-3.5 text-[var(--text-muted)]" />
-                        <span className="text-xs font-extrabold text-[var(--primary-gold)]">{inv.candidates?.length || 0} Placements</span>
-                      </div>
-                      <div className="text-[10px] text-[var(--text-muted)] truncate max-w-[200px]">
-                        {inv.candidates?.map((c: any) => c.candidateName).join(', ')}
-                      </div>
                     </td>
                     <td className="p-4">
                       <span className="font-mono text-xs font-black text-[var(--text-primary)]">
@@ -844,6 +854,17 @@ export const InvoiceList = () => {
 
             {/* Statement details - fully editable */}
             <div className="p-8 space-y-6">
+              {editStatusMessage && (
+                <div className={`p-3.5 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in ${
+                  editStatusMessage.type === 'success'
+                    ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
+                    : 'bg-rose-500/15 text-rose-500 border border-rose-500/30'
+                }`}>
+                  <span>{editStatusMessage.type === 'success' ? '✓' : '✕'}</span>
+                  <span>{editStatusMessage.text}</span>
+                </div>
+              )}
+
               <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b border-[var(--border-color)]">
                 <div className="flex flex-col items-start gap-3 w-full sm:w-1/2">
                   <Logo variant="invoice" size="lg" className="mb-1" />
@@ -939,125 +960,113 @@ export const InvoiceList = () => {
                 </div>
               </div>
 
-              {/* Billed Candidates Table or Custom Flat Fee item - Fully Editable */}
+              {/* Placement Fee Calculator Widget */}
+              <div className="bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] space-y-3">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-black uppercase text-[var(--primary-gold)] tracking-wider">Placement Fee Calculator (Annual Package / CTC)</span>
+                  <span className="text-[10px] text-[var(--text-muted)] font-mono font-bold text-[var(--primary-gold)]">
+                    Calculated Fee: (${Math.round((editedInvoice.calcCtc ?? 60000) * ((editedInvoice.calcFeePercent ?? 15) / 100)).toLocaleString()})
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                  <div>
+                    <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Candidate Annual CTC ($)</label>
+                    <input
+                      type="number"
+                      value={editedInvoice.calcCtc ?? 60000}
+                      onChange={(e) => {
+                        const newCtc = parseFloat(e.target.value) || 0;
+                        const feePct = editedInvoice.calcFeePercent ?? 15;
+                        const calculatedFee = Math.round(newCtc * (feePct / 100));
+                        const itemDesc = `Placement Fee (${feePct}% of $${newCtc.toLocaleString()} Annual CTC)`;
+                        const taxRate = Number(editedInvoice.taxRate || 0);
+                        const discount = Number(editedInvoice.discountAmount || 0);
+                        const taxAmt = Math.round(calculatedFee * (taxRate / 100));
+                        const total = Math.max(0, calculatedFee + taxAmt - discount);
+                        setEditedInvoice({
+                          ...editedInvoice,
+                          calcCtc: newCtc,
+                          serviceDescription: itemDesc,
+                          subtotal: calculatedFee,
+                          totalAmount: total,
+                          candidates: []
+                        });
+                      }}
+                      className="crm-input text-xs font-mono font-bold"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Fee Percentage (%)</label>
+                    <input
+                      type="number"
+                      value={editedInvoice.calcFeePercent ?? 15}
+                      onChange={(e) => {
+                        const newPct = parseFloat(e.target.value) || 0;
+                        const ctcVal = editedInvoice.calcCtc ?? 60000;
+                        const calculatedFee = Math.round(ctcVal * (newPct / 100));
+                        const itemDesc = `Placement Fee (${newPct}% of $${ctcVal.toLocaleString()} Annual CTC)`;
+                        const taxRate = Number(editedInvoice.taxRate || 0);
+                        const discount = Number(editedInvoice.discountAmount || 0);
+                        const taxAmt = Math.round(calculatedFee * (taxRate / 100));
+                        const total = Math.max(0, calculatedFee + taxAmt - discount);
+                        setEditedInvoice({
+                          ...editedInvoice,
+                          calcFeePercent: newPct,
+                          serviceDescription: itemDesc,
+                          subtotal: calculatedFee,
+                          totalAmount: total,
+                          candidates: []
+                        });
+                      }}
+                      className="crm-input text-xs font-mono font-bold"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Single Placement Fee Line Item (No add item / no candidates column) */}
               <div className="border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-2xs">
                 <div className="bg-[var(--bg-primary)] px-4 py-2 border-b border-[var(--border-color)] flex justify-between items-center">
-                  <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">Line Items & Placements</span>
-                  <button
-                    onClick={() => {
-                      const candidates = editedInvoice.candidates || [];
-                      setEditedInvoice({
-                        ...editedInvoice,
-                        useFlatSubtotal: false,
-                        candidates: [...candidates, { candidateId: Date.now().toString(), candidateName: 'New Candidate', position: 'Role / Title', billingType: 'Placement', fee: 5000 }]
-                      });
-                    }}
-                    className="px-2.5 py-1 text-[10px] font-bold crm-btn-gold"
-                  >
-                    + Add Item
-                  </button>
+                  <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">Placement Fee Line Item</span>
+                  <span className="text-[10px] text-[var(--text-muted)]">Single consolidated service fee</span>
                 </div>
                 <table className="w-full text-left">
                   <thead className="bg-[#004564] dark:bg-[#002D38] text-white text-[10px] font-black uppercase tracking-wider">
                     <tr>
-                      <th className="p-3 pl-4">#</th>
-                      <th className="p-3">Candidate / Description</th>
-                      <th className="p-3">Role / Specialty</th>
-                      <th className="p-3">Billing Type</th>
-                      <th className="p-3 pr-4 text-right">Fee / Amount ($)</th>
+                      <th className="p-3 pl-4 w-12 text-center">#</th>
+                      <th className="p-3">Service Description</th>
+                      <th className="p-3 pr-4 text-right w-44">Amount ($)</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--border-color)] text-xs">
-                    {editedInvoice.useFlatSubtotal || (!editedInvoice.candidates || editedInvoice.candidates.length === 0) ? (
-                      <tr className="text-[var(--text-secondary)]">
-                        <td className="p-3 pl-4 font-mono text-[var(--text-muted)]">1</td>
-                        <td className="p-3" colSpan={3}>
-                          <input
-                            type="text"
-                            value={editedInvoice.serviceDescription || 'Placement Fee'}
-                            onChange={(e) => setEditedInvoice({ ...editedInvoice, serviceDescription: e.target.value })}
-                            className="crm-input text-xs font-semibold"
-                            placeholder="Service Description"
-                          />
-                        </td>
-                        <td className="p-3 pr-4 text-right">
-                          <input
-                            type="number"
-                            value={editedInvoice.subtotal || 0}
-                            onChange={(e) => {
-                              const val = parseFloat(e.target.value) || 0;
-                              setEditedInvoice({ ...editedInvoice, subtotal: val, totalAmount: val });
-                            }}
-                            className="crm-input text-xs font-mono font-bold text-right w-32 ml-auto"
-                          />
-                        </td>
-                      </tr>
-                    ) : (
-                      editedInvoice.candidates?.map((c: any, index: number) => (
-                        <tr key={c.candidateId || index} className="text-[var(--text-secondary)] hover:bg-[var(--card-hover-bg)]">
-                          <td className="p-3 pl-4 font-mono text-[var(--text-muted)]">{index + 1}</td>
-                          <td className="p-3">
-                            <input
-                              type="text"
-                              value={c.candidateName || ''}
-                              onChange={(e) => {
-                                const newC = [...editedInvoice.candidates];
-                                newC[index] = { ...newC[index], candidateName: e.target.value };
-                                setEditedInvoice({ ...editedInvoice, candidates: newC });
-                              }}
-                              className="crm-input text-xs font-semibold"
-                            />
-                          </td>
-                          <td className="p-3">
-                            <input
-                              type="text"
-                              value={c.position || ''}
-                              onChange={(e) => {
-                                const newC = [...editedInvoice.candidates];
-                                newC[index] = { ...newC[index], position: e.target.value };
-                                setEditedInvoice({ ...editedInvoice, candidates: newC });
-                              }}
-                              className="crm-input text-xs"
-                            />
-                          </td>
-                          <td className="p-3">
-                            <input
-                              type="text"
-                              value={c.billingType || ''}
-                              onChange={(e) => {
-                                const newC = [...editedInvoice.candidates];
-                                newC[index] = { ...newC[index], billingType: e.target.value };
-                                setEditedInvoice({ ...editedInvoice, candidates: newC });
-                              }}
-                              className="crm-input text-xs"
-                            />
-                          </td>
-                          <td className="p-3 pr-4 text-right flex items-center justify-end gap-1">
-                            <input
-                              type="number"
-                              value={c.fee || 0}
-                              onChange={(e) => {
-                                const val = parseFloat(e.target.value) || 0;
-                                const newC = [...editedInvoice.candidates];
-                                newC[index] = { ...newC[index], fee: val };
-                                setEditedInvoice({ ...editedInvoice, candidates: newC });
-                              }}
-                              className="crm-input text-xs font-mono font-bold text-right w-28"
-                            />
-                            <button
-                              onClick={() => {
-                                const newC = editedInvoice.candidates.filter((_: any, i: number) => i !== index);
-                                setEditedInvoice({ ...editedInvoice, candidates: newC });
-                              }}
-                              className="p-1 text-rose-500 hover:bg-rose-500/10 rounded"
-                              title="Remove item"
-                            >
-                              <X className="w-3.5 h-3.5" />
-                            </button>
-                          </td>
-                        </tr>
-                      ))
-                    )}
+                    <tr className="text-[var(--text-secondary)]">
+                      <td className="p-3 pl-4 font-mono text-[var(--text-muted)] text-center">1</td>
+                      <td className="p-3">
+                        <input
+                          type="text"
+                          value={editedInvoice.serviceDescription || 'Placement Fee - Recruitment Services'}
+                          onChange={(e) => setEditedInvoice({ ...editedInvoice, serviceDescription: e.target.value })}
+                          className="crm-input text-xs font-semibold w-full"
+                          placeholder="Service description..."
+                        />
+                      </td>
+                      <td className="p-3 pr-4 text-right">
+                        <input
+                          type="number"
+                          value={editedInvoice.subtotal || 0}
+                          onChange={(e) => {
+                            const val = parseFloat(e.target.value) || 0;
+                            const taxRate = Number(editedInvoice.taxRate || 0);
+                            const discount = Number(editedInvoice.discountAmount || 0);
+                            const taxAmt = Math.round(val * (taxRate / 100));
+                            const total = Math.max(0, val + taxAmt - discount);
+                            setEditedInvoice({ ...editedInvoice, subtotal: val, totalAmount: total });
+                          }}
+                          className="crm-input text-xs font-mono font-bold text-right w-36 ml-auto"
+                          placeholder="0.00"
+                        />
+                      </td>
+                    </tr>
                   </tbody>
                 </table>
               </div>
@@ -1097,6 +1106,7 @@ export const InvoiceList = () => {
                       const tax = Math.round(sub * ((Number(editedInvoice.taxRate) || 0) / 100));
                       const disc = Number(editedInvoice.discountAmount) || 0;
                       const total = Math.max(0, sub + tax - disc);
+                      const pendingDue = editedInvoice.status === 'Paid' ? 0 : total;
                       return (
                         <>
                           <div className="flex justify-between text-[var(--text-muted)]">
@@ -1117,7 +1127,7 @@ export const InvoiceList = () => {
                           )}
                           <div className="flex justify-between text-sm font-black border-t border-[var(--border-color)] pt-2 text-[var(--text-primary)]">
                             <span>Total statement due:</span>
-                            <span className="font-mono text-[var(--primary-gold)]">${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                            <span className="font-mono text-[var(--primary-gold)]">${pendingDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
                           </div>
                         </>
                       );
@@ -1134,6 +1144,82 @@ export const InvoiceList = () => {
                   onChange={(e) => setEditedInvoice({ ...editedInvoice, notes: e.target.value })}
                   className="crm-input text-xs w-full h-20"
                   placeholder="Terms and payment notes..."
+                />
+              </div>
+
+              {/* Bank Account Details editable */}
+              <div className="bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] space-y-3">
+                <span className="block text-xs font-bold uppercase tracking-wider text-[var(--primary-gold)] mb-1">Bank Payment Instructions & Account Details</span>
+                <div>
+                  <label className="text-[10px] text-[var(--text-muted)] block mb-1">Payee Name</label>
+                  <input
+                    type="text"
+                    value={editedInvoice.payeeName || ''}
+                    onChange={(e) => setEditedInvoice({ ...editedInvoice, payeeName: e.target.value })}
+                    className="crm-input text-xs font-semibold"
+                    placeholder="Payee Account Name"
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="text-[10px] text-[var(--text-muted)] block mb-1">Bank Name</label>
+                    <input
+                      type="text"
+                      value={editedInvoice.bankName || ''}
+                      onChange={(e) => setEditedInvoice({ ...editedInvoice, bankName: e.target.value })}
+                      className="crm-input text-xs"
+                      placeholder="Bank Name"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[var(--text-muted)] block mb-1">Branch</label>
+                    <input
+                      type="text"
+                      value={editedInvoice.bankBranch || ''}
+                      onChange={(e) => setEditedInvoice({ ...editedInvoice, bankBranch: e.target.value })}
+                      className="crm-input text-xs"
+                      placeholder="Branch"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[var(--text-muted)] block mb-1">Account Number</label>
+                    <input
+                      type="text"
+                      value={editedInvoice.accountNumber || ''}
+                      onChange={(e) => setEditedInvoice({ ...editedInvoice, accountNumber: e.target.value })}
+                      className="crm-input text-xs font-mono"
+                      placeholder="Account Number"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-[var(--text-muted)] block mb-1">Swift / BIC Code</label>
+                    <input
+                      type="text"
+                      value={editedInvoice.swiftCode || ''}
+                      onChange={(e) => setEditedInvoice({ ...editedInvoice, swiftCode: e.target.value })}
+                      className="crm-input text-xs font-mono"
+                      placeholder="Swift / BIC Code"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Invoice Footer / Closing Statement editable */}
+              <div className="space-y-3 pt-4 border-t border-[var(--border-color)]">
+                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Invoice Footer Statement (Editable):</label>
+                <input
+                  type="text"
+                  value={editedInvoice.invoiceFooterLine1 !== undefined ? editedInvoice.invoiceFooterLine1 : 'Thank you for partnering with Aurrum Company Recruitment Services.'}
+                  onChange={(e) => setEditedInvoice({ ...editedInvoice, invoiceFooterLine1: e.target.value })}
+                  className="crm-input text-xs w-full"
+                  placeholder="Footer Line 1"
+                />
+                <input
+                  type="text"
+                  value={editedInvoice.invoiceFooterLine2 !== undefined ? editedInvoice.invoiceFooterLine2 : `If you have any questions regarding this consolidated statement, contact us at ${editedInvoice.senderEmail || 'auriicsservices@gmail.com'}`}
+                  onChange={(e) => setEditedInvoice({ ...editedInvoice, invoiceFooterLine2: e.target.value })}
+                  className="crm-input text-xs w-full"
+                  placeholder="Footer Line 2"
                 />
               </div>
 

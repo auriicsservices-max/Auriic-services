@@ -756,14 +756,18 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
 
       if (!isRemoval && assignedClientId) {
         try {
-          await createNotification(
-            `New Candidate Assigned for Review: "${candidate.fullName}". Sourced by ${getUserDisplayName()}.`,
-            user!.uid,
-            getUserDisplayName(),
-            getUserRole(),
-            assignedClientId,
-            candidate.id
-          );
+          await createNotification({
+            title: 'Candidate Assigned for Review',
+            text: `${candidate.fullName} has been assigned to your client account by ${getUserDisplayName()}.`,
+            senderId: user!.uid,
+            senderName: getUserDisplayName(),
+            senderRole: getUserRole(),
+            recipientId: assignedClientId,
+            relatedCandidateId: candidate.id,
+            candidateName: candidate.fullName,
+            clientName,
+            type: 'candidate_assignment'
+          });
         } catch (e) { console.warn('Notification send failed:', e); }
       }
 

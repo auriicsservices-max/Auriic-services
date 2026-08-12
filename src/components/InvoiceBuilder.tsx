@@ -12,6 +12,7 @@ export const InvoiceBuilder = () => {
   const { candidateId } = useParams<{ candidateId: string }>();
   const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
   const [invoice, setInvoice] = useState<Invoice>({
     id: Date.now().toString(),
     invoiceNumber: '',
@@ -179,6 +180,7 @@ export const InvoiceBuilder = () => {
 
   const saveInvoice = async () => {
     setLoading(true);
+    setStatusMessage(null);
     try {
       const subtotal = invoice.total || invoice.items.reduce((sum, item) => sum + (item.amount || 0), 0);
       const taxRate = invoice.tax || 0;
@@ -206,11 +208,13 @@ export const InvoiceBuilder = () => {
       };
 
       await addDoc(collection(db, 'consolidated_invoices'), invoiceData);
-      alert('Invoice saved successfully and added to Invoice History!');
-      navigate('/dashboard', { state: { tab: 'invoices' } });
+      setStatusMessage({ type: 'success', text: 'Invoice saved successfully and added to Invoice History!' });
+      setTimeout(() => {
+        navigate('/dashboard', { state: { tab: 'invoices' } });
+      }, 1200);
     } catch (error) {
       console.error(error);
-      alert('Failed to save invoice');
+      setStatusMessage({ type: 'error', text: 'Failed to save invoice. Please try again.' });
     } finally {
       setLoading(false);
     }
@@ -240,6 +244,17 @@ export const InvoiceBuilder = () => {
             <h2 className="text-2xl font-extrabold tracking-tight text-[var(--text-primary)]">Edit Invoice</h2>
             <p className="text-xs text-[var(--text-muted)] mt-1">Configure your invoice details and live preview</p>
           </div>
+
+          {statusMessage && (
+            <div className={`p-3.5 rounded-xl text-xs font-bold flex items-center gap-2 animate-in fade-in ${
+              statusMessage.type === 'success'
+                ? 'bg-emerald-500/15 text-emerald-500 border border-emerald-500/30'
+                : 'bg-rose-500/15 text-rose-500 border border-rose-500/30'
+            }`}>
+              <span>{statusMessage.type === 'success' ? '✓' : '✕'}</span>
+              <span>{statusMessage.text}</span>
+            </div>
+          )}
           
           <div className="space-y-4">
             <div>
