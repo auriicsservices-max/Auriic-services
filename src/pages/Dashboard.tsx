@@ -883,10 +883,10 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         setUploadStatus('success');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1 }));
       } catch (err: any) {
-        console.error(err);
-        showAlert('Upload Error', `Unable to process ${file.name}: ${err.message}`);
+        console.error(`[Dashboard] Error processing ${file.name}:`, err);
         setUploadStatus('error');
-        setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, skipped: prev.skipped, failed: prev.failed + 1 }));
+        setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
+        setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'Failed', progress: 100 } }));
       }
     }
 

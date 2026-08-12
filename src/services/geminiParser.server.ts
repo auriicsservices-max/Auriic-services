@@ -13,7 +13,7 @@ async function retryWithBackoff<T>(fn: () => Promise<T>, retries: number = 2, in
     const isRateOrQuotaError = err?.status === 429 || errMsg.includes('429') || errMsg.includes('RESOURCE_EXHAUSTED') || errMsg.includes('quota');
     // Do not waste time retrying 429 quota exhaustion errors - fail fast to trigger local fallback
     if (retries > 0 && err?.status === 503 || (err?.message?.includes('503') && !isRateOrQuotaError)) {
-      console.warn(`[GeminiResumeParser] Retrying due to 503 service error... ${retries} retries left. Delay: ${initialDelay}ms`);
+      // Retry silently
       await sleep(initialDelay);
       return retryWithBackoff(fn, retries - 1, initialDelay * 2);
     }

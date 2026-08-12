@@ -547,7 +547,7 @@ app.post('/api/cv/upload', upload.single('file'), async (req, res) => {
         console.error('[Server] Aurrum API Error Response:', errorText);
       }
     } catch (externalErr) {
-      console.warn('[Server] External API Sync Unavailable:', (externalErr as Error).message);
+      // Silent fallback when external API sync is unavailable
     }
 
     // Fallback: If external API fails, return local success to keep app working
