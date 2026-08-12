@@ -138,25 +138,44 @@ To maintain lightning-fast responsiveness across enterprise workflows (even with
 
 ---
 
-## 11. Invoice Fee Calculation & Robust PDF Export Engine
+## 11. Invoice Fee Calculation, Bank Account Instructions & Robust PDF Export Engine
 
 Aurrum CRM features an enterprise-grade automated billing and invoicing module:
 
-1. **Annual Salary (CTC) Automatic Fee Calculation:**
-   - Every candidate profile includes an **Annual Salary (CTC)** property.
-   - Each client profile supports configurable placement billing rules: either **Percentage (%)** of CTC (e.g. 10%, 15%) or **Fixed Amount ($)**.
-   - When generating Candidate or Dynamic Invoices, fees are calculated automatically with complete breakdown displays in USD ($) currency formatting.
+1. **Per-Invoice Placement Fee Calculator:**
+   - Annual CTC and Fee Percentage calculations (`calcCtc` and `calcFeePercent`) are bound to each unique invoice ID rather than shared globally. Edits made to one invoice do not overwrite or affect other invoices.
+   - Every candidate profile includes an **Annual Salary (CTC)** property. Each client profile supports configurable placement billing rules: either **Percentage (%)** of CTC or **Fixed Amount ($)**.
 
-2. **Custom Due Dates & Dynamic Line Items:**
-   - Invoice creation and builders include explicit **Invoice Date** and **Due Date** inputs.
-   - Interactive calculation preview boxes allow instant fee adjustment and item application.
+2. **Bank Account Payment Instructions:**
+   - Invoice receipts, printable views, and PDF exports automatically include complete **Bank Payment Instructions** (Payee Name, Bank Name, Branch, Account Number, and SWIFT/BIC Code) when configured.
+   - Full editable input fields are provided in the invoice edit modal to update bank payment instructions per invoice.
 
-3. **Robust PDF Generation Engine:**
+3. **Streamlined Invoice Table & Summary Metrics:**
+   - The main invoice table is optimized by focusing on essential columns (Invoice #, Client / Company, Total Amount, Due Date, Status, and Actions).
+   - Dashboard and header badges display accurate **Total Pending Amount** for unpaid/pending statements.
+
+4. **Robust PDF Generation Engine:**
    - Leverages `html2canvas` and `jspdf` to render pixel-perfect multi-page PDF statements with clean table layouts, brand typography, and USD currency formatting.
 
 ---
 
-## 12. CV Repository Bulk ZIP Export
+## 12. Enterprise Notification System & Real-Time Alerts
+
+Aurrum CRM features an enterprise-grade real-time notification system:
+
+1. **Client Candidate Assignment Notifications:**
+   - When a recruiter or admin assigns a candidate to a client, an immediate Firestore notification is created targeting solely the assigned client user (`recipientId`), containing candidate name, assignment action, sender details, timestamp, and candidate reference ID.
+   - Notifications appear instantly in the client's notification center without page refreshes, driven by bounded Firestore `onSnapshot` listeners.
+
+2. **Comprehensive CRM Activity Alerts:**
+   - Generates notifications for candidate assignments, status changes, client reviews, shortlists, feedback, and invoice updates.
+
+3. **Duplicate Prevention & Non-Blocking Resilience:**
+   - Built-in deduplication check verifies recipient, candidate reference, and notification type within a 30-second window before committing writes to prevent redundant alerts.
+   - All notification dispatches are wrapped in non-blocking try/catch blocks; notification write failures never break or interrupt primary CRM actions.
+
+4. **Unread Count & Badge Tracking:**
+   - Real-time unread counter tracks unread notifications, decreases upon reading or batch marking ("Mark all as read"), and maintains strict user/role data segregation.
 
 - **Download All CVs in One ZIP Archive:** The **CV Repository** features a dedicated **"Download All CVs (ZIP)"** action button that packages all candidate CV documents (PDF, Word DOCX) into a single structured archive (`Aurrum_CRM_All_CVs_YYYY-MM-DD.zip`), enabling recruiters and admins to download the entire talent pool instantly.
 
