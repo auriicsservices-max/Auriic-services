@@ -54,6 +54,7 @@ export default function CandidateDetailsPage() {
   const [followUpDate, setFollowUpDate] = useState('');
   const [generalNotes, setGeneralNotes] = useState('');
   const [assignedTo, setAssignedTo] = useState('');
+  const [uploadedBy, setUploadedBy] = useState('');
   const [assignedClientId, setAssignedClientId] = useState('');
   const [assignedStage, setAssignedStage] = useState('');
   const [skills, setSkills] = useState<string[]>([]);
@@ -172,6 +173,7 @@ export default function CandidateDetailsPage() {
         setFollowUpDate(data.followUpDate || '');
         setGeneralNotes(data.notes || '');
         setAssignedTo(data.assignedTo || '');
+        setUploadedBy(data.uploadedBy || '');
         setAssignedClientId(data.clientId || '');
         setAssignedStage(data.pipelineStage || 'cv_upload');
         setSkills(data.skills || []);
@@ -562,6 +564,30 @@ export default function CandidateDetailsPage() {
       showAlert('Error', 'Failed to update assignment.');
     } finally {
       setIsSavingAssignee(false);
+    }
+  };
+
+  const handleUpdateUploader = async (newUploaderId: string) => {
+    if (!['admin', 'developer', 'team_leader', 'recruiter'].includes(role)) return;
+    try {
+      await updateDoc(doc(db, 'candidates', candidate.id), {
+        uploadedBy: newUploaderId,
+        updatedAt: new Date().toISOString()
+      });
+      setUploadedBy(newUploaderId);
+      setCandidate((prev: any) => ({ ...prev, uploadedBy: newUploaderId }));
+      await logActivity(
+        getUserDisplayName(),
+        user?.uid || 'System',
+        getUserRole(),
+        "updated uploader attribution",
+        candidate.fullName || 'Candidate',
+        teamMembers[newUploaderId] || newUploaderId,
+        "Recruiter Attribution updated",
+        "Candidate Edit"
+      );
+    } catch (err) {
+      console.error(err);
     }
   };
 
@@ -2633,14 +2659,31 @@ Status: ${candidate.status || 'Sourced'}`;
                   <span className="text-[var(--text-muted)]">Indexed on</span>
                   <span className="font-mono text-[var(--text-secondary)]">{formatDate(candidate.createdAt)}</span>
                 </div>
-                {candidate.uploadedBy && candidate.uploadedBy !== user?.uid && (
-                  <div className="flex justify-between items-center border-b border-[var(--border-color)] pb-2">
-                    <span className="text-[var(--text-muted)]">Uploaded by</span>
+                <div className="flex justify-between items-center border-b border-[var(--border-color)] pb-2">
+                  <span className="text-[var(--text-muted)]">Uploaded by</span>
+                  {['admin', 'developer', 'team_leader', 'recruiter'].includes(role) ? (
+                    <select
+                      value={uploadedBy}
+                      onChange={(e) => handleUpdateUploader(e.target.value)}
+                      className="crm-input text-[10px] py-1 px-2 font-bold max-w-[150px]"
+                    >
+                      <option value="">-- No Selected --</option>
+                      {fullTeamList && fullTeamList.length > 0 ? (
+                        fullTeamList.map(m => (
+                          <option key={m.id || m.uid} value={m.id || m.uid}>{m.name || m.email}</option>
+                        ))
+                      ) : (
+                        Object.entries(teamMembers).map(([uid, name]) => (
+                          <option key={uid} value={uid}>{name}</option>
+                        ))
+                      )}
+                    </select>
+                  ) : (
                     <span className="text-[var(--primary-gold)] font-black uppercase text-[10px] tracking-wider">
-                      {teamMembers?.[candidate.uploadedBy] || 'AI Sourcing'}
+                      {teamMembers?.[candidate.uploadedBy] || 'No Selected'}
                     </span>
-                  </div>
-                )}
+                  )}
+                </div>
                 {candidate.assignedTo && (
                   <div className="flex justify-between items-center border-b border-[var(--border-color)] pb-2">
                     <span className="text-[var(--text-muted)]">

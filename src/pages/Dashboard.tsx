@@ -849,7 +849,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           isShortlisted: false,
           isArchived: false,
           aiAnalyzed: true,
-          uploadedBy: role === 'developer' && uploadUploaderId ? uploadUploaderId : (user?.uid || ''),
+          uploadedBy: (['admin', 'developer', 'team_leader', 'recruiter'].includes(role)) && uploadUploaderId ? uploadUploaderId : (user?.uid || ''),
           createdAt: new Date().toISOString()
         });
 
@@ -1104,7 +1104,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
   };
 
   const handleUpdateUploader = async (id: string, uploaderId: string) => {
-    if (role !== 'developer') return;
+    if (!['admin', 'developer', 'team_leader', 'recruiter'].includes(role)) return;
     try {
       await updateDoc(doc(db, 'candidates', id), { 
         uploadedBy: uploaderId,
@@ -2523,12 +2523,13 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                                 <div className="w-6.5 h-6.5 rounded-lg bg-[var(--bg-secondary)] flex items-center justify-center text-[8px] font-black text-[var(--text-secondary)] uppercase border border-[var(--border-color)]">
                                   {getInitials(teamMembers[candidate.uploadedBy] || 'AI')}
                                 </div>
-                                {role === 'developer' ? (
+                                {['admin', 'developer', 'team_leader', 'recruiter'].includes(role) ? (
                                   <select
                                     value={candidate.uploadedBy || ''}
                                     onChange={(e) => handleUpdateUploader(candidate.id, e.target.value)}
                                     className="crm-input text-[10px] py-1 px-2 font-bold max-w-[130px]"
                                   >
+                                    <option value="">-- No Selected --</option>
                                     {fullTeamList && fullTeamList.length > 0 ? (
                                       fullTeamList.map(m => (
                                         <option key={m.id || m.uid} value={m.id || m.uid}>{m.name || m.email}</option>
@@ -2541,7 +2542,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                                   </select>
                                 ) : (
                                   <span className="text-[10px] font-bold text-[var(--text-secondary)] truncate max-w-[100px]">
-                                    {candidate.uploadedBy === user?.uid ? '(me)' : (teamMembers[candidate.uploadedBy] || 'System Index')}
+                                    {candidate.uploadedBy === user?.uid ? '(me)' : (teamMembers[candidate.uploadedBy] || 'No Selected')}
                                   </span>
                                 )}
                               </div>

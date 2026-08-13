@@ -73,10 +73,10 @@ export default function BulkUpload({
         <p className="text-[var(--text-muted)] text-sm">Drag and drop multiple CVs to parse and add them to your pipeline.</p>
       </div>
 
-      {role === 'developer' && (
+      {['admin', 'developer', 'team_leader', 'recruiter'].includes(role) && (
         <div className="crm-card p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-[var(--bg-secondary)] border border-[var(--border-color)] rounded-[2rem] shadow-sm">
           <div className="flex flex-col">
-            <span className="text-xs font-black uppercase tracking-wider text-[var(--text-primary)]">Developer Upload Attribution</span>
+            <span className="text-xs font-black uppercase tracking-wider text-[var(--text-primary)]">Upload Attribution</span>
             <span className="text-[11px] text-[var(--text-muted)]">Select recruiter attribution ("uploadedBy") for this upload batch.</span>
           </div>
           <select
@@ -84,6 +84,7 @@ export default function BulkUpload({
             onChange={(e) => onUploaderChange?.(e.target.value)}
             className="crm-input text-xs py-2 px-3 font-bold min-w-[220px]"
           >
+            <option value="">-- No Selected (Unassigned) --</option>
             {fullTeamList.map(member => (
               <option key={member.id || member.uid} value={member.id || member.uid}>
                 {member.name || member.email} ({member.role || 'recruiter'})
