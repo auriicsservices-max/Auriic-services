@@ -4,9 +4,7 @@ import { doc, getDoc, collection, addDoc, serverTimestamp } from 'firebase/fires
 import { db } from '../lib/firebase';
 import { Invoice, InvoiceItem } from '../types';
 import { InvoicePreview } from './InvoicePreview';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import { Save, FileText, Plus, Trash2, ArrowLeft, Loader2 } from 'lucide-react';
+import { Save, Plus, Trash2, ArrowLeft, Loader2 } from 'lucide-react';
 
 export const InvoiceBuilder = () => {
   const { candidateId } = useParams<{ candidateId: string }>();
@@ -146,36 +144,6 @@ export const InvoiceBuilder = () => {
         total
       };
     });
-  };
-
-  const generatePDF = async () => {
-    if (previewRef.current) {
-      try {
-        const canvas = await html2canvas(previewRef.current, { scale: 2, useCORS: true, logging: false });
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF('p', 'mm', 'a4');
-        const imgWidth = 210;
-        const pageHeight = 295;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-        let heightLeft = imgHeight;
-        let position = 0;
-
-        pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-        heightLeft -= pageHeight;
-
-        while (heightLeft >= 0) {
-          position = heightLeft - imgHeight;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', 0, position, imgWidth, imgHeight);
-          heightLeft -= pageHeight;
-        }
-
-        pdf.save(`invoice-${invoice.invoiceNumber || 'statement'}.pdf`);
-      } catch (err) {
-        console.error('[InvoiceBuilder] PDF generation error:', err);
-        alert('Failed to generate PDF. Please try again.');
-      }
-    }
   };
 
   const saveInvoice = async () => {
@@ -470,18 +438,12 @@ export const InvoiceBuilder = () => {
             </div>
           </div>
           
-          <div className="flex flex-col sm:flex-row gap-3 pt-6 border-t border-[var(--border-color)]">
+          <div className="pt-6 border-t border-[var(--border-color)]">
             <button 
               onClick={saveInvoice} 
-              className="flex-grow py-3.5 bg-gradient-to-r from-[#A98B56] to-[#BC9B66] hover:from-[#BC9B66] hover:to-[#A98B56] text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-300 shadow-md cursor-pointer"
+              className="w-full py-3.5 bg-gradient-to-r from-[#A98B56] to-[#BC9B66] hover:from-[#BC9B66] hover:to-[#A98B56] text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-300 shadow-md cursor-pointer"
             >
               {loading ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />} Save Invoice
-            </button>
-            <button 
-              onClick={generatePDF} 
-              className="flex-grow py-3.5 bg-[var(--color-primary-blue)] hover:bg-[var(--color-dark-blue)] text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all duration-300 shadow-md cursor-pointer"
-            >
-              <FileText size={18} /> Generate PDF
             </button>
           </div>
         </div>
