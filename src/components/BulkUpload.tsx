@@ -2,6 +2,20 @@ import React, { useCallback, useState } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { Upload, FileText, CheckCircle2, AlertCircle, X } from 'lucide-react';
 
+export interface UploadSummaryItem {
+  name: string;
+  reason: string;
+}
+
+export interface UploadResultSummary {
+  total: number;
+  uploaded: number;
+  skipped: number;
+  failed: number;
+  skippedFiles: UploadSummaryItem[];
+  failedFiles: UploadSummaryItem[];
+}
+
 interface BulkUploadProps {
   onUpload: (files: File[]) => void;
   isProcessing: boolean;
@@ -11,9 +25,24 @@ interface BulkUploadProps {
   fullTeamList?: any[];
   selectedUploaderId?: string;
   onUploaderChange?: (uploaderId: string) => void;
+  uploadResultSummary?: UploadResultSummary | null;
+  onResetSummary?: () => void;
+  onNavigate?: (tab: string) => void;
 }
 
-export default function BulkUpload({ onUpload, isProcessing, uploadProgress, skippedFiles, role, fullTeamList = [], selectedUploaderId, onUploaderChange }: BulkUploadProps) {
+export default function BulkUpload({ 
+  onUpload, 
+  isProcessing, 
+  uploadProgress, 
+  skippedFiles, 
+  role, 
+  fullTeamList = [], 
+  selectedUploaderId, 
+  onUploaderChange,
+  uploadResultSummary,
+  onResetSummary,
+  onNavigate
+}: BulkUploadProps) {
   const [largeFilesWarn, setLargeFilesWarn] = useState<string[]>([]);
 
   const onDrop = useCallback((acceptedFiles: File[]) => {
@@ -64,11 +93,11 @@ export default function BulkUpload({ onUpload, isProcessing, uploadProgress, ski
         </div>
       )}
 
-      {largeFilesWarn.length > 0 && (
+      {role === 'developer' && largeFilesWarn.length > 0 && (
         <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 p-6 rounded-3xl flex items-start gap-3.5 text-amber-800 dark:text-amber-200 animate-in fade-in zoom-in-95 duration-200">
           <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-500" />
           <div className="text-xs space-y-1 flex-1">
-            <p className="font-black">The following resumes exceed the 1MB limit and will be skipped:</p>
+            <p className="font-black">Developer Diagnostic: The following resumes exceed the size limit and will be skipped:</p>
             <ul className="list-disc pl-4 space-y-0.5 mt-1 font-medium">
               {largeFilesWarn.map(name => (
                 <li key={name} className="font-mono text-[11px] truncate max-w-lg">{name}</li>
@@ -81,11 +110,11 @@ export default function BulkUpload({ onUpload, isProcessing, uploadProgress, ski
         </div>
       )}
 
-      {skippedFiles.length > 0 && (
+      {role === 'developer' && skippedFiles.length > 0 && (
         <div className="bg-amber-50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-900 p-6 rounded-3xl flex items-start gap-3.5 text-amber-800 dark:text-amber-200 animate-in fade-in zoom-in-95 duration-200">
           <AlertCircle className="w-5 h-5 shrink-0 mt-0.5 text-amber-500" />
           <div className="text-xs space-y-1 flex-1">
-            <p className="font-black">The following resumes were skipped:</p>
+            <p className="font-black">Developer Diagnostic: The following resumes were skipped:</p>
             <ul className="list-disc pl-4 space-y-0.5 mt-1 font-medium">
               {skippedFiles.map(name => (
                 <li key={name} className="font-mono text-[11px] truncate max-w-lg">{name} - Duplicate Resume - Skipped</li>
@@ -95,6 +124,89 @@ export default function BulkUpload({ onUpload, isProcessing, uploadProgress, ski
           <button onClick={() => {}} className="p-1 text-amber-500 hover:text-amber-700 dark:hover:text-amber-300">
             <X size={14} />
           </button>
+        </div>
+      )}
+
+      {uploadResultSummary && (
+        <div className="crm-card p-6 sm:p-8 rounded-[2rem] bg-[var(--card-bg)] border border-[var(--border-color)] shadow-xl space-y-6 animate-in fade-in zoom-in-95 duration-300">
+          <div className="flex items-center justify-between border-b border-[var(--border-color)] pb-4">
+            <div>
+              <h3 className="text-xl font-black text-[var(--text-primary)]">Upload Complete</h3>
+              <p className="text-xs text-[var(--text-muted)] font-medium">Batch processing finished successfully.</p>
+            </div>
+            {onResetSummary && (
+              <button
+                onClick={onResetSummary}
+                className="text-xs text-[var(--primary-gold)] hover:underline font-bold cursor-pointer"
+              >
+                Upload More
+              </button>
+            )}
+          </div>
+
+          <div className="grid grid-cols-3 gap-4">
+            <div className="bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] text-center">
+              <p className="text-2xl font-black text-emerald-600">✅ {uploadResultSummary.uploaded}</p>
+              <p className="text-xs font-bold text-[var(--text-muted)] uppercase mt-1">Uploaded</p>
+            </div>
+            <div className="bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] text-center">
+              <p className="text-2xl font-black text-amber-600">⏭️ {uploadResultSummary.skipped}</p>
+              <p className="text-xs font-bold text-[var(--text-muted)] uppercase mt-1">Skipped</p>
+            </div>
+            <div className="bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] text-center">
+              <p className="text-2xl font-black text-rose-600">❌ {uploadResultSummary.failed}</p>
+              <p className="text-xs font-bold text-[var(--text-muted)] uppercase mt-1">Failed</p>
+            </div>
+          </div>
+
+          <div className="text-xs font-bold text-[var(--text-muted)]">
+            Total Resumes Processed: <span className="text-[var(--text-primary)] font-black">{uploadResultSummary.total}</span>
+          </div>
+
+          {uploadResultSummary.skippedFiles.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-black uppercase tracking-wider text-amber-600">Skipped:</h4>
+              <ul className="space-y-1.5">
+                {uploadResultSummary.skippedFiles.map((item, idx) => (
+                  <li key={idx} className="text-xs font-mono bg-amber-50 dark:bg-amber-950/20 text-amber-900 dark:text-amber-200 p-2.5 rounded-xl border border-amber-200 dark:border-amber-900 flex items-center justify-between">
+                    <span>{item.name}</span>
+                    <span className="font-sans font-semibold text-[11px] px-2 py-0.5 bg-amber-100 dark:bg-amber-900/40 rounded-md">— {item.reason}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {uploadResultSummary.failedFiles.length > 0 && (
+            <div className="space-y-2">
+              <h4 className="text-xs font-black uppercase tracking-wider text-rose-600">Failed:</h4>
+              <ul className="space-y-1.5">
+                {uploadResultSummary.failedFiles.map((item, idx) => (
+                  <li key={idx} className="text-xs font-mono bg-rose-50 dark:bg-rose-950/20 text-rose-900 dark:text-rose-200 p-2.5 rounded-xl border border-rose-200 dark:border-rose-900 flex items-center justify-between">
+                    <span>{item.name}</span>
+                    <span className="font-sans font-semibold text-[11px] px-2 py-0.5 bg-rose-100 dark:bg-rose-900/40 rounded-md">— {item.reason}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4 border-t border-[var(--border-color)]">
+            <button
+              onClick={() => onNavigate?.('candidates')}
+              className="flex-1 py-3.5 bg-gradient-to-r from-[#A98B56] to-[#BC9B66] hover:from-[#BC9B66] hover:to-[#A98B56] text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-md cursor-pointer"
+            >
+              View Candidates
+            </button>
+            {onResetSummary && (
+              <button
+                onClick={onResetSummary}
+                className="py-3.5 px-6 bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] text-[var(--text-primary)] border border-[var(--border-color)] rounded-xl font-bold transition-all cursor-pointer"
+              >
+                Upload More
+              </button>
+            )}
+          </div>
         </div>
       )}
 

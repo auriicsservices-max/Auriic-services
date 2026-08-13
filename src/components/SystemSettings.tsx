@@ -168,7 +168,7 @@ function LogoUploader({
 
 export default function SystemSettings() {
   const { role } = useAuth();
-  const [limit, setLimit] = useState<number>(20);
+  const [limit, setLimit] = useState<number>(10);
   const [fileSizeLimit, setFileSizeLimit] = useState<number>(5);
   
   // General System, Sidebar & Header Logos
@@ -221,7 +221,7 @@ export default function SystemSettings() {
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
           const data = docSnap.data();
-          setLimit(data.bulkUploadLimit || 20);
+          setLimit(data.bulkUploadLimit || 10);
           setFileSizeLimit(data.fileSizeCap || data.fileSizeLimit || 5);
 
           setLogoUrlLight(data.logoUrlLight || data.logoUrl || '');
@@ -301,14 +301,18 @@ export default function SystemSettings() {
         )}
 
         <div className={`space-y-8 ${!isAdmin ? 'opacity-50 pointer-events-none' : ''}`}>
-          {/* Total CV Count */}
-          <div className="p-6 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-between shadow-sm">
-            <div>
-              <h4 className="font-bold text-[var(--text-primary)] text-sm">Total Active Candidate CVs</h4>
-              <p className="text-xs text-[var(--text-muted)] font-medium">Total number of candidates currently indexed in the active CRM database.</p>
+          {/* Total CV Count (Developer Only) */}
+          {role === 'developer' && (
+            <div className="p-6 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-between shadow-sm">
+              <div>
+                <h4 className="font-bold text-[var(--text-primary)] text-sm">Total Active Candidate CVs (Unified Database)</h4>
+                <p className="text-xs text-[var(--text-muted)] font-medium mt-0.5">
+                  Total number of active candidates across the CRM. This count automatically updates in real-time as new resumes are uploaded.
+                </p>
+              </div>
+              <div className="text-3xl font-black text-[var(--primary-gold)] font-mono">{totalCvCount}</div>
             </div>
-            <div className="text-3xl font-black text-[var(--primary-gold)] font-mono">{totalCvCount}</div>
-          </div>
+          )}
 
           {/* Upload Restriction Section */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
@@ -356,191 +360,193 @@ export default function SystemSettings() {
             </div>
           </div>
 
-          {/* ================= GEMINI AI ENGINE & QUOTA STATUS ================= */}
-          <div className="pt-8 border-t border-[var(--border-color)] space-y-6">
-            <div className="flex flex-wrap items-center justify-between gap-4">
-              <div>
-                <h3 className="font-bold text-[var(--text-primary)] text-lg flex items-center gap-2">
-                  <Sparkles size={22} className="text-[var(--primary-gold)]" /> Gemini AI Engine & Quota Status
-                </h3>
-                <p className="text-xs text-[var(--text-muted)] leading-relaxed font-medium mt-0.5">
-                  Live connection metrics, active model stack, API key status, and Google AI Studio quota limits.
-                </p>
+          {/* ================= GEMINI AI ENGINE & QUOTA STATUS (Developer Only) ================= */}
+          {role === 'developer' && (
+            <div className="pt-8 border-t border-[var(--border-color)] space-y-6">
+              <div className="flex flex-wrap items-center justify-between gap-4">
+                <div>
+                  <h3 className="font-bold text-[var(--text-primary)] text-lg flex items-center gap-2">
+                    <Sparkles size={22} className="text-[var(--primary-gold)]" /> Gemini AI Engine & Quota Status
+                  </h3>
+                  <p className="text-xs text-[var(--text-muted)] leading-relaxed font-medium mt-0.5">
+                    Live connection metrics, active model stack, API key status, and Google AI Studio quota limits.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={fetchGeminiStatus}
+                  disabled={isLoadingGeminiStatus}
+                  className="crm-btn-secondary text-xs px-4 py-2 font-bold flex items-center gap-2 shrink-0 hover:border-[var(--primary-gold)] transition-colors cursor-pointer"
+                >
+                  <RefreshCw size={14} className={isLoadingGeminiStatus ? 'animate-spin text-[var(--primary-gold)]' : ''} />
+                  <span>{isLoadingGeminiStatus ? 'Testing Live Ping...' : 'Refresh Quota Status'}</span>
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={fetchGeminiStatus}
-                disabled={isLoadingGeminiStatus}
-                className="crm-btn-secondary text-xs px-4 py-2 font-bold flex items-center gap-2 shrink-0 hover:border-[var(--primary-gold)] transition-colors cursor-pointer"
-              >
-                <RefreshCw size={14} className={isLoadingGeminiStatus ? 'animate-spin text-[var(--primary-gold)]' : ''} />
-                <span>{isLoadingGeminiStatus ? 'Testing Live Ping...' : 'Refresh Quota Status'}</span>
-              </button>
+
+              {geminiStatus ? (
+                <div className="space-y-6 bg-[var(--bg-primary)] p-6 rounded-2xl border border-[var(--border-color)] shadow-xs">
+                  {/* Top Header Status Card */}
+                  <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)]">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-[var(--card-bg)] border border-[var(--border-color)] flex items-center justify-center text-[var(--primary-gold)] shrink-0 shadow-xs">
+                        <Cpu size={20} />
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-extrabold text-sm text-[var(--text-primary)]">Google Gemini AI Engine</span>
+                          {geminiStatus.status === 'online' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
+                              Operational / Live
+                            </span>
+                          ) : geminiStatus.status === 'rate_limited' ? (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
+                              <AlertTriangle size={12} />
+                              Rate Limited (429 Quota Exceeded)
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
+                              <AlertTriangle size={12} />
+                              Key Missing / Error
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] text-[var(--text-muted)] font-medium mt-0.5">
+                          {geminiStatus.tier || 'Google AI Studio Tier'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3 text-xs font-mono font-bold">
+                      {geminiStatus.maskedKey && (
+                        <div className="flex items-center gap-1.5 bg-[var(--card-bg)] px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)]">
+                          <Key size={13} className="text-[var(--primary-gold)]" />
+                          <span>{geminiStatus.maskedKey}</span>
+                        </div>
+                      )}
+                      {typeof geminiStatus.latencyMs === 'number' && (
+                        <div className="flex items-center gap-1.5 bg-[var(--card-bg)] px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-emerald-600 dark:text-emerald-400">
+                          <Activity size={13} />
+                          <span>{geminiStatus.latencyMs} ms</span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Model Stack */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <span className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider">Primary AI Model</span>
+                        <div className="font-black text-xs text-[var(--text-primary)] font-mono flex items-center gap-1.5">
+                          <Zap size={14} className="text-[var(--primary-gold)]" />
+                          {geminiStatus.primaryModel || 'gemini-3.6-flash'}
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">
+                        Active Default
+                      </span>
+                    </div>
+
+                    <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-between">
+                      <div className="space-y-0.5">
+                        <span className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider">Fallback AI Model</span>
+                        <div className="font-black text-xs text-[var(--text-primary)] font-mono flex items-center gap-1.5">
+                          <Layers size={14} className="text-[var(--primary-gold)]" />
+                          {geminiStatus.fallbackModel || 'gemini-3.1-pro-preview'}
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-extrabold text-[var(--primary-gold)] bg-[var(--primary-gold)]/10 px-2.5 py-1 rounded-md border border-[var(--primary-gold)]/20">
+                        Auto Fallback
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Quota Limits Grid */}
+                  <div className="space-y-3">
+                    <h4 className="text-xs font-black uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
+                      <Activity size={14} className="text-[var(--primary-gold)]" />
+                      API Rate Limits & Quota Thresholds
+                    </h4>
+
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      {/* Requests Per Minute */}
+                      <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-[var(--text-muted)]">RPM (Req / Min)</span>
+                          <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
+                            {geminiStatus.quotaLimits?.requestsPerMinute?.currentUsage || 'Active'}
+                          </span>
+                        </div>
+                        <div className="text-sm font-black text-[var(--text-primary)] font-mono">
+                          {geminiStatus.quotaLimits?.requestsPerMinute?.limit || '1,000 RPM / 15 RPM'}
+                        </div>
+                        <p className="text-[10px] text-[var(--text-muted)] leading-tight font-medium">
+                          Max requests per minute window.
+                        </p>
+                      </div>
+
+                      {/* Tokens Per Minute */}
+                      <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-[var(--text-muted)]">TPM (Tokens / Min)</span>
+                          <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
+                            {geminiStatus.quotaLimits?.tokensPerMinute?.currentUsage || 'Active'}
+                          </span>
+                        </div>
+                        <div className="text-sm font-black text-[var(--text-primary)] font-mono">
+                          {geminiStatus.quotaLimits?.tokensPerMinute?.limit || '4,000,000 TPM / 1,000,000 TPM'}
+                        </div>
+                        <p className="text-[10px] text-[var(--text-muted)] leading-tight font-medium">
+                          Token volume processing capacity.
+                        </p>
+                      </div>
+
+                      {/* Requests Per Day */}
+                      <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-2">
+                        <div className="flex items-center justify-between text-xs">
+                          <span className="font-bold text-[var(--text-muted)]">RPD (Req / Day)</span>
+                          <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
+                            {geminiStatus.quotaLimits?.requestsPerDay?.currentUsage || 'Active'}
+                          </span>
+                        </div>
+                        <div className="text-sm font-black text-[var(--text-primary)] font-mono">
+                          {geminiStatus.quotaLimits?.requestsPerDay?.limit || 'Unlimited / 1,500 RPD'}
+                        </div>
+                        <p className="text-[10px] text-[var(--text-muted)] leading-tight font-medium">
+                          Daily total request limit threshold.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Capabilities List */}
+                  <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-2">
+                    <span className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">
+                      Active Gemini Engine Capabilities
+                    </span>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold text-[var(--text-secondary)]">
+                      {(geminiStatus.features || [
+                        'Waterfall AI CV Resume Structured Extraction',
+                        'Multimodal Document OCR Parsing',
+                        'Natural Language Talent Search Filter Engine',
+                        'Schema Strict JSON Validation'
+                      ]).map((feat: string, idx: number) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
+                          <span>{feat}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <div className="p-6 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-center text-xs font-bold text-[var(--text-muted)]">
+                  Fetching Gemini API Quota Status...
+                </div>
+              )}
             </div>
-
-            {geminiStatus ? (
-              <div className="space-y-6 bg-[var(--bg-primary)] p-6 rounded-2xl border border-[var(--border-color)] shadow-xs">
-                {/* Top Header Status Card */}
-                <div className="flex flex-wrap items-center justify-between gap-4 p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)]">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl bg-[var(--card-bg)] border border-[var(--border-color)] flex items-center justify-center text-[var(--primary-gold)] shrink-0 shadow-xs">
-                      <Cpu size={20} />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <span className="font-extrabold text-sm text-[var(--text-primary)]">Google Gemini AI Engine</span>
-                        {geminiStatus.status === 'online' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20">
-                            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                            Operational / Live
-                          </span>
-                        ) : geminiStatus.status === 'rate_limited' ? (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-500/10 text-amber-600 dark:text-amber-400 border border-amber-500/20">
-                            <AlertTriangle size={12} />
-                            Rate Limited (429 Quota Exceeded)
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-black uppercase tracking-wider bg-rose-500/10 text-rose-600 dark:text-rose-400 border border-rose-500/20">
-                            <AlertTriangle size={12} />
-                            Key Missing / Error
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-[var(--text-muted)] font-medium mt-0.5">
-                        {geminiStatus.tier || 'Google AI Studio Tier'}
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 text-xs font-mono font-bold">
-                    {geminiStatus.maskedKey && (
-                      <div className="flex items-center gap-1.5 bg-[var(--card-bg)] px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-[var(--text-secondary)]">
-                        <Key size={13} className="text-[var(--primary-gold)]" />
-                        <span>{geminiStatus.maskedKey}</span>
-                      </div>
-                    )}
-                    {typeof geminiStatus.latencyMs === 'number' && (
-                      <div className="flex items-center gap-1.5 bg-[var(--card-bg)] px-3 py-1.5 rounded-lg border border-[var(--border-color)] text-emerald-600 dark:text-emerald-400">
-                        <Activity size={13} />
-                        <span>{geminiStatus.latencyMs} ms</span>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Model Stack */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider">Primary AI Model</span>
-                      <div className="font-black text-xs text-[var(--text-primary)] font-mono flex items-center gap-1.5">
-                        <Zap size={14} className="text-[var(--primary-gold)]" />
-                        {geminiStatus.primaryModel || 'gemini-3.6-flash'}
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400 bg-emerald-500/10 px-2.5 py-1 rounded-md border border-emerald-500/20">
-                      Active Default
-                    </span>
-                  </div>
-
-                  <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <span className="text-[9px] font-black uppercase text-[var(--text-muted)] tracking-wider">Fallback AI Model</span>
-                      <div className="font-black text-xs text-[var(--text-primary)] font-mono flex items-center gap-1.5">
-                        <Layers size={14} className="text-[var(--primary-gold)]" />
-                        {geminiStatus.fallbackModel || 'gemini-3.1-pro-preview'}
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-extrabold text-[var(--primary-gold)] bg-[var(--primary-gold)]/10 px-2.5 py-1 rounded-md border border-[var(--primary-gold)]/20">
-                      Auto Fallback
-                    </span>
-                  </div>
-                </div>
-
-                {/* Quota Limits Grid */}
-                <div className="space-y-3">
-                  <h4 className="text-xs font-black uppercase tracking-wider text-[var(--text-muted)] flex items-center gap-2">
-                    <Activity size={14} className="text-[var(--primary-gold)]" />
-                    API Rate Limits & Quota Thresholds
-                  </h4>
-
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Requests Per Minute */}
-                    <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-[var(--text-muted)]">RPM (Req / Min)</span>
-                        <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
-                          {geminiStatus.quotaLimits?.requestsPerMinute?.currentUsage || 'Active'}
-                        </span>
-                      </div>
-                      <div className="text-sm font-black text-[var(--text-primary)] font-mono">
-                        {geminiStatus.quotaLimits?.requestsPerMinute?.limit || '1,000 RPM / 15 RPM'}
-                      </div>
-                      <p className="text-[10px] text-[var(--text-muted)] leading-tight font-medium">
-                        Max requests per minute window.
-                      </p>
-                    </div>
-
-                    {/* Tokens Per Minute */}
-                    <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-[var(--text-muted)]">TPM (Tokens / Min)</span>
-                        <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
-                          {geminiStatus.quotaLimits?.tokensPerMinute?.currentUsage || 'Active'}
-                        </span>
-                      </div>
-                      <div className="text-sm font-black text-[var(--text-primary)] font-mono">
-                        {geminiStatus.quotaLimits?.tokensPerMinute?.limit || '4,000,000 TPM / 1,000,000 TPM'}
-                      </div>
-                      <p className="text-[10px] text-[var(--text-muted)] leading-tight font-medium">
-                        Token volume processing capacity.
-                      </p>
-                    </div>
-
-                    {/* Requests Per Day */}
-                    <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-2">
-                      <div className="flex items-center justify-between text-xs">
-                        <span className="font-bold text-[var(--text-muted)]">RPD (Req / Day)</span>
-                        <span className="text-[10px] font-extrabold text-emerald-600 dark:text-emerald-400">
-                          {geminiStatus.quotaLimits?.requestsPerDay?.currentUsage || 'Active'}
-                        </span>
-                      </div>
-                      <div className="text-sm font-black text-[var(--text-primary)] font-mono">
-                        {geminiStatus.quotaLimits?.requestsPerDay?.limit || 'Unlimited / 1,500 RPD'}
-                      </div>
-                      <p className="text-[10px] text-[var(--text-muted)] leading-tight font-medium">
-                        Daily total request limit threshold.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Capabilities List */}
-                <div className="p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)] space-y-2">
-                  <span className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">
-                    Active Gemini Engine Capabilities
-                  </span>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs font-semibold text-[var(--text-secondary)]">
-                    {(geminiStatus.features || [
-                      'Waterfall AI CV Resume Structured Extraction',
-                      'Multimodal Document OCR Parsing',
-                      'Natural Language Talent Search Filter Engine',
-                      'Schema Strict JSON Validation'
-                    ]).map((feat: string, idx: number) => (
-                      <div key={idx} className="flex items-center gap-2">
-                        <CheckCircle2 size={14} className="text-emerald-500 shrink-0" />
-                        <span>{feat}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="p-6 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-center text-xs font-bold text-[var(--text-muted)]">
-                Fetching Gemini API Quota Status...
-              </div>
-            )}
-          </div>
+          )}
 
           {/* ================= GLOBAL BRANDING & LOGO SETTINGS ================= */}
           <div className="pt-8 border-t border-[var(--border-color)] space-y-8">

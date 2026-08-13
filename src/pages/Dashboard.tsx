@@ -152,6 +152,14 @@ export default function Dashboard() {
     }
   }, [user]);
   const [uploadProgress, setUploadProgress] = useState({ total: 0, processed: 0, skipped: 0, failed: 0 });
+  const [uploadResultSummary, setUploadResultSummary] = useState<{
+    total: number;
+    uploaded: number;
+    skipped: number;
+    failed: number;
+    skippedFiles: { name: string; reason: string }[];
+    failedFiles: { name: string; reason: string }[];
+  } | null>(null);
   const [parsingStatus, setParsingStatus] = useState<Record<string, { status: string, progress: number }>>({});
   const [uploadStatus, setUploadStatus] = useState<'idle' | 'success' | 'error' | 'duplicate' | 'duplicateInTrash'>('idle');
   const [duplicateNotification, setDuplicateNotification] = useState<{ isOpen: boolean; message: string; searchQuery?: string }>({ isOpen: false, message: '', searchQuery: '' });
@@ -173,7 +181,7 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'notifications' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills' | 'client-portal'>(() => {
     return (location.state as any)?.tab || 'home';
   });
-  const [bulkLimit, setBulkLimit] = useState<number>(50);
+  const [bulkLimit, setBulkLimit] = useState<number>(10);
   const [fileSizeLimit, setFileSizeLimit] = useState<number>(5);
   const [searchPage, setSearchPage] = useState(1);
   const [searchRowsPerPage, setSearchRowsPerPage] = useState(20);
@@ -228,7 +236,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         const docRef = doc(db, 'settings', 'global');
         const docSnap = await getDoc(docRef);
         if (docSnap.exists()) {
-          setBulkLimit(docSnap.data().bulkUploadLimit || 20);
+          setBulkLimit(docSnap.data().bulkUploadLimit || 10);
           setFileSizeLimit(docSnap.data().fileSizeLimit || 5);
         }
       } catch (err) {
@@ -364,11 +372,12 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         console.log("[Dashboard] Snapshot updated, candidates count:", candidatesData.length);
         
         let filtered = candidatesData;
-        if (role === 'client') {
-          filtered = candidatesData.filter((c: any) => c.clientId === user?.uid);
-        } else if (role !== 'admin' && role !== 'team_leader' && role !== 'developer' && role !== 'recruiter') {
-          filtered = candidatesData.filter((c: any) => c.uploadedBy === user?.uid || c.assignedTo === user?.uid);
-        }
+        // All roles now view the full organization active candidate pool (unified count)
+        // if (role === 'client') {
+        //   filtered = candidatesData.filter((c: any) => c.clientId === user?.uid);
+        // } else if (role !== 'admin' && role !== 'team_leader' && role !== 'developer' && role !== 'recruiter') {
+        //   filtered = candidatesData.filter((c: any) => c.uploadedBy === user?.uid || c.assignedTo === user?.uid);
+        // }
 
         setCandidates(prev => {
           const trashOnly = prev.filter(c => c.isArchived);
@@ -526,32 +535,32 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
   };
 
   const onDrop = useCallback(async (acceptedFiles: File[]) => {
-    // Enforcement of Bulk Upload Limit (Admins bypass)
-    if (role !== 'admin' && role !== 'developer' && acceptedFiles.length > bulkLimit) {
-      setDuplicateNotification({
-        isOpen: true,
-        message: `Batch rejected: You can only upload up to ${bulkLimit} CVs at once to ensure processing quality. Please reduce your batch size.`
-      });
-      setUploadStatus('error');
-      return;
-    }
-
     setIsProcessing(true);
     setUploadStatus('idle');
     setSkippedFiles([]);
+    setUploadResultSummary(null);
     setDuplicateNotification({ isOpen: false, message: '' });
     setUploadProgress({ total: acceptedFiles.length, processed: 0, skipped: 0, failed: 0 });
     
+    let uploadedCount = 0;
+    const skippedList: { name: string; reason: string }[] = [];
+    const failedList: { name: string; reason: string }[] = [];
+
+    const validBatchFiles = acceptedFiles.slice(0, bulkLimit);
+    const excessFiles = acceptedFiles.slice(bulkLimit);
+
+    excessFiles.forEach(file => {
+      skippedList.push({ name: file.name, reason: `Bulk upload limit is ${bulkLimit} resumes per batch.` });
+      setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, skipped: prev.skipped + 1 }));
+    });
+
     // Track emails in this batch to prevent duplicates if Firebase hasn't updated yet
     const addedEmailsInBatch = new Set<string>();
     
     // Process files sequentially to ensure detailed analysis
-    for (const file of acceptedFiles) {
+    for (const file of validBatchFiles) {
       if (file.size > fileSizeLimit * 1024 * 1024) {
-        setDuplicateNotification({
-          isOpen: true,
-          message: `File rejected: ${file.name} is larger than ${fileSizeLimit}MB. Please upload a smaller file.`
-        });
+        failedList.push({ name: file.name, reason: 'File size exceeds the allowed upload limit.' });
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
         continue;
       }
@@ -624,6 +633,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         
         if (isDuplicateInState || isDuplicateInBatch) {
           console.warn(`[Dashboard] Skipping duplicate candidate: ${candidateFullName}`);
+          const reason = isDuplicateInBatch ? 'Already exists' : 'Duplicate';
+          skippedList.push({ name: file.name, reason });
           await logActivity(
             getUserDisplayName(),
             user?.uid || 'System',
@@ -879,24 +890,30 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             "CV Parsing"
         );
         
+        uploadedCount++;
         setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'finished', progress: 100 } }));
         setUploadStatus('success');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1 }));
       } catch (err: any) {
         console.error(`[Dashboard] Error processing ${file.name}:`, err);
+        failedList.push({ name: file.name, reason: err?.message || 'Parsing failed' });
         setUploadStatus('error');
         setUploadProgress(prev => ({ ...prev, processed: prev.processed + 1, failed: prev.failed + 1 }));
         setParsingStatus(prev => ({ ...prev, [file.name]: { status: 'Failed', progress: 100 } }));
       }
     }
 
-    
-    setTimeout(() => {
-      setIsProcessing(false);
-      setUploadProgress({ total: 0, processed: 0, skipped: 0, failed: 0 });
-      setActiveTab('candidates');
-    }, 3000);
-  }, [user, candidates, teamMembers]); 
+    setUploadResultSummary({
+      total: acceptedFiles.length,
+      uploaded: uploadedCount,
+      skipped: skippedList.length,
+      failed: failedList.length,
+      skippedFiles: skippedList,
+      failedFiles: failedList
+    });
+    setIsProcessing(false);
+    setUploadProgress({ total: 0, processed: 0, skipped: 0, failed: 0 });
+  }, [user, candidates, teamMembers, bulkLimit, fileSizeLimit, role]); 
 
 
   const { getRootProps, getInputProps, isDragActive, open } = useDropzone({ 
@@ -2066,6 +2083,9 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               fullTeamList={fullTeamList}
               selectedUploaderId={uploadUploaderId}
               onUploaderChange={setUploadUploaderId}
+              uploadResultSummary={uploadResultSummary}
+              onResetSummary={() => setUploadResultSummary(null)}
+              onNavigate={(tab) => setActiveTab(tab as any)}
             />
           ) : activeTab === 'pipeline' ? (
             <RecruitmentPipeline candidates={activeCandidates} onSelect={handleCandidateSelect} role={role} teamMembers={teamMembers} fullTeamList={fullTeamList} />

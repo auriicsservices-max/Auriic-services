@@ -38,7 +38,7 @@ const BrandingContext = createContext<BrandingContextType>({
   activeHeaderLogoUrl: '',
   activeInvoiceLogoUrl: '',
 
-  bulkUploadLimit: 20,
+  bulkUploadLimit: 10,
   fileSizeLimit: 5,
   loading: true,
 });
@@ -54,7 +54,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
   const [invoiceLogoLight, setInvoiceLogoLight] = useState<string>('');
   const [invoiceLogoDark, setInvoiceLogoDark] = useState<string>('');
 
-  const [bulkUploadLimit, setBulkUploadLimit] = useState<number>(20);
+  const [bulkUploadLimit, setBulkUploadLimit] = useState<number>(10);
   const [fileSizeLimit, setFileSizeLimit] = useState<number>(5);
   const [loading, setLoading] = useState<boolean>(true);
 
@@ -71,7 +71,7 @@ export function BrandingProvider({ children }: { children: React.ReactNode }) {
         setHeaderLogoDark(data.headerLogoDark || '');
         setInvoiceLogoLight(data.invoiceLogoLight || '');
         setInvoiceLogoDark(data.invoiceLogoDark || '');
-        setBulkUploadLimit(data.bulkUploadLimit || 20);
+        setBulkUploadLimit(data.bulkUploadLimit || 10);
         setFileSizeLimit(data.fileSizeCap || data.fileSizeLimit || 5);
       }
       setLoading(false);
