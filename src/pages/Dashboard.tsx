@@ -111,6 +111,7 @@ import {
 import LinkedInSearch from '../components/LinkedInSearch';
 import DatabaseDetails from '../components/DatabaseDetails';
 import BackupDashboard from '../components/BackupDashboard';
+import { DashboardHomeSkeleton, CandidateTableSkeleton, AnalyticsSkeleton } from '../components/Skeletons';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -121,6 +122,12 @@ export default function Dashboard() {
   const { notifications, markAsRead, markAllAsRead } = useNotifications();
   const { timezone, setTimezone, formatDate } = useTimezone();
   const [candidates, setCandidates] = useState<any[]>([]);
+  const [isInitialLoading, setIsInitialLoading] = useState(true);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsInitialLoading(false), 1200);
+    return () => clearTimeout(timer);
+  }, []);
   const candidateMapRef = useRef(new Map<string, any>());
   const lastLogTimestampRef = useRef<number>(Date.now());
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
@@ -368,6 +375,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         where('isArchived', '==', false)
       );
       unsubCandidates = onSnapshot(q, (snapshot) => {
+        setIsInitialLoading(false);
         const candidatesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log("[Dashboard] Snapshot updated, candidates count:", candidatesData.length);
         
@@ -460,8 +468,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
       // Real-time activity logs listener with role safety
       const qLogs = (role === 'admin' || role === 'developer' || role === 'team_leader')
-        ? query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc'), limit(1000))
-        : query(collection(db, 'activity_logs'), where('authorUid', '==', user?.uid), limit(1000));
+        ? query(collection(db, 'activity_logs'), orderBy('timestamp', 'desc'), limit(100))
+        : query(collection(db, 'activity_logs'), where('authorUid', '==', user?.uid), limit(100));
       
       unsubActivityLogs = onSnapshot(qLogs, (snapshot) => {
         const logs = snapshot.docs.map((doc: any) => ({ id: doc.id, ...doc.data() }));
@@ -2068,7 +2076,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
              />
           ) : activeTab === 'home' ? (
             <div className="flex flex-col gap-6">
-              <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} fullTeamList={fullTeamList} />
+              {isInitialLoading ? (
+                <DashboardHomeSkeleton />
+              ) : (
+                <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} fullTeamList={fullTeamList} />
+              )}
             </div>
           ) : activeTab === 'repository' ? (
             <CVRepository candidates={activeCandidates} onSelect={handleCandidateSelect} />
@@ -2090,7 +2102,10 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           ) : activeTab === 'pipeline' ? (
             <RecruitmentPipeline candidates={activeCandidates} onSelect={handleCandidateSelect} role={role} teamMembers={teamMembers} fullTeamList={fullTeamList} />
           ) : activeTab === 'candidates' ? (
-            <div className="flex flex-col gap-6 sm:gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+            isInitialLoading ? (
+              <CandidateTableSkeleton />
+            ) : (
+              <div className="flex flex-col gap-6 sm:gap-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
               {/* Candidates Header banner */}
               {role === 'recruiter' && (
                 <div className="flex flex-col md:flex-row md:items-center justify-end gap-6 px-2">
@@ -2611,23 +2626,27 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 </div>
               </div>
             </div>
-
+          )
           ) : activeTab === 'activity_logs' ? (
             <ActivityLogList role={role} />
           ) : activeTab === 'analytics' ? (
-            <Analytics 
-              candidates={candidates} 
-              activityLogs={activityLogs}
-              onShortlist={handleShortlist} 
-              onUpdateFollowUp={handleUpdateFollowUp} 
-              onCompleteFollowUp={handleCompleteFollowUp}
-              onUpdateNotes={handleUpdateNotes} 
-              onUpdateAssignee={handleUpdateAssignee}
-              onContact={() => {}}
-              teamMembers={teamMembers}
-              role={role}
-              fullTeamList={fullTeamList}
-            />
+            isInitialLoading ? (
+              <AnalyticsSkeleton />
+            ) : (
+              <Analytics 
+                candidates={candidates} 
+                activityLogs={activityLogs}
+                onShortlist={handleShortlist} 
+                onUpdateFollowUp={handleUpdateFollowUp} 
+                onCompleteFollowUp={handleCompleteFollowUp}
+                onUpdateNotes={handleUpdateNotes} 
+                onUpdateAssignee={handleUpdateAssignee}
+                onContact={() => {}}
+                teamMembers={teamMembers}
+                role={role}
+                fullTeamList={fullTeamList}
+              />
+            )
           ) : activeTab === 'trash' ? (
             <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 space-y-8 pb-12">
               {/* Candidate Trash */}
