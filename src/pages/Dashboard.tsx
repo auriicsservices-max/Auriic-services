@@ -7,6 +7,7 @@ import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { useDropzone } from 'react-dropzone';
 import { extractTextFromPDF, extractTextFromDocx, parseResumeHeuristically, ParsedResume } from '../lib/localParser';
 import { formatUKDate } from '../lib/dateUtils';
+import { getMissingDetails } from '../utils/experienceUtils';
 import { GoogleGenAI, Type } from "@google/genai";
 import UserManagement from '../components/UserManagement';
 import DashboardHome from './DashboardHome';
@@ -77,6 +78,7 @@ import {
   ChevronRight,
   Shield,
   LayoutDashboard,
+  Sparkles,
   Star,
   BookOpen,
   LineChart as AnalyticsIcon,
@@ -100,7 +102,6 @@ import {
   Target,
   MapPin,
   Layers,
-  Sparkles,
   RefreshCw,
   Globe,
   Cpu,
@@ -116,7 +117,7 @@ import { DashboardHomeSkeleton, CandidateTableSkeleton, AnalyticsSkeleton, Pipel
 export default function Dashboard() {
   const navigate = useNavigate();
   const location = useLocation();
-  const { user, role, quotaExceeded, setQuotaExceeded, isPrivileged, getUserDisplayName, getUserRole, getUserName } = useAuth();
+  const { user, role, loading: authLoading, quotaExceeded, setQuotaExceeded, isPrivileged, getUserDisplayName, getUserRole, getUserName } = useAuth();
   console.log("DEBUG: Dashboard role:", role);
   const { theme } = useTheme();
   const { notifications, markAsRead, markAllAsRead } = useNotifications();
@@ -124,10 +125,30 @@ export default function Dashboard() {
   const [candidates, setCandidates] = useState<any[]>([]);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
+  const [candidatesLoaded, setCandidatesLoaded] = useState(false);
+  const [teamLoaded, setTeamLoaded] = useState(false);
+  const [settingsLoaded, setSettingsLoaded] = useState(false);
+  const [notificationsLoaded, setNotificationsLoaded] = useState(false);
+
   useEffect(() => {
-    const timer = setTimeout(() => setIsInitialLoading(false), 600);
-    return () => clearTimeout(timer);
+    if (!authLoading && candidatesLoaded && teamLoaded && settingsLoaded && notificationsLoaded) {
+      setIsInitialLoading(false);
+    }
+  }, [authLoading, candidatesLoaded, teamLoaded, settingsLoaded, notificationsLoaded]);
+
+  // Fallback timer so global loader never gets stuck indefinitely
+  useEffect(() => {
+    const fallbackTimer = setTimeout(() => {
+      setCandidatesLoaded(true);
+      setTeamLoaded(true);
+      setSettingsLoaded(true);
+      setNotificationsLoaded(true);
+      setIsInitialLoading(false);
+    }, 4000);
+    return () => clearTimeout(fallbackTimer);
   }, []);
+
+  const isGlobalLoading = authLoading || !candidatesLoaded || !teamLoaded || !settingsLoaded || !notificationsLoaded;
   const candidateMapRef = useRef(new Map<string, any>());
   const lastLogTimestampRef = useRef<number>(Date.now());
   const [activityLogs, setActivityLogs] = useState<any[]>([]);
@@ -144,7 +165,92 @@ export default function Dashboard() {
   const [teamMembers, setTeamMembers] = useState<Record<string, string>>({});
   const [fullTeamList, setFullTeamList] = useState<any[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'processed' | 'shortlisted' | 'follow_up'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'processed' | 'shortlisted' | 'follow_up' | 'missing_details'>('all');
+  const [reparseStatusMap, setReparseStatusMap] = useState<Record<string, 'queued' | 'processing' | 'completed' | 'failed'>>({});
+  const [isReparsingAll, setIsReparsingAll] = useState(false);
+  const [reparseStats, setReparseStats] = useState({ total: 0, completed: 0, failed: 0 });
+
+  const handleReparseAllMissing = async () => {
+    const missingCandidates = activeCandidates.filter(c => getMissingDetails(c).length > 0);
+    if (missingCandidates.length === 0) return;
+
+    setIsReparsingAll(true);
+    const initialMap: Record<string, 'queued' | 'processing' | 'completed' | 'failed'> = {};
+    missingCandidates.forEach(c => { initialMap[c.id] = 'queued'; });
+    setReparseStatusMap(initialMap);
+    setReparseStats({ total: missingCandidates.length, completed: 0, failed: 0 });
+
+    const concurrency = 2;
+    let index = 0;
+
+    const processNext = async (): Promise<void> => {
+      if (index >= missingCandidates.length) return;
+      const currentCandidate = missingCandidates[index++];
+      const cid = currentCandidate.id;
+
+      setReparseStatusMap(prev => ({ ...prev, [cid]: 'processing' }));
+
+      try {
+        const res = await fetch('/api/candidates/reparse-candidate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ candidateId: cid })
+        });
+        const data = await res.json();
+        if (res.ok && data.status) {
+          setReparseStatusMap(prev => ({ ...prev, [cid]: 'completed' }));
+          setReparseStats(prev => ({ ...prev, completed: prev.completed + 1 }));
+        } else {
+          setReparseStatusMap(prev => ({ ...prev, [cid]: 'failed' }));
+          setReparseStats(prev => ({ ...prev, failed: prev.failed + 1 }));
+        }
+      } catch (err) {
+        console.error(`[Reparse] Error for ${cid}:`, err);
+        setReparseStatusMap(prev => ({ ...prev, [cid]: 'failed' }));
+        setReparseStats(prev => ({ ...prev, failed: prev.failed + 1 }));
+      }
+
+      if (index < missingCandidates.length) {
+        await processNext();
+      }
+    };
+
+    const workers = Array.from({ length: Math.min(concurrency, missingCandidates.length) }, () => processNext());
+    await Promise.all(workers);
+    setIsReparsingAll(false);
+  };
+
+  const handleReparseCandidate = async (candidateId: string) => {
+    if (role !== 'developer') return;
+    setReparseStatusMap(prev => ({ ...prev, [candidateId]: 'queued' }));
+    
+    await new Promise(r => setTimeout(r, 200));
+    setReparseStatusMap(prev => ({ ...prev, [candidateId]: 'processing' }));
+
+    try {
+      const res = await fetch('/api/candidates/reparse-candidate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ candidateId })
+      });
+      const data = await res.json();
+      if (res.ok && data.status) {
+        setReparseStatusMap(prev => ({ ...prev, [candidateId]: 'completed' }));
+        setTimeout(() => {
+          setReparseStatusMap(prev => {
+            const next = { ...prev };
+            delete next[candidateId];
+            return next;
+          });
+        }, 3000);
+      } else {
+        setReparseStatusMap(prev => ({ ...prev, [candidateId]: 'failed' }));
+      }
+    } catch (err) {
+      console.error(`[Reparse] Error for ${candidateId}:`, err);
+      setReparseStatusMap(prev => ({ ...prev, [candidateId]: 'failed' }));
+    }
+  };
   const [selectedDomains, setSelectedDomains] = useState<any[]>([]);
   const [isMultiDomain, setIsMultiDomain] = useState<boolean>(true);
   const [sortField, setSortField] = useState<'createdAt' | 'domainFocus' | 'fullName'>('createdAt');
@@ -248,6 +354,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         }
       } catch (err) {
         console.warn("Could not fetch global settings, using default limit", err);
+      } finally {
+        setSettingsLoaded(true);
       }
     };
     fetchSettings();
@@ -375,6 +483,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         where('isArchived', '==', false)
       );
       unsubCandidates = onSnapshot(q, (snapshot) => {
+        setCandidatesLoaded(true);
         setIsInitialLoading(false);
         const candidatesData = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
         console.log("[Dashboard] Snapshot updated, candidates count:", candidatesData.length);
@@ -397,6 +506,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         });
 
       }, (err: any) => {
+        setCandidatesLoaded(true);
         handleFirestoreError(err, 'get', 'candidates');
         if (err.code === 'resource-exhausted') setQuotaExceeded(true);
       });
@@ -426,6 +536,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         where('recipientId', 'in', [user?.uid, 'all']),                
         limit(50)
       ), (snapshot) => {
+        setNotificationsLoaded(true);
         const rawNotifs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as any));
         const sortedNotifs = rawNotifs.sort((a: any, b: any) => {
           const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : new Date(a.createdAt || 0).getTime();
@@ -448,11 +559,13 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
             lastLogTimestampRef.current = notificationsData[0].createdAt?.toMillis() || Date.now();
         }
       }, (err: any) => {
+        setNotificationsLoaded(true);
         handleFirestoreError(err, 'get', 'notifications');
       });
 
       // Team members listener
       unsubTeam = onSnapshot(query(collection(db, 'users'), limit(50)), (snapshot) => {
+        setTeamLoaded(true);
         const mapping: Record<string, string> = {};
         const list: any[] = [];
         snapshot.docs.forEach(doc => {
@@ -463,6 +576,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         setTeamMembers(mapping);
         setFullTeamList(list);
       }, (err: any) => {
+        setTeamLoaded(true);
         console.error("Team listener error:", err);
       });
 
@@ -1557,6 +1671,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
     if (statusFilter === 'processed' && !candidate.notes && !candidate.isShortlisted) return false;
     if (statusFilter === 'shortlisted' && !candidate.isShortlisted) return false;
     if (statusFilter === 'follow_up' && !candidate.followUpDate) return false;
+    if (statusFilter === 'missing_details' && getMissingDetails(candidate).length === 0) return false;
 
     // Domain Focus Filter
     if (selectedDomains.length > 0) {
@@ -1607,6 +1722,54 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
 
   const trashedCandidates = candidates.filter(c => c.isArchived);
   const trashedUsers = fullTeamList.filter(u => u.isArchived);
+
+  if (isGlobalLoading) {
+    return (
+      <div className="fixed inset-0 z-50 flex flex-col items-center justify-center bg-[var(--bg-primary)] transition-opacity duration-300">
+        <div className="flex flex-col items-center max-w-md w-full p-8 text-center">
+          <div className="mb-8">
+            <Logo variant="header" size="lg" className="justify-center" />
+          </div>
+
+          <div className="w-full space-y-3 bg-[var(--card-bg)] border border-[var(--border-color)] p-5 rounded-2xl shadow-sm text-left">
+            <div className="flex items-center justify-between text-xs font-bold">
+              <span className="text-[var(--text-primary)] flex items-center gap-2">
+                <Loader2 size={14} className="animate-spin text-[var(--primary-gold)]" />
+                Initializing Workspace...
+              </span>
+              <span className="text-[var(--primary-gold)]">
+                {[!authLoading, candidatesLoaded, teamLoaded, settingsLoaded, notificationsLoaded].filter(Boolean).length} / 5
+              </span>
+            </div>
+            <div className="w-full bg-[var(--bg-secondary)] h-2 rounded-full overflow-hidden">
+              <div 
+                className="bg-gradient-to-r from-[var(--primary-gold)] to-[#BC9B66] h-full transition-all duration-300 rounded-full"
+                style={{ width: `${([!authLoading, candidatesLoaded, teamLoaded, settingsLoaded, notificationsLoaded].filter(Boolean).length / 5) * 100}%` }}
+              ></div>
+            </div>
+            <div className="space-y-1.5 pt-2 text-[11px] font-medium text-[var(--text-secondary)]">
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${!authLoading ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`}></span>
+                <span>User Authentication & Role Permissions</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${candidatesLoaded ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`}></span>
+                <span>Candidate Talent Database & Index</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${teamLoaded ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`}></span>
+                <span>Team Directory & RBAC</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className={`w-2 h-2 rounded-full ${notificationsLoaded ? 'bg-emerald-500' : 'bg-amber-500 animate-ping'}`}></span>
+                <span>Real-time Notifications & Alerts</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div {...getRootProps({ onClick: e => e.stopPropagation() })} className="flex h-screen w-full bg-[var(--bg-primary)] text-[var(--text-primary)] font-sans overflow-hidden transition-colors duration-300">
@@ -2170,12 +2333,13 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               )}
               
               {/* Premium KPI Stats Bar */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-5 gap-4">
                 {[
                   { id: 'all', count: activeCandidates.length, label: 'Total Index', color: 'text-[var(--primary-gold)]', icon: FileText, bg: 'bg-[var(--bg-secondary)]', border: 'border-[var(--border-color)]', activeBorder: 'border-[var(--primary-gold)]' },
                   { id: 'processed', count: activeCandidates.filter(c => c.notes || c.isShortlisted).length, label: 'Processed', color: 'text-violet-600 dark:text-violet-400', icon: Target, bg: 'bg-[var(--bg-secondary)]', border: 'border-[var(--border-color)]', activeBorder: 'border-violet-500' },
                   { id: 'shortlisted', count: activeCandidates.filter(c => c.isShortlisted).length, label: 'Shortlisted', color: 'text-emerald-600 dark:text-emerald-400', icon: Star, bg: 'bg-[var(--bg-secondary)]', border: 'border-[var(--border-color)]', activeBorder: 'border-emerald-500' },
                   { id: 'follow_up', count: activeCandidates.filter(c => c.followUpDate).length, label: 'Reminders', color: 'text-amber-600 dark:text-amber-400', icon: Clock, bg: 'bg-[var(--bg-secondary)]', border: 'border-[var(--border-color)]', activeBorder: 'border-amber-500' },
+                  ...(role === 'developer' ? [{ id: 'missing_details', count: activeCandidates.filter(c => getMissingDetails(c).length > 0).length, label: 'Missing Details', color: 'text-rose-600 dark:text-rose-400', icon: AlertTriangle, bg: 'bg-[var(--bg-secondary)]', border: 'border-[var(--border-color)]', activeBorder: 'border-rose-500' }] : [])
                 ].map((stat) => (
                   <button 
                     key={stat.id}
@@ -2230,7 +2394,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                     { id: 'all', label: `All (${activeCandidates.length})` },
                     { id: 'processed', label: `Processed (${activeCandidates.filter(c => c.notes || c.isShortlisted).length})`, icon: Target, color: 'text-violet-500' },
                     { id: 'shortlisted', label: `Shortlisted (${activeCandidates.filter(c => c.isShortlisted).length})`, icon: Star, color: 'text-emerald-500' },
-                    { id: 'follow_up', label: `Follow Up (${activeCandidates.filter(c => c.followUpDate).length})`, icon: Clock, color: 'text-amber-500' }
+                    { id: 'follow_up', label: `Follow Up (${activeCandidates.filter(c => c.followUpDate).length})`, icon: Clock, color: 'text-amber-500' },
+                    ...(role === 'developer' ? [{ id: 'missing_details', label: `Missing Details (${activeCandidates.filter(c => getMissingDetails(c).length > 0).length})`, icon: AlertTriangle, color: 'text-rose-500' }] : [])
                   ].map((btn) => (
                     <button 
                       key={btn.id}
@@ -2376,6 +2541,38 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                     >
                       Purge Selected
                     </button>
+                  </div>
+                )}
+
+                {statusFilter === 'missing_details' && role === 'developer' && (
+                  <div className="crm-card p-6 bg-rose-50/50 dark:bg-rose-950/20 border-rose-200 dark:border-rose-900/40 flex flex-col md:flex-row items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-rose-100 dark:bg-rose-950/60 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0 border border-rose-200 dark:border-rose-900/50">
+                        <AlertTriangle size={24} />
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-extrabold text-[var(--text-primary)]">Missing Details Audit & Batch Reparser</h4>
+                        <p className="text-xs text-[var(--text-secondary)] mt-0.5">
+                          {activeCandidates.filter(c => getMissingDetails(c).length > 0).length} candidates require data completion. Reparse All processes candidates securely through the queue system.
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 w-full md:w-auto justify-end">
+                      {isReparsingAll && (
+                        <div className="flex items-center gap-2 text-xs font-bold text-[var(--text-primary)] bg-[var(--card-bg)] px-4 py-2 rounded-xl border border-[var(--border-color)]">
+                          <Loader2 className="animate-spin text-[var(--primary-gold)]" size={16} />
+                          <span>Processing: {reparseStats.completed + reparseStats.failed} / {reparseStats.total}</span>
+                        </div>
+                      )}
+                      <button
+                        onClick={handleReparseAllMissing}
+                        disabled={isReparsingAll || activeCandidates.filter(c => getMissingDetails(c).length > 0).length === 0}
+                        className="crm-btn-gold px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider flex items-center gap-2 cursor-pointer disabled:opacity-50"
+                      >
+                        <RefreshCw size={14} className={isReparsingAll ? 'animate-spin' : ''} />
+                        {isReparsingAll ? 'Reparsing Queue...' : 'Reparse All Missing'}
+                      </button>
+                    </div>
                   </div>
                 )}
 
@@ -2586,6 +2783,42 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                               </button>
                             </td>
                             <td className="px-6 py-4.5 text-right space-x-1.5" onClick={(e) => e.stopPropagation()}>
+                              {role === 'developer' && getMissingDetails(candidate).length > 0 && (
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); handleReparseCandidate(candidate.id); }}
+                                  disabled={reparseStatusMap[candidate.id] === 'queued' || reparseStatusMap[candidate.id] === 'processing'}
+                                  className={`px-3 py-1.5 text-[10px] font-black rounded-xl uppercase tracking-wider transition-all inline-flex items-center gap-1.5 ${
+                                    reparseStatusMap[candidate.id] === 'completed'
+                                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400 border border-emerald-200/50'
+                                      : reparseStatusMap[candidate.id] === 'failed'
+                                      ? 'bg-rose-50 text-rose-700 dark:bg-rose-950/40 dark:text-rose-400 border border-rose-200/50'
+                                      : 'bg-[var(--primary-gold)] text-white hover:opacity-90 shadow-sm'
+                                  }`}
+                                  title="Re-extract and reparse resume to resolve missing fields"
+                                >
+                                  {reparseStatusMap[candidate.id] === 'queued' || reparseStatusMap[candidate.id] === 'processing' ? (
+                                    <>
+                                      <Loader2 size={11} className="animate-spin" />
+                                      {reparseStatusMap[candidate.id] === 'queued' ? 'Queued...' : 'Processing...'}
+                                    </>
+                                  ) : reparseStatusMap[candidate.id] === 'completed' ? (
+                                    <>
+                                      <CheckCircle2 size={11} />
+                                      Done ✓
+                                    </>
+                                  ) : reparseStatusMap[candidate.id] === 'failed' ? (
+                                    <>
+                                      <AlertCircle size={11} />
+                                      Failed ✕
+                                    </>
+                                  ) : (
+                                    <>
+                                      <RotateCcw size={11} />
+                                      Re-Extract
+                                    </>
+                                  )}
+                                </button>
+                              )}
                               {isPrivileged && (
                                 <button 
                                   onClick={(e) => handleArchiveCandidate(e, candidate.id)}

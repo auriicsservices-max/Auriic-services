@@ -226,4 +226,30 @@ For bulk importing 1,500+ resumes with complete structured JSON extraction:
 4. **Database Sync**:
    - The generated JSON file can be imported directly into Firestore or seeded into Aurrum CRM using the batch seeding utilities.
 
+---
+
+## 19. Precision Experience Calculation & Overlap Merging Engine
+
+1. **Interval-Based Tenure Calculation (`src/utils/experienceUtils.ts`)**:
+   - Parses start and end dates with month and year precision (e.g., "Jan 2020", "2021-05").
+   - Automatically resolves **current/ongoing employment** ("Present", "Current", "Now", "Till Date").
+   - **Overlap Merging**: Sorts and merges overlapping or contiguous employment date ranges to prevent artificial inflation or double-counting of simultaneous positions.
+2. **Integrity Guard**:
+   - Correctly calculates fractional years with 1-decimal precision. Preserves `0 Years` only when a resume genuinely lacks work history or valid date information, without fabricating fake tenure.
+
+---
+
+## 20. Parser Quality Audit & Completeness Assurance
+
+1. **Quality Scoring Engine (`src/utils/parserQuality.ts`)**:
+   - Evaluates parsed candidate records against original CV text for completeness (Full Name, Email, Work Experience, Education, Skills, Professional Summary).
+   - Computes a **Quality Score (0–100)** and categorizes completeness (`high`, `medium`, `low`).
+2. **Automated Audit & Re-Parse (`/api/candidates/audit-and-reparse`)**:
+   - Scans stored candidates for missing fields or zero experience despite valid resume text.
+   - Automatically re-parses and updates records while preserving existing manual edits.
+3. **Database Details Maintenance Tools**:
+   - Developers have access to dedicated management utilities in **Database Details**:
+     - **Fix 0-Experience Resumes**: Instantly re-calculates experience for candidates showing 0 years.
+     - **Audit & Re-Parse All Resumes**: Executes a full database quality audit and re-parses records requiring correction.
+
 

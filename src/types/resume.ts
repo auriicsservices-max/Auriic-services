@@ -225,6 +225,9 @@ export const ResumeSchema = z.object({
 
   awards: z.array(z.string()).default([]),
   warnings: z.array(z.string()).default([]),
+  quality_score: z.number().optional(),
+  completeness: z.string().optional(),
+  missing_fields: z.array(z.string()).optional(),
   rawText: z.string().default('')
 });
 

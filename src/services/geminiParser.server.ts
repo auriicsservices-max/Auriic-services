@@ -3,6 +3,7 @@ import { ResumeData, ResumeSchema } from '../types/resume';
 import { extractRawTextFromBuffer } from './resumeParserServer';
 import { parseResumeHeuristically } from '../lib/localParser';
 import { calculateTotalExperienceYears } from '../utils/experienceUtils';
+import { evaluateParsingQuality } from '../utils/parserQuality';
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -586,6 +587,20 @@ function normalizeParsedResume(data: any, rawText: string): ResumeData {
     languages: Array.isArray(data.languages) ? data.languages : [],
     awards: Array.isArray(data.awards) ? data.awards : [],
     warnings: Array.isArray(data.warnings) ? data.warnings : [],
-    rawText: rawText
+    rawText: rawText,
+    ...(() => {
+      const q = evaluateParsingQuality({
+        personal_info: { full_name: fullName, email, phone },
+        work_experience: workExperience,
+        education,
+        all_skills: allSkills,
+        professional_summary: professionalSummary
+      }, rawText);
+      return {
+        quality_score: q.score,
+        completeness: q.completeness,
+        missing_fields: q.missingFields
+      };
+    })()
   };
 }

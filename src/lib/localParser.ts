@@ -3,6 +3,7 @@ import * as mammoth from 'mammoth';
 import { ResumeData } from '../types/resume';
 import { analyzeSkillsFromText } from './skillsChecker';
 import { calculateTotalExperienceYears } from '../utils/experienceUtils';
+import { evaluateParsingQuality } from '../utils/parserQuality';
 
 export type ParsedResume = ResumeData;
 
@@ -650,7 +651,21 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
     languages: [],
     awards: [],
     warnings: [],
-    rawText: text
+    rawText: text,
+    ...(() => {
+      const q = evaluateParsingQuality({
+        personal_info: { full_name: fullName, email: email, phone: phone },
+        work_experience: workExperienceNormalized,
+        education: educationNormalized,
+        all_skills: Array.from(new Set(allSkillsList)),
+        professional_summary: summaryText
+      }, text);
+      return {
+        quality_score: q.score,
+        completeness: q.completeness,
+        missing_fields: q.missingFields
+      };
+    })()
   };
 
   return resume;

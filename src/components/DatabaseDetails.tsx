@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { Download, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { Download, RefreshCw, CheckCircle2, ShieldCheck } from 'lucide-react';
 import { useAuth } from '../contexts/AuthContext';
 import firebaseConfig from '@/firebase-applet-config.json';
 
 export default function DatabaseDetails() {
   const { role } = useAuth();
   const [loading, setLoading] = useState(false);
+  const [auditLoading, setAuditLoading] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   if (role !== 'developer') {
@@ -27,6 +28,24 @@ export default function DatabaseDetails() {
       setMessage('Error connecting to fix endpoint: ' + err.message);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleAuditAndReparse = async () => {
+    try {
+      setAuditLoading(true);
+      setMessage(null);
+      const res = await fetch('/api/candidates/audit-and-reparse', { method: 'POST' });
+      const data = await res.json();
+      if (res.ok) {
+        setMessage(data.message || `Successfully audited and re-parsed candidate database!`);
+      } else {
+        setMessage(data.error || 'Failed to audit resumes.');
+      }
+    } catch (err: any) {
+      setMessage('Error connecting to audit endpoint: ' + err.message);
+    } finally {
+      setAuditLoading(false);
     }
   };
 
@@ -53,6 +72,27 @@ export default function DatabaseDetails() {
             {loading ? 'Re-extracting & Recalculating...' : 'Fix 0-Experience Resumes'}
           </button>
           {message && <span className="text-xs font-medium text-[var(--text-primary)] bg-[var(--card-bg)] p-2 rounded border border-[var(--border-color)]">{message}</span>}
+        </div>
+      </div>
+
+      {/* Parser Quality Audit & Re-Parse Tool */}
+      <div className="bg-[var(--card-bg)] p-6 rounded-2xl border border-[var(--border-color)] shadow-sm space-y-4">
+        <h3 className="font-bold text-[var(--text-primary)] flex items-center gap-2">
+          <ShieldCheck size={18} className="text-emerald-500" />
+          Parser Quality Audit & Completeness Assurance
+        </h3>
+        <p className="text-sm text-[var(--text-muted)]">
+          Audits all stored candidate resumes for missing fields, evaluates parsing quality confidence, and automatically re-parses records that require correction.
+        </p>
+        <div className="flex items-center gap-4">
+          <button
+            onClick={handleAuditAndReparse}
+            disabled={auditLoading}
+            className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl font-medium text-sm flex items-center gap-2 disabled:opacity-50 transition-all"
+          >
+            {auditLoading ? <RefreshCw size={16} className="animate-spin" /> : <ShieldCheck size={16} />}
+            {auditLoading ? 'Auditing & Re-parsing...' : 'Audit & Re-Parse All Resumes'}
+          </button>
         </div>
       </div>
 

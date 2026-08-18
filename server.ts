@@ -1522,6 +1522,134 @@ app.post('/api/candidates/fix-experience', async (req, res) => {
   }
 });
 
+app.post('/api/candidates/audit-and-reparse', async (req, res) => {
+  try {
+    if (!adminDb) {
+      return res.status(400).json({ error: 'Firestore admin database not initialized' });
+    }
+    const snap = await adminDb.collection('candidates').get();
+    let auditedCount = 0;
+    let reparsedCount = 0;
+    const batch = adminDb.batch();
+
+    for (const doc of snap.docs) {
+      auditedCount++;
+      const data = doc.data();
+      const rawText = data.rawText || data.resumeText || '';
+      
+      let workExp = data.work_experience || data.workExperience || [];
+      if (typeof workExp === 'string') {
+        try { workExp = JSON.parse(workExp); } catch { workExp = []; }
+      }
+      const expYears = calculateTotalExperienceYears(workExp);
+
+      // Check if re-parsing is required (missing crucial fields or zero experience despite text)
+      const needsReparse = (expYears === 0 && rawText.length > 50 && /\b(experience|work|developer|engineer|manager)\b/i.test(rawText)) ||
+                           (!data.email && !data.contact?.email) ||
+                           (!data.skills && !data.all_skills);
+
+      if (needsReparse && rawText) {
+        const heuristicParsed = await parseResumeHeuristically(rawText);
+        const correctedExp = calculateTotalExperienceYears(heuristicParsed.work_experience || workExp);
+        
+        batch.update(doc.ref, {
+          totalExperience: correctedExp,
+          totalExperienceYears: correctedExp,
+          work_experience: heuristicParsed.work_experience || workExp,
+          education: heuristicParsed.education || data.education || [],
+          skills: heuristicParsed.skills || data.skills || {},
+          all_skills: heuristicParsed.all_skills || data.all_skills || [],
+          quality_score: heuristicParsed.quality_score || 85,
+          completeness: heuristicParsed.completeness || 'high',
+          needsReview: false
+        });
+        reparsedCount++;
+      } else {
+        // Ensure experience field is synchronized
+        if ((data.totalExperience ?? 0) === 0 && expYears > 0) {
+          batch.update(doc.ref, {
+            totalExperience: expYears,
+            totalExperienceYears: expYears
+          });
+          reparsedCount++;
+        }
+      }
+    }
+
+    if (reparsedCount > 0) {
+      await batch.commit();
+    }
+
+    res.json({
+      status: true,
+      auditedCount,
+      reparsedCount,
+      message: `Audited ${auditedCount} candidates. Re-parsed and corrected ${reparsedCount} records successfully.`
+    });
+  } catch (err: any) {
+    console.error('[AuditAndReparse] Error:', err);
+    res.status(500).json({ error: 'Failed to audit and re-parse candidates', details: err?.message || String(err) });
+  }
+});
+
+app.post('/api/candidates/reparse-candidate', async (req, res) => {
+  try {
+    if (!adminDb) {
+      return res.status(400).json({ error: 'Firestore admin database not initialized' });
+    }
+    const { candidateId } = req.body;
+    if (!candidateId) {
+      return res.status(400).json({ error: 'candidateId is required' });
+    }
+    const docRef = adminDb.collection('candidates').doc(candidateId);
+    const docSnap = await docRef.get();
+    if (!docSnap.exists) {
+      return res.status(404).json({ error: 'Candidate not found' });
+    }
+    const data = docSnap.data() as any;
+    const rawText = data.rawText || data.resumeText || '';
+
+    if (!rawText || rawText.length < 5) {
+      return res.status(400).json({ error: 'No raw resume text available for re-parsing' });
+    }
+
+    const parsed = await parseResumeHeuristically(rawText);
+    const workExp = parsed.work_experience || data.work_experience || [];
+    const correctedExp = calculateTotalExperienceYears(workExp);
+
+    const updatedFields: any = {
+      totalExperience: correctedExp > 0 ? correctedExp : (data.totalExperience || 0),
+      totalExperienceYears: correctedExp > 0 ? correctedExp : (data.totalExperienceYears || 0),
+      work_experience: workExp.length > 0 ? workExp : (data.work_experience || []),
+      education: (parsed.education && parsed.education.length > 0) ? parsed.education : (data.education || []),
+      skills: (parsed.skills && Object.keys(parsed.skills).length > 0) ? parsed.skills : (data.skills || {}),
+      all_skills: (parsed.all_skills && parsed.all_skills.length > 0) ? parsed.all_skills : (data.all_skills || []),
+      summary: parsed.professional_summary || data.summary || '',
+      email: parsed.contact?.email || data.email || '',
+      phone: parsed.contact?.mobile || data.phone || '',
+      quality_score: parsed.quality_score || 85,
+      completeness: parsed.completeness || 'high',
+      needsReview: false
+    };
+
+    if (parsed.contact?.full_name && parsed.contact.full_name !== 'Unknown Candidate' && parsed.contact.full_name !== 'Candidate Resume') {
+      updatedFields.fullName = parsed.contact.full_name;
+    }
+
+    await docRef.update(updatedFields);
+
+    res.json({
+      status: true,
+      candidateId,
+      updatedFields,
+      message: 'Successfully re-parsed candidate resume.'
+    });
+  } catch (err: any) {
+    console.error('[ReparseCandidate] Error:', err);
+    res.status(500).json({ error: 'Failed to re-parse candidate', details: err?.message || String(err) });
+  }
+});
+
 app.post('/api/bulk-import/sync', async (req, res) => {
   try {
     const batchPath = path.join(process.cwd(), 'parsed_candidates_batch.json');
