@@ -2,6 +2,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { ResumeData, ResumeSchema } from '../types/resume';
 import { extractRawTextFromBuffer } from './resumeParserServer';
 import { parseResumeHeuristically } from '../lib/localParser';
+import { calculateTotalExperienceYears } from '../utils/experienceUtils';
 
 const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -556,7 +557,9 @@ function normalizeParsedResume(data: any, rawText: string): ResumeData {
     summary_confidence: sumConfidence,
     needs_review: needsReview,
     review_reasons: reviewReasons,
-    total_experience_years: typeof data.total_experience_years === 'number' ? data.total_experience_years : 0,
+    total_experience_years: (typeof data.total_experience_years === 'number' && data.total_experience_years > 0)
+      ? data.total_experience_years
+      : calculateTotalExperienceYears(workExperience),
     career_level: data.career_level || 'Mid-Level',
     primary_role: data.primary_role || designation,
     technical_skills: {

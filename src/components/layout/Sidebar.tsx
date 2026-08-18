@@ -20,7 +20,7 @@ export default function Sidebar({
   activeTab: string; 
   setActiveTab: (tab: string) => void 
 }) {
-  const { role, user } = useAuth();
+  const { role, user, userProfile } = useAuth();
   
   // Logical section grouping for enterprise CRM navigation
   const navigationSections = role === 'client' ? [
@@ -66,7 +66,7 @@ export default function Sidebar({
       title: 'Preferences',
       items: [
         { icon: Bell, label: 'Notifications', id: 'notifications' },
-        ...(role !== 'recruiter' ? [{ icon: Settings, label: 'Settings', id: 'settings' }] : []),
+        ...((role as string) !== 'recruiter' && (role as string) !== 'client' ? [{ icon: Settings, label: 'Settings', id: 'settings' }] : []),
       ]
     }
   ];
@@ -163,11 +163,15 @@ export default function Sidebar({
 
         {isOpen && user && (
           <div className="flex items-center gap-3 px-3 py-2 rounded-xl bg-white/5 border border-white/5">
-            <div className="w-8 h-8 rounded-lg bg-[#A98B56] text-white flex items-center justify-center font-bold text-xs shrink-0">
-              {user.email ? user.email.substring(0, 2).toUpperCase() : 'AU'}
-            </div>
+            {userProfile?.photoURL ? (
+              <img src={userProfile.photoURL} alt="Profile" className="w-8 h-8 rounded-lg object-cover shrink-0 border border-white/10" />
+            ) : (
+              <div className="w-8 h-8 rounded-lg bg-[#A98B56] text-white flex items-center justify-center font-bold text-xs shrink-0">
+                {userProfile?.name ? userProfile.name.substring(0, 2).toUpperCase() : (user.email ? user.email.substring(0, 2).toUpperCase() : 'AU')}
+              </div>
+            )}
             <div className="flex flex-col min-w-0 flex-1">
-              <span className="text-xs font-semibold text-white truncate">{user.email || 'User'}</span>
+              <span className="text-xs font-semibold text-white truncate">{userProfile?.name || user.email || 'User'}</span>
               <span className="text-[10px] text-[#A9C2CE] flex items-center gap-1 uppercase font-bold tracking-wider">
                 <Shield size={10} className="text-[#BC9B66]" /> {role || 'Recruiter'}
               </span>

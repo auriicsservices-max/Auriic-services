@@ -1,8 +1,10 @@
 import React from 'react';
 import { Search, Bell, MessageSquare } from 'lucide-react';
 import ThemeToggle from '../ThemeToggle';
+import { useAuth } from '../../contexts/AuthContext';
 
 export default function Header() {
+  const { user, userProfile } = useAuth();
 
   return (
     <header className="h-20 bg-[var(--card-bg)] border-b border-[var(--border-color)] px-8 flex items-center justify-between sticky top-0 z-20 shadow-xs transition-colors duration-200">
@@ -30,9 +32,13 @@ export default function Header() {
         >
           <MessageSquare size={18} />
         </button>
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#004564] to-[#005472] text-white flex items-center justify-center font-bold text-sm shadow-sm border border-[var(--border-color)]">
-          A
-        </div>
+        {userProfile?.photoURL ? (
+          <img src={userProfile.photoURL} alt="Profile" className="w-9 h-9 rounded-xl object-cover shadow-sm border border-[var(--border-color)]" />
+        ) : (
+          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#004564] to-[#005472] text-white flex items-center justify-center font-bold text-sm shadow-sm border border-[var(--border-color)]">
+            {userProfile?.name ? userProfile.name.substring(0, 2).toUpperCase() : (user?.email ? user.email.substring(0, 2).toUpperCase() : 'AU')}
+          </div>
+        )}
       </div>
     </header>
   );

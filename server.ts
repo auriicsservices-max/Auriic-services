@@ -18,6 +18,7 @@ import { GeminiSearchAssistant } from './src/services/geminiSearch.server';
 import { parseResumeFromBuffer } from './src/services/resumeParserServer';
 import { parseResumeHeuristically } from './src/lib/localParser';
 import { GoogleGenAI } from '@google/genai';
+import { calculateTotalExperienceYears } from './src/utils/experienceUtils';
 
 // Load environment variables immediately on startup
 dotenv.config();
@@ -1461,6 +1462,63 @@ app.get('/api/candidates/check-today', async (req, res) => {
     });
   } catch (err: any) {
     res.json({ status: true, totalCount: 480, todayCount: 0, message: `Checked Firestore: 480 candidates live in CRM (Database check note: ${err?.message || 'connected'})` });
+  }
+});
+
+app.post('/api/candidates/fix-experience', async (req, res) => {
+  try {
+    if (!adminDb) {
+      return res.status(400).json({ error: 'Firestore admin database not initialized' });
+    }
+    const snap = await adminDb.collection('candidates').get();
+    let updatedCount = 0;
+    const batch = adminDb.batch();
+
+    for (const doc of snap.docs) {
+      const data = doc.data();
+      const currentExp = data.totalExperience ?? data.totalExperienceYears ?? 0;
+      const isZeroOrMissing = currentExp === 0 || currentExp === '0' || currentExp === '0 Years' || !currentExp;
+
+      if (isZeroOrMissing) {
+        let workExp = data.work_experience || data.workExperience || [];
+        if (typeof workExp === 'string') {
+          try { workExp = JSON.parse(workExp); } catch { workExp = []; }
+        }
+
+        let calculatedYears = calculateTotalExperienceYears(workExp);
+        
+        if (calculatedYears === 0 && data.rawText && typeof data.rawText === 'string') {
+          const parsed = await parseResumeHeuristically(data.rawText);
+          if (parsed.work_experience && parsed.work_experience.length > 0) {
+            workExp = parsed.work_experience;
+            calculatedYears = calculateTotalExperienceYears(workExp);
+          }
+        }
+
+        if (calculatedYears > 0) {
+          batch.update(doc.ref, {
+            totalExperience: calculatedYears,
+            totalExperienceYears: calculatedYears,
+            work_experience: workExp
+          });
+          updatedCount++;
+        }
+      }
+    }
+
+    if (updatedCount > 0) {
+      await batch.commit();
+    }
+
+    console.log(`[FixExperience] Successfully recalculated experience for ${updatedCount} candidates.`);
+    res.json({
+      status: true,
+      updatedCount,
+      message: `Successfully re-calculated and updated experience for ${updatedCount} candidates showing 0 Experience.`
+    });
+  } catch (error: any) {
+    console.error('[FixExperience] Error fixing experience:', error);
+    res.status(500).json({ error: 'Failed to fix candidate experience', details: error?.message || String(error) });
   }
 });
 

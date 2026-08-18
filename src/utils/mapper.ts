@@ -1,5 +1,6 @@
 import { JSONResumeData } from '../types/jsonResume';
 import { ResumeData } from '../types/resume';
+import { calculateTotalExperienceYears } from './experienceUtils';
 
 export const toInternalResumeData = (jsonResume: JSONResumeData): ResumeData => {
   const linkedin = jsonResume.basics.profiles.find(p => p.network.toLowerCase() === 'linkedin')?.url || '';
@@ -129,7 +130,7 @@ export const toInternalResumeData = (jsonResume: JSONResumeData): ResumeData => 
       ...(education.length === 0 ? ['Education section missing or incomplete'] : []),
       ...(!jsonResume.basics.summary ? ['Professional summary missing'] : [])
     ],
-    total_experience_years: 0,
+    total_experience_years: calculateTotalExperienceYears(workExperience),
     career_level: 'Mid-Level',
     primary_role: headline,
     technical_skills: {

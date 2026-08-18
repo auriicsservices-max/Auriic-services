@@ -111,7 +111,7 @@ import {
 import LinkedInSearch from '../components/LinkedInSearch';
 import DatabaseDetails from '../components/DatabaseDetails';
 import BackupDashboard from '../components/BackupDashboard';
-import { DashboardHomeSkeleton, CandidateTableSkeleton, AnalyticsSkeleton } from '../components/Skeletons';
+import { DashboardHomeSkeleton, CandidateTableSkeleton, AnalyticsSkeleton, PipelineSkeleton, RepositorySkeleton, InvoicesSkeleton, SettingsSkeleton, ProfileSkeleton } from '../components/Skeletons';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -125,7 +125,7 @@ export default function Dashboard() {
   const [isInitialLoading, setIsInitialLoading] = useState(true);
 
   useEffect(() => {
-    const timer = setTimeout(() => setIsInitialLoading(false), 1200);
+    const timer = setTimeout(() => setIsInitialLoading(false), 600);
     return () => clearTimeout(timer);
   }, []);
   const candidateMapRef = useRef(new Map<string, any>());
@@ -2042,6 +2042,12 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
         {Object.keys(parsingStatus).length > 0 && <ProcessingWidget jobs={processingJobs} />}
 
         <div className="p-8 flex-1 overflow-y-auto">
+          {isInitialLoading && (
+            <div className="flex items-center justify-center gap-3 py-3 px-6 mb-6 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl shadow-xs text-xs font-bold text-[var(--text-muted)] animate-pulse">
+              <Loader2 size={16} className="animate-spin text-[var(--primary-gold)]" />
+              <span>Synchronizing records with Aurrum secure database...</span>
+            </div>
+          )}
           {quotaExceeded ? (
             <div className="h-full flex items-center justify-center p-4">
               <QuotaNotice onRetry={() => window.location.reload()} />
@@ -2083,7 +2089,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               )}
             </div>
           ) : activeTab === 'repository' ? (
-            <CVRepository candidates={activeCandidates} onSelect={handleCandidateSelect} />
+            isInitialLoading ? (
+              <RepositorySkeleton />
+            ) : (
+              <CVRepository candidates={activeCandidates} onSelect={handleCandidateSelect} />
+            )
 
           ) : activeTab === 'upload' ? (
             <BulkUpload 
@@ -2100,7 +2110,11 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
               onNavigate={(tab) => setActiveTab(tab as any)}
             />
           ) : activeTab === 'pipeline' ? (
-            <RecruitmentPipeline candidates={activeCandidates} onSelect={handleCandidateSelect} role={role} teamMembers={teamMembers} fullTeamList={fullTeamList} />
+            isInitialLoading ? (
+              <PipelineSkeleton />
+            ) : (
+              <RecruitmentPipeline candidates={activeCandidates} onSelect={handleCandidateSelect} role={role} teamMembers={teamMembers} fullTeamList={fullTeamList} />
+            )
           ) : activeTab === 'candidates' ? (
             isInitialLoading ? (
               <CandidateTableSkeleton />
@@ -2840,17 +2854,19 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
           ) : activeTab === 'shortlist' ? (
             <Shortlist candidates={candidates} onCandidateSelect={handleCandidateSelect} onArchive={handleArchiveCandidate} role={role} />
           ) : activeTab === 'profile' ? (
-            <UserProfile />
+            isInitialLoading ? <ProfileSkeleton /> : <UserProfile />
           ) : activeTab === 'logs' ? (
             <LogReview />
           ) : activeTab === 'custom_skills' ? (
             <CustomSkillsManager />
           ) : activeTab === 'settings' && role !== 'recruiter' && (role as string) !== 'client' ? (
-            <div className="space-y-6">
-               <SystemSettings />
-            </div>
+            isInitialLoading ? <SettingsSkeleton /> : (
+              <div className="space-y-6">
+                 <SystemSettings />
+              </div>
+            )
           ) : activeTab === 'users' ? (
-            <UserManagement />
+            isInitialLoading ? <CandidateTableSkeleton /> : <UserManagement />
           ) : (
             <DashboardHome candidates={activeCandidates} activityLogs={activityLogs} teamMembers={teamMembers} fullTeamList={fullTeamList} />
           )}

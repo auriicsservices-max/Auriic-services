@@ -2,6 +2,7 @@ import * as pdfjs from 'pdfjs-dist';
 import * as mammoth from 'mammoth';
 import { ResumeData } from '../types/resume';
 import { analyzeSkillsFromText } from './skillsChecker';
+import { calculateTotalExperienceYears } from '../utils/experienceUtils';
 
 export type ParsedResume = ResumeData;
 
@@ -622,7 +623,7 @@ export async function parseResumeHeuristically(text: string): Promise<ParsedResu
     summary_confidence: sumConfidence,
     needs_review: needsReview,
     review_reasons: reviewReasons,
-    total_experience_years: experience.length > 0 ? Math.max(1, experience.length * 2) : 0,
+    total_experience_years: calculateTotalExperienceYears(workExperienceNormalized),
     career_level: 'Mid-Level',
     primary_role: headline,
     technical_skills: {

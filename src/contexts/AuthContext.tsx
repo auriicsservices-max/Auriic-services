@@ -14,6 +14,8 @@ interface AuthContextType {
   getUserDisplayName: () => string;
   getUserRole: () => string;
   getUserName: () => string;
+  userProfile: any;
+  refreshProfile: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType>({ 
@@ -25,12 +27,15 @@ const AuthContext = createContext<AuthContextType>({
   isPrivileged: false,
   getUserDisplayName: () => 'System',
   getUserRole: () => 'System',
-  getUserName: () => 'System'
+  getUserName: () => 'System',
+  userProfile: null,
+  refreshProfile: async () => {}
 });
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [role, setRole] = useState<'developer' | 'admin' | 'team_leader' | 'recruiter' | 'client' | null>(null);
+  const [userProfile, setUserProfile] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [quotaExceeded, setQuotaExceeded] = useState(false);
   const isPrivileged = role === 'admin' || role === 'team_leader' || role === 'developer';
@@ -42,6 +47,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   
   const getUserRole = () => role || 'No Role';
   const getUserName = () => user?.displayName || user?.email?.split('@')[0] || 'User';
+
+  const fetchUserProfile = async (uid: string) => {
+    try {
+      const docRef = doc(db, 'users', uid);
+      const snap = await getDoc(docRef);
+      if (snap.exists()) {
+        setUserProfile(snap.data());
+      }
+    } catch (err) {
+      console.error("Error fetching user profile:", err);
+    }
+  };
+
+  const refreshProfile = async () => {
+    if (user?.uid) {
+      await fetchUserProfile(user.uid);
+    }
+  };
 
   useEffect(() => {
     let statusInterval: any;
@@ -135,9 +158,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             }
           }, 120000); // Every 2 minutes
 
+          await fetchUserProfile(authenticatedUser.uid);
           window.addEventListener('beforeunload', handleOffline);
         } else {
           setRole(null);
+          setUserProfile(null);
           if (statusInterval) clearInterval(statusInterval);
           window.removeEventListener('beforeunload', handleOffline);
         }
@@ -157,7 +182,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, [user?.uid]);
 
   return (
-    <AuthContext.Provider value={{ user, role, loading, quotaExceeded, setQuotaExceeded, isPrivileged, getUserDisplayName, getUserRole, getUserName }}>
+    <AuthContext.Provider value={{ user, role, loading, quotaExceeded, setQuotaExceeded, isPrivileged, getUserDisplayName, getUserRole, getUserName, userProfile, refreshProfile }}>
       {children}
     </AuthContext.Provider>
   );
