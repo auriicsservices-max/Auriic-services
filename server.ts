@@ -7,7 +7,9 @@ import AdmZip from 'adm-zip';
 import cron from 'node-cron';
 import cors from 'cors';
 import dotenv from 'dotenv';
-import firebaseConfig from './firebase-applet-config.json' with { type: 'json' };
+const firebaseConfig = JSON.parse(
+  fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf-8')
+);
 import { initializeApp, getApps } from 'firebase-admin/app';
 import * as admin from 'firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
@@ -158,39 +160,47 @@ app.get('/api/health', (req, res) => {
 
 // WordPress Contact Form Lead Webhook & Enrichment Pipeline
 const handleWebsiteLeadWebhook = async (req: express.Request, res: express.Response) => {
-  const apiKeyHeader = req.headers['x-aurrum-api-key'] || req.headers['authorization'];
-  const expectedApiKey = process.env.AURRUM_API_KEY;
+  try {
+    const apiKeyHeader = req.headers['x-aurrum-api-key'] || req.headers['authorization'];
+    const expectedApiKey = process.env.AURRUM_API_KEY;
 
-  if (expectedApiKey && expectedApiKey.trim() !== '') {
-    const providedKey = typeof apiKeyHeader === 'string' 
-      ? apiKeyHeader.startsWith('Bearer ') ? apiKeyHeader.replace('Bearer ', '') : apiKeyHeader 
-      : '';
-    if (providedKey !== expectedApiKey) {
-      return res.status(401).json({ success: false, error: 'Unauthorized: Invalid or missing X-Aurrum-Api-Key' });
+    if (expectedApiKey && expectedApiKey.trim() !== '') {
+      const providedKey = typeof apiKeyHeader === 'string' 
+        ? apiKeyHeader.startsWith('Bearer ') ? apiKeyHeader.replace('Bearer ', '') : apiKeyHeader 
+        : '';
+      if (providedKey !== expectedApiKey) {
+        return res.status(401).json({ success: false, error: 'Unauthorized: Invalid or missing X-Aurrum-Api-Key' });
+      }
     }
+
+    if (!adminDb) {
+      return res.status(500).json({ 
+        success: false, 
+        error: 'Database not initialized. Please ensure FIREBASE_SERVICE_ACCOUNT is configured in Vercel Environment Variables.' 
+      });
+    }
+
+    const payload = req.body;
+    if (!payload || typeof payload !== 'object') {
+      return res.status(400).json({ success: false, error: 'Invalid payload: JSON object expected' });
+    }
+
+    console.log(`[Webhook] Received website lead for ${payload.email || 'unknown'} with resume_url: ${payload.resume_url || 'none'}`);
+
+    const result = await processWebsiteLead(payload, adminDb);
+    if (!result.success) {
+      return res.status(500).json({ success: false, error: result.error });
+    }
+
+    return res.status(200).json({
+      success: true,
+      candidate_id: result.candidateId,
+      message: 'Lead captured, enriched, and stored successfully'
+    });
+  } catch (err: any) {
+    console.error('[Webhook] Unhandled server error in website lead webhook:', err);
+    return res.status(500).json({ success: false, error: err?.message || 'Internal server error' });
   }
-
-  if (!adminDb) {
-    return res.status(500).json({ success: false, error: 'Database not initialized' });
-  }
-
-  const payload = req.body;
-  if (!payload || typeof payload !== 'object') {
-    return res.status(400).json({ success: false, error: 'Invalid payload: JSON object expected' });
-  }
-
-  console.log(`[Webhook] Received website lead for ${payload.email || 'unknown'} with resume_url: ${payload.resume_url || 'none'}`);
-
-  const result = await processWebsiteLead(payload, adminDb);
-  if (!result.success) {
-    return res.status(500).json({ success: false, error: result.error });
-  }
-
-  return res.status(200).json({
-    success: true,
-    candidate_id: result.candidateId,
-    message: 'Lead captured, enriched, and stored successfully'
-  });
 };
 
 app.post('/wp-json/aurrum/v1/crm-leads', handleWebsiteLeadWebhook);
