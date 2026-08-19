@@ -8,6 +8,10 @@
       "destination": "/api/index"
     },
     {
+      "source": "/wp-json/(.*)",
+      "destination": "/api/index"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }

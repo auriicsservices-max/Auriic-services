@@ -19,6 +19,7 @@ import { parseResumeFromBuffer } from './src/services/resumeParserServer';
 import { parseResumeHeuristically } from './src/lib/localParser';
 import { GoogleGenAI } from '@google/genai';
 import { calculateTotalExperienceYears } from './src/utils/experienceUtils';
+import { processWebsiteLead } from './src/services/leadWebhookService';
 
 // Load environment variables immediately on startup
 dotenv.config();
@@ -154,6 +155,46 @@ app.get('/api/health', (req, res) => {
     allowedIpsConfigured: !!process.env.ALLOWED_IPS
   });
 });
+
+// WordPress Contact Form Lead Webhook & Enrichment Pipeline
+const handleWebsiteLeadWebhook = async (req: express.Request, res: express.Response) => {
+  const apiKeyHeader = req.headers['x-aurrum-api-key'] || req.headers['authorization'];
+  const expectedApiKey = process.env.AURRUM_API_KEY;
+
+  if (expectedApiKey && expectedApiKey.trim() !== '') {
+    const providedKey = typeof apiKeyHeader === 'string' 
+      ? apiKeyHeader.startsWith('Bearer ') ? apiKeyHeader.replace('Bearer ', '') : apiKeyHeader 
+      : '';
+    if (providedKey !== expectedApiKey) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: Invalid or missing X-Aurrum-Api-Key' });
+    }
+  }
+
+  if (!adminDb) {
+    return res.status(500).json({ success: false, error: 'Database not initialized' });
+  }
+
+  const payload = req.body;
+  if (!payload || typeof payload !== 'object') {
+    return res.status(400).json({ success: false, error: 'Invalid payload: JSON object expected' });
+  }
+
+  console.log(`[Webhook] Received website lead for ${payload.email || 'unknown'} with resume_url: ${payload.resume_url || 'none'}`);
+
+  const result = await processWebsiteLead(payload, adminDb);
+  if (!result.success) {
+    return res.status(500).json({ success: false, error: result.error });
+  }
+
+  return res.status(200).json({
+    success: true,
+    candidate_id: result.candidateId,
+    message: 'Lead captured, enriched, and stored successfully'
+  });
+};
+
+app.post('/wp-json/aurrum/v1/crm-leads', handleWebsiteLeadWebhook);
+app.post('/api/leads/website-lead', handleWebsiteLeadWebhook);
 
 app.get('/api/gemini/status', async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
