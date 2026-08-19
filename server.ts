@@ -7,9 +7,18 @@ import AdmZip from 'adm-zip';
 import cron from 'node-cron';
 import cors from 'cors';
 import dotenv from 'dotenv';
-const firebaseConfig = JSON.parse(
-  fs.readFileSync(path.join(process.cwd(), 'firebase-applet-config.json'), 'utf-8')
-);
+let firebaseConfig: any = {
+  projectId: "ai-studio-applet-webapp-ddf84",
+  firestoreDatabaseId: "aurrum-production"
+};
+try {
+  const configPath = path.join(process.cwd(), 'firebase-applet-config.json');
+  if (fs.existsSync(configPath)) {
+    firebaseConfig = JSON.parse(fs.readFileSync(configPath, 'utf-8'));
+  }
+} catch (e) {
+  console.warn('[Server] Could not read firebase-applet-config.json, using fallback config.');
+}
 import { initializeApp, getApps } from 'firebase-admin/app';
 import * as admin from 'firebase-admin';
 import { getFirestore, FieldValue } from 'firebase-admin/firestore';
