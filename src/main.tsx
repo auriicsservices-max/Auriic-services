@@ -10,7 +10,9 @@ window.addEventListener('error', (event) => {
     event.message?.includes("Failed to execute 'measure' on 'Performance'") ||
     event.message?.includes('Should not already be working') ||
     event.message?.includes('AbortError') ||
-    event.message?.includes('aborted')
+    event.message?.includes('aborted') ||
+    event.message?.includes('indexedDB') ||
+    event.message?.includes('backing store')
   ) {
     event.preventDefault();
     event.stopPropagation();
@@ -25,7 +27,9 @@ window.addEventListener('unhandledrejection', (event) => {
     reason.includes("Failed to execute 'measure' on 'Performance'") ||
     reason.includes('Should not already be working') ||
     reason.includes('AbortError') ||
-    reason.includes('aborted')
+    reason.includes('aborted') ||
+    reason.includes('indexedDB') ||
+    reason.includes('backing store')
   ) {
     event.preventDefault();
   }

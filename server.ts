@@ -208,7 +208,13 @@ const handleWebsiteLeadWebhook = async (req: express.Request, res: express.Respo
     });
   } catch (err: any) {
     console.error('[Webhook] Unhandled server error in website lead webhook:', err);
-    return res.status(500).json({ success: false, error: err?.message || 'Internal server error' });
+    return res.status(500).json({ 
+      success: false, 
+      error: err?.message || 'Internal server error', 
+      stack: err?.stack,
+      firebaseInitialized: !!adminDb,
+      serviceAccountConfigured: !!process.env.FIREBASE_SERVICE_ACCOUNT
+    });
   }
 };
 
