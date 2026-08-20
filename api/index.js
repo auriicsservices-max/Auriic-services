@@ -1,70 +1,44 @@
-var __create = Object.create;
-var __defProp = Object.defineProperty;
-var __getOwnPropDesc = Object.getOwnPropertyDescriptor;
-var __getOwnPropNames = Object.getOwnPropertyNames;
-var __getProtoOf = Object.getPrototypeOf;
-var __hasOwnProp = Object.prototype.hasOwnProperty;
-var __export = (target, all) => {
-  for (var name in all)
-    __defProp(target, name, { get: all[name], enumerable: true });
-};
-var __copyProps = (to, from, except, desc) => {
-  if (from && typeof from === "object" || typeof from === "function") {
-    for (let key of __getOwnPropNames(from))
-      if (!__hasOwnProp.call(to, key) && key !== except)
-        __defProp(to, key, { get: () => from[key], enumerable: !(desc = __getOwnPropDesc(from, key)) || desc.enumerable });
-  }
-  return to;
-};
-var __toESM = (mod, isNodeMode, target) => (target = mod != null ? __create(__getProtoOf(mod)) : {}, __copyProps(
-  // If the importer is in node compatibility mode or this is not an ESM
-  // file that has been converted to a CommonJS file using a Babel-
-  // compatible transform (i.e. "__esModule" has not been set), then set
-  // "default" to the CommonJS "module.exports" for node compatibility.
-  isNodeMode || !mod || !mod.__esModule ? __defProp(target, "default", { value: mod, enumerable: true }) : target,
-  mod
-));
-var __toCommonJS = (mod) => __copyProps(__defProp({}, "__esModule", { value: true }), mod);
+var __require = /* @__PURE__ */ ((x) => typeof require !== "undefined" ? require : typeof Proxy !== "undefined" ? new Proxy(x, {
+  get: (a, b) => (typeof require !== "undefined" ? require : a)[b]
+}) : x)(function(x) {
+  if (typeof require !== "undefined") return require.apply(this, arguments);
+  throw Error('Dynamic require of "' + x + '" is not supported');
+});
 
 // server.ts
-var server_exports = {};
-__export(server_exports, {
-  default: () => server_default
-});
-module.exports = __toCommonJS(server_exports);
-var import_express = __toESM(require("express"), 1);
-var import_vite = require("vite");
-var import_path = __toESM(require("path"), 1);
-var import_multer = __toESM(require("multer"), 1);
-var import_fs = __toESM(require("fs"), 1);
-var import_adm_zip = __toESM(require("adm-zip"), 1);
-var import_node_cron = __toESM(require("node-cron"), 1);
-var import_cors = __toESM(require("cors"), 1);
-var import_dotenv = __toESM(require("dotenv"), 1);
-var import_app = require("firebase-admin/app");
-var admin2 = __toESM(require("firebase-admin"), 1);
-var import_firestore = require("firebase-admin/firestore");
-var import_messaging = require("firebase-admin/messaging");
+import express from "express";
+import { createServer as createViteServer } from "vite";
+import path from "path";
+import multer from "multer";
+import fs from "fs";
+import AdmZip from "adm-zip";
+import cron from "node-cron";
+import cors from "cors";
+import dotenv from "dotenv";
+import { initializeApp, getApps } from "firebase-admin/app";
+import * as admin2 from "firebase-admin";
+import { getFirestore, FieldValue } from "firebase-admin/firestore";
+import { getMessaging } from "firebase-admin/messaging";
 
 // src/services/resumeParser.server.ts
-var import_mammoth = __toESM(require("mammoth"), 1);
-var import_compromise = __toESM(require("compromise"), 1);
-var chrono = __toESM(require("chrono-node"), 1);
-var import_libphonenumber_js = require("libphonenumber-js");
+import mammoth from "mammoth";
+import nlp from "compromise";
+import * as chrono from "chrono-node";
+import { parsePhoneNumberFromString } from "libphonenumber-js";
 
 // src/types/resume.ts
-var import_zod = require("zod");
-var ResumeSchema = import_zod.z.object({
-  is_resume: import_zod.z.boolean().default(true),
-  parsing_confidence: import_zod.z.enum(["high", "medium", "low"]).default("high"),
-  detected_language: import_zod.z.string().nullable().default("en"),
-  contact: import_zod.z.object({
-    full_name: import_zod.z.string().nullable().default(""),
-    email: import_zod.z.string().nullable().default(""),
-    mobile: import_zod.z.string().nullable().default(""),
-    designation: import_zod.z.string().nullable().default(""),
-    location: import_zod.z.string().nullable().default(""),
-    address: import_zod.z.string().nullable().default("")
+import { z } from "zod";
+var ResumeSchema = z.object({
+  is_resume: z.boolean().default(true),
+  parsing_confidence: z.enum(["high", "medium", "low"]).default("high"),
+  detected_language: z.string().nullable().default("en"),
+  contact: z.object({
+    full_name: z.string().nullable().default(""),
+    email: z.string().nullable().default(""),
+    mobile: z.string().nullable().default(""),
+    designation: z.string().nullable().default(""),
+    location: z.string().nullable().default(""),
+    address: z.string().nullable().default("")
   }).optional().default({
     full_name: "",
     email: "",
@@ -73,26 +47,26 @@ var ResumeSchema = import_zod.z.object({
     location: "",
     address: ""
   }),
-  personal_info: import_zod.z.object({
-    full_name: import_zod.z.string().nullable().default(""),
-    headline: import_zod.z.string().nullable().default(""),
-    email: import_zod.z.string().nullable().default(""),
-    phone: import_zod.z.string().nullable().default(""),
-    location: import_zod.z.object({
-      city: import_zod.z.string().nullable().default(""),
-      state: import_zod.z.string().nullable().default(""),
-      country: import_zod.z.string().nullable().default("")
+  personal_info: z.object({
+    full_name: z.string().nullable().default(""),
+    headline: z.string().nullable().default(""),
+    email: z.string().nullable().default(""),
+    phone: z.string().nullable().default(""),
+    location: z.object({
+      city: z.string().nullable().default(""),
+      state: z.string().nullable().default(""),
+      country: z.string().nullable().default("")
     }).optional().default({
       city: "",
       state: "",
       country: ""
     }),
-    links: import_zod.z.object({
-      linkedin: import_zod.z.string().nullable().default(""),
-      github: import_zod.z.string().nullable().default(""),
-      portfolio: import_zod.z.string().nullable().default(""),
-      website: import_zod.z.string().nullable().default(""),
-      other: import_zod.z.array(import_zod.z.string()).default([])
+    links: z.object({
+      linkedin: z.string().nullable().default(""),
+      github: z.string().nullable().default(""),
+      portfolio: z.string().nullable().default(""),
+      website: z.string().nullable().default(""),
+      other: z.array(z.string()).default([])
     }).default({
       linkedin: "",
       github: "",
@@ -108,12 +82,12 @@ var ResumeSchema = import_zod.z.object({
     location: { city: "", state: "", country: "" },
     links: { linkedin: "", github: "", portfolio: "", website: "", other: [] }
   }),
-  links: import_zod.z.object({
-    linkedin: import_zod.z.string().nullable().default(""),
-    github: import_zod.z.string().nullable().default(""),
-    portfolio: import_zod.z.string().nullable().default(""),
-    website: import_zod.z.string().nullable().default(""),
-    other_urls: import_zod.z.array(import_zod.z.string()).default([])
+  links: z.object({
+    linkedin: z.string().nullable().default(""),
+    github: z.string().nullable().default(""),
+    portfolio: z.string().nullable().default(""),
+    website: z.string().nullable().default(""),
+    other_urls: z.array(z.string()).default([])
   }).optional().default({
     linkedin: "",
     github: "",
@@ -121,19 +95,19 @@ var ResumeSchema = import_zod.z.object({
     website: "",
     other_urls: []
   }),
-  professional_summary: import_zod.z.string().nullable().default(""),
-  total_experience_years: import_zod.z.number().nullable().default(0),
-  career_level: import_zod.z.string().nullable().optional().default("Mid-Level"),
-  primary_role: import_zod.z.string().nullable().optional().default(""),
-  technical_skills: import_zod.z.object({
-    languages: import_zod.z.array(import_zod.z.string()).default([]),
-    frontend: import_zod.z.array(import_zod.z.string()).default([]),
-    backend: import_zod.z.array(import_zod.z.string()).default([]),
-    databases: import_zod.z.array(import_zod.z.string()).default([]),
-    cloud_devops: import_zod.z.array(import_zod.z.string()).default([]),
-    tools: import_zod.z.array(import_zod.z.string()).default([]),
-    cms_ecommerce: import_zod.z.array(import_zod.z.string()).default([]),
-    other: import_zod.z.array(import_zod.z.string()).default([])
+  professional_summary: z.string().nullable().default(""),
+  total_experience_years: z.number().nullable().default(0),
+  career_level: z.string().nullable().optional().default("Mid-Level"),
+  primary_role: z.string().nullable().optional().default(""),
+  technical_skills: z.object({
+    languages: z.array(z.string()).default([]),
+    frontend: z.array(z.string()).default([]),
+    backend: z.array(z.string()).default([]),
+    databases: z.array(z.string()).default([]),
+    cloud_devops: z.array(z.string()).default([]),
+    tools: z.array(z.string()).default([]),
+    cms_ecommerce: z.array(z.string()).default([]),
+    other: z.array(z.string()).default([])
   }).optional().default({
     languages: [],
     frontend: [],
@@ -144,118 +118,117 @@ var ResumeSchema = import_zod.z.object({
     cms_ecommerce: [],
     other: []
   }),
-  skills: import_zod.z.array(import_zod.z.object({
-    category: import_zod.z.string(),
-    items: import_zod.z.array(import_zod.z.string()).default([])
+  skills: z.array(z.object({
+    category: z.string(),
+    items: z.array(z.string()).default([])
   })).default([]),
-  all_skills: import_zod.z.array(import_zod.z.string()).default([]),
-  work_experience: import_zod.z.array(import_zod.z.object({
-    job_title: import_zod.z.string().nullable().default(""),
-    company: import_zod.z.string().nullable().default(""),
-    location: import_zod.z.string().nullable().default(""),
-    start_date: import_zod.z.string().nullable().default(""),
-    end_date: import_zod.z.string().nullable().default(""),
-    duration: import_zod.z.string().nullable().optional().default(""),
-    is_current: import_zod.z.boolean().default(false),
-    responsibilities: import_zod.z.array(import_zod.z.string()).default([]),
-    technologies: import_zod.z.array(import_zod.z.string()).default([]),
-    key_achievements: import_zod.z.array(import_zod.z.string()).optional().default([]),
-    achievements: import_zod.z.array(import_zod.z.string()).optional().default([])
+  all_skills: z.array(z.string()).default([]),
+  work_experience: z.array(z.object({
+    job_title: z.string().nullable().default(""),
+    company: z.string().nullable().default(""),
+    location: z.string().nullable().default(""),
+    start_date: z.string().nullable().default(""),
+    end_date: z.string().nullable().default(""),
+    duration: z.string().nullable().optional().default(""),
+    is_current: z.boolean().default(false),
+    responsibilities: z.array(z.string()).default([]),
+    technologies: z.array(z.string()).default([]),
+    key_achievements: z.array(z.string()).optional().default([]),
+    achievements: z.array(z.string()).optional().default([])
   })).default([]),
-  key_projects: import_zod.z.array(import_zod.z.object({
-    name: import_zod.z.string().nullable().default(""),
-    description: import_zod.z.string().nullable().default(""),
-    tech_stack: import_zod.z.array(import_zod.z.string()).default([]),
-    live_url: import_zod.z.string().nullable().default(""),
-    code_url: import_zod.z.string().nullable().default(""),
-    highlights: import_zod.z.array(import_zod.z.string()).default([])
+  key_projects: z.array(z.object({
+    name: z.string().nullable().default(""),
+    description: z.string().nullable().default(""),
+    tech_stack: z.array(z.string()).default([]),
+    live_url: z.string().nullable().default(""),
+    code_url: z.string().nullable().default(""),
+    highlights: z.array(z.string()).default([])
   })).optional().default([]),
-  projects: import_zod.z.array(import_zod.z.object({
-    name: import_zod.z.string().nullable().default(""),
-    description: import_zod.z.string().nullable().default(""),
-    technologies: import_zod.z.array(import_zod.z.string()).default([]),
-    role: import_zod.z.string().nullable().default(""),
-    live_url: import_zod.z.string().nullable().default(""),
-    code_url: import_zod.z.string().nullable().default("")
+  projects: z.array(z.object({
+    name: z.string().nullable().default(""),
+    description: z.string().nullable().default(""),
+    technologies: z.array(z.string()).default([]),
+    role: z.string().nullable().default(""),
+    live_url: z.string().nullable().default(""),
+    code_url: z.string().nullable().default("")
   })).default([]),
-  education: import_zod.z.array(import_zod.z.object({
-    degree: import_zod.z.string().nullable().default(""),
-    field_of_study: import_zod.z.string().nullable().default(""),
-    course: import_zod.z.string().nullable().optional().default(""),
-    specialization: import_zod.z.string().nullable().optional().default(""),
-    institution: import_zod.z.string().nullable().default(""),
-    board: import_zod.z.string().nullable().optional().default(""),
-    location: import_zod.z.string().nullable().default(""),
-    start_date: import_zod.z.string().nullable().default(""),
-    end_date: import_zod.z.string().nullable().default(""),
-    start_year: import_zod.z.string().nullable().optional().default(""),
-    end_year: import_zod.z.string().nullable().optional().default(""),
-    duration: import_zod.z.string().nullable().optional().default(""),
-    grade: import_zod.z.string().nullable().default(""),
-    gpa: import_zod.z.string().nullable().optional().default(""),
-    honors: import_zod.z.string().nullable().optional().default(""),
-    certifications: import_zod.z.array(import_zod.z.string()).optional().default([])
+  education: z.array(z.object({
+    degree: z.string().nullable().default(""),
+    field_of_study: z.string().nullable().default(""),
+    course: z.string().nullable().optional().default(""),
+    specialization: z.string().nullable().optional().default(""),
+    institution: z.string().nullable().default(""),
+    board: z.string().nullable().optional().default(""),
+    location: z.string().nullable().default(""),
+    start_date: z.string().nullable().default(""),
+    end_date: z.string().nullable().default(""),
+    start_year: z.string().nullable().optional().default(""),
+    end_year: z.string().nullable().optional().default(""),
+    duration: z.string().nullable().optional().default(""),
+    grade: z.string().nullable().default(""),
+    gpa: z.string().nullable().optional().default(""),
+    honors: z.string().nullable().optional().default(""),
+    certifications: z.array(z.string()).optional().default([])
   })).default([]),
-  education_confidence: import_zod.z.enum(["high", "medium", "low"]).optional().default("high"),
-  summary_confidence: import_zod.z.enum(["high", "medium", "low"]).optional().default("high"),
-  needs_review: import_zod.z.boolean().optional().default(false),
-  review_reasons: import_zod.z.array(import_zod.z.string()).optional().default([]),
-  certifications: import_zod.z.array(import_zod.z.union([
-    import_zod.z.string(),
-    import_zod.z.object({
-      name: import_zod.z.string().nullable().default(""),
-      issuer: import_zod.z.string().nullable().default(""),
-      year: import_zod.z.string().nullable().default("")
+  education_confidence: z.enum(["high", "medium", "low"]).optional().default("high"),
+  summary_confidence: z.enum(["high", "medium", "low"]).optional().default("high"),
+  needs_review: z.boolean().optional().default(false),
+  review_reasons: z.array(z.string()).optional().default([]),
+  certifications: z.array(z.union([
+    z.string(),
+    z.object({
+      name: z.string().nullable().default(""),
+      issuer: z.string().nullable().default(""),
+      year: z.string().nullable().default("")
     })
   ])).default([]),
-  publications: import_zod.z.array(import_zod.z.object({
-    title: import_zod.z.string().nullable().default(""),
-    publisher: import_zod.z.string().nullable().default(""),
-    release_date: import_zod.z.string().nullable().default(""),
-    summary: import_zod.z.string().nullable().default("")
+  publications: z.array(z.object({
+    title: z.string().nullable().default(""),
+    publisher: z.string().nullable().default(""),
+    release_date: z.string().nullable().default(""),
+    summary: z.string().nullable().default("")
   })).optional().default([]),
-  volunteer: import_zod.z.array(import_zod.z.object({
-    organization: import_zod.z.string().nullable().default(""),
-    position: import_zod.z.string().nullable().default(""),
-    start_date: import_zod.z.string().nullable().default(""),
-    end_date: import_zod.z.string().nullable().default(""),
-    summary: import_zod.z.string().nullable().default("")
+  volunteer: z.array(z.object({
+    organization: z.string().nullable().default(""),
+    position: z.string().nullable().default(""),
+    start_date: z.string().nullable().default(""),
+    end_date: z.string().nullable().default(""),
+    summary: z.string().nullable().default("")
   })).optional().default([]),
-  volunteering: import_zod.z.array(import_zod.z.union([
-    import_zod.z.string(),
-    import_zod.z.object({
-      organization: import_zod.z.string().nullable().default(""),
-      position: import_zod.z.string().nullable().default(""),
-      start_date: import_zod.z.string().nullable().default(""),
-      end_date: import_zod.z.string().nullable().default(""),
-      summary: import_zod.z.string().nullable().default("")
+  volunteering: z.array(z.union([
+    z.string(),
+    z.object({
+      organization: z.string().nullable().default(""),
+      position: z.string().nullable().default(""),
+      start_date: z.string().nullable().default(""),
+      end_date: z.string().nullable().default(""),
+      summary: z.string().nullable().default("")
     })
   ])).optional().default([]),
-  interests: import_zod.z.array(import_zod.z.union([
-    import_zod.z.string(),
-    import_zod.z.object({
-      name: import_zod.z.string().nullable().default(""),
-      keywords: import_zod.z.array(import_zod.z.string()).default([])
+  interests: z.array(z.union([
+    z.string(),
+    z.object({
+      name: z.string().nullable().default(""),
+      keywords: z.array(z.string()).default([])
     })
   ])).optional().default([]),
-  languages: import_zod.z.array(import_zod.z.union([
-    import_zod.z.string(),
-    import_zod.z.object({
-      language: import_zod.z.string(),
-      proficiency: import_zod.z.string().nullable().default("")
+  languages: z.array(z.union([
+    z.string(),
+    z.object({
+      language: z.string(),
+      proficiency: z.string().nullable().default("")
     })
   ])).default([]),
-  awards: import_zod.z.array(import_zod.z.string()).default([]),
-  warnings: import_zod.z.array(import_zod.z.string()).default([]),
-  quality_score: import_zod.z.number().optional(),
-  completeness: import_zod.z.string().optional(),
-  missing_fields: import_zod.z.array(import_zod.z.string()).optional(),
-  rawText: import_zod.z.string().default("")
+  awards: z.array(z.string()).default([]),
+  warnings: z.array(z.string()).default([]),
+  quality_score: z.number().optional(),
+  completeness: z.string().optional(),
+  missing_fields: z.array(z.string()).optional(),
+  rawText: z.string().default("")
 });
 
 // src/services/resumeParser.server.ts
-var pdfParseModule = __toESM(require("pdf-parse"), 1);
-var import_meta = {};
+import * as pdfParseModule from "pdf-parse";
 async function getPDFParser() {
   const mod = pdfParseModule;
   if (typeof mod === "function" || mod && typeof mod.PDFParse === "function") {
@@ -277,8 +250,8 @@ async function getPDFParser() {
   } catch (e) {
   }
   try {
-    if (typeof require !== "undefined") {
-      const required = require("pdf-parse");
+    if (typeof __require !== "undefined") {
+      const required = __require("pdf-parse");
       if (typeof required === "function" || required && typeof required.PDFParse === "function") return required;
       if (required && (typeof required.default === "function" || required.default && typeof required.default.PDFParse === "function")) return required.default;
     }
@@ -286,7 +259,7 @@ async function getPDFParser() {
   }
   try {
     const { createRequire } = await import("module");
-    const requireBridge = createRequire(import_meta.url);
+    const requireBridge = createRequire(import.meta.url);
     const required = requireBridge("pdf-parse");
     if (typeof required === "function" || required && typeof required.PDFParse === "function") return required;
     if (required && (typeof required.default === "function" || required.default && typeof required.default.PDFParse === "function")) return required.default;
@@ -314,7 +287,7 @@ var RobustResumeParser = class {
         throw new Error("PDF parsing library loaded but has unknown API structure");
       }
     } else if (mimetype === "application/vnd.openxmlformats-officedocument.wordprocessingml.document") {
-      const data = await import_mammoth.default.extractRawText({ buffer });
+      const data = await mammoth.extractRawText({ buffer });
       text = data.value;
     } else {
       text = buffer.toString("utf-8");
@@ -322,7 +295,7 @@ var RobustResumeParser = class {
     return this.parseText(text);
   }
   async parseText(text) {
-    const doc = (0, import_compromise.default)(text);
+    const doc = nlp(text);
     const emailMatch = text.match(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/);
     const email = emailMatch ? emailMatch[0] : "";
     let locationString = "";
@@ -359,7 +332,7 @@ var RobustResumeParser = class {
     const phoneMatch = text.match(/(?:\+?\d{1,3}[-.\s]?)?\(?\d{2,4}\)?[-.\s]?\d{3,4}[-.\s]?\d{4}/);
     let phone = "";
     if (phoneMatch) {
-      const parsedPhone = (0, import_libphonenumber_js.parsePhoneNumberFromString)(phoneMatch[0], "IN") || (0, import_libphonenumber_js.parsePhoneNumberFromString)(phoneMatch[0], "US");
+      const parsedPhone = parsePhoneNumberFromString(phoneMatch[0], "IN") || parsePhoneNumberFromString(phoneMatch[0], "US");
       phone = parsedPhone ? parsedPhone.formatInternational() : phoneMatch[0];
     }
     let name = doc.people().first().text();
@@ -778,14 +751,14 @@ var RobustResumeParser = class {
 };
 
 // src/services/geminiParser.server.ts
-var import_genai = require("@google/genai");
+import { GoogleGenAI, Type } from "@google/genai";
 
 // src/services/resumeParserServer.ts
-var mammoth3 = __toESM(require("mammoth"), 1);
+import * as mammoth3 from "mammoth";
 
 // src/lib/localParser.ts
-var pdfjs = __toESM(require("pdfjs-dist"), 1);
-var mammoth2 = __toESM(require("mammoth"), 1);
+import * as pdfjs from "pdfjs-dist";
+import * as mammoth2 from "mammoth";
 
 // src/lib/skillsChecker.ts
 var SKILLS_MASTER = [
@@ -1694,7 +1667,7 @@ var GeminiResumeParser = class {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return null;
     try {
-      return new import_genai.GoogleGenAI({
+      return new GoogleGenAI({
         apiKey,
         httpOptions: {
           headers: {
@@ -1802,185 +1775,185 @@ CRITICAL INSTRUCTIONS FOR EDUCATION & SUMMARY EXTRACTION:
       responseMimeType: "application/json",
       systemInstruction: promptInstructions,
       responseSchema: {
-        type: import_genai.Type.OBJECT,
+        type: Type.OBJECT,
         properties: {
-          is_resume: { type: import_genai.Type.BOOLEAN },
-          parsing_confidence: { type: import_genai.Type.STRING, enum: ["high", "medium", "low"] },
-          detected_language: { type: import_genai.Type.STRING },
+          is_resume: { type: Type.BOOLEAN },
+          parsing_confidence: { type: Type.STRING, enum: ["high", "medium", "low"] },
+          detected_language: { type: Type.STRING },
           contact: {
-            type: import_genai.Type.OBJECT,
+            type: Type.OBJECT,
             properties: {
-              full_name: { type: import_genai.Type.STRING },
-              email: { type: import_genai.Type.STRING },
-              mobile: { type: import_genai.Type.STRING },
-              designation: { type: import_genai.Type.STRING },
-              location: { type: import_genai.Type.STRING },
-              address: { type: import_genai.Type.STRING }
+              full_name: { type: Type.STRING },
+              email: { type: Type.STRING },
+              mobile: { type: Type.STRING },
+              designation: { type: Type.STRING },
+              location: { type: Type.STRING },
+              address: { type: Type.STRING }
             }
           },
           personal_info: {
-            type: import_genai.Type.OBJECT,
+            type: Type.OBJECT,
             properties: {
-              full_name: { type: import_genai.Type.STRING },
-              headline: { type: import_genai.Type.STRING },
-              email: { type: import_genai.Type.STRING },
-              phone: { type: import_genai.Type.STRING },
+              full_name: { type: Type.STRING },
+              headline: { type: Type.STRING },
+              email: { type: Type.STRING },
+              phone: { type: Type.STRING },
               location: {
-                type: import_genai.Type.OBJECT,
+                type: Type.OBJECT,
                 properties: {
-                  city: { type: import_genai.Type.STRING },
-                  state: { type: import_genai.Type.STRING },
-                  country: { type: import_genai.Type.STRING }
+                  city: { type: Type.STRING },
+                  state: { type: Type.STRING },
+                  country: { type: Type.STRING }
                 }
               },
               links: {
-                type: import_genai.Type.OBJECT,
+                type: Type.OBJECT,
                 properties: {
-                  linkedin: { type: import_genai.Type.STRING },
-                  github: { type: import_genai.Type.STRING },
-                  portfolio: { type: import_genai.Type.STRING },
-                  website: { type: import_genai.Type.STRING },
-                  other: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } }
+                  linkedin: { type: Type.STRING },
+                  github: { type: Type.STRING },
+                  portfolio: { type: Type.STRING },
+                  website: { type: Type.STRING },
+                  other: { type: Type.ARRAY, items: { type: Type.STRING } }
                 }
               }
             }
           },
           links: {
-            type: import_genai.Type.OBJECT,
+            type: Type.OBJECT,
             properties: {
-              linkedin: { type: import_genai.Type.STRING },
-              github: { type: import_genai.Type.STRING },
-              portfolio: { type: import_genai.Type.STRING },
-              website: { type: import_genai.Type.STRING },
-              other_urls: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } }
+              linkedin: { type: Type.STRING },
+              github: { type: Type.STRING },
+              portfolio: { type: Type.STRING },
+              website: { type: Type.STRING },
+              other_urls: { type: Type.ARRAY, items: { type: Type.STRING } }
             }
           },
-          professional_summary: { type: import_genai.Type.STRING },
-          total_experience_years: { type: import_genai.Type.NUMBER },
-          career_level: { type: import_genai.Type.STRING },
-          primary_role: { type: import_genai.Type.STRING },
+          professional_summary: { type: Type.STRING },
+          total_experience_years: { type: Type.NUMBER },
+          career_level: { type: Type.STRING },
+          primary_role: { type: Type.STRING },
           technical_skills: {
-            type: import_genai.Type.OBJECT,
+            type: Type.OBJECT,
             properties: {
-              languages: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } },
-              frontend: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } },
-              backend: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } },
-              databases: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } },
-              cloud_devops: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } },
-              tools: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } },
-              cms_ecommerce: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } },
-              other: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } }
+              languages: { type: Type.ARRAY, items: { type: Type.STRING } },
+              frontend: { type: Type.ARRAY, items: { type: Type.STRING } },
+              backend: { type: Type.ARRAY, items: { type: Type.STRING } },
+              databases: { type: Type.ARRAY, items: { type: Type.STRING } },
+              cloud_devops: { type: Type.ARRAY, items: { type: Type.STRING } },
+              tools: { type: Type.ARRAY, items: { type: Type.STRING } },
+              cms_ecommerce: { type: Type.ARRAY, items: { type: Type.STRING } },
+              other: { type: Type.ARRAY, items: { type: Type.STRING } }
             }
           },
           skills: {
-            type: import_genai.Type.ARRAY,
+            type: Type.ARRAY,
             items: {
-              type: import_genai.Type.OBJECT,
+              type: Type.OBJECT,
               properties: {
-                category: { type: import_genai.Type.STRING },
-                items: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } }
+                category: { type: Type.STRING },
+                items: { type: Type.ARRAY, items: { type: Type.STRING } }
               }
             }
           },
-          all_skills: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } },
+          all_skills: { type: Type.ARRAY, items: { type: Type.STRING } },
           work_experience: {
-            type: import_genai.Type.ARRAY,
+            type: Type.ARRAY,
             items: {
-              type: import_genai.Type.OBJECT,
+              type: Type.OBJECT,
               properties: {
-                job_title: { type: import_genai.Type.STRING },
-                company: { type: import_genai.Type.STRING },
-                location: { type: import_genai.Type.STRING },
-                start_date: { type: import_genai.Type.STRING },
-                end_date: { type: import_genai.Type.STRING },
-                duration: { type: import_genai.Type.STRING },
-                is_current: { type: import_genai.Type.BOOLEAN },
-                responsibilities: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } },
-                technologies: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } },
-                achievements: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } },
-                key_achievements: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } }
+                job_title: { type: Type.STRING },
+                company: { type: Type.STRING },
+                location: { type: Type.STRING },
+                start_date: { type: Type.STRING },
+                end_date: { type: Type.STRING },
+                duration: { type: Type.STRING },
+                is_current: { type: Type.BOOLEAN },
+                responsibilities: { type: Type.ARRAY, items: { type: Type.STRING } },
+                technologies: { type: Type.ARRAY, items: { type: Type.STRING } },
+                achievements: { type: Type.ARRAY, items: { type: Type.STRING } },
+                key_achievements: { type: Type.ARRAY, items: { type: Type.STRING } }
               }
             }
           },
           key_projects: {
-            type: import_genai.Type.ARRAY,
+            type: Type.ARRAY,
             items: {
-              type: import_genai.Type.OBJECT,
+              type: Type.OBJECT,
               properties: {
-                name: { type: import_genai.Type.STRING },
-                description: { type: import_genai.Type.STRING },
-                tech_stack: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } },
-                live_url: { type: import_genai.Type.STRING },
-                code_url: { type: import_genai.Type.STRING },
-                highlights: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } }
+                name: { type: Type.STRING },
+                description: { type: Type.STRING },
+                tech_stack: { type: Type.ARRAY, items: { type: Type.STRING } },
+                live_url: { type: Type.STRING },
+                code_url: { type: Type.STRING },
+                highlights: { type: Type.ARRAY, items: { type: Type.STRING } }
               }
             }
           },
           projects: {
-            type: import_genai.Type.ARRAY,
+            type: Type.ARRAY,
             items: {
-              type: import_genai.Type.OBJECT,
+              type: Type.OBJECT,
               properties: {
-                name: { type: import_genai.Type.STRING },
-                description: { type: import_genai.Type.STRING },
-                technologies: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } },
-                role: { type: import_genai.Type.STRING },
-                live_url: { type: import_genai.Type.STRING },
-                code_url: { type: import_genai.Type.STRING }
+                name: { type: Type.STRING },
+                description: { type: Type.STRING },
+                technologies: { type: Type.ARRAY, items: { type: Type.STRING } },
+                role: { type: Type.STRING },
+                live_url: { type: Type.STRING },
+                code_url: { type: Type.STRING }
               }
             }
           },
           education: {
-            type: import_genai.Type.ARRAY,
+            type: Type.ARRAY,
             items: {
-              type: import_genai.Type.OBJECT,
+              type: Type.OBJECT,
               properties: {
-                degree: { type: import_genai.Type.STRING },
-                field_of_study: { type: import_genai.Type.STRING },
-                course: { type: import_genai.Type.STRING },
-                specialization: { type: import_genai.Type.STRING },
-                institution: { type: import_genai.Type.STRING },
-                board: { type: import_genai.Type.STRING },
-                location: { type: import_genai.Type.STRING },
-                start_date: { type: import_genai.Type.STRING },
-                end_date: { type: import_genai.Type.STRING },
-                start_year: { type: import_genai.Type.STRING },
-                end_year: { type: import_genai.Type.STRING },
-                duration: { type: import_genai.Type.STRING },
-                grade: { type: import_genai.Type.STRING },
-                gpa: { type: import_genai.Type.STRING },
-                honors: { type: import_genai.Type.STRING },
-                certifications: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } }
+                degree: { type: Type.STRING },
+                field_of_study: { type: Type.STRING },
+                course: { type: Type.STRING },
+                specialization: { type: Type.STRING },
+                institution: { type: Type.STRING },
+                board: { type: Type.STRING },
+                location: { type: Type.STRING },
+                start_date: { type: Type.STRING },
+                end_date: { type: Type.STRING },
+                start_year: { type: Type.STRING },
+                end_year: { type: Type.STRING },
+                duration: { type: Type.STRING },
+                grade: { type: Type.STRING },
+                gpa: { type: Type.STRING },
+                honors: { type: Type.STRING },
+                certifications: { type: Type.ARRAY, items: { type: Type.STRING } }
               }
             }
           },
-          education_confidence: { type: import_genai.Type.STRING, enum: ["high", "medium", "low"] },
-          summary_confidence: { type: import_genai.Type.STRING, enum: ["high", "medium", "low"] },
-          needs_review: { type: import_genai.Type.BOOLEAN },
-          review_reasons: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } },
+          education_confidence: { type: Type.STRING, enum: ["high", "medium", "low"] },
+          summary_confidence: { type: Type.STRING, enum: ["high", "medium", "low"] },
+          needs_review: { type: Type.BOOLEAN },
+          review_reasons: { type: Type.ARRAY, items: { type: Type.STRING } },
           certifications: {
-            type: import_genai.Type.ARRAY,
+            type: Type.ARRAY,
             items: {
-              type: import_genai.Type.OBJECT,
+              type: Type.OBJECT,
               properties: {
-                name: { type: import_genai.Type.STRING },
-                issuer: { type: import_genai.Type.STRING },
-                year: { type: import_genai.Type.STRING }
+                name: { type: Type.STRING },
+                issuer: { type: Type.STRING },
+                year: { type: Type.STRING }
               }
             }
           },
           languages: {
-            type: import_genai.Type.ARRAY,
+            type: Type.ARRAY,
             items: {
-              type: import_genai.Type.OBJECT,
+              type: Type.OBJECT,
               properties: {
-                language: { type: import_genai.Type.STRING },
-                proficiency: { type: import_genai.Type.STRING }
+                language: { type: Type.STRING },
+                proficiency: { type: Type.STRING }
               }
             }
           },
-          awards: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } },
-          warnings: { type: import_genai.Type.ARRAY, items: { type: import_genai.Type.STRING } }
+          awards: { type: Type.ARRAY, items: { type: Type.STRING } },
+          warnings: { type: Type.ARRAY, items: { type: Type.STRING } }
         }
       }
     };
@@ -2229,13 +2202,13 @@ function normalizeParsedResume(data, rawText) {
 }
 
 // src/services/geminiSearch.server.ts
-var import_genai2 = require("@google/genai");
+import { GoogleGenAI as GoogleGenAI2, Type as Type2 } from "@google/genai";
 var GeminiSearchAssistant = class {
   getAiClient() {
     const apiKey = process.env.GEMINI_API_KEY;
     if (!apiKey) return null;
     try {
-      return new import_genai2.GoogleGenAI({
+      return new GoogleGenAI2({
         apiKey,
         httpOptions: {
           headers: {
@@ -2326,13 +2299,13 @@ var GeminiSearchAssistant = class {
     const config = {
       responseMimeType: "application/json",
       responseSchema: {
-        type: import_genai2.Type.OBJECT,
+        type: Type2.OBJECT,
         properties: {
           matchedIds: {
-            type: import_genai2.Type.ARRAY,
-            items: { type: import_genai2.Type.STRING }
+            type: Type2.ARRAY,
+            items: { type: Type2.STRING }
           },
-          explanation: { type: import_genai2.Type.STRING }
+          explanation: { type: Type2.STRING }
         },
         required: ["matchedIds", "explanation"]
       }
@@ -2424,10 +2397,10 @@ var GeminiSearchAssistant = class {
 };
 
 // server.ts
-var import_genai3 = require("@google/genai");
+import { GoogleGenAI as GoogleGenAI3 } from "@google/genai";
 
 // src/services/leadWebhookService.ts
-var admin = __toESM(require("firebase-admin"), 1);
+import * as admin from "firebase-admin";
 var geminiParser = new GeminiResumeParser();
 var sleep2 = (ms) => new Promise((res) => setTimeout(res, ms));
 async function retryWithBackoff2(fn, retries = 3, initialDelay = 1e3) {
@@ -2651,47 +2624,47 @@ async function processWebsiteLead(payload, db) {
 }
 
 // server.ts
-var import_openai = __toESM(require("openai"), 1);
-var import_sdk = __toESM(require("@anthropic-ai/sdk"), 1);
+import OpenAI from "openai";
+import Anthropic from "@anthropic-ai/sdk";
 var firebaseConfig = {
   projectId: "ai-studio-applet-webapp-ddf84",
   firestoreDatabaseId: "aurrum-production"
 };
 try {
-  const configPath = import_path.default.join(process.cwd(), "firebase-applet-config.json");
-  if (import_fs.default.existsSync(configPath)) {
-    firebaseConfig = JSON.parse(import_fs.default.readFileSync(configPath, "utf-8"));
+  const configPath = path.join(process.cwd(), "firebase-applet-config.json");
+  if (fs.existsSync(configPath)) {
+    firebaseConfig = JSON.parse(fs.readFileSync(configPath, "utf-8"));
   }
 } catch (e) {
   console.warn("[Server] Could not read firebase-applet-config.json, using fallback config.");
 }
-import_dotenv.default.config();
-var openai = process.env.OPENAI_API_KEY ? new import_openai.default({ apiKey: process.env.OPENAI_API_KEY }) : null;
-var anthropic = process.env.ANTHROPIC_API_KEY ? new import_sdk.default({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
+dotenv.config();
+var openai = process.env.OPENAI_API_KEY ? new OpenAI({ apiKey: process.env.OPENAI_API_KEY }) : null;
+var anthropic = process.env.ANTHROPIC_API_KEY ? new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }) : null;
 var resumeParser = new RobustResumeParser();
 var geminiParser2 = new GeminiResumeParser();
 var geminiSearchAssistant = new GeminiSearchAssistant();
-if (!(0, import_app.getApps)().length) {
+if (!getApps().length) {
   try {
     const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
     console.log("[Server] FIREBASE_SERVICE_ACCOUNT present:", !!serviceAccountJson);
     if (serviceAccountJson) {
       const serviceAccount = JSON.parse(serviceAccountJson);
-      (0, import_app.initializeApp)({
+      initializeApp({
         credential: admin2.credential.cert(serviceAccount),
         projectId: firebaseConfig.projectId
       });
       console.log("[Server] Admin SDK initialized with Service Account for Project:", firebaseConfig.projectId);
     } else {
       console.log("[Server] WARNING: FIREBASE_SERVICE_ACCOUNT env var is missing! Trying ADC.");
-      (0, import_app.initializeApp)({
+      initializeApp({
         projectId: firebaseConfig.projectId
       });
       console.log("[Server] Admin SDK initialized with Project ID (ADC)");
     }
   } catch (initErr) {
     console.error("[Server] Admin SDK Initialization Error:", initErr);
-    (0, import_app.initializeApp)({ projectId: firebaseConfig.projectId });
+    initializeApp({ projectId: firebaseConfig.projectId });
   }
 }
 var adminDb = null;
@@ -2700,13 +2673,13 @@ try {
   const app3 = admin2.app();
   const dbId = firebaseConfig.firestoreDatabaseId || "aurrum-production";
   try {
-    adminDb = (0, import_firestore.getFirestore)(app3, dbId);
+    adminDb = getFirestore(app3, dbId);
     console.log("[Server] Firebase DB initialized successfully for DB:", dbId);
   } catch (e) {
     console.warn("[Server] Failed to init named db:", dbId, "falling back to default");
-    adminDb = (0, import_firestore.getFirestore)(app3);
+    adminDb = getFirestore(app3);
   }
-  adminMessaging = (0, import_messaging.getMessaging)(app3);
+  adminMessaging = getMessaging(app3);
 } catch (sdkError) {
   console.warn("[Server] Firebase Firestore or Messaging is unavailable on this host.", sdkError.message);
 }
@@ -2759,12 +2732,12 @@ var startNotificationListener = async () => {
     console.error("[Server] Failed to initialize notification listener:", err);
   }
 };
-var app2 = (0, import_express.default)();
+var app2 = express();
 app2.set("trust proxy", true);
 var PORT = 3e3;
-app2.use(import_express.default.json({ limit: "50mb" }));
-app2.use(import_express.default.urlencoded({ limit: "50mb", extended: true }));
-app2.use((0, import_cors.default)());
+app2.use(express.json({ limit: "50mb" }));
+app2.use(express.urlencoded({ limit: "50mb", extended: true }));
+app2.use(cors());
 app2.get("/api/health", (req, res) => {
   res.json({
     status: "ok",
@@ -2773,49 +2746,6 @@ app2.get("/api/health", (req, res) => {
     allowedIpsConfigured: !!process.env.ALLOWED_IPS
   });
 });
-var handleWebsiteLeadWebhook = async (req, res) => {
-  try {
-    const apiKeyHeader = req.headers["x-aurrum-api-key"] || req.headers["authorization"];
-    const expectedApiKey = process.env.AURRUM_API_KEY;
-    if (expectedApiKey && expectedApiKey.trim() !== "") {
-      const providedKey = typeof apiKeyHeader === "string" ? apiKeyHeader.startsWith("Bearer ") ? apiKeyHeader.replace("Bearer ", "") : apiKeyHeader : "";
-      if (providedKey !== expectedApiKey) {
-        return res.status(401).json({ success: false, error: "Unauthorized: Invalid or missing X-Aurrum-Api-Key" });
-      }
-    }
-    if (!adminDb) {
-      return res.status(500).json({
-        success: false,
-        error: "Database not initialized. Please ensure FIREBASE_SERVICE_ACCOUNT is configured in Vercel Environment Variables."
-      });
-    }
-    const payload = req.body;
-    if (!payload || typeof payload !== "object") {
-      return res.status(400).json({ success: false, error: "Invalid payload: JSON object expected" });
-    }
-    console.log(`[Webhook] Received website lead for ${payload.email || "unknown"} with resume_url: ${payload.resume_url || "none"}`);
-    const result = await processWebsiteLead(payload, adminDb);
-    if (!result.success) {
-      return res.status(500).json({ success: false, error: result.error });
-    }
-    return res.status(200).json({
-      success: true,
-      candidate_id: result.candidateId,
-      message: "Lead captured, enriched, and stored successfully"
-    });
-  } catch (err) {
-    console.error("[Webhook] Unhandled server error in website lead webhook:", err);
-    return res.status(500).json({
-      success: false,
-      error: err?.message || "Internal server error",
-      stack: err?.stack,
-      firebaseInitialized: !!adminDb,
-      serviceAccountConfigured: !!process.env.FIREBASE_SERVICE_ACCOUNT
-    });
-  }
-};
-app2.post("/wp-json/aurrum/v1/crm-leads", handleWebsiteLeadWebhook);
-app2.post("/api/leads/website-lead", handleWebsiteLeadWebhook);
 app2.get("/api/gemini/status", async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) {
@@ -2835,7 +2765,7 @@ app2.get("/api/gemini/status", async (req, res) => {
   const maskedKey = `${apiKey.slice(0, 6)}...${apiKey.slice(-4)}`;
   const startTime = Date.now();
   try {
-    const ai = new import_genai3.GoogleGenAI({
+    const ai = new GoogleGenAI3({
       apiKey,
       httpOptions: { headers: { "User-Agent": "aistudio-build" } }
     });
@@ -2888,8 +2818,8 @@ app2.get("/api/gemini/status", async (req, res) => {
     });
   }
 });
-var upload = (0, import_multer.default)({
-  storage: import_multer.default.memoryStorage(),
+var upload = multer({
+  storage: multer.memoryStorage(),
   limits: { fileSize: 10 * 1024 * 1024 }
   // 10MB limit
 });
@@ -3072,7 +3002,7 @@ app2.post("/api/batches/:batchId/resumes", upload.single("file"), async (req, re
   });
   res.json({ resumeId: resumeRef.id });
 });
-import_node_cron.default.schedule("*/10 * * * * *", async () => {
+cron.schedule("*/10 * * * * *", async () => {
   if (!adminDb) return;
   const snapshot = await adminDb.collection("resumes").where("status", "==", "pending").limit(1).get();
   if (snapshot.empty) return;
@@ -3112,6 +3042,94 @@ import_node_cron.default.schedule("*/10 * * * * *", async () => {
     console.error(`[Worker] Error processing resume ${resume.fileName}:`, err);
     await resumeDoc.ref.update({ status: "failed", error: err.message });
   }
+});
+async function pollWordPressCrmLeads() {
+  if (!adminDb) return;
+  const apiKey = process.env.AURRUM_WP_API_KEY || process.env.WP_LEADS_API_KEY || process.env.WP_API_KEY;
+  if (!apiKey || apiKey.trim() === "") {
+    return;
+  }
+  try {
+    const wpUrl = process.env.WP_LEADS_API_URL || "https://aurrum.co/wp-json/aurrum/v1/crm-leads?limit=50";
+    const response = await fetch(wpUrl, {
+      method: "GET",
+      headers: {
+        "X-Aurrum-Api-Key": apiKey,
+        "User-Agent": "RectechCRM-Poller/1.0"
+      },
+      signal: AbortSignal.timeout(15e3)
+    });
+    if (response.status === 401) {
+      console.error("[WordPress Poller] ERROR 401 Unauthorized: Invalid or missing X-Aurrum-Api-Key. Please verify AURRUM_WP_API_KEY environment variable.");
+      return;
+    }
+    if (!response.ok) {
+      console.warn(`[WordPress Poller] Transient error: HTTP ${response.status} ${response.statusText}`);
+      return;
+    }
+    const data = await response.json();
+    if (!data.success || !Array.isArray(data.leads) || data.leads.length === 0) {
+      return;
+    }
+    console.log(`[WordPress Poller] Fetched ${data.leads.length} leads from WordPress CRM.`);
+    for (const lead of data.leads) {
+      try {
+        if (lead.crm_action === "skip_no_resume") {
+          console.log(`[WordPress Poller] Skipping lead ${lead.email || lead.id}: action is skip_no_resume.`);
+          continue;
+        }
+        const email = (lead.email || "").trim().toLowerCase();
+        if (!email) {
+          console.warn(`[WordPress Poller] Skipping lead ID ${lead.id}: missing email.`);
+          continue;
+        }
+        const existingSnapshot = await adminDb.collection("candidates").where("email", "==", email).limit(1).get();
+        if (!existingSnapshot.empty) {
+          console.log(`[WordPress Poller] Duplicate lead detected for email ${email}. Skipping.`);
+          continue;
+        }
+        const payload = {
+          source: "wordpress_poller",
+          lead_type: lead.lead_type || "website_contact_form_lead",
+          first_name: lead.first_name || "",
+          last_name: lead.last_name || "",
+          email: lead.email || "",
+          phone: lead.phone || "",
+          company: lead.company || "",
+          service: lead.service || "",
+          country: lead.country || "",
+          message: lead.message || "",
+          resume_url: lead.resume_url || "",
+          resume_file_name: lead.resume_file_name || "",
+          resume_file_type: lead.resume_file_type || "",
+          resume_size: lead.resume_size || 0,
+          submitted_at: lead.submitted_at || (/* @__PURE__ */ new Date()).toISOString()
+        };
+        const result = await processWebsiteLead(payload, adminDb);
+        if (result.success && result.candidateId) {
+          console.log(`[WordPress Poller] Successfully imported lead ${email} as candidate ${result.candidateId}`);
+          await adminDb.collection("notifications").add({
+            recipientId: "admin",
+            title: lead.lead_type === "find_a_job_service_lead" ? "New Candidate Sourced & Parsed" : "New Website Lead Captured",
+            body: `New lead from ${lead.first_name || ""} ${lead.last_name || ""} (${lead.email}) successfully imported and parsed from WordPress CRM.`,
+            type: "lead",
+            read: false,
+            createdAt: admin2.firestore.FieldValue.serverTimestamp(),
+            data: { candidateId: result.candidateId, email: lead.email, leadType: lead.lead_type }
+          });
+        } else {
+          console.error(`[WordPress Poller] Failed to process lead ${email}: ${result.error}`);
+        }
+      } catch (leadErr) {
+        console.error(`[WordPress Poller] Error processing individual lead ID ${lead.id}:`, leadErr);
+      }
+    }
+  } catch (err) {
+    console.error("[WordPress Poller] Polling network/execution error:", err);
+  }
+}
+cron.schedule("*/2 * * * *", async () => {
+  await pollWordPressCrmLeads();
 });
 app2.post("/api/cv/upload", upload.single("file"), async (req, res) => {
   console.log("[Server] POST /api/cv/upload received. File:", req.file?.originalname);
@@ -3188,22 +3206,22 @@ app2.get("/api/bulk-import/report", async (req, res) => {
       const snap = await adminDb.collection("candidates").get();
       dbCount = snap.size;
     }
-    const batchPath = import_path.default.join(process.cwd(), "parsed_candidates_batch.json");
+    const batchPath = path.join(process.cwd(), "parsed_candidates_batch.json");
     let batchCount = dbCount;
-    if (import_fs.default.existsSync(batchPath)) {
+    if (fs.existsSync(batchPath)) {
       try {
-        const batchData = JSON.parse(import_fs.default.readFileSync(batchPath, "utf8"));
+        const batchData = JSON.parse(fs.readFileSync(batchPath, "utf8"));
         if (Array.isArray(batchData)) {
           batchCount = batchData.length;
         }
       } catch (e) {
       }
     }
-    const reportPath = import_path.default.join(process.cwd(), "bulk_import_report.json");
+    const reportPath = path.join(process.cwd(), "bulk_import_report.json");
     let reportData = { totalFiles: Math.max(dbCount, batchCount, 128), successCount: Math.max(dbCount, batchCount, 128), failCount: 0, skipCount: 0, elapsedTimeSeconds: "589.9" };
-    if (import_fs.default.existsSync(reportPath)) {
+    if (fs.existsSync(reportPath)) {
       try {
-        reportData = JSON.parse(import_fs.default.readFileSync(reportPath, "utf8"));
+        reportData = JSON.parse(fs.readFileSync(reportPath, "utf8"));
       } catch (e) {
       }
     }
@@ -3345,7 +3363,7 @@ app2.post("/api/wordpress/import", async (req, res) => {
             source: "WordPress API Bulk Import",
             sourceFile: rawItem?.file_name || `resume_${candidateIndex}.pdf`,
             fileUrl,
-            createdAt: import_firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
             isArchived: false
           };
           if (adminDb) {
@@ -3500,8 +3518,8 @@ app2.post("/api/wordpress/queue-sync", async (req, res) => {
           modifiedDate: item.modified_date || (/* @__PURE__ */ new Date()).toISOString(),
           retryCount: 0,
           priority: 1,
-          createdAt: import_firestore.FieldValue.serverTimestamp(),
-          updatedAt: import_firestore.FieldValue.serverTimestamp()
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp()
         });
         queuedCount++;
       }
@@ -3509,7 +3527,7 @@ app2.post("/api/wordpress/queue-sync", async (req, res) => {
       await adminDb.collection("resume_import_logs").add({
         event: "Queue Initialized / Synchronized",
         details: `Successfully queued ${queuedCount} resumes from WordPress / Local sources.`,
-        createdAt: import_firestore.FieldValue.serverTimestamp()
+        createdAt: FieldValue.serverTimestamp()
       });
     }
     res.json({
@@ -3546,8 +3564,8 @@ app2.post("/api/wordpress/queue-process", async (req, res) => {
           modifiedDate: (/* @__PURE__ */ new Date()).toISOString(),
           retryCount: 0,
           priority: 1,
-          createdAt: import_firestore.FieldValue.serverTimestamp(),
-          updatedAt: import_firestore.FieldValue.serverTimestamp()
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp()
         });
         seeded++;
       }
@@ -3569,13 +3587,13 @@ app2.post("/api/wordpress/queue-process", async (req, res) => {
       const qData = queueDoc.data();
       const queueRef = queueDoc.ref;
       try {
-        await queueRef.update({ status: "processing", updatedAt: import_firestore.FieldValue.serverTimestamp() });
+        await queueRef.update({ status: "processing", updatedAt: FieldValue.serverTimestamp() });
         const cleanName = (qData.fileName || "Candidate").replace(/\.[^/.]+$/, "").replace(/[-_]/g, " ");
         const email = (`wp.${qData.fileName || Date.now()}`.replace(/[^a-zA-Z0-9]/g, "").toLowerCase() + "@auriic.co").slice(0, 40) + "@auriic.co";
         const phone = qData.phone || `+971 50 ${Math.floor(100 + Math.random() * 900)} ${Math.floor(1e3 + Math.random() * 9e3)}`;
         const linkedin = `https://linkedin.com/in/${cleanName.toLowerCase().replace(/\s+/g, "-")}`;
         if (existingEmails.has(email) || existingPhones.has(phone)) {
-          await queueRef.update({ status: "duplicate", updatedAt: import_firestore.FieldValue.serverTimestamp() });
+          await queueRef.update({ status: "duplicate", updatedAt: FieldValue.serverTimestamp() });
           duplicates++;
           return;
         }
@@ -3597,11 +3615,11 @@ app2.post("/api/wordpress/queue-process", async (req, res) => {
           sourceFile: qData.fileName || "resume.pdf",
           fileUrl: qData.fileUrl || "https://auriic.co/aurrum-resume/resume.pdf",
           uploadedBy: qData.uploadedBy || "Heena",
-          createdAt: import_firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
           isArchived: false
         };
         await adminDb.collection("candidates").add(candidateDoc);
-        await queueRef.update({ status: "completed", updatedAt: import_firestore.FieldValue.serverTimestamp() });
+        await queueRef.update({ status: "completed", updatedAt: FieldValue.serverTimestamp() });
         completed++;
       } catch (itemErr) {
         failed++;
@@ -3611,7 +3629,7 @@ app2.post("/api/wordpress/queue-process", async (req, res) => {
           status: newStatus,
           retryCount,
           error: itemErr?.message || String(itemErr),
-          updatedAt: import_firestore.FieldValue.serverTimestamp()
+          updatedAt: FieldValue.serverTimestamp()
         });
       }
     });
@@ -3719,8 +3737,8 @@ app2.post("/api/bulk-import/enqueue", upload.array("files"), async (req, res) =>
           uploadedBy: userId,
           size: file.size,
           extension: file.originalname.split(".").pop() || "pdf",
-          createdAt: import_firestore.FieldValue.serverTimestamp(),
-          updatedAt: import_firestore.FieldValue.serverTimestamp()
+          createdAt: FieldValue.serverTimestamp(),
+          updatedAt: FieldValue.serverTimestamp()
         });
         skippedCount++;
         continue;
@@ -3738,8 +3756,8 @@ app2.post("/api/bulk-import/enqueue", upload.array("files"), async (req, res) =>
         extension: file.originalname.split(".").pop() || "pdf",
         fileContentBase64: file.size < 9e5 ? file.buffer.toString("base64") : null,
         retryCount: 0,
-        createdAt: import_firestore.FieldValue.serverTimestamp(),
-        updatedAt: import_firestore.FieldValue.serverTimestamp()
+        createdAt: FieldValue.serverTimestamp(),
+        updatedAt: FieldValue.serverTimestamp()
       });
       queuedCount++;
     }
@@ -3747,7 +3765,7 @@ app2.post("/api/bulk-import/enqueue", upload.array("files"), async (req, res) =>
     await adminDb.collection("resume_import_logs").add({
       event: "Manual Bulk Upload Enqueued",
       details: `Batch ${batchId}: Enqueued ${queuedCount} files, skipped ${skippedCount} duplicates/oversized.`,
-      createdAt: import_firestore.FieldValue.serverTimestamp()
+      createdAt: FieldValue.serverTimestamp()
     });
     res.json({ status: true, batchId, queuedCount, skippedCount, message: `Successfully enqueued ${queuedCount} files into import queue.` });
   } catch (err) {
@@ -3781,7 +3799,7 @@ app2.post("/api/bulk-import/process", async (req, res) => {
         const ref = docRef.ref;
         if (qData.status === "completed") return;
         try {
-          await ref.update({ status: "processing", updatedAt: import_firestore.FieldValue.serverTimestamp() });
+          await ref.update({ status: "processing", updatedAt: FieldValue.serverTimestamp() });
           let parsedData = null;
           if (qData.fileContentBase64) {
             try {
@@ -3814,11 +3832,11 @@ app2.post("/api/bulk-import/process", async (req, res) => {
             fileUrl: qData.fileUrl || "https://auriic.co/aurrum-resume/resume.pdf",
             uploadedBy: qData.uploadedBy || "System",
             batchId: qData.batchId || null,
-            createdAt: import_firestore.FieldValue.serverTimestamp(),
+            createdAt: FieldValue.serverTimestamp(),
             isArchived: false
           };
           await adminDb.collection("candidates").add(candidateDoc);
-          await ref.update({ status: "completed", updatedAt: import_firestore.FieldValue.serverTimestamp() });
+          await ref.update({ status: "completed", updatedAt: FieldValue.serverTimestamp() });
           completed++;
         } catch (itemErr) {
           failed++;
@@ -3828,7 +3846,7 @@ app2.post("/api/bulk-import/process", async (req, res) => {
             status: newStatus,
             retryCount,
             error: itemErr?.message || String(itemErr),
-            updatedAt: import_firestore.FieldValue.serverTimestamp()
+            updatedAt: FieldValue.serverTimestamp()
           });
         }
       }));
@@ -3885,14 +3903,14 @@ app2.get("/api/bulk-import/progress", async (req, res) => {
     res.status(500).json({ status: false, error: err?.message || String(err) });
   }
 });
-import_node_cron.default.schedule("*/10 * * * *", async () => {
+cron.schedule("*/10 * * * *", async () => {
   if (!adminDb) return;
   try {
     const failSnap = await adminDb.collection("resume_import_queue").where("status", "==", "failed").where("retryCount", "<", 3).limit(50).get();
     if (failSnap.empty) return;
     const batch = adminDb.batch();
     failSnap.forEach((doc) => {
-      batch.update(doc.ref, { status: "retrying", updatedAt: import_firestore.FieldValue.serverTimestamp() });
+      batch.update(doc.ref, { status: "retrying", updatedAt: FieldValue.serverTimestamp() });
     });
     await batch.commit();
     console.log(`[ScheduledRetry] Reset ${failSnap.size} failed queue items to 'retrying'.`);
@@ -4111,13 +4129,13 @@ app2.post("/api/candidates/reparse-candidate", async (req, res) => {
 });
 app2.post("/api/bulk-import/sync", async (req, res) => {
   try {
-    const batchPath = import_path.default.join(process.cwd(), "parsed_candidates_batch.json");
-    if (!import_fs.default.existsSync(batchPath)) {
+    const batchPath = path.join(process.cwd(), "parsed_candidates_batch.json");
+    if (!fs.existsSync(batchPath)) {
       return res.status(200).json({ status: true, syncedCount: 0, message: "parsed_candidates_batch.json not found, but CRM is live with Firestore data." });
     }
     let candidates = [];
     try {
-      const fileContent = import_fs.default.readFileSync(batchPath, "utf8");
+      const fileContent = fs.readFileSync(batchPath, "utf8");
       candidates = JSON.parse(fileContent);
     } catch (parseErr) {
       return res.status(200).json({ status: false, message: "Failed to parse batch JSON file: " + parseErr.message });
@@ -4137,7 +4155,7 @@ app2.post("/api/bulk-import/sync", async (req, res) => {
             if (existing.empty) {
               await colRef.add({
                 ...cand,
-                createdAt: import_firestore.FieldValue.serverTimestamp(),
+                createdAt: FieldValue.serverTimestamp(),
                 isArchived: false
               });
               syncedCount++;
@@ -4145,7 +4163,7 @@ app2.post("/api/bulk-import/sync", async (req, res) => {
           } else {
             await colRef.add({
               ...cand,
-              createdAt: import_firestore.FieldValue.serverTimestamp(),
+              createdAt: FieldValue.serverTimestamp(),
               isArchived: false
             });
             syncedCount++;
@@ -4163,11 +4181,11 @@ app2.post("/api/bulk-import/sync", async (req, res) => {
 });
 app2.get("/api/bulk-resumes/files", async (req, res) => {
   try {
-    const resumesDir = import_path.default.join(process.cwd(), "bulk_resumes", "Heena");
-    if (!import_fs.default.existsSync(resumesDir)) {
+    const resumesDir = path.join(process.cwd(), "bulk_resumes", "Heena");
+    if (!fs.existsSync(resumesDir)) {
       return res.status(404).json({ status: false, error: "bulk_resumes/Heena directory not found" });
     }
-    const files = import_fs.default.readdirSync(resumesDir).filter((f) => !f.startsWith("."));
+    const files = fs.readdirSync(resumesDir).filter((f) => !f.startsWith("."));
     const syncedFiles = /* @__PURE__ */ new Set();
     if (adminDb) {
       try {
@@ -4204,8 +4222,8 @@ app2.post("/api/bulk-resumes/sync-single", async (req, res) => {
     if (!fileName) {
       return res.status(400).json({ status: false, error: "fileName is required" });
     }
-    const filePath = import_path.default.join(process.cwd(), "bulk_resumes", "Heena", fileName);
-    if (!import_fs.default.existsSync(filePath)) {
+    const filePath = path.join(process.cwd(), "bulk_resumes", "Heena", fileName);
+    if (!fs.existsSync(filePath)) {
       return res.status(404).json({ status: false, error: `File ${fileName} not found` });
     }
     if (adminDb) {
@@ -4257,7 +4275,7 @@ app2.post("/api/bulk-resumes/sync-single", async (req, res) => {
       source: "Local Bulk Resumes Folder (Heena)",
       sourceFile: fileName,
       fileUrl: `/bulk_resumes/Heena/${encodeURIComponent(fileName)}`,
-      createdAt: import_firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
       isArchived: false
     };
     if (adminDb) {
@@ -4275,11 +4293,11 @@ app2.post("/api/bulk-resumes/sync-single", async (req, res) => {
 });
 app2.post("/api/bulk-resumes/local-sync", async (req, res) => {
   try {
-    const resumesDir = import_path.default.join(process.cwd(), "bulk_resumes", "Heena");
-    if (!import_fs.default.existsSync(resumesDir)) {
+    const resumesDir = path.join(process.cwd(), "bulk_resumes", "Heena");
+    if (!fs.existsSync(resumesDir)) {
       return res.status(404).json({ status: false, error: "bulk_resumes/Heena directory not found" });
     }
-    const files = import_fs.default.readdirSync(resumesDir).filter((f) => !f.startsWith("."));
+    const files = fs.readdirSync(resumesDir).filter((f) => !f.startsWith("."));
     console.log(`[LocalSync] Found ${files.length} resume files in bulk_resumes/Heena`);
     const existingEmails = /* @__PURE__ */ new Set();
     const existingPhones = /* @__PURE__ */ new Set();
@@ -4353,7 +4371,7 @@ app2.post("/api/bulk-resumes/local-sync", async (req, res) => {
           source: "Local Bulk Resumes Folder (Heena)",
           sourceFile: fileName,
           fileUrl: `/bulk_resumes/Heena/${encodeURIComponent(fileName)}`,
-          createdAt: import_firestore.FieldValue.serverTimestamp(),
+          createdAt: FieldValue.serverTimestamp(),
           isArchived: false
         };
         if (adminDb) {
@@ -4399,7 +4417,7 @@ app2.get("/api/backup/download/:type", async (req, res) => {
       return res.status(403).json({ status: false, message: "Access Denied" });
     }
     if (type === "full") {
-      const zip = new import_adm_zip.default();
+      const zip = new AdmZip();
       const projectDir = process.cwd();
       zip.addLocalFolder(projectDir, void 0, (filename) => {
         return !filename.includes("node_modules") && !filename.includes(".git") && !filename.includes("dist") && !filename.includes(".firebase");
@@ -4417,17 +4435,17 @@ app2.get("/api/backup/download/:type", async (req, res) => {
 });
 async function bootstrap() {
   if (process.env.NODE_ENV !== "production" && !process.env.VERCEL) {
-    const vite = await (0, import_vite.createServer)({
+    const vite = await createViteServer({
       server: { middlewareMode: true },
       appType: "spa"
     });
     app2.use(vite.middlewares);
   } else {
-    const distPath = import_path.default.join(process.cwd(), "build");
-    app2.use(import_express.default.static(distPath));
+    const distPath = path.join(process.cwd(), "build");
+    app2.use(express.static(distPath));
     if (!process.env.VERCEL) {
       app2.get("*", (req, res) => {
-        const indexPath = import_fs.default.existsSync(import_path.default.join(distPath, "index.html")) ? import_path.default.join(distPath, "index.html") : import_path.default.join(process.cwd(), "index.html");
+        const indexPath = fs.existsSync(path.join(distPath, "index.html")) ? path.join(distPath, "index.html") : path.join(process.cwd(), "index.html");
         res.sendFile(indexPath);
       });
     }
@@ -4448,4 +4466,7 @@ bootstrap().catch((err) => {
   console.error("[Server] Bootstrap Error:", err);
 });
 var server_default = app2;
-//# sourceMappingURL=server.cjs.map
+export {
+  server_default as default
+};
+//# sourceMappingURL=index.js.map

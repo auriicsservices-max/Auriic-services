@@ -112,7 +112,7 @@ import {
 import LinkedInSearch from '../components/LinkedInSearch';
 import DatabaseDetails from '../components/DatabaseDetails';
 import BackupDashboard from '../components/BackupDashboard';
-import { DashboardHomeSkeleton, CandidateTableSkeleton, AnalyticsSkeleton, PipelineSkeleton, RepositorySkeleton, InvoicesSkeleton, SettingsSkeleton, ProfileSkeleton } from '../components/Skeletons';
+import { DashboardHomeSkeleton, CandidateTableSkeleton, AnalyticsSkeleton, PipelineSkeleton, RepositorySkeleton, InvoicesSkeleton, SettingsSkeleton, ProfileSkeleton, NotificationSkeleton } from '../components/Skeletons';
 
 export default function Dashboard() {
   const navigate = useNavigate();

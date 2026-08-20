@@ -233,3 +233,23 @@ export function AnalyticsSkeleton() {
   );
 }
 
+export function NotificationSkeleton() {
+  return (
+    <div className="space-y-4 animate-pulse max-w-4xl mx-auto">
+      <div className="h-6 w-48 bg-[var(--border-color)]/50 rounded-md"></div>
+      <div className="crm-card p-6 bg-[var(--card-bg)] border border-[var(--border-color)] rounded-2xl space-y-4">
+        {[1, 2, 3, 4, 5].map((i) => (
+          <div key={i} className="flex items-start gap-4 p-4 rounded-xl bg-[var(--bg-secondary)] border border-[var(--border-color)]">
+            <div className="w-10 h-10 rounded-xl bg-[var(--border-color)]/50 shrink-0"></div>
+            <div className="space-y-2 flex-1">
+              <div className="h-4 w-1/3 bg-[var(--border-color)]/60 rounded-md"></div>
+              <div className="h-3 w-3/4 bg-[var(--border-color)]/40 rounded-md"></div>
+            </div>
+            <div className="h-3 w-16 bg-[var(--border-color)]/30 rounded-md"></div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+

@@ -167,59 +167,7 @@ app.get('/api/health', (req, res) => {
   });
 });
 
-// WordPress Contact Form Lead Webhook & Enrichment Pipeline
-const handleWebsiteLeadWebhook = async (req: express.Request, res: express.Response) => {
-  try {
-    const apiKeyHeader = req.headers['x-aurrum-api-key'] || req.headers['authorization'];
-    const expectedApiKey = process.env.AURRUM_API_KEY;
-
-    if (expectedApiKey && expectedApiKey.trim() !== '') {
-      const providedKey = typeof apiKeyHeader === 'string' 
-        ? apiKeyHeader.startsWith('Bearer ') ? apiKeyHeader.replace('Bearer ', '') : apiKeyHeader 
-        : '';
-      if (providedKey !== expectedApiKey) {
-        return res.status(401).json({ success: false, error: 'Unauthorized: Invalid or missing X-Aurrum-Api-Key' });
-      }
-    }
-
-    if (!adminDb) {
-      return res.status(500).json({ 
-        success: false, 
-        error: 'Database not initialized. Please ensure FIREBASE_SERVICE_ACCOUNT is configured in Vercel Environment Variables.' 
-      });
-    }
-
-    const payload = req.body;
-    if (!payload || typeof payload !== 'object') {
-      return res.status(400).json({ success: false, error: 'Invalid payload: JSON object expected' });
-    }
-
-    console.log(`[Webhook] Received website lead for ${payload.email || 'unknown'} with resume_url: ${payload.resume_url || 'none'}`);
-
-    const result = await processWebsiteLead(payload, adminDb);
-    if (!result.success) {
-      return res.status(500).json({ success: false, error: result.error });
-    }
-
-    return res.status(200).json({
-      success: true,
-      candidate_id: result.candidateId,
-      message: 'Lead captured, enriched, and stored successfully'
-    });
-  } catch (err: any) {
-    console.error('[Webhook] Unhandled server error in website lead webhook:', err);
-    return res.status(500).json({ 
-      success: false, 
-      error: err?.message || 'Internal server error', 
-      stack: err?.stack,
-      firebaseInitialized: !!adminDb,
-      serviceAccountConfigured: !!process.env.FIREBASE_SERVICE_ACCOUNT
-    });
-  }
-};
-
-app.post('/wp-json/aurrum/v1/crm-leads', handleWebsiteLeadWebhook);
-app.post('/api/leads/website-lead', handleWebsiteLeadWebhook);
+// Old inbound webhook route retired in favor of scheduled polling model
 
 app.get('/api/gemini/status', async (req, res) => {
   const apiKey = process.env.GEMINI_API_KEY;
@@ -577,6 +525,115 @@ cron.schedule('*/10 * * * * *', async () => {
         console.error(`[Worker] Error processing resume ${resume.fileName}:`, err);
         await resumeDoc.ref.update({ status: 'failed', error: (err as Error).message });
     }
+});
+
+// WordPress CRM Leads Polling Service (polls https://aurrum.co/wp-json/aurrum/v1/crm-leads every 2 minutes)
+async function pollWordPressCrmLeads() {
+  if (!adminDb) return;
+  const apiKey = process.env.AURRUM_WP_API_KEY || process.env.WP_LEADS_API_KEY || process.env.WP_API_KEY;
+  if (!apiKey || apiKey.trim() === '') {
+    return;
+  }
+
+  try {
+    const wpUrl = process.env.WP_LEADS_API_URL || 'https://aurrum.co/wp-json/aurrum/v1/crm-leads?limit=50';
+    const response = await fetch(wpUrl, {
+      method: 'GET',
+      headers: {
+        'X-Aurrum-Api-Key': apiKey,
+        'User-Agent': 'RectechCRM-Poller/1.0'
+      },
+      signal: AbortSignal.timeout(15000)
+    });
+
+    if (response.status === 401) {
+      console.error('[WordPress Poller] ERROR 401 Unauthorized: Invalid or missing X-Aurrum-Api-Key. Please verify AURRUM_WP_API_KEY environment variable.');
+      return;
+    }
+
+    if (!response.ok) {
+      console.warn(`[WordPress Poller] Transient error: HTTP ${response.status} ${response.statusText}`);
+      return;
+    }
+
+    const data: any = await response.json();
+    if (!data.success || !Array.isArray(data.leads) || data.leads.length === 0) {
+      return;
+    }
+
+    console.log(`[WordPress Poller] Fetched ${data.leads.length} leads from WordPress CRM.`);
+
+    for (const lead of data.leads) {
+      try {
+        if (lead.crm_action === 'skip_no_resume') {
+          console.log(`[WordPress Poller] Skipping lead ${lead.email || lead.id}: action is skip_no_resume.`);
+          continue;
+        }
+
+        const email = (lead.email || '').trim().toLowerCase();
+        if (!email) {
+          console.warn(`[WordPress Poller] Skipping lead ID ${lead.id}: missing email.`);
+          continue;
+        }
+
+        // Deduplication by email against existing candidates in Firestore
+        const existingSnapshot = await adminDb.collection('candidates')
+          .where('email', '==', email)
+          .limit(1)
+          .get();
+
+        if (!existingSnapshot.empty) {
+          console.log(`[WordPress Poller] Duplicate lead detected for email ${email}. Skipping.`);
+          continue;
+        }
+
+        const payload = {
+          source: 'wordpress_poller',
+          lead_type: lead.lead_type || 'website_contact_form_lead',
+          first_name: lead.first_name || '',
+          last_name: lead.last_name || '',
+          email: lead.email || '',
+          phone: lead.phone || '',
+          company: lead.company || '',
+          service: lead.service || '',
+          country: lead.country || '',
+          message: lead.message || '',
+          resume_url: lead.resume_url || '',
+          resume_file_name: lead.resume_file_name || '',
+          resume_file_type: lead.resume_file_type || '',
+          resume_size: lead.resume_size || 0,
+          submitted_at: lead.submitted_at || new Date().toISOString()
+        };
+
+        const result = await processWebsiteLead(payload, adminDb);
+        if (result.success && result.candidateId) {
+          console.log(`[WordPress Poller] Successfully imported lead ${email} as candidate ${result.candidateId}`);
+
+          // Send notification to admins, team leaders, and developers
+          await adminDb.collection('notifications').add({
+            recipientId: 'admin',
+            title: lead.lead_type === 'find_a_job_service_lead' ? 'New Candidate Sourced & Parsed' : 'New Website Lead Captured',
+            body: `New lead from ${lead.first_name || ''} ${lead.last_name || ''} (${lead.email}) successfully imported and parsed from WordPress CRM.`,
+            type: 'lead',
+            read: false,
+            createdAt: admin.firestore.FieldValue.serverTimestamp(),
+            data: { candidateId: result.candidateId, email: lead.email, leadType: lead.lead_type }
+          });
+        } else {
+          console.error(`[WordPress Poller] Failed to process lead ${email}: ${result.error}`);
+        }
+      } catch (leadErr: any) {
+        console.error(`[WordPress Poller] Error processing individual lead ID ${lead.id}:`, leadErr);
+      }
+    }
+  } catch (err: any) {
+    console.error('[WordPress Poller] Polling network/execution error:', err);
+  }
+}
+
+// Poll WordPress CRM Leads every 2 minutes
+cron.schedule('*/2 * * * *', async () => {
+  await pollWordPressCrmLeads();
 });
 
 app.post('/api/cv/upload', upload.single('file'), async (req, res) => {
