@@ -1,0 +1,76 @@
+Build the WordPress lead integration end to end. This replaces any previous webhook/poller code you had for this - use this spec as the source of truth.
+
+## 1. Background poller
+
+Poll this endpoint every 2-5 minutes (your choice):
+
+GET https://aurrum.co/wp-json/aurrum/v1/crm-leads?limit=50
+Header: X-Aurrum-Api-Key: <key, will be provided separately>
+
+IMPORTANT: send the key ONLY as that exact custom header name, X-Aurrum-Api-Key. Do NOT set an Authorization header (no Bearer token) on this request at all - if your HTTP client defaults to adding one, explicitly strip it for this call. Sending an Authorization: Bearer header on this request will cause a 401 from an unrelated system on their end that has nothing to do with this integration - the fix is simply: do not send that header.
+
+Response shape:
+
+{
+  "success": true,
+  "count": 1,
+  "leads": [
+    {
+      "id": 21,
+      "lead_type": "find_a_job_service_lead",
+      "source": "website",
+      "first_name": "...",
+      "last_name": "...",
+      "email": "...",
+      "phone": "...",
+      "company": "...",
+      "service": "...",
+      "country": "...",
+      "message": "...",
+      "resume_url": "https://aurrum.co/wp-content/uploads/resumes/2026/08/somefile.pdf",
+      "resume_file_name": "somefile.pdf",
+      "resume_file_type": "application/pdf",
+      "resume_size": 72590,
+      "submitted_at": "2026-08-20 19:23:19",
+      "created_at": "2026-08-20 19:23:19"
+    }
+  ]
+}
+
+Handle count: 0 (empty leads array) as a normal no-op, not an error. This will be the common case since it only returns NEW leads since the last poll - fetched leads are marked delivered on WordPress's side immediately, so the same lead is never returned twice. No local "have I seen this id" tracking is needed on your end for that reason.
+
+lead_type is one of two values:
+- "find_a_job_service_lead" = a candidate application. These are ONLY ever included in this response if they have a resume attached (resume_url is always present and non-empty for this type) - leads without a resume are filtered out on WordPress's side before they ever reach this API, so no resume-check or skip logic is needed here.
+- "website_contact_form_lead" = a general business/hiring inquiry, never has a resume.
+
+## 2. Per-lead processing
+
+For each lead in the response:
+
+1. De-duplicate by email: check your own CRM records for an existing entry with this email before inserting. Only insert if it's new (or update the existing record if that fits your existing convention better) - never create a duplicate.
+2. If lead_type is "find_a_job_service_lead":
+   - Download the file at resume_url (it's a direct, publicly reachable URL to a PDF, DOC, or DOCX file - resume_file_type tells you which).
+   - Validate it (magic bytes / file size) same as your existing resume ingestion does elsewhere in the app.
+   - Parse it with your existing resume parser (same Gemini-based parsing you already use for other resume ingestion in this app) to extract structured candidate data (skills, experience, etc).
+   - Create/update the candidate record with both the raw submitted fields AND the parsed resume data.
+3. If lead_type is "website_contact_form_lead":
+   - Create/update it as a general lead/contact record (no resume parsing needed).
+4. Send an in-app notification to admins/team leads (recipientId: 'admin', same as your existing notification pattern) when a new lead/candidate is successfully added.
+
+## 3. Sidebar menu
+
+Add a new item to the CRM's sidebar navigation for these website-sourced leads, showing:
+- List of leads/candidates that came in through this integration (both types, or split into two views if that fits the existing CRM's information architecture better - e.g. a "Website Leads" section with candidate and general-inquiry tabs)
+- For candidate leads: name, email, phone, parsed resume summary/skills, link to the original resume file, submission date
+- For general leads: name, email, phone, company, service interested in, message, submission date
+- This should reflect data that's already been pulled in and processed by the poller above - it's a view onto the CRM's own database, not a live call to WordPress.
+
+## 4. Configuration
+
+Add environment variables/secrets for:
+- The WordPress endpoint URL (https://aurrum.co/wp-json/aurrum/v1/crm-leads)
+- The X-Aurrum-Api-Key value (will be provided)
+
+Confirm both are read correctly by the poller and wired into the request as described in section 1, then redeploy.
+
+Once deployed, do a one-off manual trigger of the poller and confirm you get a 200 response with valid JSON (not a 401) - if you get a 401, the most likely cause is an Authorization header being sent alongside or instead of X-Aurrum-Api-Key, per the warning in section 1.

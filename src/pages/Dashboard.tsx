@@ -112,6 +112,7 @@ import {
 import LinkedInSearch from '../components/LinkedInSearch';
 import DatabaseDetails from '../components/DatabaseDetails';
 import BackupDashboard from '../components/BackupDashboard';
+import WebsiteLeadsView from '../components/WebsiteLeadsView';
 import { DashboardHomeSkeleton, CandidateTableSkeleton, AnalyticsSkeleton, PipelineSkeleton, RepositorySkeleton, InvoicesSkeleton, SettingsSkeleton, ProfileSkeleton, NotificationSkeleton } from '../components/Skeletons';
 
 export default function Dashboard() {
@@ -291,7 +292,7 @@ export default function Dashboard() {
   }[]>([]);
 
 
-  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'notifications' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills' | 'client-portal'>(() => {
+  const [activeTab, setActiveTab] = useState<'home' | 'candidates' | 'pipeline' | 'notifications' | 'users' | 'analytics' | 'trash' | 'shortlist' | 'profile' | 'logs' | 'activity_logs' | 'upload' | 'repository' | 'settings' | 'backup' | 'database' | 'invoices' | 'linkedin-search' | 'custom_skills' | 'client-portal' | 'website_leads'>(() => {
     return (location.state as any)?.tab || 'home';
   });
   const [bulkLimit, setBulkLimit] = useState<number>(10);
@@ -1833,6 +1834,7 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
                 ...(role === 'client' || role === 'admin' || role === 'developer' ? [{ id: 'client-portal', label: 'Client Portal', icon: Sparkles }] : []),
                 ...(role === 'client' || role === 'admin' || role === 'developer' ? [{ id: 'pipeline', label: 'Pipeline', icon: Layers }] : []),
                 { id: 'candidates', label: 'Candidates', icon: Users },
+                ...(role === 'developer' ? [{ id: 'website_leads', label: 'Website Leads', icon: Globe }] : []),
                 ...(role !== 'client' ? [{ id: 'upload', label: 'CV Parsing', icon: Upload }] : []),
                 { id: 'shortlist', label: 'Shortlist', icon: Star },
                 { id: 'analytics', label: 'Talent Insights', icon: AnalyticsIcon },
@@ -2221,6 +2223,8 @@ const handleFirestoreError = (error: any, operationType: string, path: string | 
              <BackupDashboard />
           ) : activeTab === 'database' ? (
              <DatabaseDetails />
+          ) : activeTab === 'website_leads' ? (
+             <WebsiteLeadsView candidates={candidates} onRefresh={() => {}} />
           ) : activeTab === 'invoices' ? (
              <InvoiceList />
           ) : role === 'client' ? (

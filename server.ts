@@ -527,54 +527,102 @@ cron.schedule('*/10 * * * * *', async () => {
     }
 });
 
-// WordPress CRM Leads Polling Service (polls https://aurrum.co/wp-json/aurrum/v1/crm-leads every 2 minutes)
+// WordPress CRM Leads Background Poller & Sync Service
+const wordpressPollerRuns: Array<{
+  timestamp: string;
+  url: string;
+  status?: number;
+  statusText?: string;
+  success: boolean;
+  leadsFetched: number;
+  error?: string;
+}> = [];
+
 async function pollWordPressCrmLeads() {
-  if (!adminDb) return;
-  const apiKey = process.env.AURRUM_WP_API_KEY || process.env.WP_LEADS_API_KEY || process.env.WP_API_KEY;
+  const runTimestamp = new Date().toISOString();
+  const wpUrl = process.env.WP_LEADS_API_URL || 'https://aurrum.co/wp-json/aurrum/v1/crm-leads?limit=50';
+  const apiKey = process.env.AURRUM_WP_API_KEY || process.env.WP_LEADS_API_KEY;
+
   if (!apiKey || apiKey.trim() === '') {
-    return;
+    const logEntry = {
+      timestamp: runTimestamp,
+      url: wpUrl,
+      success: false,
+      leadsFetched: 0,
+      error: 'API key missing (AURRUM_WP_API_KEY / WP_LEADS_API_KEY not set)'
+    };
+    wordpressPollerRuns.unshift(logEntry);
+    if (wordpressPollerRuns.length > 20) wordpressPollerRuns.pop();
+    console.warn('[WordPress Poller] API key missing. Skipping poll.');
+    return logEntry;
   }
 
   try {
-    const wpUrl = process.env.WP_LEADS_API_URL || 'https://aurrum.co/wp-json/aurrum/v1/crm-leads?limit=50';
+    const headers: Record<string, string> = {
+      'X-Aurrum-Api-Key': apiKey,
+      'User-Agent': 'AurrumCRM-Poller/1.0'
+    };
+    // IMPORTANT: Do NOT send an Authorization header (no Bearer token) on this request at all per instructions!
+
     const response = await fetch(wpUrl, {
       method: 'GET',
-      headers: {
-        'X-Aurrum-Api-Key': apiKey,
-        'User-Agent': 'RectechCRM-Poller/1.0'
-      },
-      signal: AbortSignal.timeout(15000)
+      headers,
+      signal: AbortSignal.timeout(20000)
     });
 
-    if (response.status === 401) {
-      console.error('[WordPress Poller] ERROR 401 Unauthorized: Invalid or missing X-Aurrum-Api-Key. Please verify AURRUM_WP_API_KEY environment variable.');
-      return;
+    const status = response.status;
+    const statusText = response.statusText;
+
+    if (status === 401) {
+      const errStr = 'HTTP 401 Unauthorized: Invalid or missing X-Aurrum-Api-Key.';
+      console.error(`[WordPress Poller] ${errStr}`);
+      const logEntry = { timestamp: runTimestamp, url: wpUrl, status, statusText, success: false, leadsFetched: 0, error: errStr };
+      wordpressPollerRuns.unshift(logEntry);
+      if (wordpressPollerRuns.length > 20) wordpressPollerRuns.pop();
+      return logEntry;
     }
 
     if (!response.ok) {
-      console.warn(`[WordPress Poller] Transient error: HTTP ${response.status} ${response.statusText}`);
-      return;
+      const errStr = `HTTP ${status} ${statusText}`;
+      console.warn(`[WordPress Poller] Transient error: ${errStr}`);
+      const logEntry = { timestamp: runTimestamp, url: wpUrl, status, statusText, success: false, leadsFetched: 0, error: errStr };
+      wordpressPollerRuns.unshift(logEntry);
+      if (wordpressPollerRuns.length > 20) wordpressPollerRuns.pop();
+      return logEntry;
     }
 
     const data: any = await response.json();
-    if (!data.success || !Array.isArray(data.leads) || data.leads.length === 0) {
-      return;
+    const leads = Array.isArray(data?.leads) ? data.leads : (Array.isArray(data) ? data : []);
+    const leadsCount = leads.length;
+
+    const logEntry = {
+      timestamp: runTimestamp,
+      url: wpUrl,
+      status,
+      statusText,
+      success: true,
+      leadsFetched: leadsCount,
+      error: undefined
+    };
+    wordpressPollerRuns.unshift(logEntry);
+    if (wordpressPollerRuns.length > 20) wordpressPollerRuns.pop();
+
+    if (!adminDb) {
+      console.warn('[WordPress Poller] AdminDb unavailable, fetched leads not stored in Firestore.');
+      return logEntry;
     }
 
-    console.log(`[WordPress Poller] Fetched ${data.leads.length} leads from WordPress CRM.`);
+    if (leadsCount === 0) {
+      console.log(`[WordPress Poller] Fetched successfully (HTTP ${status}), 0 new leads found.`);
+      return logEntry;
+    }
 
-    for (const lead of data.leads) {
+    console.log(`[WordPress Poller] Fetched ${leadsCount} leads from WordPress CRM.`);
+
+    for (const lead of leads) {
       try {
-        if (lead.crm_action === 'skip_no_resume') {
-          console.log(`[WordPress Poller] Skipping lead ${lead.email || lead.id}: action is skip_no_resume.`);
-          continue;
-        }
-
         const email = (lead.email || '').trim().toLowerCase();
-        if (!email) {
-          console.warn(`[WordPress Poller] Skipping lead ID ${lead.id}: missing email.`);
-          continue;
-        }
+        if (!email) continue;
 
         // Deduplication by email against existing candidates in Firestore
         const existingSnapshot = await adminDb.collection('candidates')
@@ -588,7 +636,7 @@ async function pollWordPressCrmLeads() {
         }
 
         const payload = {
-          source: 'wordpress_poller',
+          source: lead.source || 'website',
           lead_type: lead.lead_type || 'website_contact_form_lead',
           first_name: lead.first_name || '',
           last_name: lead.last_name || '',
@@ -602,38 +650,145 @@ async function pollWordPressCrmLeads() {
           resume_file_name: lead.resume_file_name || '',
           resume_file_type: lead.resume_file_type || '',
           resume_size: lead.resume_size || 0,
-          submitted_at: lead.submitted_at || new Date().toISOString()
+          submitted_at: lead.submitted_at || lead.created_at || new Date().toISOString()
         };
 
         const result = await processWebsiteLead(payload, adminDb);
         if (result.success && result.candidateId) {
           console.log(`[WordPress Poller] Successfully imported lead ${email} as candidate ${result.candidateId}`);
 
-          // Send notification to admins, team leaders, and developers
           await adminDb.collection('notifications').add({
             recipientId: 'admin',
             title: lead.lead_type === 'find_a_job_service_lead' ? 'New Candidate Sourced & Parsed' : 'New Website Lead Captured',
-            body: `New lead from ${lead.first_name || ''} ${lead.last_name || ''} (${lead.email}) successfully imported and parsed from WordPress CRM.`,
+            body: `New lead from ${lead.first_name || ''} ${lead.last_name || ''} (${lead.email}) successfully imported from WordPress CRM.`,
             type: 'lead',
             read: false,
             createdAt: admin.firestore.FieldValue.serverTimestamp(),
             data: { candidateId: result.candidateId, email: lead.email, leadType: lead.lead_type }
           });
-        } else {
-          console.error(`[WordPress Poller] Failed to process lead ${email}: ${result.error}`);
         }
-      } catch (leadErr: any) {
-        console.error(`[WordPress Poller] Error processing individual lead ID ${lead.id}:`, leadErr);
+      } catch (leadErr) {
+        console.error(`[WordPress Poller] Error processing individual lead:`, leadErr);
       }
     }
+
+    return logEntry;
   } catch (err: any) {
-    console.error('[WordPress Poller] Polling network/execution error:', err);
+    const errStr = err?.message || String(err);
+    console.error('[WordPress Poller] Polling network/execution error:', errStr);
+    const logEntry = {
+      timestamp: runTimestamp,
+      url: wpUrl,
+      success: false,
+      leadsFetched: 0,
+      error: errStr
+    };
+    wordpressPollerRuns.unshift(logEntry);
+    if (wordpressPollerRuns.length > 20) wordpressPollerRuns.pop();
+    return logEntry;
   }
 }
 
-// Poll WordPress CRM Leads every 2 minutes
+// WordPress Poller Diagnostics & Manual Trigger Endpoints
+app.get('/api/wordpress/poller-logs', (req, res) => {
+  const apiKeyConfigured = !!(process.env.AURRUM_WP_API_KEY || process.env.WP_LEADS_API_KEY);
+  const apiKeySource = process.env.AURRUM_WP_API_KEY ? 'AURRUM_WP_API_KEY' : (process.env.WP_LEADS_API_KEY ? 'WP_LEADS_API_KEY' : 'none');
+  const targetUrl = process.env.WP_LEADS_API_URL || 'https://aurrum.co/wp-json/aurrum/v1/crm-leads?limit=50';
+
+  res.json({
+    status: 'ok',
+    apiKeyConfigured,
+    apiKeySource,
+    targetUrl,
+    totalRecordedRuns: wordpressPollerRuns.length,
+    last5Runs: wordpressPollerRuns.slice(0, 5)
+  });
+});
+
+app.post('/api/wordpress/poll-now', async (req, res) => {
+  console.log('[Server] Manual WordPress poller trigger requested.');
+  const result = await pollWordPressCrmLeads();
+  res.json({
+    status: 'completed',
+    result,
+    last5Runs: wordpressPollerRuns.slice(0, 5)
+  });
+});
+
+// Schedule background poll every 2 minutes
 cron.schedule('*/2 * * * *', async () => {
   await pollWordPressCrmLeads();
+});
+
+// Inbound webhook / ingest route
+app.post(['/api/leads/ingest', '/api/leads/webhook'], async (req, res) => {
+  try {
+    const body = req.body;
+    const leads = Array.isArray(body) ? body : (Array.isArray(body?.leads) ? body.leads : [body]);
+
+    if (!adminDb) {
+      return res.status(500).json({ success: false, error: 'Database not initialized' });
+    }
+
+    let importedCount = 0;
+    const results = [];
+
+    for (const lead of leads) {
+      if (!lead || !lead.email) continue;
+      const email = lead.email.trim().toLowerCase();
+
+      const existingSnapshot = await adminDb.collection('candidates')
+        .where('email', '==', email)
+        .limit(1)
+        .get();
+
+      if (!existingSnapshot.empty) {
+        results.push({ email, status: 'duplicate_skipped' });
+        continue;
+      }
+
+      const payload = {
+        source: lead.source || 'webhook',
+        lead_type: lead.lead_type || 'website_contact_form_lead',
+        first_name: lead.first_name || '',
+        last_name: lead.last_name || '',
+        email: lead.email || '',
+        phone: lead.phone || '',
+        company: lead.company || '',
+        service: lead.service || '',
+        country: lead.country || '',
+        message: lead.message || '',
+        resume_url: lead.resume_url || '',
+        resume_file_name: lead.resume_file_name || '',
+        resume_file_type: lead.resume_file_type || '',
+        resume_size: lead.resume_size || 0,
+        submitted_at: lead.submitted_at || new Date().toISOString()
+      };
+
+      const result = await processWebsiteLead(payload, adminDb);
+      if (result.success && result.candidateId) {
+        importedCount++;
+        results.push({ email, status: 'imported', candidateId: result.candidateId });
+
+        await adminDb.collection('notifications').add({
+          recipientId: 'admin',
+          title: 'New Lead Received via Webhook',
+          body: `Lead from ${lead.email} successfully imported as candidate.`,
+          type: 'lead',
+          read: false,
+          createdAt: admin.firestore.FieldValue.serverTimestamp(),
+          data: { candidateId: result.candidateId, email: lead.email }
+        });
+      } else {
+        results.push({ email, status: 'error', error: result.error });
+      }
+    }
+
+    return res.json({ success: true, importedCount, results });
+  } catch (err: any) {
+    console.error('[Webhook] Error ingesting leads:', err);
+    return res.status(500).json({ success: false, error: err.message });
+  }
 });
 
 app.post('/api/cv/upload', upload.single('file'), async (req, res) => {
