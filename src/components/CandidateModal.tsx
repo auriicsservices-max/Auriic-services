@@ -1044,6 +1044,62 @@ export default function CandidateModal({ candidate, isOpen, onClose, onShortlist
           {/* Main Left Column (Experience & Summary) */}
           <div className="md:col-span-2 space-y-6 sm:space-y-8 pr-1">
             
+            {/* Website Lead Details Card if applicable */}
+            {(candidate.source === 'website' || candidate.source === 'wordpress_poller' || candidate.leadType || candidate.source === 'external_api' || candidate.source === 'webhook') && (
+              <section className="bg-sky-50/40 dark:bg-sky-950/20 p-5 sm:p-6 rounded-[2rem] border border-sky-200/60 dark:border-sky-900/40 shadow-sm">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <span className="p-2 rounded-xl bg-sky-500 text-white shadow-sm">
+                      <Globe size={16} />
+                    </span>
+                    <div>
+                      <h4 className="text-xs font-black text-sky-900 dark:text-sky-300 uppercase tracking-wider">WordPress Website Lead Submission</h4>
+                      <p className="text-[10px] text-sky-700/80 dark:text-sky-400 font-semibold">Synced from aurrum.co CRM Leads API</p>
+                    </div>
+                  </div>
+                  <span className="px-3 py-1 bg-sky-100 dark:bg-sky-900/50 text-sky-800 dark:text-sky-300 rounded-xl text-[10px] font-black uppercase tracking-wider border border-sky-200/40">
+                    {candidate.leadType || candidate.service || 'Website Lead'}
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-3 text-xs">
+                  {candidate.service && (
+                    <div className="bg-white/80 dark:bg-slate-900/60 p-3 rounded-xl border border-sky-100 dark:border-sky-900/30">
+                      <span className="text-[9px] font-black text-sky-600 dark:text-sky-400 uppercase tracking-widest block mb-0.5">Service Requested</span>
+                      <span className="font-bold text-[var(--text-primary)]">{candidate.service}</span>
+                    </div>
+                  )}
+                  {(candidate.submitted_at || candidate.created_at) && (
+                    <div className="bg-white/80 dark:bg-slate-900/60 p-3 rounded-xl border border-sky-100 dark:border-sky-900/30">
+                      <span className="text-[9px] font-black text-sky-600 dark:text-sky-400 uppercase tracking-widest block mb-0.5">Submitted At</span>
+                      <span className="font-bold text-[var(--text-primary)] font-mono">{candidate.submitted_at || candidate.created_at}</span>
+                    </div>
+                  )}
+                </div>
+                {candidate.message && (
+                  <div className="mt-3 bg-white/80 dark:bg-slate-900/60 p-3.5 rounded-xl border border-sky-100 dark:border-sky-900/30">
+                    <span className="text-[9px] font-black text-sky-600 dark:text-sky-400 uppercase tracking-widest block mb-1">Message / Inquiry</span>
+                    <p className="text-xs text-[var(--text-primary)] italic leading-relaxed">"{candidate.message}"</p>
+                  </div>
+                )}
+                {candidate.resume_url && (
+                  <div className="mt-3 flex items-center justify-between bg-white/90 dark:bg-slate-900/80 p-3 rounded-xl border border-sky-200 dark:border-sky-800/50">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Download size={14} className="text-sky-600 shrink-0" />
+                      <span className="text-xs font-bold text-[var(--text-primary)] truncate">{candidate.resume_file_name || 'Candidate_Resume.pdf'}</span>
+                    </div>
+                    <a 
+                      href={candidate.resume_url} 
+                      target="_blank" 
+                      rel="noopener noreferrer"
+                      className="px-3 py-1.5 bg-sky-600 hover:bg-sky-500 text-white rounded-lg text-[10px] font-black uppercase tracking-wider shrink-0 transition-all shadow-sm"
+                    >
+                      Download PDF
+                    </a>
+                  </div>
+                )}
+              </section>
+            )}
+
             {/* Professional Summary */}
             <section className="bg-slate-50/20 dark:bg-slate-900/10 p-5 sm:p-6 rounded-[2rem] border border-[var(--border-color)]/70 shadow-sm card-hover-effect">
               <div className="flex items-center justify-between mb-4">

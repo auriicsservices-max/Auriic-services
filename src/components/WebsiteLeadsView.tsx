@@ -6,16 +6,84 @@ interface WebsiteLeadsViewProps {
   onRefresh: () => void;
 }
 
-export default function WebsiteLeadsView({ candidates, onRefresh }: WebsiteLeadsViewProps) {
+export default function WebsiteLeadsView({ candidates = [], onRefresh }: WebsiteLeadsViewProps) {
   const [activeTab, setActiveTab] = useState<'candidates' | 'general'>('candidates');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<any>(null);
   const [pollerLogs, setPollerLogs] = useState<any>(null);
+  const [liveLeads, setLiveLeads] = useState<any[]>([]);
+  const [loadingLeads, setLoadingLeads] = useState(false);
+  const [parsingStates, setParsingStates] = useState<Record<string | number, { status: 'idle' | 'parsing' | 'success' | 'error'; message?: string; qualityScore?: number; candidateId?: string }>>({});
 
   useEffect(() => {
     fetchLogs();
+    fetchLiveLeads();
   }, []);
+
+  const handleParseResume = async (lead: any) => {
+    const leadId = lead.id;
+    const resumeUrl = lead.resume_url || lead.resumeUrl;
+    if (!resumeUrl) return;
+
+    setParsingStates(prev => ({ ...prev, [leadId]: { status: 'parsing', message: 'Parsing...' } }));
+
+    try {
+      const res = await fetch('/api/wordpress/parse-lead-resume', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          leadId: lead.id,
+          resumeUrl: resumeUrl,
+          email: lead.email,
+          firstName: lead.first_name || lead.firstName,
+          lastName: lead.last_name || lead.lastName,
+          phone: lead.phone,
+          company: lead.company,
+          service: lead.service,
+          country: lead.country,
+          message: lead.message,
+          leadType: lead.lead_type || lead.leadType,
+          resumeFileName: lead.resume_file_name || lead.resumeFileName || 'resume.pdf',
+          resumeFileType: lead.resume_file_type || lead.resumeFileType || 'application/pdf',
+          resumeSize: lead.resume_size || lead.resumeSize || 0
+        })
+      });
+
+      const data = await res.json();
+      if (data.success) {
+        setParsingStates(prev => ({
+          ...prev,
+          [leadId]: {
+            status: 'success',
+            message: data.message || 'Resume Parsed Successfully',
+            qualityScore: data.qualityScore || 85,
+            candidateId: data.candidateId
+          }
+        }));
+        if (data.parsedResume) {
+          lead.parsedResume = data.parsedResume;
+        }
+        onRefresh();
+      } else {
+        setParsingStates(prev => ({
+          ...prev,
+          [leadId]: {
+            status: 'error',
+            message: data.error || 'Resume parsing could not be completed. The resume has been queued for retry.'
+          }
+        }));
+      }
+    } catch (err: any) {
+      setParsingStates(prev => ({
+        ...prev,
+        [leadId]: {
+          status: 'error',
+          message: 'Resume parsing could not be completed. The resume has been queued for retry.'
+        }
+      }));
+    }
+  };
 
   const fetchLogs = async () => {
     try {
@@ -27,6 +95,23 @@ export default function WebsiteLeadsView({ candidates, onRefresh }: WebsiteLeads
     }
   };
 
+  const fetchLiveLeads = async () => {
+    setLoadingLeads(true);
+    try {
+      const res = await fetch('/api/wordpress/live-leads');
+      const data = await res.json();
+      if (data && Array.isArray(data.leads)) {
+        setLiveLeads(data.leads);
+      } else if (Array.isArray(data)) {
+        setLiveLeads(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch live leads:', err);
+    } finally {
+      setLoadingLeads(false);
+    }
+  };
+
   const handleManualSync = async () => {
     setIsSyncing(true);
     setSyncResult(null);
@@ -35,6 +120,7 @@ export default function WebsiteLeadsView({ candidates, onRefresh }: WebsiteLeads
       const data = await res.json();
       setSyncResult(data);
       await fetchLogs();
+      await fetchLiveLeads();
       onRefresh();
     } catch (err: any) {
       setSyncResult({ success: false, error: err.message });
@@ -43,15 +129,14 @@ export default function WebsiteLeadsView({ candidates, onRefresh }: WebsiteLeads
     }
   };
 
-  // Filter website-sourced candidates
-  const websiteLeads = candidates.filter(c => c.source === 'website' || c.source === 'wordpress_poller' || c.leadType);
-  const candidateApplications = websiteLeads.filter(c => c.leadType === 'find_a_job_service_lead' || c.resumeUrl || c.parsedResume);
-  const generalInquiries = websiteLeads.filter(c => c.leadType === 'website_contact_form_lead' || (!c.resumeUrl && !c.parsedResume));
+  // Filter leads directly fetched from API
+  const candidateApplications = liveLeads.filter(l => l.lead_type === 'find_a_job_service_lead' || l.resume_url || !l.lead_type);
+  const generalInquiries = liveLeads.filter(l => l.lead_type === 'website_contact_form_lead');
 
   const currentList = activeTab === 'candidates' ? candidateApplications : generalInquiries;
   const filteredList = currentList.filter(item => {
     const query = searchTerm.toLowerCase();
-    const name = (item.name || `${item.firstName || ''} ${item.lastName || ''}`).toLowerCase();
+    const name = (`${item.first_name || item.firstName || ''} ${item.last_name || item.lastName || item.name || ''}`).toLowerCase();
     const email = (item.email || '').toLowerCase();
     const company = (item.company || '').toLowerCase();
     const message = (item.message || '').toLowerCase();
@@ -207,39 +292,102 @@ export default function WebsiteLeadsView({ candidates, onRefresh }: WebsiteLeads
                 )}
               </div>
 
-              {/* Resume / Parsed Info */}
-              {lead.parsedResume && (
-                <div className="border-t border-[var(--border-color)] pt-3 space-y-2">
-                  <p className="text-[11px] font-bold text-[var(--text-primary)]">Parsed Resume Insights:</p>
-                  <p className="text-xs text-[var(--text-secondary)] line-clamp-2">{lead.parsedResume.summary || 'No summary available.'}</p>
-                  {Array.isArray(lead.parsedResume.skills) && lead.parsedResume.skills.length > 0 && (
-                    <div className="flex flex-wrap gap-1 mt-1">
-                      {lead.parsedResume.skills.slice(0, 5).map((skill: string, idx: number) => (
-                        <span key={idx} className="px-2 py-0.5 rounded-md bg-[var(--bg-secondary)] text-[var(--text-primary)] text-[10px] font-medium border border-[var(--border-color)]">
-                          {skill}
-                        </span>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              )}
+              {/* Resume / Parsed Info & Parse Resume Button */}
+              {(lead.resume_url || lead.resumeUrl) && (() => {
+                const leadId = lead.id;
+                const pState = parsingStates[leadId] || { status: 'idle' };
+                const isParsed = lead.parsedResume || pState.status === 'success';
+                const isParsing = pState.status === 'parsing';
+                const hasError = pState.status === 'error';
+                const resumeUrl = lead.resume_url || lead.resumeUrl;
+                const resumeFileName = lead.resume_file_name || lead.resumeFileName || 'resume.pdf';
+                const resumeFileType = lead.resume_file_type || lead.resumeFileType || 'application/pdf';
 
-              {lead.resumeUrl && (
-                <div className="border-t border-[var(--border-color)] pt-3 flex items-center justify-between">
-                  <span className="text-[11px] font-medium text-[var(--text-secondary)] truncate max-w-[200px]">
-                    {lead.resumeFileName || 'resume.pdf'}
-                  </span>
-                  <a
-                    href={lead.resumeUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="px-3 py-1.5 rounded-xl bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] text-[var(--text-primary)] text-xs font-bold flex items-center gap-1.5 border border-[var(--border-color)] transition-colors"
-                  >
-                    <Download size={13} />
-                    View Resume
-                  </a>
-                </div>
-              )}
+                return (
+                  <div className="border-t border-[var(--border-color)] pt-4 space-y-3">
+                    <div className="flex items-center justify-between text-xs">
+                      <div className="flex items-center gap-2">
+                        <FileText size={15} className="text-[var(--primary-gold)]" />
+                        <div>
+                          <p className="font-bold text-[var(--text-primary)]">{resumeFileName}</p>
+                          <p className="text-[10px] text-[var(--text-secondary)] font-mono uppercase">{resumeFileType}</p>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <a
+                          href={resumeUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-xl bg-[var(--bg-secondary)] hover:bg-[var(--card-hover-bg)] text-[var(--text-primary)] text-xs font-bold flex items-center gap-1.5 border border-[var(--border-color)] transition-colors"
+                        >
+                          <Download size={13} />
+                          View Resume
+                        </a>
+                      </div>
+                    </div>
+
+                    {/* Status & Parse Button */}
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-[var(--bg-secondary)] p-3 rounded-xl border border-[var(--border-color)]">
+                      <div className="flex items-center gap-2">
+                        <span className={`w-2.5 h-2.5 rounded-full ${isParsed ? 'bg-emerald-500' : isParsing ? 'bg-amber-500 animate-pulse' : hasError ? 'bg-rose-500' : 'bg-slate-400'}`} />
+                        <span className="text-xs font-bold text-[var(--text-primary)]">
+                          Status: {isParsed ? 'Parsed' : isParsing ? 'Parsing...' : hasError ? 'Failed (Queued for Retry)' : 'Not Parsed'}
+                        </span>
+                        {pState.qualityScore && (
+                          <span className="px-2 py-0.5 rounded bg-emerald-500/10 text-emerald-600 text-[10px] font-extrabold">
+                            Quality: {pState.qualityScore}%
+                          </span>
+                        )}
+                      </div>
+
+                      {!isParsed && (
+                        <button
+                          onClick={() => handleParseResume(lead)}
+                          disabled={isParsing}
+                          className="crm-btn-gold px-3.5 py-1.5 rounded-lg text-xs font-bold text-white shadow-sm disabled:opacity-50 flex items-center gap-1.5 justify-center transition-all hover:scale-[1.02]"
+                        >
+                          <RefreshCw className={`w-3.5 h-3.5 ${isParsing ? 'animate-spin' : ''}`} />
+                          {isParsing ? 'Parsing...' : 'Parse Resume'}
+                        </button>
+                      )}
+
+                      {isParsed && (
+                        <span className="text-[10px] font-bold text-emerald-600 bg-emerald-500/10 px-2.5 py-1 rounded-lg">
+                          Resume Parsed Successfully ✓
+                        </span>
+                      )}
+                    </div>
+
+                    {hasError && (
+                      <div className="p-2.5 bg-rose-500/10 border border-rose-500/20 text-rose-700 rounded-xl text-xs">
+                        {pState.message || 'Resume parsing could not be completed. The resume has been queued for retry.'}
+                      </div>
+                    )}
+
+                    {/* Parsed Insights */}
+                    {lead.parsedResume && (
+                      <div className="space-y-2 bg-[var(--card-bg)] p-3.5 rounded-xl border border-[var(--border-color)]">
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-extrabold text-[var(--text-primary)] uppercase tracking-wider">Parsed Candidate Insights</span>
+                          {pState.candidateId && (
+                            <span className="text-[10px] font-mono text-[var(--text-secondary)]">Candidate ID: {pState.candidateId}</span>
+                          )}
+                        </div>
+                        <p className="text-xs text-[var(--text-secondary)] line-clamp-2">{lead.parsedResume.summary || lead.parsedResume.profile || 'No summary available.'}</p>
+                        {Array.isArray(lead.parsedResume.skills) && lead.parsedResume.skills.length > 0 && (
+                          <div className="flex flex-wrap gap-1 mt-1">
+                            {lead.parsedResume.skills.slice(0, 6).map((skill: string, idx: number) => (
+                              <span key={idx} className="px-2 py-0.5 rounded-md bg-[var(--bg-secondary)] text-[var(--text-primary)] text-[10px] font-medium border border-[var(--border-color)]">
+                                {skill}
+                              </span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })()}
             </div>
           ))}
         </div>

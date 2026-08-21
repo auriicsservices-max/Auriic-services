@@ -252,4 +252,22 @@ For bulk importing 1,500+ resumes with complete structured JSON extraction:
      - **Fix 0-Experience Resumes**: Instantly re-calculates experience for candidates showing 0 years.
      - **Audit & Re-Parse All Resumes**: Executes a full database quality audit and re-parses records requiring correction.
 
+---
+
+## 21. Website Leads → Parse Resume Flow & Firebase Admin Architecture
+
+1. **WordPress CRM Integration**:
+   - Automatically syncs inbound leads and resume attachments from the WordPress API (`aurrum.co/wp-json/aurrum/v1/crm-leads`).
+2. **Interactive Website Lead Resume Cards**:
+   - Displays file names, file types, secure download links, and real-time status indicators (*Not Parsed*, *Parsing...*, *Parsed*, *Failed (Queued for Retry)*).
+3. **Server-Side Secure Parsing Flow**:
+   - Clicking **Parse Resume** triggers `/api/wordpress/parse-lead-resume`.
+   - Securely fetches and validates resume buffers, detects PDF/DOCX format, extracts raw text, processes through Gemini AI resume parser (with heuristic fallback), and validates data quality.
+4. **Deduplication & Candidate List Sync**:
+   - Performs email and `resumeUrl` deduplication checks against existing candidate records in Firestore before creation or update.
+   - Automatically synchronizes the main Candidate List and AI CV Finder without requiring manual page refreshes.
+5. **Centralized Firebase Admin Initialization (`/src/services/firebaseAdmin.ts`)**:
+   - Provides a robust singleton Firebase Admin initialization layer that explicitly binds to the `aurrum-production` database ID.
+   - Protects serverless and background queue execution paths (Vercel / Cloud Run) from uninitialized database errors.
+
 
