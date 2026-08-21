@@ -159,35 +159,8 @@ export async function fetchAndValidateResume(resumeUrl: string, expectedFileType
 
 export async function parseResumeToExactSchema(buffer: Buffer, mimeType: string, filename?: string, leadPayload?: WebsiteLeadPayload): Promise<ParsedResumeSchema> {
   const warnings: string[] = [];
-
-  // Try calling official WordPress Resume Parser API first if resume_url is on aurrum.co
-  if (leadPayload?.resume_url && (leadPayload.resume_url.includes('aurrum.co'))) {
-    try {
-      console.log(`[LeadWebhookService] Calling WordPress Resume Parser API for: ${leadPayload.resume_url}`);
-      const wpRes = await fetch('https://aurrum.co/wp-json/aurrum/v1/parse-resume', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Aurrum-Api-Key': 'zUq2weZn8XxCB3Bb2wftyCy0uZuHjK49x07zo6DW'
-        },
-        body: JSON.stringify({ resume_url: leadPayload.resume_url })
-      });
-
-      if (wpRes.ok) {
-        const wpData = await wpRes.json() as { success: boolean; parsedResume: ParsedResumeSchema };
-        if (wpData.success && wpData.parsedResume) {
-          console.log('[LeadWebhookService] Successfully parsed resume via WordPress API');
-          return wpData.parsedResume;
-        }
-      } else {
-        console.warn(`[LeadWebhookService] WordPress Parse Resume API returned status ${wpRes.status}, falling back to Gemini/local parser.`);
-      }
-    } catch (wpErr: any) {
-      console.warn('[LeadWebhookService] WordPress Parse Resume API error, falling back to Gemini/local parser:', wpErr?.message || wpErr);
-    }
-  }
-
   let rawParsed: any;
+
   try {
     rawParsed = await retryWithBackoff(() => geminiParser.parseBuffer(buffer, mimeType, filename));
   } catch (err: any) {
