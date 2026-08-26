@@ -1,34 +1,43 @@
 import React from 'react';
-import { Search, Bell, MessageSquare } from 'lucide-react';
+import { Search, Bell, MessageSquare, Menu } from 'lucide-react';
 import ThemeToggle from '../ThemeToggle';
 import { useAuth } from '../../contexts/AuthContext';
 
-export default function Header() {
+export default function Header({ onToggleMobileMenu }: { onToggleMobileMenu: () => void }) {
   const { user, userProfile } = useAuth();
 
   return (
-    <header className="h-20 bg-[var(--card-bg)] border-b border-[var(--border-color)] px-8 flex items-center justify-between sticky top-0 z-20 shadow-xs transition-colors duration-200">
-      <div className="relative w-96">
-        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] shrink-0" size={18} />
-        <input 
-          type="text" 
-          placeholder="Search candidates, CVs, jobs..." 
-          className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] rounded-xl py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-[var(--primary-gold)] focus:border-[var(--primary-gold)] outline-none transition-all"
-        />
+    <header className="h-20 bg-[var(--card-bg)] border-b border-[var(--border-color)] px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-20 shadow-xs transition-colors duration-200 gap-4">
+      <div className="flex items-center gap-3 flex-1 max-w-md">
+        <button
+          onClick={onToggleMobileMenu}
+          className="lg:hidden p-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] hover:border-[var(--primary-gold)] hover:text-[var(--primary-gold)] transition-all cursor-pointer shrink-0"
+          title="Toggle Navigation Menu"
+        >
+          <Menu size={18} />
+        </button>
+        <div className="relative w-full">
+          <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--text-muted)] shrink-0" size={18} />
+          <input 
+            type="text" 
+            placeholder="Search candidates, CVs, jobs..." 
+            className="w-full bg-[var(--bg-primary)] border border-[var(--border-color)] text-[var(--text-primary)] placeholder:text-[var(--text-muted)] rounded-xl py-2.5 pl-10 pr-4 text-sm focus:ring-2 focus:ring-[var(--primary-gold)] focus:border-[var(--primary-gold)] outline-none transition-all"
+          />
+        </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2 sm:gap-3 shrink-0">
         <ThemeToggle variant="header" />
         <button 
           title="Notifications"
-          className="p-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] hover:border-[var(--primary-gold)] hover:text-[var(--primary-gold)] relative transition-all cursor-pointer"
+          className="p-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] hover:border-[var(--primary-gold)] hover:text-[var(--primary-gold)] relative transition-all cursor-pointer hidden sm:flex"
         >
           <Bell size={18} />
           <span className="absolute top-2 right-2 w-2 h-2 bg-red-500 rounded-full animate-pulse"></span>
         </button>
         <button 
           title="Internal Messages"
-          className="p-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] hover:border-[var(--primary-gold)] hover:text-[var(--primary-gold)] transition-all cursor-pointer"
+          className="p-2.5 rounded-xl border border-[var(--border-color)] bg-[var(--bg-primary)] text-[var(--text-primary)] hover:border-[var(--primary-gold)] hover:text-[var(--primary-gold)] transition-all cursor-pointer hidden sm:flex"
         >
           <MessageSquare size={18} />
         </button>
@@ -43,4 +52,5 @@ export default function Header() {
     </header>
   );
 }
+
 

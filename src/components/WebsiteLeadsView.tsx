@@ -7,7 +7,6 @@ interface WebsiteLeadsViewProps {
 }
 
 export default function WebsiteLeadsView({ candidates = [], onRefresh }: WebsiteLeadsViewProps) {
-  const [activeTab, setActiveTab] = useState<'candidates' | 'general'>('candidates');
   const [searchTerm, setSearchTerm] = useState('');
   const [isSyncing, setIsSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<any>(null);
@@ -29,7 +28,7 @@ export default function WebsiteLeadsView({ candidates = [], onRefresh }: Website
     setParsingStates(prev => ({ ...prev, [leadId]: { status: 'parsing', message: 'Parsing...' } }));
 
     try {
-      const res = await fetch('/api/wordpress/parse-lead-resume', {
+      let res = await fetch('/api/wordpress/parse-resume', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -49,6 +48,29 @@ export default function WebsiteLeadsView({ candidates = [], onRefresh }: Website
           resumeSize: lead.resume_size || lead.resumeSize || 0
         })
       });
+
+      if (!res.ok) {
+        res = await fetch('/api/wordpress/parse-lead-resume', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            leadId: lead.id,
+            resumeUrl: resumeUrl,
+            email: lead.email,
+            firstName: lead.first_name || lead.firstName,
+            lastName: lead.last_name || lead.lastName,
+            phone: lead.phone,
+            company: lead.company,
+            service: lead.service,
+            country: lead.country,
+            message: lead.message,
+            leadType: lead.lead_type || lead.leadType,
+            resumeFileName: lead.resume_file_name || lead.resumeFileName || 'resume.pdf',
+            resumeFileType: lead.resume_file_type || lead.resumeFileType || 'application/pdf',
+            resumeSize: lead.resume_size || lead.resumeSize || 0
+          })
+        });
+      }
 
       const data = await res.json();
       if (data.success) {
@@ -98,7 +120,10 @@ export default function WebsiteLeadsView({ candidates = [], onRefresh }: Website
   const fetchLiveLeads = async () => {
     setLoadingLeads(true);
     try {
-      const res = await fetch('/api/wordpress/live-leads');
+      let res = await fetch('/api/wordpress/crm-leads');
+      if (!res.ok) {
+        res = await fetch('/api/wordpress/live-leads');
+      }
       const data = await res.json();
       if (data && Array.isArray(data.leads)) {
         setLiveLeads(data.leads);
@@ -130,11 +155,7 @@ export default function WebsiteLeadsView({ candidates = [], onRefresh }: Website
   };
 
   // Filter leads directly fetched from API
-  const candidateApplications = liveLeads.filter(l => l.lead_type === 'find_a_job_service_lead' || l.resume_url || !l.lead_type);
-  const generalInquiries = liveLeads.filter(l => l.lead_type === 'website_contact_form_lead');
-
-  const currentList = activeTab === 'candidates' ? candidateApplications : generalInquiries;
-  const filteredList = currentList.filter(item => {
+  const filteredList = liveLeads.filter(item => {
     const query = searchTerm.toLowerCase();
     const name = (`${item.first_name || item.firstName || ''} ${item.last_name || item.lastName || item.name || ''}`).toLowerCase();
     const email = (item.email || '').toLowerCase();
@@ -205,21 +226,13 @@ export default function WebsiteLeadsView({ candidates = [], onRefresh }: Website
         </div>
       )}
 
-      {/* Tabs & Search */}
+      {/* Section Title & Search */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 border-b border-[var(--border-color)] pb-4">
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => setActiveTab('candidates')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'candidates' ? 'bg-[var(--primary-gold)] text-white shadow-sm' : 'text-[var(--text-secondary)] hover:bg-[var(--card-hover-bg)]'}`}
-          >
-            Candidate Applications ({candidateApplications.length})
-          </button>
-          <button
-            onClick={() => setActiveTab('general')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${activeTab === 'general' ? 'bg-[var(--primary-gold)] text-white shadow-sm' : 'text-[var(--text-secondary)] hover:bg-[var(--card-hover-bg)]'}`}
-          >
-            General Inquiries ({generalInquiries.length})
-          </button>
+        <div className="flex items-center gap-3">
+          <h2 className="text-base font-extrabold text-[var(--text-primary)]">Aurrum Website Form Leads</h2>
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-[var(--primary-gold)]/10 text-[var(--primary-gold)]">
+            {liveLeads.length} Total
+          </span>
         </div>
         <div className="relative w-full sm:w-72">
           <Search className="absolute left-3 top-2.5 w-4 h-4 text-[var(--text-secondary)]" />

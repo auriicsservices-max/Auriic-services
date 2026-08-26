@@ -12,11 +12,15 @@ import Logo from '../Logo';
 export default function Sidebar({ 
   isOpen, 
   setIsOpen, 
+  isMobileOpen,
+  setIsMobileOpen,
   activeTab, 
   setActiveTab 
 }: { 
   isOpen: boolean; 
   setIsOpen: (val: boolean) => void; 
+  isMobileOpen?: boolean;
+  setIsMobileOpen?: (val: boolean) => void;
   activeTab: string; 
   setActiveTab: (tab: string) => void 
 }) {
@@ -74,7 +78,7 @@ export default function Sidebar({
   return (
     <aside 
       aria-label="Main Navigation Sidebar"
-      className={`h-screen ${isOpen ? 'w-64' : 'w-20'} bg-[var(--sidebar-bg)] text-white transition-all duration-300 ease-in-out flex flex-col shrink-0 z-30 border-r border-white/10 shadow-xl select-none`}
+      className={`fixed inset-y-0 left-0 z-50 transform lg:translate-x-0 transition-transform duration-300 ease-in-out ${isMobileOpen ? 'translate-x-0' : '-translate-x-full'} lg:static h-screen ${isOpen ? 'w-64' : 'w-20'} bg-[var(--sidebar-bg)] text-white flex flex-col shrink-0 border-r border-white/10 shadow-xl select-none`}
     >
       {/* Brand Header */}
       <div className="h-20 flex items-center justify-between px-5 border-b border-white/10">
@@ -85,7 +89,7 @@ export default function Sidebar({
         {isOpen && (
           <button 
             onClick={() => setIsOpen(!isOpen)} 
-            className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer hidden lg:block"
             title="Collapse Sidebar"
           >
             <ChevronLeft size={18} />
@@ -94,7 +98,7 @@ export default function Sidebar({
       </div>
 
       {!isOpen && (
-        <div className="flex justify-center py-2 border-b border-white/5">
+        <div className="hidden lg:flex justify-center py-2 border-b border-white/5">
           <button 
             onClick={() => setIsOpen(true)} 
             className="p-2 rounded-lg text-white/60 hover:text-white hover:bg-white/10 transition-colors cursor-pointer"
@@ -120,7 +124,10 @@ export default function Sidebar({
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    if (setIsMobileOpen) setIsMobileOpen(false);
+                  }}
                   title={!isOpen ? item.label : undefined}
                   className={`group relative flex items-center ${isOpen ? 'gap-3 px-3 py-2.5' : 'justify-center p-3'} w-full rounded-xl transition-all duration-200 text-left cursor-pointer ${
                     isActive 

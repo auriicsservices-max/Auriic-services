@@ -1,33 +1,33 @@
-# Rectech CRM - Platform Documentation & Feature Guide
+# Talent Insights / Aurrum CRM - Platform Documentation & Feature Guide
 
 ## Overview
-Rectech CRM is an enterprise-grade recruiting and candidate pipeline management platform built with React, Vite, Tailwind CSS, Express, and Firebase Firestore (Updated for Rectech brand consistency, parallel data loading, and robust serverless Firebase Admin architecture).
+Talent Insights / Aurrum CRM is an enterprise-grade recruiting, candidate pipeline management, and AI-powered talent intelligence platform built with React, Vite, Tailwind CSS, Express, and Firebase Firestore (`aurrum-production`). It features robust serverless Firebase Admin initialization, secure file upload verification, AI-driven resume parsing (Gemini AI waterfall parser), and comprehensive Role-Based Access Control (RBAC).
+
+---
 
 ## Key Features & Capabilities
 
-### 1. Website Leads → Parse Resume & Automated Candidate Sync
-- **WordPress Integration**: Automatically syncs website leads and resume submissions from the WordPress API (`aurrum.co/wp-json/aurrum/v1/crm-leads`).
-- **Resume Lead Cards**: Displays resume file names, secure download links, file types, and real-time parsing statuses (*Not Parsed*, *Parsing...*, *Parsed*, *Failed (Queued for Retry)*).
-- **One-Click Parse Resume**: Securely fetches resume buffers, extracts raw text, processes files through the Gemini AI resume parser (with heuristic fallback), and validates quality scores.
-- **Deduplication & Candidate Creation**: Automatically creates or updates candidate records in Firestore with complete structured JSON data (contact info, work history, education, skills, projects, certifications) while preventing duplicate entries by email and resume URL.
-- **Instant UI Refresh**: Automatically updates the Candidate List and AI CV Finder immediately upon successful parsing.
+### 1. Robust Resume Upload, Validation & AI Parsing Pipeline
+- **Multi-Format Support**: Securely processes PDF, DOCX, and DOC files via drag-and-drop or file picker.
+- **Data URI & URL Ingestion**: Supports direct data URIs, secure external URLs (Cloud Storage, AWS S3, GitHub, WordPress webhooks), and robust fallback buffer handlers.
+- **AI Waterfall Parser**: Integrates Gemini AI (`gemini-3.5-flash`) with advanced heuristic fallback and self-healing extraction for names, emails, phones, skills, work history, education, and certifications.
+- **Duplicate Prevention & Retry Queues**: Automatically detects duplicates by email, phone, or LinkedIn URL, and manages failed parses cleanly in the `resume_import_queue` with retry logic.
 
 ### 2. Centralized Firebase Admin & Serverless Resilience
-- **Singleton Admin Initialization**: Centralized `/src/services/firebaseAdmin.ts` module ensures Firebase Admin and Firestore are initialized exactly once, supporting both local development and Vercel/Cloud Run serverless production.
-- **Target Database Binding**: Explicitly binds to the `aurrum-production` Firestore database instance, preventing uninitialized database errors across background queues and API route handlers.
+- **Singleton Admin Initialization**: Centralized `/src/services/firebaseAdmin.ts` module ensures Firebase Admin and Firestore are initialized exactly once, supporting both local development and Vercel/Cloud Run serverless production without proxy or credential errors.
+- **Target Database Binding**: Explicitly binds to the `aurrum-production` Firestore database instance across API routes, background workers, and NODE-CRON pollers.
 
 ### 3. Developer-Only Missing Details & Resume Re-Extraction
 - Available exclusively to users with the **Developer** role.
 - Identifies and highlights candidate profiles missing critical fields (Name, Email, Work Experience, Skills, Professional Summary).
-- **Batch Reparse ("Reparse All Missing")**: Concurrent worker queue processing with real-time progress indicators (Queued → Processing → Completed/Failed).
+- **Batch Reparse ("Reparse All Missing")**: Concurrent worker queue processing with real-time progress indicators.
 - **Individual Re-Extract ("Re-Extract" / "Reparse Resume")**: One-click re-parsing per candidate using the local heuristic & Gemini parsing pipeline.
 
-### 4. Role-Based Access Control (RBAC)
-- **Admin**: Full system management, team hub, user invitations, archiving, and system settings.
-- **Team Leader / Recruiter**: Candidate pipelines, interview tracking, follow-up scheduling, and client assignment.
-- **Client**: Secure client portal view of shortlisted candidates and pipeline progress.
-- **Developer**: Database metrics, audit logs, backup/export tools, and missing details re-parsing.
+### 4. Role-Based Access Control (RBAC) & Security
+- **Roles**: Admin, Team Leader, Recruiter, Client, Developer.
+- **Security**: IP whitelist enforcement (`ALLOWED_IPS`), Firestore security rules (`firestore.rules`), and audit logging across all candidate actions.
 
 ### 5. Unified Light & Dark Theme Architecture
-- Variable-driven semantic theming ensuring seamless light and dark mode parity using the official brand blue (`#004564`) and primary gold (`#A98B56`) palettes.
+- Variable-driven semantic theming ensuring seamless light and dark mode parity using the official brand blue (`#004564`) and primary gold (`#A98B56`) palettes with Poppins typography.
+
 

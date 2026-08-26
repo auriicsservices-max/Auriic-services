@@ -44,49 +44,24 @@ const resumeParser = new RobustResumeParser();
 const geminiParser = new GeminiResumeParser();
 const geminiSearchAssistant = new GeminiSearchAssistant();
 
-// Initialize Admin SDK
-if (!getApps().length) {
-  try {
-    const serviceAccountJson = process.env.FIREBASE_SERVICE_ACCOUNT;
-    console.log('[Server] FIREBASE_SERVICE_ACCOUNT present:', !!serviceAccountJson);
-    if (serviceAccountJson) {
-      const serviceAccount = JSON.parse(serviceAccountJson);
-      initializeApp({
-        credential: admin.credential.cert(serviceAccount),
-        projectId: firebaseConfig.projectId
-      });
-      console.log('[Server] Admin SDK initialized with Service Account for Project:', firebaseConfig.projectId);
-    } else {
-      console.log('[Server] WARNING: FIREBASE_SERVICE_ACCOUNT env var is missing! Trying ADC.');
-      initializeApp({
-        projectId: firebaseConfig.projectId
-      });
-      console.log('[Server] Admin SDK initialized with Project ID (ADC)');
-    }
-  } catch (initErr) {
-    console.error('[Server] Admin SDK Initialization Error:', initErr);
-    // Fallback to minimal initialization
-    initializeApp({ projectId: firebaseConfig.projectId });
-  }
-}
+import { getAdminDb, getAdminMessaging } from './src/services/firebaseAdmin';
 
-let adminDb: admin.firestore.Firestore | null = null;
-let adminMessaging: admin.messaging.Messaging | null = null;
-
-try {
-  const app = admin.app();
-  const dbId = firebaseConfig.firestoreDatabaseId || 'aurrum-production';
-  try {
-    adminDb = getFirestore(app, dbId);
-    console.log('[Server] Firebase DB initialized successfully for DB:', dbId);
-  } catch (e) {
-    console.warn('[Server] Failed to init named db:', dbId, 'falling back to default');
-    adminDb = getFirestore(app);
+const adminDb = new Proxy({}, {
+  get(target, prop) {
+    const db = getAdminDb();
+    const val = (db as any)[prop];
+    return typeof val === 'function' ? val.bind(db) : val;
   }
-  adminMessaging = getMessaging(app);
-} catch (sdkError) {
-  console.warn('[Server] Firebase Firestore or Messaging is unavailable on this host.', (sdkError as Error).message);
-}
+}) as admin.firestore.Firestore;
+
+const adminMessaging = new Proxy({}, {
+  get(target, prop) {
+    const msg = getAdminMessaging();
+    const val = (msg as any)[prop];
+    return typeof val === 'function' ? val.bind(msg) : val;
+  }
+}) as admin.messaging.Messaging;
+
 
 // Setup Notification Listener (Only run this when listening as a standalone server)
 let notificationListener: (() => void) | null = null;
@@ -690,7 +665,7 @@ async function pollWordPressCrmLeads() {
 }
 
 // WordPress Poller Diagnostics & Manual Trigger Endpoints
-app.get('/api/wordpress/live-leads', async (req, res) => {
+app.get(['/api/wordpress/live-leads', '/api/wordpress/crm-leads'], async (req, res) => {
   const wpUrl = process.env.WP_LEADS_API_URL || 'https://aurrum.co/wp-json/aurrum/v1/crm-leads?limit=50';
   const apiKey = process.env.AURRUM_WP_API_KEY || process.env.WP_LEADS_API_KEY || 'zUq2weZn8XxCB3Bb2wftyCy0uZuHjK49x07zo6DW';
   try {
@@ -698,7 +673,8 @@ app.get('/api/wordpress/live-leads', async (req, res) => {
       method: 'GET',
       headers: {
         'X-Aurrum-Api-Key': apiKey,
-        'User-Agent': 'AurrumCRM-Client/1.0'
+        'User-Agent': 'AurrumCRM-Client/1.0',
+        'Accept': 'application/json'
       },
       signal: AbortSignal.timeout(15000)
     });
@@ -813,7 +789,7 @@ app.post(['/api/leads/ingest', '/api/leads/webhook'], async (req, res) => {
   }
 });
 
-app.post('/api/wordpress/parse-lead-resume', async (req, res) => {
+app.post(['/api/wordpress/parse-lead-resume', '/api/wordpress/parse-resume'], async (req, res) => {
   try {
     const { leadId, resumeUrl, email, firstName, lastName, phone, company, service, country, message, leadType, resumeFileName, resumeFileType, resumeSize } = req.body;
 
