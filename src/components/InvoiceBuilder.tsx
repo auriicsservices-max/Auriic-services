@@ -36,11 +36,14 @@ export const InvoiceBuilder = () => {
   const [annualSalary, setAnnualSalary] = useState<number>(100000);
   const [feeType, setFeeType] = useState<'percentage' | 'fixed'>('percentage');
   const [feeRate, setFeeRate] = useState<number>(15);
+  const [calculatePlacementFee, setCalculatePlacementFee] = useState<boolean>(true);
   const [candidateName, setCandidateName] = useState<string>('');
 
-  const calculatedFee = feeType === 'percentage'
-    ? Math.round(annualSalary * (feeRate / 100))
-    : Math.round(feeRate);
+  const calculatedFee = calculatePlacementFee
+    ? (feeType === 'percentage'
+        ? Math.round(annualSalary * (feeRate / 100))
+        : Math.round(feeRate))
+    : 0;
 
   const applyFeeCalculation = () => {
     const desc = `Placement Fee — ${candidateName || 'Candidate'} (Annual Salary: $${annualSalary.toLocaleString()} | Fee: ${feeType === 'percentage' ? feeRate + '%' : '$' + feeRate})`;
@@ -338,11 +341,20 @@ export const InvoiceBuilder = () => {
             </div>
 
             <div className="bg-[var(--bg-primary)] p-5 rounded-2xl border border-[var(--border-color)] space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-[var(--border-color)]">
                 <div>
                   <span className="block text-xs font-bold uppercase tracking-wider text-[var(--primary-gold)]">Placement Fee Calculator (Annual Salary Based)</span>
                   <p className="text-[11px] text-[var(--text-muted)] mt-0.5">Calculate package-wise placement fee based on annual CTC and client billing rules.</p>
                 </div>
+                <label className="flex items-center gap-2 cursor-pointer select-none bg-[var(--bg-secondary)] px-3 py-2 rounded-xl border border-[var(--border-color)]">
+                  <input
+                    type="checkbox"
+                    checked={calculatePlacementFee}
+                    onChange={e => setCalculatePlacementFee(e.target.checked)}
+                    className="w-4 h-4 rounded text-[var(--primary-gold)] focus:ring-[var(--primary-gold)] border-[var(--border-color)] cursor-pointer"
+                  />
+                  <span className="text-xs font-bold text-[var(--text-primary)]">Calculate Placement Fee based on Annual Salary</span>
+                </label>
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">

@@ -10,8 +10,9 @@ import {
   FileText, Loader2, Plus, Calendar, User, DollarSign, ArrowLeft, 
   Printer, CheckCircle, Trash2, Check, X, ShieldAlert, Users, ChevronRight, 
   Briefcase, Percent, FileCheck, Layers, Eye, Pencil, Search, CheckSquare, Square,
-  Download, Mail
+  Download, Mail, Sliders
 } from 'lucide-react';
+import { InvoiceDesignEditor } from './InvoiceDesignEditor';
 
 interface BilledCandidate {
   candidateId: string;
@@ -21,9 +22,37 @@ interface BilledCandidate {
   fee: number;
 }
 
+const getEffectiveSubtotal = (inv: any) => {
+  if (!inv) return 0;
+  if (inv.subtotal !== undefined && inv.subtotal !== null && !isNaN(inv.subtotal) && Number(inv.subtotal) > 0) {
+    return Number(inv.subtotal);
+  }
+  if (inv.candidates && inv.candidates.length > 0) {
+    const candSum = inv.candidates.reduce((sum: number, c: any) => sum + Number(c.fee || c.amount || 0), 0);
+    if (candSum > 0) return candSum;
+  }
+  if (inv.totalAmount !== undefined && inv.totalAmount !== null && !isNaN(inv.totalAmount) && Number(inv.totalAmount) > 0) {
+    return Number(inv.totalAmount);
+  }
+  return Number(inv.subtotal || inv.totalAmount || 0);
+};
+
+const getEffectiveTotal = (inv: any) => {
+  if (!inv) return 0;
+  if (inv.totalAmount !== undefined && inv.totalAmount !== null && !isNaN(inv.totalAmount) && Number(inv.totalAmount) > 0) {
+    return Number(inv.totalAmount);
+  }
+  const sub = getEffectiveSubtotal(inv);
+  const taxRate = Number(inv.taxRate || 0);
+  const taxAmt = Math.round(sub * (taxRate / 100));
+  const disc = Number(inv.discountAmount || 0);
+  return Math.max(0, sub + taxAmt - disc);
+};
+
 export const InvoiceList = () => {
   const navigate = useNavigate();
   const { role } = useAuth();
+  const [activeTab, setActiveTab] = useState<'list' | 'editor'>('list');
   const [invoices, setInvoices] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -31,6 +60,7 @@ export const InvoiceList = () => {
   const [viewingInvoice, setViewingInvoice] = useState<any | null>(null);
   const [editedInvoice, setEditedInvoice] = useState<any | null>(null);
   const [editStatusMessage, setEditStatusMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [modalTab, setModalTab] = useState<'content' | 'branding' | 'bank' | 'signatory' | 'layout'>('content');
 
   const handleOpenInvoice = (inv: any) => {
     setViewingInvoice(inv);
@@ -38,9 +68,13 @@ export const InvoiceList = () => {
     if (!cloned.serviceDescription) {
       cloned.serviceDescription = 'Placement Fee - Recruitment Services';
     }
-    if (cloned.subtotal === undefined && cloned.candidates && cloned.candidates.length > 0) {
-      cloned.subtotal = cloned.candidates.reduce((sum: number, c: any) => sum + Number(c.fee || c.amount || 0), 0);
-    }
+    const effectiveSub = getEffectiveSubtotal(cloned);
+    cloned.subtotal = effectiveSub;
+    const taxRate = Number(cloned.taxRate || 0);
+    const taxAmt = Math.round(effectiveSub * (taxRate / 100));
+    const disc = Number(cloned.discountAmount || 0);
+    cloned.totalAmount = Math.max(0, effectiveSub + taxAmt - disc);
+
     if (cloned.calcCtc === undefined) {
       cloned.calcCtc = cloned.subtotal ? Math.round(cloned.subtotal / (cloned.calcFeePercent || 15) * 100) : 60000;
     }
@@ -55,7 +89,7 @@ export const InvoiceList = () => {
     if (!editedInvoice || !editedInvoice.id) return;
     setEditStatusMessage(null);
     try {
-      const subtotal = Number(editedInvoice.subtotal || 0);
+      const subtotal = getEffectiveSubtotal(editedInvoice);
       const taxRate = Number(editedInvoice.taxRate || 0);
       const taxAmount = Math.round(subtotal * (taxRate / 100));
       const discountAmount = Number(editedInvoice.discountAmount || 0);
@@ -114,16 +148,19 @@ export const InvoiceList = () => {
 
   // Delete invoice
   const handleDeleteInvoice = async (invoiceId: string) => {
-    if (!window.confirm('Are you sure you want to delete this invoice? This action cannot be undone.')) {
+    const invNum = viewingInvoice?.invoiceNumber || invoiceId;
+    if (!window.confirm(`Are you sure you want to delete invoice #${invNum}? This action cannot be undone and will permanently remove all associated payment and billing records.`)) {
       return;
     }
     try {
       await deleteDoc(doc(db, 'consolidated_invoices', invoiceId));
       setViewingInvoice(null);
-      alert('Invoice deleted successfully');
+      setEditedInvoice(null);
+      setEditStatusMessage({ type: 'success', text: `Invoice #${invNum} deleted successfully.` });
+      setTimeout(() => setEditStatusMessage(null), 3000);
     } catch (err) {
       console.error('Error deleting invoice:', err);
-      alert('Failed to delete invoice');
+      setEditStatusMessage({ type: 'error', text: 'Failed to delete invoice. Please check permissions.' });
     }
   };
 
@@ -133,98 +170,174 @@ export const InvoiceList = () => {
       container.style.position = 'fixed';
       container.style.left = '-9999px';
       container.style.top = '0';
-      container.style.width = '800px';
+      container.style.width = '794px';
+      container.style.height = '1123px';
       container.style.background = '#ffffff';
       container.style.padding = '40px';
+      container.style.boxSizing = 'border-box';
       container.style.fontFamily = "'Poppins', sans-serif";
       container.style.color = '#002D38';
+      container.style.overflow = 'hidden';
 
-      const isFlatInvoice = inv.useFlatSubtotal || (inv.subtotal && (!inv.candidates || inv.candidates.length === 0));
+      const effectiveSubForPdf = getEffectiveSubtotal(inv);
+      const isFlatInvoice = inv.useFlatSubtotal || (effectiveSubForPdf > 0 && (!inv.candidates || inv.candidates.length === 0));
       const candidateRows = isFlatInvoice ? `
-        <tr style="border-bottom: 1px solid #e2e8f0;">
-          <td style="padding: 12px; text-align: center;">1</td>
-          <td style="padding: 12px; font-weight: 600;" colspan="3">Placement Fee</td>
-          <td style="padding: 12px; text-align: right; font-family: monospace; font-weight: 600;">$${Number(inv.subtotal || inv.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+        <tr style="border-bottom: 1px solid #cbd5e1;">
+          <td style="padding: 10px 12px; text-align: center; color: #002D38;">1</td>
+          <td style="padding: 10px 12px; font-weight: 600; color: #002D38;" colspan="3">${inv.serviceDescription || 'Placement Fee - Recruitment Services'}</td>
+          <td style="padding: 10px 12px; text-align: right; font-family: monospace; font-weight: 600; color: #002D38;">$${effectiveSubForPdf.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
         </tr>
       ` : (inv.candidates || []).map((c: any, index: number) => `
-        <tr style="border-bottom: 1px solid #e2e8f0;">
-          <td style="padding: 8px; text-align: center;">${index + 1}</td>
-          <td style="padding: 8px; font-weight: 600;">${c.candidateName}</td>
-          <td style="padding: 8px;">${c.position || 'N/A'}</td>
-          <td style="padding: 8px;"><span style="background-color: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 10px;">${c.billingType || 'Placement'}</span></td>
-          <td style="padding: 8px; text-align: right; font-family: monospace; font-weight: 600;">$${Number(c.fee || c.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+        <tr style="border-bottom: 1px solid #cbd5e1;">
+          <td style="padding: 8px 12px; text-align: center; color: #002D38;">${index + 1}</td>
+          <td style="padding: 8px 12px; font-weight: 600; color: #002D38;">${c.candidateName}</td>
+          <td style="padding: 8px 12px; color: #475569;">${c.position || 'N/A'}</td>
+          <td style="padding: 8px 12px;"><span style="background-color: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">${c.billingType || 'Placement'}</span></td>
+          <td style="padding: 8px 12px; text-align: right; font-family: monospace; font-weight: 600; color: #002D38;">$${Number(c.fee || c.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
         </tr>
       `).join('');
 
       const tableHeader = isFlatInvoice ? `
         <tr>
-          <th style="width: 50px; text-align: center; background: #004564; color: #fff; padding: 10px;">#</th>
-          <th colspan="3" style="background: #004564; color: #fff; padding: 10px; text-align: left;">Service Description</th>
-          <th style="text-align: right; width: 120px; background: #004564; color: #fff; padding: 10px;">Amount</th>
+          <th style="width: 50px; text-align: center; background: #004564; color: #fff; padding: 10px 12px; font-size: 11px; font-weight: 800; text-transform: uppercase;">#</th>
+          <th colspan="3" style="background: #004564; color: #fff; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase;">Service Description</th>
+          <th style="text-align: right; width: 130px; background: #004564; color: #fff; padding: 10px 12px; font-size: 11px; font-weight: 800; text-transform: uppercase;">Amount</th>
         </tr>
       ` : `
         <tr>
-          <th style="width: 50px; text-align: center; background: #004564; color: #fff; padding: 10px;">#</th>
-          <th style="background: #004564; color: #fff; padding: 10px; text-align: left;">Placed Candidate</th>
-          <th style="background: #004564; color: #fff; padding: 10px; text-align: left;">Position/Role</th>
-          <th style="background: #004564; color: #fff; padding: 10px; text-align: left;">Type</th>
-          <th style="text-align: right; width: 120px; background: #004564; color: #fff; padding: 10px;">Amount</th>
+          <th style="width: 50px; text-align: center; background: #004564; color: #fff; padding: 10px 12px; font-size: 11px; font-weight: 800; text-transform: uppercase;">#</th>
+          <th style="background: #004564; color: #fff; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase;">Placed Candidate</th>
+          <th style="background: #004564; color: #fff; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase;">Position/Role</th>
+          <th style="background: #004564; color: #fff; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase;">Type</th>
+          <th style="text-align: right; width: 130px; background: #004564; color: #fff; padding: 10px 12px; font-size: 11px; font-weight: 800; text-transform: uppercase;">Amount</th>
         </tr>
       `;
 
       const formattedDate = inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : (inv.createdAt?.toDate ? inv.createdAt.toDate().toLocaleDateString() : new Date().toLocaleDateString());
       const formattedDueDate = inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : 'N/A';
 
+      const sub = getEffectiveSubtotal(inv);
+      const taxRate = Number(inv.taxRate || 0);
+      const taxAmt = Math.round(sub * (taxRate / 100));
+      const disc = Number(inv.discountAmount || 0);
+      const total = getEffectiveTotal(inv);
+
+      const logoVariant = inv.logoVariant || 'dark';
+      const darkLogo = inv.darkLogoUrl || 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg';
+      const whiteLogo = inv.whiteLogoUrl || 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-white-logo.svg';
+      const displayLogo = logoVariant === 'white' 
+        ? whiteLogo 
+        : (logoVariant === 'custom' && inv.logoUrl ? inv.logoUrl : darkLogo);
+      const watermarkImg = inv.watermarkUrl || displayLogo;
+
+      const logoContainerStyle = 'width: 48px; height: 48px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 6px;';
+
+      const cleanSigName = (!inv.signatoryName || inv.signatoryName.includes('dfgvdsf') || inv.signatoryName.includes('gvsdfesf')) ? 'Mayur Jungi' : inv.signatoryName;
+      const cleanSigTitle = (!inv.signatoryTitle || inv.signatoryTitle.includes('dfgvdsf') || inv.signatoryTitle.includes('gvsdfesf')) ? 'Operations Manager' : inv.signatoryTitle;
+
+      const watermarkText = inv.watermarkText || 'AURRUM';
+
       container.innerHTML = `
-        <div style="font-family: 'Poppins', sans-serif; color: #002D38; padding: 20px; background: #ffffff;">
-          <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #004564; padding-bottom: 16px; margin-bottom: 20px;">
-            <div>
-              <h1 style="font-size: 22px; font-weight: 800; color: #002D38; margin: 0 0 4px 0;">${inv.senderName || 'Aurrum CRM'}</h1>
-              <p style="margin: 2px 0; color: #005472; font-size: 12px;">${inv.senderTagline || 'Talent Insights & Recruitment Services'}</p>
-            </div>
-            <div style="text-align: right;">
-              <h2 style="font-size: 24px; font-weight: 800; color: #002D38; margin: 0 0 4px 0;">INVOICE</h2>
-              <span style="display: inline-block; padding: 4px 8px; border: 2px solid #3b82f6; color: #3b82f6; border-radius: 6px; font-weight: 800; text-transform: uppercase; font-size: 11px;">${inv.status}</span>
-            </div>
+        <div style="font-family: 'Poppins', sans-serif; color: #002D38; background: #ffffff; position: relative; width: 794px; height: 1123px; display: flex; flex-direction: column; justify-content: space-between; box-sizing: border-box; padding: 40px;">
+          <!-- Centered Background Watermark Image or Text -->
+          <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 0;">
+            ${inv.watermarkUrl 
+              ? `<img src="${inv.watermarkUrl}" alt="Watermark" style="width: 340px; height: 340px; object-fit: contain; opacity: 0.05;" crossorigin="anonymous" />`
+              : (inv.watermarkText 
+                  ? `<div style="font-weight: 900; font-size: 64px; text-transform: uppercase; letter-spacing: 0.1em; color: #002D38; opacity: 0.04; transform: rotate(-25deg); user-select: none;">${inv.watermarkText}</div>`
+                  : `<img src="${watermarkImg}" alt="Watermark" style="width: 340px; height: 340px; object-fit: contain; opacity: 0.05;" crossorigin="anonymous" />`)}
           </div>
-          <div style="display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #cbd5e1; border-radius: 12px; padding: 16px; margin-bottom: 25px; background: #f8fafc;">
-            <div>
-              <h3 style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #A98B56; margin-bottom: 8px;">Billed To</h3>
-              <p style="margin: 3px 0; font-size: 12px;"><strong>Client:</strong> ${inv.clientName}</p>
-              ${inv.paymentTerms ? `<p style="margin: 3px 0; font-size: 12px;"><strong>Payment Terms:</strong> ${inv.paymentTerms}</p>` : ''}
+
+          <div style="position: relative; z-index: 10; flex: 1; display: flex; flex-direction: column;">
+            <!-- Header -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #004564; padding-bottom: 16px; margin-bottom: 20px;">
+              <div style="display: flex; align-items: flex-start; gap: 12px;">
+                <div style="${logoContainerStyle}">
+                  <img src="${displayLogo}" alt="Logo" style="width: 100%; height: 100%; object-fit: contain;" />
+                </div>
+                <div>
+                  <h1 style="font-size: 15px; font-weight: 800; color: #002D38; margin: 0 0 2px 0;">${inv.senderName || 'AURRUM SERVICES'}</h1>
+                  <p style="margin: 0; color: #005472; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">${inv.senderTagline || 'Talent Insights & Recruitment Services'}</p>
+                  <p style="margin: 3px 0 0 0; color: #64748b; font-size: 9px; max-width: 260px; line-height: 1.3;">${inv.senderAddress || '513, 5th Floor, Shivalik Shilp Iskcon Cross Road, Sarkhej - Gandhinagar Hwy, Ahmedabad - 380015'}</p>
+                  <p style="margin: 3px 0 0 0; color: #A98B56; font-size: 10px; font-weight: 700;">${inv.senderEmail || 'auriicsservices@gmail.com'} | ${inv.senderWeb || 'aurrum.co'}</p>
+                </div>
+              </div>
+              <div style="text-align: right; background: #f8fafc; padding: 12px 16px; border-radius: 10px; border: 1px solid #cbd5e1; min-width: 190px;">
+                <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 4px;">
+                  <h2 style="font-size: 18px; font-weight: 900; color: #002D38; margin: 0;">INVOICE</h2>
+                  <span style="padding: 2px 6px; border: 1px solid #93c5fd; background: #eff6ff; color: #1d4ed8; border-radius: 6px; font-weight: 800; text-transform: uppercase; font-size: 9px;">${inv.status}</span>
+                </div>
+                <p style="margin: 2px 0; font-size: 10px;"><strong style="color: #64748b;">Invoice No:</strong> <span style="font-family: monospace; font-weight: bold; color: #002D38;">${inv.invoiceNumber}</span></p>
+                <p style="margin: 2px 0; font-size: 10px;"><strong style="color: #64748b;">Issue Date:</strong> ${formattedDate}</p>
+                <p style="margin: 2px 0; font-size: 10px;"><strong style="color: #64748b;">Due Date:</strong> ${formattedDueDate}</p>
+              </div>
             </div>
-            <div style="text-align: right;">
-              <h3 style="font-size: 11px; font-weight: 800; text-transform: uppercase; color: #A98B56; margin-bottom: 8px;">Invoice Info</h3>
-              <p style="margin: 3px 0; font-size: 12px;"><strong>Invoice Number:</strong> ${inv.invoiceNumber}</p>
-              <p style="margin: 3px 0; font-size: 12px;"><strong>Issue Date:</strong> ${formattedDate}</p>
-              <p style="margin: 3px 0; font-size: 12px;"><strong>Due Date:</strong> ${formattedDueDate}</p>
+
+            <!-- Client & Service Box -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; margin-bottom: 20px; background: #f8fafc;">
+              <div>
+                <h3 style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #A98B56; margin-bottom: 4px; letter-spacing: 0.05em;">Billed To</h3>
+                <p style="margin: 2px 0; font-size: 11px; font-weight: 800; color: #002D38;">${inv.clientName}</p>
+                ${inv.clientAddress ? `<p style="margin: 2px 0; font-size: 10px; color: #002D38; white-space: pre-wrap;">${inv.clientAddress}</p>` : ''}
+                ${inv.paymentTerms ? `<p style="margin: 3px 0 0 0; font-size: 10px; color: #002D38;"><strong>Payment Terms:</strong> ${inv.paymentTerms}</p>` : ''}
+              </div>
+              <div style="text-align: right;">
+                <h3 style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #A98B56; margin-bottom: 4px; letter-spacing: 0.05em;">Service Description</h3>
+                <p style="margin: 2px 0; font-size: 10px; font-weight: 700; color: #002D38;">${inv.serviceDescription || 'Professional Recruitment & Talent Search Services'}</p>
+              </div>
             </div>
-          </div>
-          <table style="width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden;">
-            <thead>${tableHeader}</thead>
-            <tbody>${candidateRows}</tbody>
-          </table>
-          <div style="display: flex; justify-content: flex-end; margin-top: 15px;">
-            <table style="width: 280px; font-size: 12px; border-collapse: collapse;">
-              <tr><td style="padding: 6px 0;">Subtotal:</td><td style="text-align: right; font-family: monospace; padding: 6px 0;">$${Number(inv.subtotal || inv.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>
-              ${inv.taxRate > 0 ? `<tr><td style="padding: 6px 0;">Tax (${inv.taxRate}%):</td><td style="text-align: right; font-family: monospace; padding: 6px 0;">+$${Number(inv.taxAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>` : ''}
-              ${inv.discountAmount > 0 ? `<tr><td style="padding: 6px 0;">Discount:</td><td style="text-align: right; font-family: monospace; color: #ef4444; padding: 6px 0;">-$${Number(inv.discountAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>` : ''}
-              <tr style="border-top: 2px solid #A98B56; font-size: 15px; font-weight: 800; color: #A98B56;">
-                <td style="padding: 8px 0;">Total Due:</td>
-                <td style="text-align: right; font-family: monospace; padding: 8px 0;">$${Number(inv.totalAmount || inv.total || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-              </tr>
+
+            <!-- Table -->
+            <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden;">
+              <thead>${tableHeader}</thead>
+              <tbody>${candidateRows}</tbody>
             </table>
-          </div>
-          ${(inv.bankName || inv.accountNumber || inv.payeeName) ? `
-            <div style="margin-top: 20px; padding: 12px; background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 11px;">
-              <strong style="display: block; margin-bottom: 4px; color: #004564; text-transform: uppercase;">Bank Payment Instructions</strong>
-              ${inv.payeeName ? `<p style="margin: 2px 0;"><strong>Payee Name:</strong> ${inv.payeeName}</p>` : ''}
-              ${inv.bankName ? `<p style="margin: 2px 0;"><strong>Bank Name:</strong> ${inv.bankName}</p>` : ''}
-              ${inv.bankBranch ? `<p style="margin: 2px 0;"><strong>Branch:</strong> ${inv.bankBranch}</p>` : ''}
-              ${inv.accountNumber ? `<p style="margin: 2px 0;"><strong>Account Number:</strong> ${inv.accountNumber}</p>` : ''}
-              ${inv.swiftCode ? `<p style="margin: 2px 0;"><strong>SWIFT / BIC:</strong> ${inv.swiftCode}</p>` : ''}
+
+            <!-- Totals -->
+            <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+              <table style="width: 260px; font-size: 11px; border-collapse: collapse;">
+                <tr><td style="padding: 5px 0; color: #64748b; font-weight: 700;">Subtotal:</td><td style="text-align: right; font-family: monospace; font-weight: 700; padding: 5px 0; color: #002D38;">$${sub.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>
+                ${taxRate > 0 ? `<tr><td style="padding: 5px 0; color: #64748b; font-weight: 700;">Tax (${taxRate}%):</td><td style="text-align: right; font-family: monospace; padding: 5px 0; color: #002D38;">+$${taxAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>` : ''}
+                ${disc > 0 ? `<tr><td style="padding: 5px 0; color: #64748b; font-weight: 700;">Discount:</td><td style="text-align: right; font-family: monospace; color: #ef4444; padding: 5px 0;">-$${disc.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>` : ''}
+                <tr style="border-top: 2px solid #A98B56; background-color: #f1f5f9; font-size: 13px; font-weight: 900; color: #A98B56;">
+                  <td style="padding: 8px 8px; text-transform: uppercase; font-size: 10px; color: #002D38;">Total Due:</td>
+                  <td style="text-align: right; font-family: monospace; padding: 8px 8px; color: #A98B56;">$${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                </tr>
+              </table>
             </div>
-          ` : ''}
+
+            <!-- Footer / Bank & Signatory -->
+            <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; padding-top: 16px; border-top: 1px solid #cbd5e1;">
+              <div style="width: 52%;">
+                ${(inv.bankName || inv.accountNumber || inv.payeeName) ? `
+                  <div style="padding: 10px; background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 10px;">
+                    <strong style="display: block; margin-bottom: 3px; color: #004564; text-transform: uppercase; font-size: 9px; letter-spacing: 0.05em;">Bank Payment Instructions</strong>
+                    ${inv.payeeName ? `<p style="margin: 2px 0; color: #334155;"><strong>Payee:</strong> ${inv.payeeName}</p>` : ''}
+                    ${inv.bankName ? `<p style="margin: 2px 0; color: #334155;"><strong>Bank:</strong> ${inv.bankName}</p>` : ''}
+                    ${inv.accountNumber ? `<p style="margin: 2px 0; color: #334155;"><strong>A/C:</strong> <span style="font-family: monospace; font-weight: bold;">${inv.accountNumber}</span></p>` : ''}
+                    ${inv.swiftCode ? `<p style="margin: 2px 0; color: #334155;"><strong>SWIFT:</strong> <span style="font-family: monospace; font-weight: bold;">${inv.swiftCode}</span></p>` : ''}
+                  </div>
+                ` : `
+                  <div style="font-size: 10px; color: #64748b;">
+                    <p style="font-weight: bold; color: #002D38; margin: 0 0 2px 0;">Thank you for your business!</p>
+                    <p style="margin: 0;">Please remit payment according to agreed terms.</p>
+                  </div>
+                `}
+              </div>
+              <div style="text-align: right;">
+                ${inv.signatureUrl 
+                  ? `<img src="${inv.signatureUrl}" alt="Signature" style="max-height: 48px; max-width: 160px; object-fit: contain; margin-bottom: 2px;" crossorigin="anonymous" />`
+                  : `<div style="font-family: serif; font-style: italic; font-size: 22px; color: #A98B56; font-weight: bold; margin-bottom: 2px;">${cleanSigName}</div>`}
+                <p style="margin: 0; font-weight: 900; font-size: 12px; color: #002D38;">${cleanSigName}</p>
+                <p style="margin: 2px 0 0 0; font-size: 9px; color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">${cleanSigTitle}</p>
+              </div>
+            </div>
+
+            <!-- Bottom Footer Statement -->
+            <div style="text-align: center; margin-top: 14px; padding-top: 8px; border-top: 1px dashed #cbd5e1; font-size: 8px; color: #94a3b8;">
+              ${inv.invoiceFooterLine1 !== undefined ? inv.invoiceFooterLine1 : 'Thank you for partnering with Aurrum Company Recruitment Services.'} | ${inv.invoiceFooterLine2 !== undefined ? inv.invoiceFooterLine2 : 'Authorized Statement of Account'}
+            </div>
+          </div>
         </div>
       `;
 
@@ -261,7 +374,7 @@ export const InvoiceList = () => {
   const handleEmailInvoice = (inv: any) => {
     try {
       const subject = encodeURIComponent(`Invoice Statement #${inv.invoiceNumber} from Aurrum CRM`);
-      const body = encodeURIComponent(`Dear ${inv.clientName},\n\nPlease find your invoice statement #${inv.invoiceNumber} attached / available for review.\n\nTotal Amount Due: $${Number(inv.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}\nDue Date: ${inv.dueDate || 'N/A'}\n\nThank you for partnering with Aurrum Company Recruitment Services.\n\nBest regards,\nAurrum CRM Team`);
+      const body = encodeURIComponent(`Dear ${inv.clientName},\n\nPlease find your invoice statement #${inv.invoiceNumber} attached / available for review.\n\nTotal Amount Due: $${getEffectiveTotal(inv).toLocaleString(undefined, { minimumFractionDigits: 2 })}\nDue Date: ${inv.dueDate || 'N/A'}\n\nThank you for partnering with Aurrum Company Recruitment Services.\n\nBest regards,\nAurrum CRM Team`);
       window.location.href = `mailto:?subject=${subject}&body=${body}`;
     } catch (error) {
       console.error('[InvoiceList] Email invoice error:', error);
@@ -271,30 +384,61 @@ export const InvoiceList = () => {
 
   // Open printable window for Invoice
   const handlePrintInvoice = (inv: any) => {
-    const itemsList = (inv.candidates && inv.candidates.length > 0) ? inv.candidates : [{ candidateName: inv.serviceDescription || 'Recruitment services', fee: inv.subtotal || 0 }];
-    const candidateRows = itemsList.map((c: any, index: number) => `
-      <tr style="border-bottom: 1px solid #e2e8f0;">
-        <td style="padding: 12px; text-align: center;">${index + 1}</td>
-        <td style="padding: 12px; font-weight: 600;" colspan="3">${c.candidateName || c.description || 'Recruitment services'}</td>
-        <td style="padding: 12px; text-align: right; font-family: 'JetBrains Mono', monospace; font-weight: 600;">$${Number(c.fee || c.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+    const effectiveSubForPrint = getEffectiveSubtotal(inv);
+    const isFlatInvoice = inv.useFlatSubtotal || (effectiveSubForPrint > 0 && (!inv.candidates || inv.candidates.length === 0));
+    const candidateRows = isFlatInvoice ? `
+      <tr style="border-bottom: 1px solid #cbd5e1;">
+        <td style="padding: 10px 12px; text-align: center; color: #002D38;">1</td>
+        <td style="padding: 10px 12px; font-weight: 600; color: #002D38;" colspan="3">${inv.serviceDescription || 'Placement Fee - Recruitment Services'}</td>
+        <td style="padding: 10px 12px; text-align: right; font-family: monospace; font-weight: 600; color: #002D38;">$${effectiveSubForPrint.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+      </tr>
+    ` : (inv.candidates || []).map((c: any, index: number) => `
+      <tr style="border-bottom: 1px solid #cbd5e1;">
+        <td style="padding: 8px 12px; text-align: center; color: #002D38;">${index + 1}</td>
+        <td style="padding: 8px 12px; font-weight: 600; color: #002D38;">${c.candidateName}</td>
+        <td style="padding: 8px 12px; color: #475569;">${c.position || 'N/A'}</td>
+        <td style="padding: 8px 12px;"><span style="background-color: #f1f5f9; color: #475569; padding: 2px 6px; border-radius: 4px; font-size: 10px; font-weight: 600;">${c.billingType || 'Placement'}</span></td>
+        <td style="padding: 8px 12px; text-align: right; font-family: monospace; font-weight: 600; color: #002D38;">$${Number(c.fee || c.amount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
       </tr>
     `).join('');
 
-    const tableHeader = `
+    const tableHeader = isFlatInvoice ? `
       <tr>
-        <th style="width: 50px; text-align: center;">#</th>
-        <th colspan="3">Service Description</th>
-        <th style="text-align: right; width: 120px;">Amount</th>
+        <th style="width: 50px; text-align: center; background: #004564; color: #fff; padding: 10px 12px; font-size: 11px; font-weight: 800; text-transform: uppercase;">#</th>
+        <th colspan="3" style="background: #004564; color: #fff; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase;">Service Description</th>
+        <th style="text-align: right; width: 130px; background: #004564; color: #fff; padding: 10px 12px; font-size: 11px; font-weight: 800; text-transform: uppercase;">Amount</th>
+      </tr>
+    ` : `
+      <tr>
+        <th style="width: 50px; text-align: center; background: #004564; color: #fff; padding: 10px 12px; font-size: 11px; font-weight: 800; text-transform: uppercase;">#</th>
+        <th style="background: #004564; color: #fff; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase;">Placed Candidate</th>
+        <th style="background: #004564; color: #fff; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase;">Position/Role</th>
+        <th style="background: #004564; color: #fff; padding: 10px 12px; text-align: left; font-size: 11px; font-weight: 800; text-transform: uppercase;">Type</th>
+        <th style="text-align: right; width: 130px; background: #004564; color: #fff; padding: 10px 12px; font-size: 11px; font-weight: 800; text-transform: uppercase;">Amount</th>
       </tr>
     `;
 
     const formattedDate = inv.issueDate ? new Date(inv.issueDate).toLocaleDateString() : (inv.createdAt?.toDate ? inv.createdAt.toDate().toLocaleDateString() : new Date().toLocaleDateString());
     const formattedDueDate = inv.dueDate ? new Date(inv.dueDate).toLocaleDateString() : 'N/A';
-    const activeLogoUrl = inv.senderLogo || 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg';
-    const activeSenderName = inv.senderName || '';
-    const activeSenderTagline = inv.senderTagline || '';
-    const activeSenderEmail = inv.senderEmail || '';
-    const activeSenderWeb = inv.senderWeb || '';
+
+    const sub = getEffectiveSubtotal(inv);
+    const taxRate = Number(inv.taxRate || 0);
+    const taxAmt = Math.round(sub * (taxRate / 100));
+    const disc = Number(inv.discountAmount || 0);
+    const total = getEffectiveTotal(inv);
+
+    const logoVariant = inv.logoVariant || 'dark';
+    const darkLogo = inv.darkLogoUrl || 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg';
+    const whiteLogo = inv.whiteLogoUrl || 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-white-logo.svg';
+    const displayLogo = logoVariant === 'white' 
+      ? whiteLogo 
+      : (logoVariant === 'custom' && inv.logoUrl ? inv.logoUrl : darkLogo);
+    const watermarkImg = inv.watermarkUrl || displayLogo;
+
+    const logoContainerStyle = 'width: 48px; height: 48px; background: #ffffff; border: 1px solid #cbd5e1; border-radius: 12px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; padding: 6px;';
+
+    const cleanSigName = (!inv.signatoryName || inv.signatoryName.includes('dfgvdsf') || inv.signatoryName.includes('gvsdfesf')) ? 'Mayur Jungi' : inv.signatoryName;
+    const cleanSigTitle = (!inv.signatoryTitle || inv.signatoryTitle.includes('dfgvdsf') || inv.signatoryTitle.includes('gvsdfesf')) ? 'Operations Manager' : inv.signatoryTitle;
 
     const printContent = `
       <html>
@@ -302,230 +446,155 @@ export const InvoiceList = () => {
           <title>Invoice - ${inv.invoiceNumber}</title>
           <style>
             @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600&display=swap');
-            body { font-family: 'Poppins', sans-serif; padding: 20px; color: #002D38; line-height: 1.4; background: #fff; font-size: 12px; }
-            .header-container { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #004564; padding-bottom: 16px; margin-bottom: 20px; }
-            .company-details h1 { font-size: 20px; font-weight: 800; color: #002D38; margin: 0 0 4px 0; letter-spacing: -0.025em; }
-            .company-details p { margin: 2px 0; color: #005472; font-size: 12px; }
-            .invoice-title-block { text-align: right; }
-            .invoice-title-block h2 { font-size: 26px; font-weight: 800; color: #002D38; margin: 0 0 4px 0; text-transform: uppercase; letter-spacing: 0.05em; }
-            .meta-grid { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #cbd5e1; border-radius: 12px; overflow: hidden; margin-bottom: 25px; background: #f8fafc; }
-            .meta-section { padding: 16px; }
-            .meta-section:first-child { border-right: 1px solid #cbd5e1; }
-            .meta-section h3 { font-size: 11px; font-weight: 800; text-transform: uppercase; color: #A98B56; margin-bottom: 8px; letter-spacing: 0.05em; }
-            .meta-section p { margin: 3px 0; font-size: 12px; }
-            .meta-section strong { color: #002D38; }
-            table { width: 100%; border-collapse: collapse; margin-bottom: 25px; font-size: 12px; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden; }
-            th { background-color: #004564; color: #ffffff; font-weight: 700; text-transform: uppercase; font-size: 10px; letter-spacing: 0.05em; padding: 10px 12px; text-align: left; }
-            td { padding: 10px 12px; border-bottom: 1px solid #e2e8f0; }
-            tr { page-break-inside: avoid; }
-            .summary-container { display: flex; justify-content: flex-end; margin-top: 15px; page-break-inside: avoid; }
-            .summary-table { width: 300px; font-size: 12px; border: none; }
-            .summary-table tr { border-bottom: 1px solid #f1f5f9; }
-            .summary-table td { padding: 6px 0; border: none; }
-            .summary-table .total-row { border-top: 2px solid #A98B56; font-size: 15px; font-weight: 800; color: #A98B56; }
-            .notes-block { margin-top: 25px; padding: 12px; background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 12px; page-break-inside: avoid; }
-            .footer { margin-top: 40px; border-top: 1px solid #e2e8f0; padding-top: 15px; font-size: 11px; color: #005472; text-align: center; page-break-inside: avoid; }
-            .stamp { display: inline-block; padding: 4px 8px; border: 2px solid; border-radius: 6px; font-weight: 800; text-transform: uppercase; transform: rotate(-5deg); font-size: 12px; }
-            .stamp-Paid { border-color: #22c55e; color: #22c55e; }
-            .stamp-Sent { border-color: #3b82f6; color: #3b82f6; }
-            .stamp-Draft { border-color: #f59e0b; color: #f59e0b; }
-            .stamp-Overdue { border-color: #ef4444; color: #ef4444; }
-
             @page {
-              size: auto;
-              margin: 10mm 15mm;
+              size: A4 portrait;
+              margin: 0;
+            }
+            body {
+              margin: 0;
+              padding: 0;
+              background: #ffffff;
+              font-family: 'Poppins', sans-serif;
+              color: #002D38;
+              -webkit-print-color-adjust: exact;
+              print-color-adjust: exact;
+            }
+            .a4-page {
+              width: 794px;
+              height: 1123px;
+              box-sizing: border-box;
+              padding: 40px;
+              background: #ffffff;
+              display: flex;
+              flex-direction: column;
+              justify-content: space-between;
+              position: relative;
+              overflow: hidden;
+              margin: 0 auto;
             }
             @media print {
               body {
-                padding: 0 !important;
-                margin: 0 !important;
-                font-size: 11px !important;
-                line-height: 1.3 !important;
+                background: #ffffff;
               }
-              .header-container {
-                padding-bottom: 8px !important;
-                margin-bottom: 12px !important;
-              }
-              .company-details h1 {
-                font-size: 18px !important;
-              }
-              .company-details p {
-                font-size: 10px !important;
-              }
-              .invoice-title-block h2 {
-                font-size: 20px !important;
-              }
-              .stamp {
-                padding: 2px 6px !important;
-                font-size: 10px !important;
-              }
-              .meta-grid {
-                margin-bottom: 12px !important;
-                gap: 15px !important;
-              }
-              .meta-section h3 {
-                font-size: 11px !important;
-                margin-bottom: 4px !important;
-                padding-bottom: 2px !important;
-              }
-              .meta-section p {
-                font-size: 10px !important;
-              }
-              table {
-                margin-bottom: 12px !important;
-                font-size: 10px !important;
-              }
-              th {
-                padding: 5px 6px !important;
-                font-size: 9px !important;
-              }
-              td {
-                padding: 5px 6px !important;
-              }
-              .summary-container {
-                margin-top: 8px !important;
-              }
-              .summary-table {
-                width: 230px !important;
-                font-size: 10px !important;
-              }
-              .summary-table td {
-                padding: 3px 0 !important;
-              }
-              .summary-table .total-row {
-                font-size: 13px !important;
-              }
-              .notes-block {
-                margin-top: 15px !important;
-                padding: 8px !important;
-                font-size: 10px !important;
-              }
-              .footer {
-                margin-top: 20px !important;
-                padding-top: 8px !important;
-                font-size: 9px !important;
+              .a4-page {
+                width: 210mm;
+                height: 297mm;
+                page-break-after: avoid;
+                page-break-inside: avoid;
               }
             }
           </style>
         </head>
         <body>
-          <div class="header-container" style="border-bottom: 2px solid #cbd5e1; padding-bottom: 16px; margin-bottom: 20px;">
-            <div class="company-details" style="display: flex; flex-direction: column; align-items: flex-start; gap: 8px;">
-              ${activeLogoUrl ? `
-                <img src="${activeLogoUrl}" alt="Logo" style="max-height: 45px; max-width: 150px; object-fit: contain; margin-bottom: 4px;" referrerPolicy="no-referrer" />
-              ` : `
-                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 4px;">
-                  <div style="width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, #A98B56 0%, #BC9B66 100%); display: flex; align-items: center; justify-content: center;">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#ffffff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
-                      <path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/>
-                      <path d="m5 3 1 2.5L8.5 6 6 7 5 9.5 4 7 1.5 6 4 5.5 5 3Z"/>
-                      <path d="m19 17 1 2.5 2.5.5-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1 1-2.5Z"/>
-                    </svg>
+          <div class="a4-page">
+            <!-- Centered Background Watermark Image or Text -->
+            <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; display: flex; align-items: center; justify-content: center; pointer-events: none; z-index: 0;">
+              ${inv.watermarkUrl 
+                ? `<img src="${inv.watermarkUrl}" alt="Watermark" style="width: 340px; height: 340px; object-fit: contain; opacity: 0.05;" crossorigin="anonymous" />`
+                : (inv.watermarkText 
+                    ? `<div style="font-weight: 900; font-size: 64px; text-transform: uppercase; letter-spacing: 0.1em; color: #002D38; opacity: 0.04; transform: rotate(-25deg); user-select: none;">${inv.watermarkText}</div>`
+                    : `<img src="${watermarkImg}" alt="Watermark" style="width: 340px; height: 340px; object-fit: contain; opacity: 0.05;" crossorigin="anonymous" />`)}
+            </div>
+
+            <div style="position: relative; z-index: 10; flex: 1; display: flex; flex-direction: column;">
+              <!-- Header -->
+              <div style="display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 2px solid #004564; padding-bottom: 16px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: flex-start; gap: 12px;">
+                  <div style="${logoContainerStyle}">
+                    <img src="${displayLogo}" alt="Logo" style="width: 100%; height: 100%; object-fit: contain;" />
                   </div>
-                  <div style="display: flex; flex-direction: column; text-align: left; line-height: 1;">
-                    <span style="font-weight: 800; font-size: 16px; color: #002D38; font-family: 'Inter', sans-serif;">
-                      Aurrum <span style="color: #BC9B66; font-size: 11px; font-weight: 400;">CRM</span>
-                    </span>
-                    <span style="font-size: 9px; font-weight: 600; letter-spacing: 0.05em; text-transform: uppercase; color: #005472; margin-top: 2px; font-family: 'Inter', sans-serif;">
-                      Talent Insights
-                    </span>
+                  <div>
+                    <h1 style="font-size: 15px; font-weight: 800; color: #002D38; margin: 0 0 2px 0;">${inv.senderName || 'AURRUM SERVICES'}</h1>
+                    <p style="margin: 0; color: #005472; font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">${inv.senderTagline || 'Talent Insights & Recruitment Services'}</p>
+                    <p style="margin: 3px 0 0 0; color: #64748b; font-size: 9px; max-width: 260px; line-height: 1.3;">${inv.senderAddress || '513, 5th Floor, Shivalik Shilp Iskcon Cross Road, Sarkhej - Gandhinagar Hwy, Ahmedabad - 380015'}</p>
+                    <p style="margin: 3px 0 0 0; color: #A98B56; font-size: 10px; font-weight: 700;">${inv.senderEmail || 'auriicsservices@gmail.com'} | ${inv.senderWeb || 'aurrum.co'}</p>
                   </div>
                 </div>
-              `}
-              <div style="display: flex; flex-direction: column; gap: 2px;">
-                ${activeSenderName ? `<h1 style="margin: 0; font-size: 20px; font-weight: 800; color: #002D38;">${activeSenderName}</h1>` : ''}
-                ${activeSenderTagline ? `<p style="margin: 1px 0; color: #64748b; font-size: 12px;">${activeSenderTagline}</p>` : ''}
-                ${(activeSenderEmail || activeSenderWeb) ? `
-                  <p style="margin: 1px 0; color: #64748b; font-size: 12px;">
-                    ${activeSenderEmail ? `Email: ${activeSenderEmail}` : ''}
-                    ${(activeSenderEmail && activeSenderWeb) ? ' | ' : ''}
-                    ${activeSenderWeb ? `Web: ${activeSenderWeb}` : ''}
-                  </p>
-                ` : ''}
+                <div style="text-align: right; background: #f8fafc; padding: 12px 16px; border-radius: 10px; border: 1px solid #cbd5e1; min-width: 190px;">
+                  <div style="display: flex; justify-content: flex-end; align-items: center; gap: 8px; margin-bottom: 4px;">
+                    <h2 style="font-size: 18px; font-weight: 900; color: #002D38; margin: 0;">INVOICE</h2>
+                    <span style="padding: 2px 6px; border: 1px solid #93c5fd; background: #eff6ff; color: #1d4ed8; border-radius: 6px; font-weight: 800; text-transform: uppercase; font-size: 9px;">${inv.status}</span>
+                  </div>
+                  <p style="margin: 2px 0; font-size: 10px;"><strong style="color: #64748b;">Invoice No:</strong> <span style="font-family: monospace; font-weight: bold; color: #002D38;">${inv.invoiceNumber}</span></p>
+                  <p style="margin: 2px 0; font-size: 10px;"><strong style="color: #64748b;">Issue Date:</strong> ${formattedDate}</p>
+                  <p style="margin: 2px 0; font-size: 10px;"><strong style="color: #64748b;">Due Date:</strong> ${formattedDueDate}</p>
+                </div>
+              </div>
+
+              <!-- Client & Service Box -->
+              <div style="display: grid; grid-template-columns: 1fr 1fr; border: 1px solid #cbd5e1; border-radius: 10px; padding: 14px; margin-bottom: 20px; background: #f8fafc;">
+                <div>
+                  <h3 style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #A98B56; margin-bottom: 4px; letter-spacing: 0.05em;">Billed To</h3>
+                  <p style="margin: 2px 0; font-size: 11px; font-weight: 800; color: #002D38;">${inv.clientName}</p>
+                  ${inv.clientAddress ? `<p style="margin: 2px 0; font-size: 10px; color: #002D38; white-space: pre-wrap;">${inv.clientAddress}</p>` : ''}
+                  ${inv.paymentTerms ? `<p style="margin: 3px 0 0 0; font-size: 10px; color: #002D38;"><strong>Payment Terms:</strong> ${inv.paymentTerms}</p>` : ''}
+                </div>
+                <div style="text-align: right;">
+                  <h3 style="font-size: 9px; font-weight: 900; text-transform: uppercase; color: #A98B56; margin-bottom: 4px; letter-spacing: 0.05em;">Service Description</h3>
+                  <p style="margin: 2px 0; font-size: 10px; font-weight: 700; color: #002D38;">${inv.serviceDescription || 'Professional Recruitment & Talent Search Services'}</p>
+                </div>
+              </div>
+
+              <!-- Table -->
+              <table style="width: 100%; border-collapse: collapse; margin-bottom: 20px; font-size: 11px; border: 1px solid #cbd5e1; border-radius: 8px; overflow: hidden;">
+                <thead>${tableHeader}</thead>
+                <tbody>${candidateRows}</tbody>
+              </table>
+
+              <!-- Totals -->
+              <div style="display: flex; justify-content: flex-end; margin-bottom: 20px;">
+                <table style="width: 260px; font-size: 11px; border-collapse: collapse;">
+                  <tr><td style="padding: 5px 0; color: #64748b; font-weight: 700;">Subtotal:</td><td style="text-align: right; font-family: monospace; font-weight: 700; padding: 5px 0; color: #002D38;">$${sub.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>
+                  ${taxRate > 0 ? `<tr><td style="padding: 5px 0; color: #64748b; font-weight: 700;">Tax (${taxRate}%):</td><td style="text-align: right; font-family: monospace; padding: 5px 0; color: #002D38;">+$${taxAmt.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>` : ''}
+                  ${disc > 0 ? `<tr><td style="padding: 5px 0; color: #64748b; font-weight: 700;">Discount:</td><td style="text-align: right; font-family: monospace; color: #ef4444; padding: 5px 0;">-$${disc.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td></tr>` : ''}
+                  <tr style="border-top: 2px solid #A98B56; background-color: #f1f5f9; font-size: 13px; font-weight: 900; color: #A98B56;">
+                    <td style="padding: 8px 8px; text-transform: uppercase; font-size: 10px; color: #002D38;">Total Due:</td>
+                    <td style="text-align: right; font-family: monospace; padding: 8px 8px; color: #A98B56;">$${total.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                  </tr>
+                </table>
+              </div>
+
+              <!-- Footer / Bank & Signatory -->
+              <div style="display: flex; justify-content: space-between; align-items: flex-end; margin-top: auto; padding-top: 16px; border-top: 1px solid #cbd5e1;">
+                <div style="width: 52%;">
+                  ${(inv.bankName || inv.accountNumber || inv.payeeName) ? `
+                    <div style="padding: 10px; background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 10px;">
+                      <strong style="display: block; margin-bottom: 3px; color: #004564; text-transform: uppercase; font-size: 9px; letter-spacing: 0.05em;">Bank Payment Instructions</strong>
+                      ${inv.payeeName ? `<p style="margin: 2px 0; color: #334155;"><strong>Payee:</strong> ${inv.payeeName}</p>` : ''}
+                      ${inv.bankName ? `<p style="margin: 2px 0; color: #334155;"><strong>Bank:</strong> ${inv.bankName}</p>` : ''}
+                      ${inv.accountNumber ? `<p style="margin: 2px 0; color: #334155;"><strong>A/C:</strong> <span style="font-family: monospace; font-weight: bold;">${inv.accountNumber}</span></p>` : ''}
+                      ${inv.swiftCode ? `<p style="margin: 2px 0; color: #334155;"><strong>SWIFT:</strong> <span style="font-family: monospace; font-weight: bold;">${inv.swiftCode}</span></p>` : ''}
+                    </div>
+                  ` : `
+                    <div style="font-size: 10px; color: #64748b;">
+                      <p style="font-weight: bold; color: #002D38; margin: 0 0 2px 0;">Thank you for your business!</p>
+                      <p style="margin: 0;">Please remit payment according to agreed terms.</p>
+                    </div>
+                  `}
+                </div>
+                <div style="text-align: right;">
+                  ${inv.signatureUrl 
+                    ? `<img src="${inv.signatureUrl}" alt="Signature" style="max-height: 48px; max-width: 160px; object-fit: contain; margin-bottom: 2px;" crossorigin="anonymous" />`
+                    : `<div style="font-family: serif; font-style: italic; font-size: 22px; color: #A98B56; font-weight: bold; margin-bottom: 2px;">${cleanSigName}</div>`}
+                  <p style="margin: 0; font-weight: 900; font-size: 12px; color: #002D38;">${cleanSigName}</p>
+                  <p style="margin: 2px 0 0 0; font-size: 9px; color: #64748b; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em;">${cleanSigTitle}</p>
+                </div>
+              </div>
+
+              <!-- Bottom Footer Statement -->
+              <div style="text-align: center; margin-top: 14px; padding-top: 8px; border-top: 1px dashed #cbd5e1; font-size: 8px; color: #94a3b8;">
+                ${inv.invoiceFooterLine1 !== undefined ? inv.invoiceFooterLine1 : 'Thank you for partnering with Aurrum Company Recruitment Services.'} | ${inv.invoiceFooterLine2 !== undefined ? inv.invoiceFooterLine2 : 'Authorized Statement of Account'}
               </div>
             </div>
-            <div class="invoice-title-block">
-              <h2>INVOICE</h2>
-              <div class="stamp stamp-${inv.status}">${inv.status}</div>
-            </div>
-          </div>
-
-          <div class="meta-grid">
-            <div class="meta-section">
-              <h3>Billed To</h3>
-              <p><strong>Client:</strong> ${inv.clientName}</p>
-              ${inv.paymentTerms ? `<p><strong>Payment Terms:</strong> ${inv.paymentTerms}</p>` : ''}
-            </div>
-            <div class="meta-section" style="text-align: right;">
-              <h3>Invoice Info</h3>
-              <p><strong>Invoice Number:</strong> ${inv.invoiceNumber}</p>
-              <p><strong>Issue Date:</strong> ${formattedDate}</p>
-              <p><strong>Due Date:</strong> ${formattedDueDate}</p>
-            </div>
-          </div>
-
-          <table>
-            ${tableHeader}
-            <tbody>
-              ${candidateRows}
-            </tbody>
-          </table>
-
-          <div class="summary-container">
-            <table class="summary-table">
-              <tr>
-                <td>Subtotal:</td>
-                <td style="text-align: right; font-family: 'JetBrains Mono', monospace;">$${Number(inv.subtotal || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-              </tr>
-              ${inv.taxRate > 0 ? `
-              <tr>
-                <td>Tax (${inv.taxRate}%):</td>
-                <td style="text-align: right; font-family: 'JetBrains Mono', monospace;">+$${Number(inv.taxAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-              </tr>
-              ` : ''}
-              ${inv.discountAmount > 0 ? `
-              <tr>
-                <td>Discount:</td>
-                <td style="text-align: right; font-family: 'JetBrains Mono', monospace; color: #ef4444;">-$${Number(inv.discountAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-              </tr>
-              ` : ''}
-              <tr class="total-row">
-                <td>Total Due:</td>
-                <td style="text-align: right; font-family: 'JetBrains Mono', monospace;">$${Number(inv.totalAmount || 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-              </tr>
-            </table>
-          </div>
-
-          ${inv.notes ? `
-            <div class="notes-block">
-              <strong style="display: block; margin-bottom: 4px; color: #1e293b;">Notes / Terms:</strong>
-              <p style="margin: 0; color: #475569;">${inv.notes}</p>
-            </div>
-          ` : ''}
-
-          ${(inv.bankName || inv.accountNumber || inv.payeeName) ? `
-            <div class="notes-block">
-              <strong style="display: block; margin-bottom: 4px; color: #004564; text-transform: uppercase;">Bank Payment Instructions</strong>
-              ${inv.payeeName ? `<p style="margin: 2px 0;"><strong>Payee Name:</strong> ${inv.payeeName}</p>` : ''}
-              ${inv.bankName ? `<p style="margin: 2px 0;"><strong>Bank Name:</strong> ${inv.bankName}</p>` : ''}
-              ${inv.bankBranch ? `<p style="margin: 2px 0;"><strong>Branch:</strong> ${inv.bankBranch}</p>` : ''}
-              ${inv.accountNumber ? `<p style="margin: 2px 0;"><strong>Account Number:</strong> ${inv.accountNumber}</p>` : ''}
-              ${inv.swiftCode ? `<p style="margin: 2px 0;"><strong>SWIFT / BIC:</strong> ${inv.swiftCode}</p>` : ''}
-            </div>
-          ` : ''}
-
-          <div class="footer">
-            <p>${inv.invoiceFooterLine1 !== undefined ? inv.invoiceFooterLine1 : 'Thank you for partnering with Aurrum Company Recruitment Services.'}</p>
-            <p>${inv.invoiceFooterLine2 !== undefined ? inv.invoiceFooterLine2 : `If you have any questions regarding this consolidated statement, contact us at ${activeSenderEmail || 'auriicsservices@gmail.com'}`}</p>
           </div>
         </body>
       </html>
     `;
+
     const win = window.open('', '_blank');
     if (win) {
       win.document.write(printContent);
       win.document.close();
-      // small delay to let styles render before print trigger
       setTimeout(() => {
         win.print();
       }, 500);
@@ -585,31 +654,57 @@ export const InvoiceList = () => {
             <div className="p-2 bg-[var(--bg-secondary)] rounded-xl text-[var(--primary-gold)] border border-[var(--border-color)]">
               <FileText className="w-5 h-5" />
             </div>
-            <h2 className="text-xl font-bold text-[var(--text-primary)]">Invoices</h2>
+            <h2 className="text-xl font-bold text-[var(--text-primary)]">Invoices & PDF Studio</h2>
           </div>
           <p className="text-xs text-[var(--text-muted)]">
-            Generate and manage invoices for client billing, candidate placements, and agreements.
+            Generate and manage client invoices and customize professional PDF layout and branding.
           </p>
         </div>
 
-        <div className="flex bg-[var(--bg-secondary)] p-1.5 rounded-2xl border border-[var(--border-color)]">
+        <div className="flex items-center gap-3">
+          <div className="flex bg-[var(--bg-secondary)] p-1.5 rounded-2xl border border-[var(--border-color)] gap-1">
+            <button
+              onClick={() => setActiveTab('list')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'list' 
+                  ? 'bg-[var(--primary-gold)] text-white shadow-xs' 
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              <FileText size={14} /> Invoices List
+            </button>
+            <button
+              onClick={() => setActiveTab('editor')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                activeTab === 'editor' 
+                  ? 'bg-[var(--primary-gold)] text-white shadow-xs' 
+                  : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
+              }`}
+            >
+              <Sliders size={14} /> PDF Design & Editor
+            </button>
+          </div>
+
           <button
             onClick={() => navigate('/invoice-builder')}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold tracking-tight transition-all duration-300 crm-btn-gold text-white shadow-sm"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-xs font-extrabold tracking-tight transition-all duration-300 crm-btn-gold text-white shadow-sm cursor-pointer"
           >
             <Plus className="w-4 h-4" /> Custom Invoice
           </button>
         </div>
       </div>
 
-      <div className="crm-card p-0 overflow-hidden">
+      {activeTab === 'editor' ? (
+        <InvoiceDesignEditor />
+      ) : (
+        <div className="crm-card p-0 overflow-hidden">
         <div className="p-6 border-b border-[var(--border-color)] flex flex-col md:flex-row justify-between items-start md:items-center gap-4 bg-[var(--bg-primary)]">
           <div>
             <span className="text-xs font-bold uppercase text-[var(--text-muted)] tracking-wider">All Invoices</span>
             <p className="text-xs text-[var(--text-primary)] mt-0.5">Filter, search, print, or manage billing statements.</p>
           </div>
           <span className="crm-badge-gold text-xs px-3.5 py-1.5">
-            Total Pending Amount: ${invoices.filter(inv => inv.status !== 'Paid').reduce((sum, inv) => sum + (inv.totalAmount || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
+            Total Pending Amount: ${invoices.filter(inv => inv.status !== 'Paid').reduce((sum, inv) => sum + getEffectiveTotal(inv), 0).toLocaleString(undefined, { minimumFractionDigits: 2 })}
           </span>
         </div>
 
@@ -705,7 +800,7 @@ export const InvoiceList = () => {
                     </td>
                     <td className="p-4">
                       <span className="font-mono text-xs font-black text-[var(--text-primary)]">
-                        ${inv.totalAmount?.toLocaleString(undefined, { minimumFractionDigits: 2 })}
+                        ${getEffectiveTotal(inv).toLocaleString(undefined, { minimumFractionDigits: 2 })}
                       </span>
                     </td>
                     <td className="p-4">
@@ -726,11 +821,11 @@ export const InvoiceList = () => {
                     <td className="p-4 pr-6 text-right">
                       <div className="flex justify-end gap-2">
                         <button
-                          onClick={() => handleOpenInvoice(inv)}
-                          className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--text-secondary)] hover:text-[var(--text-primary)] transition"
-                          title="View & Edit statement before print"
+                          onClick={() => { handleOpenInvoice(inv); setModalTab('content'); }}
+                          className="p-1.5 hover:bg-[var(--bg-secondary)] rounded-lg text-[var(--primary-gold)] transition cursor-pointer"
+                          title="Edit Invoice Elements & Design"
                         >
-                          <Eye className="w-4 h-4" />
+                          <Pencil className="w-4 h-4" />
                         </button>
                         
                         <button
@@ -785,6 +880,7 @@ export const InvoiceList = () => {
           </div>
         )}
       </div>
+      )}
 
       {/* Invoice Editable Preview & Print Modal */}
       {viewingInvoice && editedInvoice && (
@@ -852,6 +948,60 @@ export const InvoiceList = () => {
               </div>
             </div>
 
+            {/* Modal Tab Bar for Visual Invoice Element Customization */}
+            <div className="flex border-b border-[var(--border-color)] bg-[var(--bg-secondary)] px-6 overflow-x-auto">
+              <button
+                onClick={() => setModalTab('content')}
+                className={`py-3 px-4 text-xs font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
+                  modalTab === 'content'
+                    ? 'border-[var(--primary-gold)] text-[var(--primary-gold)]'
+                    : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                📄 Content & Items
+              </button>
+              <button
+                onClick={() => setModalTab('branding')}
+                className={`py-3 px-4 text-xs font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
+                  modalTab === 'branding'
+                    ? 'border-[var(--primary-gold)] text-[var(--primary-gold)]'
+                    : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                🖼️ Logo & Branding
+              </button>
+              <button
+                onClick={() => setModalTab('bank')}
+                className={`py-3 px-4 text-xs font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
+                  modalTab === 'bank'
+                    ? 'border-[var(--primary-gold)] text-[var(--primary-gold)]'
+                    : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                🏦 Bank & Payment
+              </button>
+              <button
+                onClick={() => setModalTab('signatory')}
+                className={`py-3 px-4 text-xs font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
+                  modalTab === 'signatory'
+                    ? 'border-[var(--primary-gold)] text-[var(--primary-gold)]'
+                    : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                ✍️ Signatory & Footer
+              </button>
+              <button
+                onClick={() => setModalTab('layout')}
+                className={`py-3 px-4 text-xs font-bold border-b-2 transition cursor-pointer whitespace-nowrap ${
+                  modalTab === 'layout'
+                    ? 'border-[var(--primary-gold)] text-[var(--primary-gold)]'
+                    : 'border-transparent text-[var(--text-muted)] hover:text-[var(--text-primary)]'
+                }`}
+              >
+                📐 Layout & Watermark
+              </button>
+            </div>
+
             {/* Statement details - fully editable */}
             <div className="p-8 space-y-6">
               {editStatusMessage && (
@@ -865,385 +1015,714 @@ export const InvoiceList = () => {
                 </div>
               )}
 
-              <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b border-[var(--border-color)]">
-                <div className="flex flex-col items-start gap-3 w-full sm:w-1/2">
-                  <Logo variant="invoice" size="lg" className="mb-1" />
-                  <div className="w-full space-y-2">
-                    <input
-                      type="text"
-                      value={editedInvoice.senderName || ''}
-                      onChange={(e) => setEditedInvoice({ ...editedInvoice, senderName: e.target.value })}
-                      className="crm-input font-black text-[var(--primary-gold)] text-sm"
-                      placeholder="Sender / Company Name"
-                    />
-                    <input
-                      type="text"
-                      value={editedInvoice.senderTagline || ''}
-                      onChange={(e) => setEditedInvoice({ ...editedInvoice, senderTagline: e.target.value })}
-                      className="crm-input text-xs text-[var(--text-muted)]"
-                      placeholder="Sender Tagline / Address"
-                    />
-                    <div className="grid grid-cols-2 gap-2">
-                      <input
-                        type="text"
-                        value={editedInvoice.senderEmail || ''}
-                        onChange={(e) => setEditedInvoice({ ...editedInvoice, senderEmail: e.target.value })}
-                        className="crm-input text-xs"
-                        placeholder="Email"
-                      />
-                      <input
-                        type="text"
-                        value={editedInvoice.senderWeb || ''}
-                        onChange={(e) => setEditedInvoice({ ...editedInvoice, senderWeb: e.target.value })}
-                        className="crm-input text-xs"
-                        placeholder="Website"
-                      />
-                    </div>
-                  </div>
-                </div>
-                <div className="text-right w-full sm:w-auto space-y-2">
-                  <div className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider">Statement of Account</div>
-                  <div className="flex justify-end items-center gap-2">
-                    <span className={
-                      editedInvoice.status === 'Paid' ? 'crm-badge-success text-[10px] uppercase' :
-                      editedInvoice.status === 'Sent' ? 'crm-badge-info text-[10px] uppercase' :
-                      editedInvoice.status === 'Overdue' ? 'crm-badge-error text-[10px] uppercase' :
-                      'crm-badge-warning text-[10px] uppercase'
-                    }>
-                      {editedInvoice.status}
-                    </span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Metagrid - Client & Dates editable */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)]">
-                <div className="space-y-2">
-                  <label className="font-bold text-[var(--text-muted)] uppercase tracking-wide text-[10px]">Bill To Client</label>
-                  <input
-                    type="text"
-                    value={editedInvoice.clientName || ''}
-                    onChange={(e) => setEditedInvoice({ ...editedInvoice, clientName: e.target.value })}
-                    className="crm-input text-xs font-black"
-                    placeholder="Client Name"
-                  />
-                  <input
-                    type="text"
-                    value={editedInvoice.paymentTerms || ''}
-                    onChange={(e) => setEditedInvoice({ ...editedInvoice, paymentTerms: e.target.value })}
-                    className="crm-input text-xs"
-                    placeholder="Contract Agreement / Terms"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="font-bold text-[var(--text-muted)] uppercase tracking-wide text-[10px]">Invoice Details & Dates</label>
-                  <div className="grid grid-cols-2 gap-2">
-                    <div>
-                      <span className="text-[10px] text-[var(--text-muted)]">Issue Date:</span>
-                      <input
-                        type="date"
-                        value={editedInvoice.issueDate || ''}
-                        onChange={(e) => setEditedInvoice({ ...editedInvoice, issueDate: e.target.value })}
-                        className="crm-input text-xs mt-1"
-                      />
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-[var(--text-muted)]">Due Date:</span>
-                      <input
-                        type="date"
-                        value={editedInvoice.dueDate || ''}
-                        onChange={(e) => setEditedInvoice({ ...editedInvoice, dueDate: e.target.value })}
-                        className="crm-input text-xs mt-1"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Placement Fee Calculator Widget */}
-              <div className="bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-black uppercase text-[var(--primary-gold)] tracking-wider">Placement Fee Calculator (Annual Package / CTC)</span>
-                  <span className="text-[10px] text-[var(--text-muted)] font-mono font-bold text-[var(--primary-gold)]">
-                    Calculated Fee: (${Math.round((editedInvoice.calcCtc ?? 60000) * ((editedInvoice.calcFeePercent ?? 15) / 100)).toLocaleString()})
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
-                  <div>
-                    <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Candidate Annual CTC ($)</label>
-                    <input
-                      type="number"
-                      value={editedInvoice.calcCtc ?? 60000}
-                      onChange={(e) => {
-                        const newCtc = parseFloat(e.target.value) || 0;
-                        const feePct = editedInvoice.calcFeePercent ?? 15;
-                        const calculatedFee = Math.round(newCtc * (feePct / 100));
-                        const itemDesc = `Placement Fee (${feePct}% of $${newCtc.toLocaleString()} Annual CTC)`;
-                        const taxRate = Number(editedInvoice.taxRate || 0);
-                        const discount = Number(editedInvoice.discountAmount || 0);
-                        const taxAmt = Math.round(calculatedFee * (taxRate / 100));
-                        const total = Math.max(0, calculatedFee + taxAmt - discount);
-                        setEditedInvoice({
-                          ...editedInvoice,
-                          calcCtc: newCtc,
-                          serviceDescription: itemDesc,
-                          subtotal: calculatedFee,
-                          totalAmount: total,
-                          candidates: []
-                        });
-                      }}
-                      className="crm-input text-xs font-mono font-bold"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Fee Percentage (%)</label>
-                    <input
-                      type="number"
-                      value={editedInvoice.calcFeePercent ?? 15}
-                      onChange={(e) => {
-                        const newPct = parseFloat(e.target.value) || 0;
-                        const ctcVal = editedInvoice.calcCtc ?? 60000;
-                        const calculatedFee = Math.round(ctcVal * (newPct / 100));
-                        const itemDesc = `Placement Fee (${newPct}% of $${ctcVal.toLocaleString()} Annual CTC)`;
-                        const taxRate = Number(editedInvoice.taxRate || 0);
-                        const discount = Number(editedInvoice.discountAmount || 0);
-                        const taxAmt = Math.round(calculatedFee * (taxRate / 100));
-                        const total = Math.max(0, calculatedFee + taxAmt - discount);
-                        setEditedInvoice({
-                          ...editedInvoice,
-                          calcFeePercent: newPct,
-                          serviceDescription: itemDesc,
-                          subtotal: calculatedFee,
-                          totalAmount: total,
-                          candidates: []
-                        });
-                      }}
-                      className="crm-input text-xs font-mono font-bold"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Single Placement Fee Line Item (No add item / no candidates column) */}
-              <div className="border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-2xs">
-                <div className="bg-[var(--bg-primary)] px-4 py-2 border-b border-[var(--border-color)] flex justify-between items-center">
-                  <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">Placement Fee Line Item</span>
-                  <span className="text-[10px] text-[var(--text-muted)]">Single consolidated service fee</span>
-                </div>
-                <table className="w-full text-left">
-                  <thead className="bg-[#004564] dark:bg-[#002D38] text-white text-[10px] font-black uppercase tracking-wider">
-                    <tr>
-                      <th className="p-3 pl-4 w-12 text-center">#</th>
-                      <th className="p-3">Service Description</th>
-                      <th className="p-3 pr-4 text-right w-44">Amount ($)</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--border-color)] text-xs">
-                    <tr className="text-[var(--text-secondary)]">
-                      <td className="p-3 pl-4 font-mono text-[var(--text-muted)] text-center">1</td>
-                      <td className="p-3">
-                        <input
-                          type="text"
-                          value={editedInvoice.serviceDescription || 'Placement Fee - Recruitment Services'}
-                          onChange={(e) => setEditedInvoice({ ...editedInvoice, serviceDescription: e.target.value })}
-                          className="crm-input text-xs font-semibold w-full"
-                          placeholder="Service description..."
-                        />
-                      </td>
-                      <td className="p-3 pr-4 text-right">
-                        <input
-                          type="number"
-                          value={editedInvoice.subtotal || 0}
-                          onChange={(e) => {
-                            const val = parseFloat(e.target.value) || 0;
-                            const taxRate = Number(editedInvoice.taxRate || 0);
-                            const discount = Number(editedInvoice.discountAmount || 0);
-                            const taxAmt = Math.round(val * (taxRate / 100));
-                            const total = Math.max(0, val + taxAmt - discount);
-                            setEditedInvoice({ ...editedInvoice, subtotal: val, totalAmount: total });
-                          }}
-                          className="crm-input text-xs font-mono font-bold text-right w-36 ml-auto"
-                          placeholder="0.00"
-                        />
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Totals Summary & Tax/Discount editable */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center pt-2">
-                <div className="space-y-3 bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] text-xs">
-                  <div className="font-bold text-[var(--text-muted)] uppercase tracking-wider text-[10px]">Taxes & Discounts Adjustment</div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className="text-[10px] text-[var(--text-muted)] block mb-1">Tax Rate (%)</label>
-                      <input
-                        type="number"
-                        value={editedInvoice.taxRate || 0}
-                        onChange={(e) => setEditedInvoice({ ...editedInvoice, taxRate: parseFloat(e.target.value) || 0 })}
-                        className="crm-input text-xs font-mono font-bold"
-                      />
-                    </div>
-                    <div>
-                      <label className="text-[10px] text-[var(--text-muted)] block mb-1">Discount Amount ($)</label>
-                      <input
-                        type="number"
-                        value={editedInvoice.discountAmount || 0}
-                        onChange={(e) => setEditedInvoice({ ...editedInvoice, discountAmount: parseFloat(e.target.value) || 0 })}
-                        className="crm-input text-xs font-mono font-bold"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex justify-end">
-                  <div className="w-72 space-y-2 text-xs">
-                    {(() => {
-                      const sub = editedInvoice.useFlatSubtotal || (!editedInvoice.candidates || editedInvoice.candidates.length === 0)
-                        ? Number(editedInvoice.subtotal || 0)
-                        : (editedInvoice.candidates || []).reduce((s: number, c: any) => s + Number(c.fee || 0), 0);
-                      const tax = Math.round(sub * ((Number(editedInvoice.taxRate) || 0) / 100));
-                      const disc = Number(editedInvoice.discountAmount) || 0;
-                      const total = Math.max(0, sub + tax - disc);
-                      const pendingDue = editedInvoice.status === 'Paid' ? 0 : total;
-                      return (
-                        <>
-                          <div className="flex justify-between text-[var(--text-muted)]">
-                            <span>Subtotal:</span>
-                            <span className="font-mono font-semibold text-[var(--text-primary)]">${sub.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                          </div>
-                          {tax > 0 && (
-                            <div className="flex justify-between text-[var(--text-muted)]">
-                              <span>Tax ({editedInvoice.taxRate}%):</span>
-                              <span className="font-mono font-semibold text-[var(--text-primary)]">+${tax.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                            </div>
-                          )}
-                          {disc > 0 && (
-                            <div className="flex justify-between text-[var(--text-muted)]">
-                              <span>Discount:</span>
-                              <span className="font-mono font-semibold text-rose-500">-${disc.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                            </div>
-                          )}
-                          <div className="flex justify-between text-sm font-black border-t border-[var(--border-color)] pt-2 text-[var(--text-primary)]">
-                            <span>Total statement due:</span>
-                            <span className="font-mono text-[var(--primary-gold)]">${pendingDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-                </div>
-              </div>
-
-              {/* Notes Field editable */}
-              <div className="space-y-1">
-                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Contract / Terms Notes:</label>
-                <textarea
-                  value={editedInvoice.notes || ''}
-                  onChange={(e) => setEditedInvoice({ ...editedInvoice, notes: e.target.value })}
-                  className="crm-input text-xs w-full h-20"
-                  placeholder="Terms and payment notes..."
-                />
-              </div>
-
-              {/* Bank Account Details editable */}
-              <div className="bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] space-y-3">
-                <span className="block text-xs font-bold uppercase tracking-wider text-[var(--primary-gold)] mb-1">Bank Payment Instructions & Account Details</span>
-                <div>
-                  <label className="text-[10px] text-[var(--text-muted)] block mb-1">Payee Name</label>
-                  <input
-                    type="text"
-                    value={editedInvoice.payeeName || ''}
-                    onChange={(e) => setEditedInvoice({ ...editedInvoice, payeeName: e.target.value })}
-                    className="crm-input text-xs font-semibold"
-                    placeholder="Payee Account Name"
-                  />
-                </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="text-[10px] text-[var(--text-muted)] block mb-1">Bank Name</label>
-                    <input
-                      type="text"
-                      value={editedInvoice.bankName || ''}
-                      onChange={(e) => setEditedInvoice({ ...editedInvoice, bankName: e.target.value })}
-                      className="crm-input text-xs"
-                      placeholder="Bank Name"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-[var(--text-muted)] block mb-1">Branch</label>
-                    <input
-                      type="text"
-                      value={editedInvoice.bankBranch || ''}
-                      onChange={(e) => setEditedInvoice({ ...editedInvoice, bankBranch: e.target.value })}
-                      className="crm-input text-xs"
-                      placeholder="Branch"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-[var(--text-muted)] block mb-1">Account Number</label>
-                    <input
-                      type="text"
-                      value={editedInvoice.accountNumber || ''}
-                      onChange={(e) => setEditedInvoice({ ...editedInvoice, accountNumber: e.target.value })}
-                      className="crm-input text-xs font-mono"
-                      placeholder="Account Number"
-                    />
-                  </div>
-                  <div>
-                    <label className="text-[10px] text-[var(--text-muted)] block mb-1">Swift / BIC Code</label>
-                    <input
-                      type="text"
-                      value={editedInvoice.swiftCode || ''}
-                      onChange={(e) => setEditedInvoice({ ...editedInvoice, swiftCode: e.target.value })}
-                      className="crm-input text-xs font-mono"
-                      placeholder="Swift / BIC Code"
-                    />
-                  </div>
-                </div>
-              </div>
-
-              {/* Invoice Footer / Closing Statement editable */}
-              <div className="space-y-3 pt-4 border-t border-[var(--border-color)]">
-                <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Invoice Footer Statement (Editable):</label>
-                <input
-                  type="text"
-                  value={editedInvoice.invoiceFooterLine1 !== undefined ? editedInvoice.invoiceFooterLine1 : 'Thank you for partnering with Aurrum Company Recruitment Services.'}
-                  onChange={(e) => setEditedInvoice({ ...editedInvoice, invoiceFooterLine1: e.target.value })}
-                  className="crm-input text-xs w-full"
-                  placeholder="Footer Line 1"
-                />
-                <input
-                  type="text"
-                  value={editedInvoice.invoiceFooterLine2 !== undefined ? editedInvoice.invoiceFooterLine2 : `If you have any questions regarding this consolidated statement, contact us at ${editedInvoice.senderEmail || 'auriicsservices@gmail.com'}`}
-                  onChange={(e) => setEditedInvoice({ ...editedInvoice, invoiceFooterLine2: e.target.value })}
-                  className="crm-input text-xs w-full"
-                  placeholder="Footer Line 2"
-                />
-              </div>
-
-              {/* Admin Actions Status controls */}
-              {(role === 'admin' || role === 'developer' || role === 'team_leader') && (
-                <div className="pt-6 border-t border-[var(--border-color)] flex flex-wrap gap-2 items-center justify-between">
-                  <div className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Update Settlement Status</div>
-                  <div className="flex gap-1">
-                    {['Draft', 'Sent', 'Paid', 'Overdue'].map((status) => (
+              {/* BRANDING TAB */}
+              {modalTab === 'branding' && (
+                <div className="space-y-6 animate-in fade-in">
+                  <div className="bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] space-y-4">
+                    <h3 className="text-xs font-black uppercase text-[var(--primary-gold)] tracking-wider">Logo Display & Variant Selection</h3>
+                    <p className="text-xs text-[var(--text-muted)]">Select the active logo variant and upload separate image files for Dark Logo and White Logo from your computer.</p>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                       <button
-                        key={status}
-                        onClick={() => {
-                          handleUpdateStatus(viewingInvoice.id, status);
-                          setEditedInvoice({ ...editedInvoice, status });
-                        }}
-                        className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition cursor-pointer ${
-                          editedInvoice.status === status
-                            ? 'crm-btn-gold text-white shadow-sm'
-                            : 'crm-btn-secondary text-[10px]'
+                        type="button"
+                        onClick={() => setEditedInvoice({ ...editedInvoice, logoVariant: 'dark' })}
+                        className={`p-4 rounded-xl border text-left transition flex items-center gap-3 cursor-pointer ${
+                          editedInvoice.logoVariant !== 'white' && editedInvoice.logoVariant !== 'custom'
+                            ? 'border-[var(--primary-gold)] bg-[var(--primary-gold)]/10 ring-2 ring-[var(--primary-gold)]'
+                            : 'border-[var(--border-color)] bg-[var(--card-bg)] hover:border-[var(--primary-gold)]'
                         }`}
                       >
-                        {status}
+                        <div className="w-10 h-10 bg-[#002D38] rounded-lg flex items-center justify-center p-2">
+                          <img src={editedInvoice.darkLogoUrl || 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-Logo.svg'} alt="Dark Logo" className="w-full h-full object-contain" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-[var(--text-primary)]">Dark Logo Variant</div>
+                          <div className="text-[10px] text-[var(--text-muted)]">Standard high-contrast dark logo</div>
+                        </div>
                       </button>
-                    ))}
+
+                      <button
+                        type="button"
+                        onClick={() => setEditedInvoice({ ...editedInvoice, logoVariant: 'white' })}
+                        className={`p-4 rounded-xl border text-left transition flex items-center gap-3 cursor-pointer ${
+                          editedInvoice.logoVariant === 'white'
+                            ? 'border-[var(--primary-gold)] bg-[var(--primary-gold)]/10 ring-2 ring-[var(--primary-gold)]'
+                            : 'border-[var(--border-color)] bg-[var(--card-bg)] hover:border-[var(--primary-gold)]'
+                        }`}
+                      >
+                        <div className="w-10 h-10 bg-[#004564] rounded-lg flex items-center justify-center p-2">
+                          <img src={editedInvoice.whiteLogoUrl || 'https://aurrum.co/wp-content/uploads/2026/05/Rectech-white-logo.svg'} alt="White Logo" className="w-full h-full object-contain" />
+                        </div>
+                        <div>
+                          <div className="text-xs font-bold text-[var(--text-primary)]">White Logo Variant</div>
+                          <div className="text-[10px] text-[var(--text-muted)]">Optimized for dark headers</div>
+                        </div>
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2 border-t border-[var(--border-color)]">
+                      <div>
+                        <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Upload Dark Logo (From Computer)</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (uploadEvent) => {
+                                const base64Url = uploadEvent.target?.result as string;
+                                if (base64Url) {
+                                  setEditedInvoice({ ...editedInvoice, darkLogoUrl: base64Url, logoVariant: 'dark' });
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="block w-full text-xs text-[var(--text-muted)] file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-[10px] file:font-bold file:bg-[var(--primary-gold)] file:text-white hover:file:opacity-90 cursor-pointer"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Upload White Logo (From Computer)</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (uploadEvent) => {
+                                const base64Url = uploadEvent.target?.result as string;
+                                if (base64Url) {
+                                  setEditedInvoice({ ...editedInvoice, whiteLogoUrl: base64Url, logoVariant: 'white' });
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="block w-full text-xs text-[var(--text-muted)] file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-[10px] file:font-bold file:bg-[#004564] file:text-white hover:file:opacity-90 cursor-pointer"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Watermark Background Customization */}
+                  <div className="bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] space-y-4">
+                    <h3 className="text-xs font-black uppercase text-[var(--primary-gold)] tracking-wider">Watermark Customization (Background Image)</h3>
+                    <p className="text-xs text-[var(--text-muted)]">Upload a custom image to be displayed as the faint background watermark across the invoice canvas and PDF export.</p>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Upload Watermark Image Background (From Computer)</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (uploadEvent) => {
+                                const base64Url = uploadEvent.target?.result as string;
+                                if (base64Url) {
+                                  setEditedInvoice({ ...editedInvoice, watermarkUrl: base64Url });
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="block w-full text-xs text-[var(--text-muted)] file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-xs file:font-bold file:bg-[var(--primary-gold)] file:text-white hover:file:opacity-90 cursor-pointer"
+                        />
+                      </div>
+                      {editedInvoice.watermarkUrl && (
+                        <div className="flex items-center justify-between p-2.5 bg-[var(--card-bg)] rounded-xl border border-[var(--border-color)]">
+                          <div className="flex items-center gap-2">
+                            <img src={editedInvoice.watermarkUrl} alt="Watermark Preview" className="w-8 h-8 object-contain rounded bg-white p-0.5 border" />
+                            <span className="text-xs font-bold text-[var(--text-primary)]">Custom Watermark Active</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setEditedInvoice({ ...editedInvoice, watermarkUrl: '' })}
+                            className="text-[10px] font-bold text-rose-500 hover:underline"
+                          >
+                            Remove / Reset Watermark
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] space-y-4">
+                    <h3 className="text-xs font-black uppercase text-[var(--primary-gold)] tracking-wider">Company Sender Details</h3>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Company / Sender Name</label>
+                        <input
+                          type="text"
+                          value={editedInvoice.senderName || ''}
+                          onChange={(e) => setEditedInvoice({ ...editedInvoice, senderName: e.target.value })}
+                          className="crm-input text-xs font-black text-[var(--primary-gold)]"
+                          placeholder="Sender / Company Name"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Tagline / Department</label>
+                        <input
+                          type="text"
+                          value={editedInvoice.senderTagline || ''}
+                          onChange={(e) => setEditedInvoice({ ...editedInvoice, senderTagline: e.target.value })}
+                          className="crm-input text-xs"
+                          placeholder="Sender Tagline / Address"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Physical Address</label>
+                        <input
+                          type="text"
+                          value={editedInvoice.senderAddress || ''}
+                          onChange={(e) => setEditedInvoice({ ...editedInvoice, senderAddress: e.target.value })}
+                          className="crm-input text-xs"
+                          placeholder="Full Address"
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Email</label>
+                          <input
+                            type="text"
+                            value={editedInvoice.senderEmail || ''}
+                            onChange={(e) => setEditedInvoice({ ...editedInvoice, senderEmail: e.target.value })}
+                            className="crm-input text-xs"
+                            placeholder="Email"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Website</label>
+                          <input
+                            type="text"
+                            value={editedInvoice.senderWeb || ''}
+                            onChange={(e) => setEditedInvoice({ ...editedInvoice, senderWeb: e.target.value })}
+                            className="crm-input text-xs"
+                            placeholder="Website"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* CONTENT & ITEMS TAB */}
+              {modalTab === 'content' && (
+                <div className="space-y-6 animate-in fade-in">
+                  <div className="flex flex-col sm:flex-row justify-between items-start gap-4 pb-6 border-b border-[var(--border-color)]">
+                    <div className="flex flex-col items-start gap-3 w-full sm:w-1/2">
+                      <Logo variant="invoice" size="lg" className="mb-1" />
+                      <div className="w-full space-y-2">
+                        <div className="text-xs font-black text-[var(--primary-gold)]">{editedInvoice.senderName || 'AURRUM SERVICES'}</div>
+                        <div className="text-[10px] text-[var(--text-muted)]">{editedInvoice.senderTagline || 'Talent Insights & Recruitment'}</div>
+                      </div>
+                    </div>
+                    <div className="text-right w-full sm:w-auto space-y-2">
+                      <div className="text-xs text-[var(--text-muted)] font-bold uppercase tracking-wider">Statement of Account</div>
+                      <div className="flex justify-end items-center gap-2">
+                        <span className={
+                          editedInvoice.status === 'Paid' ? 'crm-badge-success text-[10px] uppercase' :
+                          editedInvoice.status === 'Sent' ? 'crm-badge-info text-[10px] uppercase' :
+                          editedInvoice.status === 'Overdue' ? 'crm-badge-error text-[10px] uppercase' :
+                          'crm-badge-warning text-[10px] uppercase'
+                        }>
+                          {editedInvoice.status}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Metagrid - Client & Dates editable */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 text-xs bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)]">
+                    <div className="space-y-2">
+                      <label className="font-bold text-[var(--text-muted)] uppercase tracking-wide text-[10px]">Bill To Client</label>
+                      <input
+                        type="text"
+                        value={editedInvoice.clientName || ''}
+                        onChange={(e) => setEditedInvoice({ ...editedInvoice, clientName: e.target.value })}
+                        className="crm-input text-xs font-black"
+                        placeholder="Client Name"
+                      />
+                      <input
+                        type="text"
+                        value={editedInvoice.paymentTerms || ''}
+                        onChange={(e) => setEditedInvoice({ ...editedInvoice, paymentTerms: e.target.value })}
+                        className="crm-input text-xs"
+                        placeholder="Contract Agreement / Terms"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <label className="font-bold text-[var(--text-muted)] uppercase tracking-wide text-[10px]">Invoice Details & Dates</label>
+                      <div className="grid grid-cols-2 gap-2">
+                        <div>
+                          <span className="text-[10px] text-[var(--text-muted)]">Issue Date:</span>
+                          <input
+                            type="date"
+                            value={editedInvoice.issueDate || ''}
+                            onChange={(e) => setEditedInvoice({ ...editedInvoice, issueDate: e.target.value })}
+                            className="crm-input text-xs mt-1"
+                          />
+                        </div>
+                        <div>
+                          <span className="text-[10px] text-[var(--text-muted)]">Due Date:</span>
+                          <input
+                            type="date"
+                            value={editedInvoice.dueDate || ''}
+                            onChange={(e) => setEditedInvoice({ ...editedInvoice, dueDate: e.target.value })}
+                            className="crm-input text-xs mt-1"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Placement Fee Calculator Widget */}
+                  <div className="bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] space-y-3">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 pb-2 border-b border-[var(--border-color)]">
+                      <span className="text-xs font-black uppercase text-[var(--primary-gold)] tracking-wider">Placement Fee Calculator (Annual Package / CTC)</span>
+                      <label className="flex items-center gap-2 cursor-pointer select-none">
+                        <input
+                          type="checkbox"
+                          checked={editedInvoice.calculatePlacementFee ?? true}
+                          onChange={(e) => {
+                            const isCalcOn = e.target.checked;
+                            const ctcVal = editedInvoice.calcCtc ?? 60000;
+                            const feePct = editedInvoice.calcFeePercent ?? 15;
+                            const calculatedFee = isCalcOn ? Math.round(ctcVal * (feePct / 100)) : 0;
+                            const itemDesc = `Placement Fee (${feePct}% of $${ctcVal.toLocaleString()} Annual CTC)`;
+                            const taxRate = Number(editedInvoice.taxRate || 0);
+                            const discount = Number(editedInvoice.discountAmount || 0);
+                            const taxAmt = Math.round(calculatedFee * (taxRate / 100));
+                            const total = Math.max(0, calculatedFee + taxAmt - discount);
+                            setEditedInvoice({
+                              ...editedInvoice,
+                              calculatePlacementFee: isCalcOn,
+                              serviceDescription: itemDesc,
+                              subtotal: calculatedFee,
+                              totalAmount: total,
+                              candidates: []
+                            });
+                          }}
+                          className="w-4 h-4 rounded text-[var(--primary-gold)] focus:ring-[var(--primary-gold)] border-[var(--border-color)] cursor-pointer"
+                        />
+                        <span className="text-xs font-bold text-[var(--text-primary)]">Calculate Placement Fee based on Annual Salary</span>
+                      </label>
+                    </div>
+                    <div className="flex items-center justify-between text-[10px] text-[var(--text-muted)] font-mono font-bold">
+                      <span>Fee Status: <span className={editedInvoice.calculatePlacementFee ?? true ? "text-emerald-500 font-extrabold" : "text-amber-500 font-extrabold"}>{editedInvoice.calculatePlacementFee ?? true ? "ACTIVE (Included)" : "INACTIVE (Excluded / $0)"}</span></span>
+                      <span className="text-[var(--primary-gold)]">
+                        Calculated Fee: (${(editedInvoice.calculatePlacementFee ?? true ? Math.round((editedInvoice.calcCtc ?? 60000) * ((editedInvoice.calcFeePercent ?? 15) / 100)) : 0).toLocaleString()})
+                      </span>
+                    </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 items-end">
+                      <div>
+                        <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Candidate Annual CTC ($)</label>
+                        <input
+                          type="number"
+                          value={editedInvoice.calcCtc ?? 60000}
+                          onChange={(e) => {
+                            const newCtc = parseFloat(e.target.value) || 0;
+                            const feePct = editedInvoice.calcFeePercent ?? 15;
+                            const isCalcOn = editedInvoice.calculatePlacementFee ?? true;
+                            const calculatedFee = isCalcOn ? Math.round(newCtc * (feePct / 100)) : 0;
+                            const itemDesc = `Placement Fee (${feePct}% of $${newCtc.toLocaleString()} Annual CTC)`;
+                            const taxRate = Number(editedInvoice.taxRate || 0);
+                            const discount = Number(editedInvoice.discountAmount || 0);
+                            const taxAmt = Math.round(calculatedFee * (taxRate / 100));
+                            const total = Math.max(0, calculatedFee + taxAmt - discount);
+                            setEditedInvoice({
+                              ...editedInvoice,
+                              calcCtc: newCtc,
+                              serviceDescription: itemDesc,
+                              subtotal: calculatedFee,
+                              totalAmount: total,
+                              candidates: []
+                            });
+                          }}
+                          className="crm-input text-xs font-mono font-bold"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Fee Percentage (%)</label>
+                        <input
+                          type="number"
+                          value={editedInvoice.calcFeePercent ?? 15}
+                          onChange={(e) => {
+                            const newPct = parseFloat(e.target.value) || 0;
+                            const ctcVal = editedInvoice.calcCtc ?? 60000;
+                            const isCalcOn = editedInvoice.calculatePlacementFee ?? true;
+                            const calculatedFee = isCalcOn ? Math.round(ctcVal * (newPct / 100)) : 0;
+                            const itemDesc = `Placement Fee (${newPct}% of $${ctcVal.toLocaleString()} Annual CTC)`;
+                            const taxRate = Number(editedInvoice.taxRate || 0);
+                            const discount = Number(editedInvoice.discountAmount || 0);
+                            const taxAmt = Math.round(calculatedFee * (taxRate / 100));
+                            const total = Math.max(0, calculatedFee + taxAmt - discount);
+                            setEditedInvoice({
+                              ...editedInvoice,
+                              calcFeePercent: newPct,
+                              serviceDescription: itemDesc,
+                              subtotal: calculatedFee,
+                              totalAmount: total,
+                              candidates: []
+                            });
+                          }}
+                          className="crm-input text-xs font-mono font-bold"
+                        />
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Single Placement Fee Line Item */}
+                  <div className="border border-[var(--border-color)] rounded-2xl overflow-hidden shadow-2xs">
+                    <div className="bg-[var(--bg-primary)] px-4 py-2 border-b border-[var(--border-color)] flex justify-between items-center">
+                      <span className="text-xs font-bold text-[var(--text-primary)] uppercase tracking-wider">Placement Fee Line Item</span>
+                      <span className="text-[10px] text-[var(--text-muted)]">Single consolidated service fee</span>
+                    </div>
+                    <table className="w-full text-left">
+                      <thead className="bg-[#004564] text-white text-[10px] font-black uppercase tracking-wider">
+                        <tr>
+                          <th className="p-3 pl-4 w-12 text-center">#</th>
+                          <th className="p-3">Service Description</th>
+                          <th className="p-3 pr-4 text-right w-44">Amount ($)</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--border-color)] text-xs">
+                        <tr className="text-[var(--text-secondary)]">
+                          <td className="p-3 pl-4 font-mono text-[var(--text-muted)] text-center">1</td>
+                          <td className="p-3">
+                            <input
+                              type="text"
+                              value={editedInvoice.serviceDescription || 'Placement Fee - Recruitment Services'}
+                              onChange={(e) => setEditedInvoice({ ...editedInvoice, serviceDescription: e.target.value })}
+                              className="crm-input text-xs font-semibold w-full"
+                              placeholder="Service description..."
+                            />
+                          </td>
+                          <td className="p-3 pr-4 text-right">
+                            <input
+                              type="number"
+                              value={getEffectiveSubtotal(editedInvoice)}
+                              onChange={(e) => {
+                                const val = parseFloat(e.target.value) || 0;
+                                const taxRate = Number(editedInvoice.taxRate || 0);
+                                const discount = Number(editedInvoice.discountAmount || 0);
+                                const taxAmt = Math.round(val * (taxRate / 100));
+                                const total = Math.max(0, val + taxAmt - discount);
+                                setEditedInvoice({ ...editedInvoice, subtotal: val, totalAmount: total });
+                              }}
+                              className="crm-input text-xs font-mono font-bold text-right w-36 ml-auto"
+                              placeholder="0.00"
+                            />
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+
+                  {/* Totals Summary & Tax/Discount editable */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 items-center pt-2">
+                    <div className="space-y-3 bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] text-xs">
+                      <div className="font-bold text-[var(--text-muted)] uppercase tracking-wider text-[10px]">Taxes & Discounts Adjustment</div>
+                      <div className="grid grid-cols-2 gap-3">
+                        <div>
+                          <label className="text-[10px] text-[var(--text-muted)] block mb-1">Tax Rate (%)</label>
+                          <input
+                            type="number"
+                            value={editedInvoice.taxRate || 0}
+                            onChange={(e) => setEditedInvoice({ ...editedInvoice, taxRate: parseFloat(e.target.value) || 0 })}
+                            className="crm-input text-xs font-mono font-bold"
+                          />
+                        </div>
+                        <div>
+                          <label className="text-[10px] text-[var(--text-muted)] block mb-1">Discount Amount ($)</label>
+                          <input
+                            type="number"
+                            value={editedInvoice.discountAmount || 0}
+                            onChange={(e) => setEditedInvoice({ ...editedInvoice, discountAmount: parseFloat(e.target.value) || 0 })}
+                            className="crm-input text-xs font-mono font-bold"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end">
+                      <div className="w-72 space-y-2 text-xs">
+                        {(() => {
+                          const sub = getEffectiveSubtotal(editedInvoice);
+                          const tax = Math.round(sub * ((Number(editedInvoice.taxRate) || 0) / 100));
+                          const disc = Number(editedInvoice.discountAmount) || 0;
+                          const total = getEffectiveTotal(editedInvoice);
+                          const pendingDue = editedInvoice.status === 'Paid' ? 0 : total;
+                          return (
+                            <>
+                              <div className="flex justify-between text-[var(--text-muted)]">
+                                <span>Subtotal:</span>
+                                <span className="font-mono font-semibold text-[var(--text-primary)]">${sub.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                              </div>
+                              {tax > 0 && (
+                                <div className="flex justify-between text-[var(--text-muted)]">
+                                  <span>Tax ({editedInvoice.taxRate}%):</span>
+                                  <span className="font-mono font-semibold text-[var(--text-primary)]">+${tax.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </div>
+                              )}
+                              {disc > 0 && (
+                                <div className="flex justify-between text-[var(--text-muted)]">
+                                  <span>Discount:</span>
+                                  <span className="font-mono font-semibold text-rose-500">-${disc.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                                </div>
+                              )}
+                              <div className="flex justify-between text-sm font-black border-t border-[var(--border-color)] pt-2 text-[var(--text-primary)]">
+                                <span>Total statement due:</span>
+                                <span className="font-mono text-[var(--primary-gold)]">${pendingDue.toLocaleString(undefined, { minimumFractionDigits: 2 })}</span>
+                              </div>
+                            </>
+                          );
+                        })()}
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Notes Field editable */}
+                  <div className="space-y-1">
+                    <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Contract / Terms Notes:</label>
+                    <textarea
+                      value={editedInvoice.notes || ''}
+                      onChange={(e) => setEditedInvoice({ ...editedInvoice, notes: e.target.value })}
+                      className="crm-input text-xs w-full h-20"
+                      placeholder="Terms and payment notes..."
+                    />
+                  </div>
+
+                  {/* Admin Actions Status controls */}
+                  {(role === 'admin' || role === 'developer' || role === 'team_leader') && (
+                    <div className="pt-6 border-t border-[var(--border-color)] flex flex-wrap gap-2 items-center justify-between">
+                      <div className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Update Settlement Status</div>
+                      <div className="flex gap-1">
+                        {['Draft', 'Sent', 'Paid', 'Overdue'].map((status) => (
+                          <button
+                            key={status}
+                            onClick={() => {
+                              handleUpdateStatus(viewingInvoice.id, status);
+                              setEditedInvoice({ ...editedInvoice, status });
+                            }}
+                            className={`px-3 py-1.5 rounded-xl text-[10px] font-bold uppercase tracking-wider transition cursor-pointer ${
+                              editedInvoice.status === status
+                                ? 'crm-btn-gold text-white shadow-sm'
+                                : 'crm-btn-secondary text-[10px]'
+                            }`}
+                          >
+                            {status}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* BANK & PAYMENT TAB */}
+              {modalTab === 'bank' && (
+                <div className="space-y-6 animate-in fade-in">
+                  <div className="bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] space-y-3">
+                    <span className="block text-xs font-bold uppercase tracking-wider text-[var(--primary-gold)] mb-1">Bank Payment Instructions & Account Details</span>
+                    <div>
+                      <label className="text-[10px] text-[var(--text-muted)] block mb-1">Payee Name</label>
+                      <input
+                        type="text"
+                        value={editedInvoice.payeeName || ''}
+                        onChange={(e) => setEditedInvoice({ ...editedInvoice, payeeName: e.target.value })}
+                        className="crm-input text-xs font-semibold"
+                        placeholder="Payee Account Name"
+                      />
+                    </div>
+                    <div className="grid grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] text-[var(--text-muted)] block mb-1">Bank Name</label>
+                        <input
+                          type="text"
+                          value={editedInvoice.bankName || ''}
+                          onChange={(e) => setEditedInvoice({ ...editedInvoice, bankName: e.target.value })}
+                          className="crm-input text-xs"
+                          placeholder="Bank Name"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-[var(--text-muted)] block mb-1">Branch</label>
+                        <input
+                          type="text"
+                          value={editedInvoice.bankBranch || ''}
+                          onChange={(e) => setEditedInvoice({ ...editedInvoice, bankBranch: e.target.value })}
+                          className="crm-input text-xs"
+                          placeholder="Branch"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-[var(--text-muted)] block mb-1">Account Number</label>
+                        <input
+                          type="text"
+                          value={editedInvoice.accountNumber || ''}
+                          onChange={(e) => setEditedInvoice({ ...editedInvoice, accountNumber: e.target.value })}
+                          className="crm-input text-xs font-mono"
+                          placeholder="Account Number"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-[var(--text-muted)] block mb-1">Swift / BIC Code</label>
+                        <input
+                          type="text"
+                          value={editedInvoice.swiftCode || ''}
+                          onChange={(e) => setEditedInvoice({ ...editedInvoice, swiftCode: e.target.value })}
+                          className="crm-input text-xs font-mono"
+                          placeholder="Swift / BIC Code"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* SIGNATORY & FOOTER TAB */}
+              {modalTab === 'signatory' && (
+                <div className="space-y-6 animate-in fade-in">
+                  <div className="bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] space-y-4">
+                    <h3 className="text-xs font-black uppercase text-[var(--primary-gold)] tracking-wider">Signatory Details</h3>
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                      <div>
+                        <label className="text-[10px] text-[var(--text-muted)] block mb-1">Signatory Name</label>
+                        <input
+                          type="text"
+                          value={editedInvoice.signatoryName || ''}
+                          onChange={(e) => setEditedInvoice({ ...editedInvoice, signatoryName: e.target.value })}
+                          className="crm-input text-xs font-bold"
+                          placeholder="Signatory Name"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-[var(--text-muted)] block mb-1">Designation / Title</label>
+                        <input
+                          type="text"
+                          value={editedInvoice.signatoryTitle || ''}
+                          onChange={(e) => setEditedInvoice({ ...editedInvoice, signatoryTitle: e.target.value })}
+                          className="crm-input text-xs"
+                          placeholder="Designation"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-[10px] text-[var(--text-muted)] block mb-1">Upload Signature Image (From Computer)</label>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => {
+                          const file = e.target.files?.[0];
+                          if (file) {
+                            const reader = new FileReader();
+                            reader.onload = (uploadEvent) => {
+                              const base64Url = uploadEvent.target?.result as string;
+                              if (base64Url) {
+                                setEditedInvoice({ ...editedInvoice, signatureUrl: base64Url });
+                              }
+                            };
+                            reader.readAsDataURL(file);
+                          }
+                        }}
+                        className="block w-full text-xs text-[var(--text-muted)] file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-[10px] file:font-bold file:bg-[var(--primary-gold)] file:text-white hover:file:opacity-90 cursor-pointer"
+                      />
+                      {editedInvoice.signatureUrl && (
+                        <div className="flex items-center justify-between p-2 mt-2 bg-[var(--card-bg)] rounded-xl border border-[var(--border-color)]">
+                          <div className="flex items-center gap-2">
+                            <img src={editedInvoice.signatureUrl} alt="Signature Preview" className="h-8 max-w-[100px] object-contain rounded bg-white p-0.5 border" />
+                            <span className="text-[10px] font-bold text-[var(--text-primary)]">Custom Signature Active</span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => setEditedInvoice({ ...editedInvoice, signatureUrl: '' })}
+                            className="text-[10px] font-bold text-rose-500 hover:underline"
+                          >
+                            Remove Signature
+                          </button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Invoice Footer / Closing Statement editable */}
+                  <div className="space-y-3 pt-4 border-t border-[var(--border-color)]">
+                    <label className="text-[10px] font-black uppercase text-[var(--text-muted)] tracking-wider">Invoice Footer Statements (Fully Editable):</label>
+                    <input
+                      type="text"
+                      value={editedInvoice.invoiceFooterLine1 !== undefined ? editedInvoice.invoiceFooterLine1 : 'Thank you for partnering with Aurrum Company Recruitment Services.'}
+                      onChange={(e) => setEditedInvoice({ ...editedInvoice, invoiceFooterLine1: e.target.value })}
+                      className="crm-input text-xs w-full"
+                      placeholder="Footer Line 1"
+                    />
+                    <input
+                      type="text"
+                      value={editedInvoice.invoiceFooterLine2 !== undefined ? editedInvoice.invoiceFooterLine2 : `If you have any questions regarding this consolidated statement, contact us at ${editedInvoice.senderEmail || 'auriicsservices@gmail.com'}`}
+                      onChange={(e) => setEditedInvoice({ ...editedInvoice, invoiceFooterLine2: e.target.value })}
+                      className="crm-input text-xs w-full"
+                      placeholder="Footer Line 2"
+                    />
+                  </div>
+                </div>
+              )}
+
+              {/* LAYOUT & WATERMARK TAB */}
+              {modalTab === 'layout' && (
+                <div className="space-y-6 animate-in fade-in">
+                  <div className="bg-[var(--bg-secondary)] p-4 rounded-2xl border border-[var(--border-color)] space-y-4">
+                    <h3 className="text-xs font-black uppercase text-[var(--primary-gold)] tracking-wider">Watermark Customization</h3>
+                    <div className="space-y-4">
+                      <div>
+                        <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Watermark Text</label>
+                        <input
+                          type="text"
+                          value={editedInvoice.watermarkText !== undefined ? editedInvoice.watermarkText : 'AURRUM'}
+                          onChange={(e) => setEditedInvoice({ ...editedInvoice, watermarkText: e.target.value })}
+                          className="crm-input text-xs font-bold uppercase"
+                          placeholder="AURRUM"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[10px] font-bold text-[var(--text-muted)] block mb-1">Upload Watermark Image Background (From Computer)</label>
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => {
+                            const file = e.target.files?.[0];
+                            if (file) {
+                              const reader = new FileReader();
+                              reader.onload = (uploadEvent) => {
+                                const base64Url = uploadEvent.target?.result as string;
+                                if (base64Url) {
+                                  setEditedInvoice({ ...editedInvoice, watermarkUrl: base64Url });
+                                }
+                              };
+                              reader.readAsDataURL(file);
+                            }
+                          }}
+                          className="block w-full text-xs text-[var(--text-muted)] file:mr-2 file:py-1.5 file:px-3 file:rounded-xl file:border-0 file:text-[10px] file:font-bold file:bg-[var(--primary-gold)] file:text-white hover:file:opacity-90 cursor-pointer"
+                        />
+                        {editedInvoice.watermarkUrl && (
+                          <div className="flex items-center justify-between p-2 mt-2 bg-[var(--card-bg)] rounded-xl border border-[var(--border-color)]">
+                            <div className="flex items-center gap-2">
+                              <img src={editedInvoice.watermarkUrl} alt="Watermark Preview" className="w-8 h-8 object-contain rounded bg-white p-0.5 border" />
+                              <span className="text-[10px] font-bold text-[var(--text-primary)]">Custom Watermark Image Active</span>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setEditedInvoice({ ...editedInvoice, watermarkUrl: '' })}
+                              className="text-[10px] font-bold text-rose-500 hover:underline"
+                            >
+                              Remove Watermark Image
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

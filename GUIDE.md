@@ -146,16 +146,20 @@ Aurrum CRM features an enterprise-grade automated billing and invoicing module:
    - Annual CTC and Fee Percentage calculations (`calcCtc` and `calcFeePercent`) are bound to each unique invoice ID rather than shared globally. Edits made to one invoice do not overwrite or affect other invoices.
    - Every candidate profile includes an **Annual Salary (CTC)** property. Each client profile supports configurable placement billing rules: either **Percentage (%)** of CTC or **Fixed Amount ($)**.
 
-2. **Bank Account Payment Instructions:**
+2. **Official Aurrum Brand Logo & Invoice Design:**
+   - Both **Custom Invoices** and **Dynamic/Consolidated Invoices** feature the official Aurrum branding: the golden sparkle emblem (`#A98B56` to `#BC9B66`), `Aurrum CRM` title, and `Talent Insights & Recruitment Services` tagline.
+   - Designed to maintain exact aspect ratios without stretching, blurring, or cropping across both light and dark print/preview modes.
+
+3. **Bank Account Payment Instructions:**
    - Invoice receipts, printable views, and PDF exports automatically include complete **Bank Payment Instructions** (Payee Name, Bank Name, Branch, Account Number, and SWIFT/BIC Code) when configured.
    - Full editable input fields are provided in the invoice edit modal to update bank payment instructions per invoice.
 
-3. **Streamlined Invoice Table & Summary Metrics:**
+4. **Streamlined Invoice Table & Summary Metrics:**
    - The main invoice table is optimized by focusing on essential columns (Invoice #, Client / Company, Total Amount, Due Date, Status, and Actions).
    - Dashboard and header badges display accurate **Total Pending Amount** for unpaid/pending statements.
 
-4. **Robust PDF Generation Engine:**
-   - Leverages `html2canvas` and `jspdf` to render pixel-perfect multi-page PDF statements with clean table layouts, brand typography, and USD currency formatting.
+5. **Robust PDF Generation Engine:**
+   - Leverages `html2canvas` and `jspdf` to render pixel-perfect multi-page PDF statements with clean table layouts, embedded vector branding, and USD currency formatting for seamless production export and download.
 
 ---
 
@@ -269,5 +273,17 @@ For bulk importing 1,500+ resumes with complete structured JSON extraction:
 5. **Centralized Firebase Admin Initialization (`/src/services/firebaseAdmin.ts`)**:
    - Provides a robust singleton Firebase Admin initialization layer that explicitly binds to the `aurrum-production` database ID.
    - Protects serverless and background queue execution paths (Vercel / Cloud Run) from uninitialized database errors.
+
+---
+
+## 22. Rectech Enterprise Invoice & Dynamic Fee Calculation Engine
+
+1. **Effective Subtotal & Total Calculation Engine**:
+   - Implements centralized `getEffectiveSubtotal` and `getEffectiveTotal` utility functions that dynamically evaluate placement fees, candidate line items, subtotal adjustments, tax rates, and discounts as the single source of truth.
+   - Eliminates `$0.00` calculation bugs by correctly falling back when base subtotal properties are absent or modified.
+
+2. **Unified Preview, Print, and PDF Consistency**:
+   - Synchronizes invoice calculation and presentation logic across the interactive invoice modal, preview component, A4 print layout generator (`handlePrintInvoice`), and PDF export generator (`handleDownloadPDF`).
+   - Ensures any updates to line items, placement fees, or discounts instantly reflect across preview, print, and PDF exports in real time.
 
 

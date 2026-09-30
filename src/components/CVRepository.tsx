@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { Search, FileText, Mail, Calendar, ExternalLink, Download, ChevronLeft, ChevronRight, Sparkles, Send, RefreshCw, Bot, User, Trash2, X, Maximize2, Minimize2, ChevronDown, ChevronUp, Copy, Check, Archive } from 'lucide-react';
+import { Search, FileText, Mail, Calendar, ExternalLink, Download, ChevronLeft, ChevronRight, Sparkles, Send, RefreshCw, Bot, User, Trash2, X, Maximize2, Minimize2, ChevronDown, ChevronUp, Copy, Check, Archive, Loader2 } from 'lucide-react';
 import Select from 'react-select';
 import ReactMarkdown from 'react-markdown';
 import { Pagination } from './Pagination';
@@ -45,6 +45,11 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
   const [aiFilterActive, setAiFilterActive] = useState(false);
   const [aiMatchedIds, setAiMatchedIds] = useState<string[]>([]);
   const [currentAiQuery, setCurrentAiQuery] = useState('');
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+  const [zipProgress, setZipProgress] = useState<{ current: number; total: number }>({ current: 0, total: 0 });
+  
+  const [selectedCandidateIds, setSelectedCandidateIds] = useState<string[]>([]);
+  const [downloadSuccessMessage, setDownloadSuccessMessage] = useState<string | null>(null);
   
   const messagesEndRef = React.useRef<HTMLDivElement>(null);
 
@@ -69,12 +74,34 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
   };
 
   const handleDownloadAllZipped = async () => {
+    if (isDownloadingZip || !candidates || candidates.length === 0) return;
+    setIsDownloadingZip(true);
+    setDownloadSuccessMessage(null);
+
+    const targetCandidates = selectedCandidateIds.length > 0
+      ? candidates.filter(c => selectedCandidateIds.includes(String(c.id)))
+      : filteredCandidates;
+
+    if (targetCandidates.length === 0) {
+      alert('No candidate records found to package.');
+      setIsDownloadingZip(false);
+      return;
+    }
+
+    setZipProgress({ current: 0, total: targetCandidates.length });
+
     try {
       const zip = new JSZip();
       let count = 0;
-      for (const c of candidates) {
+      const usedFileNames = new Set<string>();
+
+      for (let i = 0; i < targetCandidates.length; i++) {
+        const c = targetCandidates[i];
+        setZipProgress({ current: i + 1, total: targetCandidates.length });
         let added = false;
-        if (c.cvBase64) {
+
+        // 1. Try Base64
+        if (c.cvBase64 && typeof c.cvBase64 === 'string' && c.cvBase64.includes(',')) {
           try {
             const arr = c.cvBase64.split(',');
             const mime = arr[0].match(/:(.*?);/)?.[1] || 'application/pdf';
@@ -85,7 +112,13 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
               u8arr[n] = bstr.charCodeAt(n);
             }
             const ext = mime.includes('wordprocessingml') ? 'docx' : mime.includes('msword') ? 'doc' : 'pdf';
-            const fileName = `${(c.fullName || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_')}_CV.${ext}`;
+            const baseName = (c.fullName || c.name || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
+            let fileName = `${baseName}_CV.${ext}`;
+            if (usedFileNames.has(fileName)) {
+              const shortId = (c.id || Math.random().toString(36).substring(2, 6)).slice(-4);
+              fileName = `${baseName}_${shortId}_CV.${ext}`;
+            }
+            usedFileNames.add(fileName);
             zip.file(fileName, u8arr);
             added = true;
           } catch (e) {
@@ -93,59 +126,76 @@ export default function CVRepository({ candidates, onSelect }: CVRepositoryProps
           }
         } 
         
-        if (!added && c.url) {
-          try {
-            const res = await fetch(c.url);
-            if (res.ok) {
-              const blob = await res.blob();
-              const ext = c.url.split('.').pop()?.split('?')[0] || 'pdf';
-              const fileName = `${(c.fullName || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_')}_CV.${ext}`;
-              zip.file(fileName, blob);
-              added = true;
+        // 2. Try Firebase Storage or external URL
+        if (!added) {
+          const remoteUrl = c.cvUrl || c.cvStorageUrl || c.url || c.resumeUrl || c.fileUrl;
+          if (remoteUrl && typeof remoteUrl === 'string' && remoteUrl.startsWith('http')) {
+            try {
+              const res = await fetch(remoteUrl, { mode: 'cors' });
+              if (res.ok) {
+                const blob = await res.blob();
+                const ext = remoteUrl.split('.').pop()?.split('?')[0] || 'pdf';
+                const baseName = (c.fullName || c.name || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
+                let fileName = `${baseName}_CV.${ext}`;
+                if (usedFileNames.has(fileName)) {
+                  const shortId = (c.id || Math.random().toString(36).substring(2, 6)).slice(-4);
+                  fileName = `${baseName}_${shortId}_CV.${ext}`;
+                }
+                usedFileNames.add(fileName);
+                zip.file(fileName, blob);
+                added = true;
+              }
+            } catch (err) {
+              console.warn('CORS or fetch failed for CV URL in zip:', remoteUrl);
             }
-          } catch (err) {
-            console.warn('CORS or fetch failed for CV URL in zip:', c.url);
           }
         }
 
-        // Fallback: If no file attached or fetch failed, generate a rich text resume profile document
+        // 3. Fallback: If no file attached or fetch failed, generate a rich text resume profile document
         if (!added) {
-          const safeName = (c.fullName || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
+          const safeName = (c.fullName || c.name || 'Candidate').replace(/[^a-zA-Z0-9_-]/g, '_');
+          let fileName = `${safeName}_Resume_Profile.txt`;
+          if (usedFileNames.has(fileName)) {
+            const shortId = (c.id || Math.random().toString(36).substring(2, 6)).slice(-4);
+            fileName = `${safeName}_${shortId}_Resume_Profile.txt`;
+          }
+          usedFileNames.add(fileName);
+
           const profileText = `
 AURRUM CRM - CANDIDATE RESUME PROFILE
 ==================================================
-Full Name: ${c.fullName || 'N/A'}
+Full Name: ${c.fullName || c.name || 'N/A'}
 Email: ${c.email || 'N/A'}
 Phone: ${c.phone || 'N/A'}
-Location: ${[c.locationInfo?.city, c.locationInfo?.state, c.locationInfo?.country].filter(Boolean).join(', ') || 'N/A'}
-Domain Focus: ${c.domainFocus || 'N/A'}
-Primary Role: ${c.primaryRole || 'N/A'}
-Total Experience: ${c.totalExperience ? c.totalExperience + ' years' : 'N/A'}
+Location: ${[c.locationInfo?.city, c.locationInfo?.state, c.locationInfo?.country].filter(Boolean).join(', ') || (typeof c.location === 'string' ? c.location : 'N/A')}
+Domain Focus: ${c.domainFocus || c.domain || 'N/A'}
+Primary Role: ${c.position || c.primaryRole || 'N/A'}
+Total Experience: ${c.totalExperience !== undefined ? c.totalExperience + ' years' : (c.totalExperienceYears !== undefined ? c.totalExperienceYears + ' years' : 'N/A')}
 Career Level: ${c.careerLevel || 'N/A'}
 
 PROFESSIONAL SUMMARY:
 ${c.summary || 'N/A'}
 
 SKILLS:
-${Array.isArray(c.skills) ? c.skills.join(', ') : 'N/A'}
+${Array.isArray(c.skills) ? c.skills.join(', ') : (c.skills && typeof c.skills === 'object' ? Object.values(c.skills).flat().join(', ') : 'N/A')}
 
 EXPERIENCE:
 ${Array.isArray(c.experience) && c.experience.length > 0 ? c.experience.map((exp: any) => `
-- ${exp.job_title || 'Role'} at ${exp.company || 'Company'} (${exp.duration || exp.start_date + ' - ' + (exp.end_date || 'Present')})
+- ${exp.job_title || exp.title || 'Role'} at ${exp.company || 'Company'} (${exp.duration || ((exp.start_date || '') + ' - ' + (exp.end_date || 'Present'))})
   Responsibilities:
   ${Array.isArray(exp.responsibilities) ? exp.responsibilities.map((r: string) => `  * ${r}`).join('\n') : 'N/A'}
 `).join('\n') : 'N/A'}
 
 EDUCATION:
 ${Array.isArray(c.education) && c.education.length > 0 ? c.education.map((edu: any) => `
-- ${edu.degree || 'Degree'} from ${edu.school || 'School'} (${edu.year || 'N/A'})
+- ${edu.degree || 'Degree'} from ${edu.school || 'School'} (${edu.year || edu.end_date || 'N/A'})
 `).join('\n') : 'N/A'}
 
 RAW RESUME TEXT:
 ${c.rawResumeText || 'N/A'}
           `.trim();
 
-          zip.file(`${safeName}_Resume_Profile.txt`, profileText);
+          zip.file(fileName, profileText);
           added = true;
         }
 
@@ -156,6 +206,7 @@ ${c.rawResumeText || 'N/A'}
 
       if (count === 0) {
         alert('No candidate records found to package.');
+        setIsDownloadingZip(false);
         return;
       }
 
@@ -163,14 +214,19 @@ ${c.rawResumeText || 'N/A'}
       const url = URL.createObjectURL(content);
       const link = document.createElement('a');
       link.href = url;
-      link.download = `Aurrum_CRM_All_CVs_${new Date().toISOString().split('T')[0]}.zip`;
+      link.download = `Aurrum_CRM_CVs_${new Date().toISOString().split('T')[0]}.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
       URL.revokeObjectURL(url);
+
+      setDownloadSuccessMessage(`Successfully packaged and downloaded ${count} candidate CV(s) to ZIP!`);
+      setTimeout(() => setDownloadSuccessMessage(null), 5000);
     } catch (err) {
       console.error('ZIP generation error:', err);
       alert('Failed to generate ZIP package of CVs.');
+    } finally {
+      setIsDownloadingZip(false);
     }
   };
 
@@ -502,11 +558,21 @@ ${c.rawResumeText || 'N/A'}
             <button
               type="button"
               onClick={handleDownloadAllZipped}
-              className="flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all border cursor-pointer uppercase tracking-wider bg-[var(--bg-secondary)] border-[var(--border-color)] text-[var(--text-primary)] hover:border-[var(--primary-gold)] hover:text-[var(--primary-gold)] shadow-xs"
+              disabled={isDownloadingZip || candidates.length === 0}
+              className={`flex items-center gap-2 px-4 py-2.5 rounded-2xl text-xs font-black transition-all border cursor-pointer uppercase tracking-wider bg-[var(--bg-secondary)] border-[var(--border-color)] text-[var(--text-primary)] hover:border-[var(--primary-gold)] hover:text-[var(--primary-gold)] shadow-xs ${isDownloadingZip ? 'opacity-70 cursor-wait' : ''}`}
               title="Download all candidate CVs in a single ZIP archive"
             >
-              <Archive size={14} className="text-[var(--primary-gold)]" />
-              Download All CVs (ZIP)
+              {isDownloadingZip ? (
+                <>
+                  <Loader2 size={14} className="text-[var(--primary-gold)] animate-spin" />
+                  Packaging ({zipProgress.current}/{zipProgress.total})...
+                </>
+              ) : (
+                <>
+                  <Archive size={14} className="text-[var(--primary-gold)]" />
+                  Download All CVs (ZIP)
+                </>
+              )}
             </button>
             {chatOpen && chatMinimized && (
               <button
@@ -936,6 +1002,53 @@ ${c.rawResumeText || 'N/A'}
         </div>
       </div>
       
+      {downloadSuccessMessage && (
+        <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-800 dark:text-emerald-200 p-4 rounded-2xl flex items-center justify-between gap-4 text-xs font-bold animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <Check size={16} className="text-emerald-600" />
+            <span>{downloadSuccessMessage}</span>
+          </div>
+          <button onClick={() => setDownloadSuccessMessage(null)} className="text-emerald-600 hover:text-emerald-800 font-extrabold cursor-pointer">×</button>
+        </div>
+      )}
+
+      {/* Selection Toolbar */}
+      <div className="bg-[var(--card-bg)] px-6 py-4 rounded-2xl border border-[var(--border-color)] flex items-center justify-between gap-4 flex-wrap shadow-2xs">
+        <div className="flex items-center gap-3">
+          <button
+            type="button"
+            onClick={() => {
+              if (selectedCandidateIds.length === filteredCandidates.length) {
+                setSelectedCandidateIds([]);
+              } else {
+                setSelectedCandidateIds(filteredCandidates.map(c => String(c.id)));
+              }
+            }}
+            className="text-xs font-black uppercase tracking-wider text-[var(--text-secondary)] hover:text-[var(--primary-gold)] cursor-pointer flex items-center gap-2"
+          >
+            <input 
+              type="checkbox" 
+              checked={filteredCandidates.length > 0 && selectedCandidateIds.length === filteredCandidates.length}
+              onChange={() => {}}
+              className="rounded text-[var(--primary-gold)] focus:ring-[var(--primary-gold)] cursor-pointer w-4 h-4"
+            />
+            {selectedCandidateIds.length > 0 ? `${selectedCandidateIds.length} Selected` : 'Select All Filtered'}
+          </button>
+          {selectedCandidateIds.length > 0 && (
+            <button
+              type="button"
+              onClick={() => setSelectedCandidateIds([])}
+              className="text-[10px] font-bold text-red-500 hover:underline cursor-pointer uppercase tracking-wider"
+            >
+              Clear Selection
+            </button>
+          )}
+        </div>
+        <div className="text-xs font-medium text-[var(--text-muted)]">
+          Showing {paginatedCandidates.length} of {filteredCandidates.length} candidates (Total: {candidates.length})
+        </div>
+      </div>
+
       {/* Grid of Cards */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {paginatedCandidates.map(c => {
@@ -946,8 +1059,24 @@ ${c.rawResumeText || 'N/A'}
             <div 
               key={c.id} 
               onClick={() => onSelect?.(c)}
-              className="crm-card p-6 flex flex-col gap-4 shadow-sm hover:border-[var(--primary-gold)] transition-all cursor-pointer group justify-between"
+              className="crm-card p-6 flex flex-col gap-4 shadow-sm hover:border-[var(--primary-gold)] transition-all cursor-pointer group justify-between relative"
             >
+              <div className="absolute top-4 right-4 z-10" onClick={(e) => e.stopPropagation()}>
+                <input
+                  type="checkbox"
+                  checked={selectedCandidateIds.includes(String(c.id))}
+                  onChange={(e) => {
+                    const idStr = String(c.id);
+                    if (e.target.checked) {
+                      setSelectedCandidateIds(prev => [...prev, idStr]);
+                    } else {
+                      setSelectedCandidateIds(prev => prev.filter(id => id !== idStr));
+                    }
+                  }}
+                  className="w-4 h-4 rounded text-[var(--primary-gold)] focus:ring-[var(--primary-gold)] cursor-pointer"
+                  title="Select candidate for ZIP download"
+                />
+              </div>
               <div className="flex items-start gap-4">
                 <div className="w-16 h-16 rounded-2xl bg-[var(--bg-secondary)] border border-[var(--border-color)] flex items-center justify-center text-[var(--primary-gold)] shrink-0 group-hover:bg-[var(--primary-gold)] group-hover:text-white transition-colors">
                   <FileText size={32} />

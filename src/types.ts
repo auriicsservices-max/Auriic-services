@@ -28,4 +28,12 @@ export interface Invoice {
   senderTagline?: string;
   senderEmail?: string;
   senderWeb?: string;
+  senderAddress?: string;
+  logoVariant?: 'dark' | 'white' | 'custom';
+  darkLogoUrl?: string;
+  whiteLogoUrl?: string;
+  logoUrl?: string;
+  watermarkUrl?: string;
+  watermarkText?: string;
+  signatureUrl?: string;
 }

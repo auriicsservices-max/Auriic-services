@@ -30,4 +30,12 @@ Talent Insights / Aurrum CRM is an enterprise-grade recruiting, candidate pipeli
 ### 5. Unified Light & Dark Theme Architecture
 - Variable-driven semantic theming ensuring seamless light and dark mode parity using the official brand blue (`#004564`) and primary gold (`#A98B56`) palettes with Poppins typography.
 
+### 6. Rectech Enterprise Invoice & Dynamic Fee Calculation Engine
+- Centralized `getEffectiveSubtotal` and `getEffectiveTotal` calculation functions ensuring accurate calculation of placement fees, subtotals, taxes, and discounts without `$0.00` calculation bugs.
+- Synchronized across interactive invoice modal, preview, A4 print layout (`handlePrintInvoice`), and PDF export (`handleDownloadPDF`).
+
+### 7. Global Branding Engine
+- System Settings integration for managing corporate identity assets globally for Light and Dark themes.
+- Dynamic multi-surface application across Sidebar Navigation, Login Screen, and Invoices/Print/PDF views.
+
 

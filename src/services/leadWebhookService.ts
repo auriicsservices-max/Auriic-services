@@ -1,5 +1,5 @@
 import { GeminiResumeParser } from './geminiParser.server';
-import { getFirestore } from 'firebase-admin/firestore';
+import { getFirestore, FieldValue } from 'firebase-admin/firestore';
 import * as admin from 'firebase-admin';
 
 const geminiParser = new GeminiResumeParser();
@@ -94,26 +94,16 @@ export async function fetchAndValidateResume(resumeUrl: string, expectedFileType
       const mimeMatch = header.match(/data:([^;]+)/);
       const mimeType = mimeMatch ? mimeMatch[1] : (expectedFileType || 'application/pdf');
       const buffer = Buffer.from(base64Data, 'base64');
+      if (buffer.length < 50) {
+        throw new Error('Data URI resume buffer is empty or corrupted');
+      }
       return { buffer, mimeType };
     } catch (dataUriErr: any) {
-      console.warn('[LeadWebhookService] Failed to parse data URI resume:', dataUriErr.message);
+      throw new Error(`RESUME_FETCH_FAILED: Invalid data URI: ${dataUriErr.message}`);
     }
   }
 
-  // 1. Flexible Domain Validation (Allow aurrum.co, storage buckets, GitHub, etc., or fallback gracefully)
-  try {
-    const parsedUrl = new URL(resumeUrl);
-    const hostname = parsedUrl.hostname.toLowerCase();
-    const allowedDomains = ['aurrum.co', 'storage.googleapis.com', 'firebasestorage.googleapis.com', 'github.com', 'raw.githubusercontent.com', 'gitlab.com', 'dropbox.com', 'amazonaws.com', 'blob.core.windows.net', 'localhost', '127.0.0.1'];
-    const isAllowed = allowedDomains.some(d => hostname === d || hostname.endsWith('.' + d));
-    if (!isAllowed) {
-      console.warn(`[LeadWebhookService] Domain ${hostname} not in strict whitelist, allowing for robust processing.`);
-    }
-  } catch (err: any) {
-    console.warn(`[LeadWebhookService] URL validation warning: ${err.message}. Proceeding with fetch.`);
-  }
-
-  // 2. Fetch with 15s timeout
+  // 1. Fetch with 15s timeout
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), 15000);
 
@@ -127,15 +117,12 @@ export async function fetchAndValidateResume(resumeUrl: string, expectedFileType
         }
       });
       if (!res.ok) {
-        throw new Error(`Failed to fetch resume: HTTP ${res.status} ${res.statusText}`);
+        throw new Error(`HTTP ${res.status} ${res.statusText}`);
       }
       return res;
     });
   } catch (fetchErr: any) {
-    console.warn(`[LeadWebhookService] Fetch failed (${fetchErr.message}). Using fallback empty valid PDF buffer.`);
-    // Fallback valid minimal PDF buffer so processing succeeds
-    const fallbackPdf = Buffer.from('%PDF-1.4\n1 0 obj<</Type/Catalog/Pages 2 0 R>>endobj 2 0 obj<</Type/Pages/Kids[3 0 R]/Count 1>>endobj 3 0 obj<</Type/Page/MediaBox[0 0 612 792]>>endobj xref\n0 4\n0000000000 65535 f \n0000000009 00000 n \n0000000058 00000 n \n0000000115 00000 n \ntrailer<</Size 4/Root 1 0 R>>\nstartxref\n168\n%%EOF', 'utf-8');
-    return { buffer: fallbackPdf, mimeType: expectedFileType || 'application/pdf' };
+    throw new Error(`RESUME_FETCH_FAILED: Could not download resume from ${resumeUrl} (${fetchErr.message})`);
   } finally {
     clearTimeout(timeoutId);
   }
@@ -144,10 +131,14 @@ export async function fetchAndValidateResume(resumeUrl: string, expectedFileType
   const arrayBuffer = await response.arrayBuffer();
   const buffer = Buffer.from(arrayBuffer);
 
+  if (buffer.length < 50) {
+    throw new Error(`RESUME_FETCH_FAILED: Downloaded resume file is empty or corrupted (size: ${buffer.length} bytes)`);
+  }
+
   // 3. File Size Validation (Max 10MB)
   const maxSize = 10 * 1024 * 1024;
   if (buffer.length > maxSize) {
-    throw new Error(`File size (${buffer.length} bytes) exceeds maximum limit of 10MB`);
+    throw new Error(`RESUME_FETCH_FAILED: File size (${buffer.length} bytes) exceeds maximum limit of 10MB`);
   }
 
   return { buffer, mimeType: contentType };
@@ -284,8 +275,8 @@ export async function processWebsiteLead(payload: WebsiteLeadPayload, db: admin.
       resumeFileType: payload.resume_file_type || '',
       resumeSize: payload.resume_size || 0,
       submittedAt: payload.submitted_at || new Date().toISOString(),
-      createdAt: admin.firestore.FieldValue.serverTimestamp(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      createdAt: FieldValue.serverTimestamp(),
+      updatedAt: FieldValue.serverTimestamp(),
       status: 'New Lead',
       stage: 'Sourced',
       rating: 0,
@@ -298,7 +289,7 @@ export async function processWebsiteLead(payload: WebsiteLeadPayload, db: admin.
 
     // Also record lead in activity logs
     await db.collection('activityLogs').add({
-      timestamp: admin.firestore.FieldValue.serverTimestamp(),
+      timestamp: FieldValue.serverTimestamp(),
       user: 'Website Webhook',
       action: 'Website Lead Captured',
       details: `New lead received from ${candidateData.email} (${candidateData.leadType})${parsedResume ? ' with parsed resume' : ''}`,

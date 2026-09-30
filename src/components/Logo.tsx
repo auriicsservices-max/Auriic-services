@@ -70,9 +70,9 @@ export default function Logo({
   }
 
   return (
-    <div className={`flex items-center gap-3 select-none ${className}`} id="rectech-logo">
+    <div className={`flex items-center gap-3 select-none ${className}`} id="aurrum-logo">
       {/* Golden Sparkling Brand Mark Emblem */}
-      <div className={`${currentSize.box} bg-gradient-to-br from-[#A98B56] to-[#BC9B66] flex items-center justify-center shadow-md shrink-0`}>
+      <div className={`${currentSize.box} bg-gradient-to-br from-[#A98B56] to-[#BC9B66] flex items-center justify-center shadow-md shrink-0 rounded-xl`}>
         <Sparkles className="text-white" size={currentSize.icon} />
       </div>
       
@@ -81,7 +81,10 @@ export default function Logo({
           <span className={`font-extrabold tracking-tight font-sans leading-none ${currentSize.title} ${
             isDarkBg ? 'text-white' : 'text-[#002D38]'
           }`}>
-            Rectech
+            Aurrum <span className="text-[#A98B56] text-xs font-bold uppercase tracking-wider ml-1">CRM</span>
+          </span>
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#A98B56] mt-1">
+            Talent Insights
           </span>
         </div>
       )}

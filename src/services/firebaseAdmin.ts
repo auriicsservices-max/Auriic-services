@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import { getApps, initializeApp, cert } from 'firebase-admin/app';
+import { getApps, getApp, initializeApp, cert } from 'firebase-admin/app';
 import { getFirestore } from 'firebase-admin/firestore';
 import { getMessaging } from 'firebase-admin/messaging';
 import fs from 'fs';
@@ -53,7 +53,7 @@ export function getAdminApp() {
       console.log('[FirebaseAdmin] Admin SDK initialized with Project ID:', firebaseConfig.projectId);
     }
   }
-  return admin.app();
+  return getApp();
 }
 
 export function getAdminDb(): admin.firestore.Firestore {
