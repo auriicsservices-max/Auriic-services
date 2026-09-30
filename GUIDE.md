@@ -65,9 +65,10 @@ This document serves as the definitive Enterprise Design System and Technical Ar
 ## 6. Core Component Library Standards
 
 ### Sidebar Navigation
-- Premium collapsible navigation with structured section headers (**Core Platform**, **Operations & Insights**, **Preferences**).
+- Premium collapsible navigation with structured section headers (**Workspace**, **Management** — admin/team_leader/developer and privileged roles only, **Preferences**).
 - Featuring the Aurrum Gold Sparkle emblem, smooth collapse transitions, active tab left accent line (`#A98B56`), floating tooltips, and bottom user profile card.
-- *Note:* Redundant developer maintenance tools (JSON Resume Uploader and Live Resume Sync) have been permanently removed from the sidebar across all roles.
+- Mobile-responsive: below the `lg` breakpoint the sidebar renders as a full-screen slide-in drawer triggered by a hamburger button in the top header, with the same section structure and role-based item visibility as desktop.
+- *Note:* Redundant developer maintenance tools (JSON Resume Uploader and Live Resume Sync) have been permanently removed from the sidebar across all roles. The primary sidebar implementation lives inline in `src/pages/Dashboard.tsx`; the standalone `src/components/layout/Sidebar.tsx` + `DashboardLayout.tsx` pair exists in the codebase but is not currently wired into any route.
 
 ### Buttons & Interactive Controls
 - **Primary Gold Button (`.crm-btn-gold`)**: High-contrast gold gradient button (`#A98B56` -> `#BC9B66`) with active scale feedback.
@@ -85,6 +86,7 @@ This document serves as the definitive Enterprise Design System and Technical Ar
 1. **IP-Based Access Restriction:** Managed via `ALLOWED_IPS` environment variable with fail-closed security.
 2. **Firestore Security Rules:** Strict rules enforcing authentication and requiring `uploadedBy` UID validation on candidate records.
 3. **Client Portal Profile Safeguards:** Sensitive configuration panels such as Security & Password and Client Billing Configuration are hidden from client views to maintain a clean client experience.
+4. **Settings Collection Access:** `match /settings/{settingId}` allows public read (`allow read: if true`) and write by any signed-in user (`allow write: if isSignedIn()`) — this was widened from admin-only writes and a hardcoded `global` document ID to support additional per-feature settings documents (e.g. invoice design config) written by non-admin roles.
 
 ---
 
@@ -267,6 +269,7 @@ For bulk importing 1,500+ resumes with complete structured JSON extraction:
 3. **Server-Side Secure Parsing Flow**:
    - Clicking **Parse Resume** triggers `/api/wordpress/parse-lead-resume`.
    - Securely fetches and validates resume buffers, detects PDF/DOCX format, extracts raw text, processes through Gemini AI resume parser (with heuristic fallback), and validates data quality.
+   - **Data URI Support (`src/services/leadWebhookService.ts`):** `resumeUrl` values may be inline `data:` URIs (base64-encoded), not just remote URLs. These are decoded directly to a buffer without a network fetch, with a minimum 50-byte size check to reject empty/corrupted payloads. Remote fetch failures and undersized/oversized downloads now throw explicit `RESUME_FETCH_FAILED` errors instead of silently substituting a fallback placeholder PDF, so parsing failures surface accurately instead of producing blank candidate records.
 4. **Deduplication & Candidate List Sync**:
    - Performs email and `resumeUrl` deduplication checks against existing candidate records in Firestore before creation or update.
    - Automatically synchronizes the main Candidate List and AI CV Finder without requiring manual page refreshes.
@@ -285,5 +288,19 @@ For bulk importing 1,500+ resumes with complete structured JSON extraction:
 2. **Unified Preview, Print, and PDF Consistency**:
    - Synchronizes invoice calculation and presentation logic across the interactive invoice modal, preview component, A4 print layout generator (`handlePrintInvoice`), and PDF export generator (`handleDownloadPDF`).
    - Ensures any updates to line items, placement fees, or discounts instantly reflect across preview, print, and PDF exports in real time.
+
+---
+
+## 23. Invoice Design & Branding Editor (`src/components/InvoiceDesignEditor.tsx`)
+
+1. **Visual Layout Customization:**
+   - A dedicated design editor (launched from Invoices) lets users tune the generated PDF/print layout live: logo width/height, header spacing, page margin, section spacing, container padding, table row height, font size, line height, and border thickness.
+2. **Branding Controls:**
+   - Configurable primary color, gold accent color, and text color used across the invoice template.
+   - Watermark support with adjustable size, opacity, and position (`center`, `top-right`, `bottom-right`), plus signature alignment (`left`, `center`, `right`).
+3. **Extended Invoice Branding Fields (`src/types.ts`):**
+   - Per-invoice fields now support `senderAddress`, `logoVariant` (`dark` | `white` | `custom`), `darkLogoUrl`, `whiteLogoUrl`, `logoUrl`, `watermarkUrl`, `watermarkText`, and `signatureUrl`, allowing distinct branding assets per invoice rather than a single global logo.
+4. **Persistence:**
+   - Design configuration is saved to Firestore under the `settings` collection via `loadInvoiceDesign` / `setDoc`, gated by the widened settings write rule described in Section 7.
 
 
